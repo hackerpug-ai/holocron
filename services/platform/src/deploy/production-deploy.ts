@@ -472,10 +472,14 @@ export function runtimeSecrets(options: {
   secretsPath: string;
   runtimeSecretsPath: string;
   legacyEvidenceSecretsPath?: string;
+  env?: NodeJS.ProcessEnv;
 }): Record<string, string> {
   if (!existsSync(options.secretsPath))
     deployFail(`secrets file is missing: ${options.secretsPath}`);
-  const consolidated = loadConsolidatedSecrets({ secretsPath: options.secretsPath });
+  const consolidated = loadConsolidatedSecrets({
+    secretsPath: options.secretsPath,
+    env: options.env,
+  });
   const retained = existsSync(options.runtimeSecretsPath)
     ? readPrivateJson(options.runtimeSecretsPath)
     : readPrivateJson(options.legacyEvidenceSecretsPath ?? '');

@@ -12,6 +12,7 @@ const SECRET_FIXTURE = {
   HOLO_KEY_MCP: 'h'.repeat(43),
 } as const;
 
+const EMPTY_ENV: NodeJS.ProcessEnv = {};
 const temporaryRoots: string[] = [];
 
 function fixtureRoot(): string {
@@ -32,25 +33,6 @@ function runtimePath(root: string): string {
   return join(root, 'runtime', 'secrets.json');
 }
 
-function withoutAmbientFleetConfig<T>(callback: () => T): T {
-  const previous = {
-    FLEET_URL: process.env.FLEET_URL,
-    FLEET_URL_ALLOW_HOST_LOOPBACK: process.env.FLEET_URL_ALLOW_HOST_LOOPBACK,
-    MASTRA_API_KEY: process.env.MASTRA_API_KEY,
-    FLEET_KEY: process.env.FLEET_KEY,
-    HOLO_KEY_MCP: process.env.HOLO_KEY_MCP,
-  };
-  for (const key of Object.keys(previous)) delete process.env[key];
-  try {
-    return callback();
-  } finally {
-    for (const [key, value] of Object.entries(previous)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  }
-}
-
 afterEach(() => {
   while (temporaryRoots.length > 0) {
     const root = temporaryRoots.pop();
@@ -64,11 +46,9 @@ describe('S33-PLAT-01 fleet URL resolution', () => {
     const secretsPath = writeFixture(root);
     const runtimeSecretsPath = runtimePath(root);
 
-    withoutAmbientFleetConfig(() => {
-      expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath })).toThrow(
-        /FLEET_URL_REQUIRED/
-      );
-    });
+    expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath, env: EMPTY_ENV })).toThrow(
+      /FLEET_URL_REQUIRED/
+    );
     expect(existsSync(runtimeSecretsPath)).toBe(false);
   });
 
@@ -77,9 +57,7 @@ describe('S33-PLAT-01 fleet URL resolution', () => {
     const secretsPath = writeFixture(root, EXPLICIT_FLEET_URL);
     const runtimeSecretsPath = runtimePath(root);
 
-    const values = withoutAmbientFleetConfig(() =>
-      runtimeSecrets({ secretsPath, runtimeSecretsPath })
-    );
+    const values = runtimeSecrets({ secretsPath, runtimeSecretsPath, env: EMPTY_ENV });
     const persisted = JSON.parse(readFileSync(runtimeSecretsPath, 'utf8')) as Record<
       string,
       string
@@ -103,11 +81,9 @@ describe('S33-PLAT-01 fleet URL resolution', () => {
     const secretsPath = writeFixture(root, LOOPBACK_FLEET_URL);
     const runtimeSecretsPath = runtimePath(root);
 
-    withoutAmbientFleetConfig(() => {
-      expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath })).toThrow(
-        /FLEET_URL_LOOPBACK_REFUSED.*127\.0\.0\.1.*host\.docker\.internal/
-      );
-    });
+    expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath, env: EMPTY_ENV })).toThrow(
+      /FLEET_URL_LOOPBACK_REFUSED.*127\.0\.0\.1.*host\.docker\.internal/
+    );
     expect(existsSync(runtimeSecretsPath)).toBe(false);
   });
 
@@ -116,11 +92,9 @@ describe('S33-PLAT-01 fleet URL resolution', () => {
     const secretsPath = writeFixture(root, 'http://operator:password@host.docker.internal:4545');
     const runtimeSecretsPath = runtimePath(root);
 
-    withoutAmbientFleetConfig(() => {
-      expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath })).toThrow(
-        /FLEET_URL must not contain URL credentials/
-      );
-    });
+    expect(() => runtimeSecrets({ secretsPath, runtimeSecretsPath, env: EMPTY_ENV })).toThrow(
+      /FLEET_URL must not contain URL credentials/
+    );
     expect(existsSync(runtimeSecretsPath)).toBe(false);
   });
 
@@ -129,11 +103,12 @@ describe('S33-PLAT-01 fleet URL resolution', () => {
     const secretsPath = writeFixture(root, LOOPBACK_FLEET_URL);
     const runtimeSecretsPath = runtimePath(root);
 
-    withoutAmbientFleetConfig(() => {
-      process.env.FLEET_URL_ALLOW_HOST_LOOPBACK = '1';
-      const values = runtimeSecrets({ secretsPath, runtimeSecretsPath });
-      expect(values.FLEET_URL).toBe(LOOPBACK_FLEET_URL);
+    const values = runtimeSecrets({
+      secretsPath,
+      runtimeSecretsPath,
+      env: { FLEET_URL_ALLOW_HOST_LOOPBACK: '1' },
     });
+    expect(values.FLEET_URL).toBe(LOOPBACK_FLEET_URL);
     expect(existsSync(runtimeSecretsPath)).toBe(true);
   });
 });
