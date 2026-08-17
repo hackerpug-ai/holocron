@@ -15,7 +15,7 @@ import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
-const itLive = PLATFORM_IT ? it : it.skip;
+const itLive = it;
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const TEST_TMP_ROOT = resolve(REPO_ROOT, '.tmp/S33-MCP-01');
 const TEST_TITLE = 'S33-MCP-01 Postgres Plane Proof';
