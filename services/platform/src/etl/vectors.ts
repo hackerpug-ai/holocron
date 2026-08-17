@@ -323,7 +323,6 @@ async function embedAllPassages(options: { sql: Sql; databaseUrl: string; embedF
 async function verifyPast8kRetrieval(
   sql: Sql,
   options?: {
-    endpointOverride?: string;
     emptyCorpus?: boolean;
     anchor?: Past8kRetrievalAnchor | null;
   }
@@ -366,12 +365,7 @@ async function verifyPast8kRetrieval(
   const result = await rrfHybridSearch(db, sql, {
     query: options.anchor.query,
     limit: 5,
-    embed: (text, mode) =>
-      embed(
-        text,
-        mode,
-        options?.endpointOverride ? { endpointOverride: options.endpointOverride } : undefined
-      ),
+    embed: (text, mode) => embed(text, mode),
   });
   const normalizedMarker = normalizeRetrievalText(options.anchor.marker);
   const hit =
