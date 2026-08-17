@@ -1,0 +1,23 @@
+{
+  "task_id": "S33-OPS-01",
+  "status": "blocked_insufficient_headroom",
+  "reason": "inference1 live free disk is below the 44 GiB provisioning threshold",
+  "verified_at": "2026-08-16T22:43:06Z",
+  "threshold_gib": 44,
+  "threshold_kb": 46137344,
+  "measured_free_kb_before": 43848760,
+  "measured_free_gib_before": 41.817436,
+  "measured_free_kb_after": 43847708,
+  "measured_free_gib_after": 41.816433,
+  "disk_free_kb_delta": -1052,
+  "copy_attempted": false,
+  "model_ids_before": [
+    "Qwen3.6-35B-A3B-MLX-8bit"
+  ],
+  "model_ids_after": [
+    "Qwen3.6-35B-A3B-MLX-8bit"
+  ],
+  "qwen38_file_count_before": 0,
+  "qwen38_file_count_after": 0,
+  "evidence_artifact": ".tmp/S33-OPS-01/AC-2-seeded-artifact-rerun.txt"
+}

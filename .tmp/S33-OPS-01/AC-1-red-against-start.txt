@@ -1,0 +1,5 @@
+negative control: disconnected/empty oMLX endpoint; the same model-presence assertion must fail
+command: curl -fsS --max-time 5 http://inference2.tail011a51.ts.net:18003/v1/models | grep -q 'Qwen3.8-27B-8bit'
+curl: (7) Failed to connect to inference2.tail011a51.ts.net port 18003 after 12 ms: Couldn't connect to server
+curl_exit_code=7
+verification_exit_code=1
