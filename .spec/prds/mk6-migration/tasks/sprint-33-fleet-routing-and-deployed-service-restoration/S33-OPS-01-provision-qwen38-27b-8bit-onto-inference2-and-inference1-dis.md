@@ -93,6 +93,8 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 **WRITE-ALLOWED**
 
 - .tmp/sprint-33/S33-OPS-01-*.json (NEW evidence/blocker artifacts)
+- .tmp/S33-OPS-01/**
+- tests/integration/sprint33-ops-01-fleet-state.test.ts
 - ~/models/mlx-community/Qwen3.8-27B-8bit on inference1/inference2 (NEW, remote hosts, not repo-tracked)
 
 **WRITE-PROHIBITED**
@@ -118,6 +120,8 @@ _Source:_ `~/models/DEVICES.md:60-95`
 |---|---|---|
 | inference2 serves new model | `curl -sS http://inference2.tail011a51.ts.net:8003/v1/models` | response contains id 'Qwen3.8-27B-8bit' |
 | inference1 headroom gate is honest | `ssh inference1 'df -k /'` | free bytes unchanged from pre-attempt measurement if threshold not met |
+| real fleet integration test | `PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-01-fleet-state.test.ts` | exit 0 against the real HTTP/SSH/filesystem seams |
+| test-reality fakeability audit | `python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-01/reality-spec.json` | reports REAL for the declared integration test |
 
 ## Agent Assignment
 
