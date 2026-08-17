@@ -1,0 +1,37 @@
+tracked paths mutated by full pnpm test before restore:
+.tmp/GATE-FIX-S28R3-QA24/d05-04-honesty.json
+.tmp/GATE-FIX-S28R3-QA24/hostile-literal-step2.json
+.tmp/GATE-FIX-S28R3-QA24/trusted-tool-probe.json
+.tmp/GATE-FIX-S28R3-QA25/d05-04-bundle/attestation.json
+.tmp/GATE-FIX-S28R3-QA25/d05-04-bundle/oracle-manifest.json
+.tmp/GATE-FIX-S28R3-QA25/evil-env-bin.json
+.tmp/GATE-FIX-S28R3-QA25/exec-env-nul-truncation.json
+.tmp/GATE-FIX-S28R3-QA25/hostile-literal-step2.json
+.tmp/GATE-FIX-S28R3-QA26/hostile-bin-refuse.json
+.tmp/GATE-FIX-S28R3-QA27/hostile-bin-refuse.json
+.tmp/GATE-FIX-S28R3-QA27/lifecycle-cleanup.json
+.tmp/GATE-FIX-S28R3-QA27/mutation-rejects.json
+.tmp/GATE-FIX-S28R3-QA27/whitespace-clean.json
+.tmp/GATE-FIX-S28R3-QA33/no-key-negative.json
+.tmp/GATE-FIX-S28R3-QA33/positive-dependency.json
+.tmp/sprint-25/redhat-fix-04-production-mutation.log
+.tmp/sprint-25/redhat-fix-10-site-a-mutation.log
+diff stat:
+ .tmp/GATE-FIX-S28R3-QA24/d05-04-honesty.json       | 16 +++++-----
+ .../GATE-FIX-S28R3-QA24/hostile-literal-step2.json |  4 +--
+ .tmp/GATE-FIX-S28R3-QA24/trusted-tool-probe.json   | 16 +++++-----
+ .../d05-04-bundle/attestation.json                 |  2 +-
+ .../d05-04-bundle/oracle-manifest.json             |  2 +-
+ .tmp/GATE-FIX-S28R3-QA25/evil-env-bin.json         |  2 +-
+ .../exec-env-nul-truncation.json                   |  2 +-
+ .../GATE-FIX-S28R3-QA25/hostile-literal-step2.json |  4 +--
+ .tmp/GATE-FIX-S28R3-QA26/hostile-bin-refuse.json   |  4 +--
+ .tmp/GATE-FIX-S28R3-QA27/hostile-bin-refuse.json   |  2 +-
+ .tmp/GATE-FIX-S28R3-QA27/lifecycle-cleanup.json    | 13 ++------
+ .tmp/GATE-FIX-S28R3-QA27/mutation-rejects.json     |  2 +-
+ .tmp/GATE-FIX-S28R3-QA27/whitespace-clean.json     |  2 +-
+ .tmp/GATE-FIX-S28R3-QA33/no-key-negative.json      | 24 +++++++--------
+ .tmp/GATE-FIX-S28R3-QA33/positive-dependency.json  | 36 ++++++++--------------
+ .../redhat-fix-04-production-mutation.log          |  6 ++--
+ .tmp/sprint-25/redhat-fix-10-site-a-mutation.log   | 10 +++---
+ 17 files changed, 63 insertions(+), 84 deletions(-)

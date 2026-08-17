@@ -1,0 +1,4 @@
+
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+> tsgo --noEmit
+

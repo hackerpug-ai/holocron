@@ -1,0 +1,36 @@
+{
+  "cwd": ".",
+  "acs": [
+    {
+      "ac_id": "AC-1",
+      "claim": "The real HTTP router health and model APIs, plus an SSH-issued inference1 request, prove both public roles and reviewer routing to inference2.",
+      "test_files": [
+        "tests/integration/sprint33-ops-02-router-capacity.test.ts"
+      ],
+      "declared_real": [
+        "http",
+        "fetch",
+        "api",
+        "ssh",
+        "filesystem",
+        "process"
+      ],
+      "watched_red_artifact": ".tmp/S33-OPS-02/negative-ac1-router-unreachable.stderr"
+    },
+    {
+      "ac_id": "AC-2",
+      "claim": "The real HTTP router, concurrent process requests, SSH log reads, and filesystem artifacts prove implementer capacity routing across both minis.",
+      "test_files": [
+        "tests/integration/sprint33-ops-02-router-capacity.test.ts"
+      ],
+      "declared_real": [
+        "http",
+        "api",
+        "ssh",
+        "filesystem",
+        "process"
+      ],
+      "watched_red_artifact": ".tmp/S33-OPS-02/negative-ac2-router-unreachable.stderr"
+    }
+  ]
+}

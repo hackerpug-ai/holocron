@@ -1,0 +1,44 @@
+{
+  "overall": "REAL",
+  "acs": [
+    {
+      "ac_id": "AC-1",
+      "verdict": "REAL",
+      "ecosystems": [
+        "js"
+      ],
+      "declared_real": [
+        "http",
+        "fetch",
+        "api",
+        "ssh",
+        "filesystem",
+        "process"
+      ],
+      "boundary_mocked": false,
+      "boundary_matches": [],
+      "watched_red": true,
+      "evidence": "no declared-real seam mocked; watched_red present",
+      "unreadable_test_files": []
+    },
+    {
+      "ac_id": "AC-2",
+      "verdict": "REAL",
+      "ecosystems": [
+        "js"
+      ],
+      "declared_real": [
+        "http",
+        "api",
+        "ssh",
+        "filesystem",
+        "process"
+      ],
+      "boundary_mocked": false,
+      "boundary_matches": [],
+      "watched_red": true,
+      "evidence": "no declared-real seam mocked; watched_red present",
+      "unreadable_test_files": []
+    }
+  ]
+}

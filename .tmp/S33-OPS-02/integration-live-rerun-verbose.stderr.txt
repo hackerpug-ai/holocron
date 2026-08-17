@@ -1,0 +1,22 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > AC-2 verifies concurrent implementer distribution and fresh log evidence on both minis
+AssertionError: expected [] to have a length of 6 but got +0
+
+- Expected
++ Received
+
+- 6
++ 0
+
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:527:25
+    525|       .map((entry) => resolve(requestRoot, entry.name))
+    526|       .sort();
+    527|     expect(requestDirs).toHaveLength(6);
+       |                         ^
+    528|     const rawRequests = await Promise.all(
+    529|       requestDirs.map(async (requestDir) => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

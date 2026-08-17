@@ -1,0 +1,3 @@
+bash syntax:
+PASS bash -n scripts/verify-s33-router-capacity.sh
+PASS test-reality audit
