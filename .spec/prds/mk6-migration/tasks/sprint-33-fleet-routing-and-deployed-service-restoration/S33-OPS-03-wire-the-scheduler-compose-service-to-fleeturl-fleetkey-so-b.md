@@ -1,6 +1,7 @@
 # S33-OPS-03: Wire the scheduler compose service to FLEET_URL + FLEET_KEY so background missions are no longer model-less
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Updated: 2026-08-17T22:34:10Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
