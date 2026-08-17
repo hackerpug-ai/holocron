@@ -493,10 +493,11 @@ def validate_gate_outputs(root: Path, by_id: dict[str, dict[str, Any]], repo_roo
         if requirement == "TC-5":
             if not re.search(r"(?m)^\s*Test Files\s+1\s+passed\b", text):
                 fail("TC-5 output does not prove one focused test file passed")
-            tests_match = re.search(r"(?m)^\s*Tests\s+(\d+)\s+passed\s*\|\s*(\d+)\s+skipped\b", text)
+            tests_match = re.search(r"(?m)^[ \t]*Tests[ \t]+(\d+)[ \t]+passed(?:[ \t]*\|[ \t]*(\d+)[ \t]+skipped)?[ \t]+\(\d+\)[ \t]*$", text)
             if not tests_match:
                 fail("TC-5 output does not report passed and skipped test counts")
-            passed_count, skipped_count = (int(value) for value in tests_match.groups())
+            passed_count = int(tests_match.group(1))
+            skipped_count = int(tests_match.group(2) or 0)
             if passed_count != expected_test_count or skipped_count != 0:
                 fail(f"TC-5 output does not prove all {expected_test_count} source-declared tests passed without skips")
             continue

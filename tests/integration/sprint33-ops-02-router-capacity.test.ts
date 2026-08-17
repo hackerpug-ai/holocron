@@ -1131,6 +1131,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
     const script = String.raw`
 import importlib.util
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -1211,7 +1212,11 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     root = Path(temp)
     tc5 = root / 'tc-5-output.txt'
     tc6 = root / 'tc-6-output.txt'
-    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
+    native_tc5 = (repo_root / '.tmp' / 'S33-OPS-02' / 'tc-5-output.txt').read_text(encoding='utf-8')
+    assert re.search(r'(?m)^[ \t]*Test Files[ \t]+1[ \t]+passed[ \t]+\(1\)[ \t]*$', native_tc5)
+    assert re.search(r'(?m)^[ \t]*Tests[ \t]+8[ \t]+passed[ \t]+\(8\)[ \t]*$', native_tc5)
+    positive_tc5 = re.sub(r'(?m)^[ \t]*Tests[ \t]+8[ \t]+passed[ \t]+\(8\)[ \t]*$', f'      Tests  {expected_test_count} passed ({expected_test_count})', native_tc5)
+    tc5.write_text(positive_tc5, encoding='utf-8')
     tc6.write_text(json.dumps({
         'overall': 'REAL',
         'acs': [
@@ -1220,7 +1225,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
         ],
     }), encoding='utf-8')
     module.validate_gate_outputs(root, rows, repo_root)
-    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed | 0 skipped (8)\n', encoding='utf-8')
+    tc5.write_text(re.sub(r'(?m)^[ \t]*Tests[ \t]+\d+[ \t]+passed[ \t]+\(\d+\)[ \t]*$', '      Tests  8 passed (8)', positive_tc5), encoding='utf-8')
     tc5_bytes = tc5.read_bytes()
     try:
         module.validate_gate_outputs(root, rows, repo_root)
@@ -1229,7 +1234,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     else:
         raise AssertionError('stale TC-5 test count was accepted')
     assert tc5.read_bytes() == tc5_bytes
-    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 1 skipped ({expected_test_count + 1})\n', encoding='utf-8')
+    tc5.write_text(re.sub(r'(?m)^[ \t]*Tests[ \t]+\d+[ \t]+passed[ \t]+\(\d+\)[ \t]*$', f'      Tests  {expected_test_count} passed | 1 skipped ({expected_test_count + 1})', positive_tc5), encoding='utf-8')
     tc5_bytes = tc5.read_bytes()
     try:
         module.validate_gate_outputs(root, rows, repo_root)
@@ -1238,8 +1243,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     else:
         raise AssertionError('skipped TC-5 test was accepted')
     assert tc5.read_bytes() == tc5_bytes
-    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
-    tc5.write_text('Test Files 1 failed (1)\nTests 8 failed (8)\n', encoding='utf-8')
+    tc5.write_text(re.sub(r'(?m)^[ \t]*Tests[ \t]+\d+[ \t]+passed[ \t]+\(\d+\)[ \t]*$', '      Tests  8 failed (8)', re.sub(r'(?m)^[ \t]*Test Files[ \t]+1[ \t]+passed[ \t]+\(1\)[ \t]*$', ' Test Files  1 failed (1)', positive_tc5)), encoding='utf-8')
     tc5_bytes = tc5.read_bytes()
     try:
         module.validate_gate_outputs(root, rows, repo_root)
@@ -1248,7 +1252,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     else:
         raise AssertionError('stale TC-5 failure was accepted')
     assert tc5.read_bytes() == tc5_bytes
-    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
+    tc5.write_text(positive_tc5, encoding='utf-8')
     tc6.write_text(json.dumps({'overall': 'NOT_REAL', 'acs': []}), encoding='utf-8')
     tc6_bytes = tc6.read_bytes()
     try:
