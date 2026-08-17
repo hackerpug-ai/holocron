@@ -1,6 +1,10 @@
 # SPEC-REPAIR-S33-OPS-02-EVIDENCE-RUNS: Make router evidence immutable and invocation-addressed
 
-> Status: Backlog
+> Status: ✅ Completed
+> Cycle: 2
+> Commit: c1b2d28dc3213415af4f796404cbd74c1b927945
+> Reviewer: product-manager+code-reviewer
+> Completed: 2026-08-17T17:52:31Z
 > Assignee: planner
 > Priority: P0
 > Type: SPEC-REPAIR
