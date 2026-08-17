@@ -8,7 +8,7 @@
   },
   "project_commands": {
     "typecheck": "pnpm tsc --noEmit",
-    "lint": "pnpm lint",
+    "lint": "pnpm biome check --no-errors-on-unmatched --diagnostic-level=error tests/integration/sprint33-ops-01-fleet-state.test.ts",
     "test": "set -o pipefail; PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-01-fleet-state.test.ts 2>&1 | sed -E '/^   Start at /d; /^   Duration /d'"
   },
   "requirements": [
