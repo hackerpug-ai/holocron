@@ -65,7 +65,7 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
 | TC-1 | inference2 GET /v1/models lists Qwen3.8-27B-8bit after provisioning | AC-1 | `curl -sS http://inference2.tail011a51.ts.net:8003/v1/models | grep -q 'Qwen3.8-27B-8bit'` |
-| TC-2 | inference1 never receives a partial copy when live headroom is below 44 GiB | AC-2 | `ssh inference1 'test ! -d ~/models/mlx-community/Qwen3.8-27B-8bit || find ~/models/mlx-community/Qwen3.8-27B-8bit -type f | wc -l | grep -q ^40$'` |
+| TC-2 | inference1 never receives a partial copy when live headroom is below 44 GiB | AC-2 | `ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit'` |
 
 
 ## Remediation Trail
@@ -262,7 +262,7 @@ _Source:_ `~/models/DEVICES.md:60-95`
       "type": "test_criterion",
       "description": "inference1 never left with a partial write",
       "maps_to_ac": "AC-2",
-      "verify": "ssh inference1 'find ~/models/mlx-community/Qwen3.8-27B-8bit -type f 2>/dev/null | wc -l'"
+      "verify": "ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit'"
     }
   ]
 }
