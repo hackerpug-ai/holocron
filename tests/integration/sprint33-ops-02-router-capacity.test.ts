@@ -435,6 +435,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
     expect(result.deployment_identity_unchanged).toBe(true);
     expect(result.deployment_pid_unchanged).toBe(true);
     expect(result.deployment_uptime_monotonic).toBe(true);
+    expect(result.deployment_restart_oracle_limitation).toContain('no container restart count');
     expect((await readFile(artifactPath(artifacts.health_status), 'utf8')).trim()).toMatch(
       /^2\d\d$/
     );
