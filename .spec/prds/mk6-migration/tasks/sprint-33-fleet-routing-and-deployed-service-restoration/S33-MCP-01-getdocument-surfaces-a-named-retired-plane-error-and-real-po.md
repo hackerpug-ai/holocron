@@ -1,9 +1,9 @@
 # S33-MCP-01: get_document surfaces a named retired-plane error and real Postgres content over both MCP transports
 
-> Status: 🔴 Needs Fixes
+> Status: 🟡 In Progress
+> Cycle: 2
 > Commit: dec4218a707cb03f4666f27083a39c1514fa3265
-> Fix: KB-TDD-LINEAGE-TOOLING
-> Updated: 2026-08-16T23:09:30Z
+> Updated: 2026-08-17T22:57:28Z
 > Assignee: mcp-implementer
 > Priority: P0
 > Type: FEATURE
