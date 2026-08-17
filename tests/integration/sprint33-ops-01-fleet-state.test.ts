@@ -75,31 +75,19 @@ describe('S33-OPS-01 real fleet state', () => {
     const models = await readModels(INFERENCE2_MODELS);
     expect(modelIds(models)).toContain(QWEN38);
 
-    const fileCount = await readRemote(
-      'inference2',
-      `find ${QWEN38_PATH} -type f | wc -l`,
-    );
+    const fileCount = await readRemote('inference2', `find ${QWEN38_PATH} -type f | wc -l`);
     expect(Number(fileCount)).toBe(40);
 
-    const hashOutput = await readRemote(
-      'inference2',
-      `shasum -a 256 ${QWEN38_PATH}/config.json`,
-    );
+    const hashOutput = await readRemote('inference2', `shasum -a 256 ${QWEN38_PATH}/config.json`);
     expect(hashOutput.split(/\s+/)[0]).toBe(CONFIG_SHA256);
   });
 
   it('AC-2 verifies inference1 fails closed below the live headroom threshold', async () => {
-    const freeKbOutput = await readRemote(
-      'inference1',
-      "df -k / | awk 'NR==2{print $4}'",
-    );
+    const freeKbOutput = await readRemote('inference1', "df -k / | awk 'NR==2{print $4}'");
     expect(freeKbOutput).toMatch(/^\d+$/);
     expect(Number(freeKbOutput)).toBeLessThan(HEADROOM_THRESHOLD_KB);
 
-    const directoryCheckOutput = await readRemote(
-      'inference1',
-      `test ! -e ${QWEN38_PATH}`,
-    );
+    const directoryCheckOutput = await readRemote('inference1', `test ! -e ${QWEN38_PATH}`);
     expect(directoryCheckOutput).toBe('');
 
     const models = await readModels(INFERENCE1_MODELS);
@@ -124,7 +112,7 @@ describe('S33-OPS-01 real fleet state', () => {
     expect(blocker.measured_free_gib_before).toBeLessThan(blocker.threshold_gib);
     expect(blocker.measured_free_gib_after).toBeLessThan(blocker.threshold_gib);
     expect(blocker.measured_free_kb_after).toBe(
-      blocker.measured_free_kb_before + blocker.disk_free_kb_delta,
+      blocker.measured_free_kb_before + blocker.disk_free_kb_delta
     );
     expect(blocker.disk_free_kb_delta).toBeGreaterThanOrEqual(-2048);
     expect(blocker.disk_free_kb_delta).toBeLessThanOrEqual(2048);
