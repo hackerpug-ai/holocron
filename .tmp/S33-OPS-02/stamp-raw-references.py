@@ -23,10 +23,11 @@ from typing import Any
 
 
 TASK_ID = "S33-OPS-02"
-RECIPE_VERSION = "1.0"
+RECIPE_VERSION = "1.1"
 REQUIREMENT_IDS = ("AC-1", "AC-2", "TC-1", "TC-2", "TC-3", "TC-4", "TC-5", "TC-6")
 REQUIREMENT_OUTPUTS = REQUIREMENT_IDS[:6]
 REQUIREMENT_OUTPUT_FILES = {requirement: f".tmp/{TASK_ID}/{requirement.lower()}-output.txt" for requirement in REQUIREMENT_IDS}
+VERIFY_MANIFEST_FILE = "verify-manifest.json"
 EVIDENCE_BASES = (
     "models-reviewer",
     "implementer-distribution",
@@ -74,6 +75,21 @@ STOCK_INPUTS = (
 EXPECTED_GATE_COMMANDS = {
     "TC-5": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-02-router-capacity.test.ts",
     "TC-6": "python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-02/reality-spec.json",
+}
+CANONICAL_PROJECT_COMMANDS = {
+    "typecheck": "pnpm tsgo --noEmit",
+    "lint": "pnpm lint",
+    "test": "pnpm test:unit",
+}
+CANONICAL_REQUIREMENT_COMMANDS = {
+    "AC-1": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer",
+    "AC-2": "bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution",
+    "TC-1": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer",
+    "TC-2": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer",
+    "TC-3": "bash scripts/verify-s33-router-capacity.sh --mode health-flip --holocron-host holocron --remote-compose-file /Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml --remote-docker-bin /usr/local/bin/docker --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --evidence-dir .tmp/S33-OPS-02/health-flip",
+    "TC-4": "bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution",
+    "TC-5": EXPECTED_GATE_COMMANDS["TC-5"],
+    "TC-6": EXPECTED_GATE_COMMANDS["TC-6"],
 }
 FOCUSED_TEST_SOURCE = "tests/integration/sprint33-ops-02-router-capacity.test.ts"
 BACKEND_URLS = {
@@ -154,6 +170,36 @@ def load_json(path: Path, root: Path, label: str) -> Any:
         return json.loads(absolute.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         fail(f"{label} is not valid JSON: {error}")
+
+
+def validate_verification_policy(root: Path) -> tuple[dict[str, Any], str]:
+    """Bind stamping claims to the exact task manifest and its policy."""
+    manifest_path = root / VERIFY_MANIFEST_FILE
+    manifest = load_json(manifest_path, root, "verification manifest")
+    if not isinstance(manifest, dict) or set(manifest) != {"task_id", "verification_policy", "project_commands", "requirements"}:
+        fail("verification manifest has an unexpected top-level schema")
+    if manifest.get("task_id") != TASK_ID:
+        fail(f"verification manifest task_id is not {TASK_ID!r}")
+    policy = manifest.get("verification_policy")
+    expected_policy = {
+        "requires_tests": True,
+        "requires_red_evidence": False,
+        "requires_seeded_evidence": True,
+    }
+    if policy != expected_policy:
+        fail(f"verification manifest policy is not the canonical task policy: {policy!r}")
+    if manifest.get("project_commands") != CANONICAL_PROJECT_COMMANDS:
+        fail("verification manifest project commands are not canonical")
+    requirements = manifest.get("requirements")
+    if not isinstance(requirements, list) or len(requirements) != len(REQUIREMENT_IDS):
+        fail("verification manifest does not contain exactly eight requirements")
+    for index, requirement in enumerate(requirements):
+        if not isinstance(requirement, dict) or set(requirement) != {"id", "verify"}:
+            fail("verification manifest contains a malformed requirement")
+        expected_id = REQUIREMENT_IDS[index]
+        if requirement.get("id") != expected_id or requirement.get("verify") != CANONICAL_REQUIREMENT_COMMANDS[expected_id]:
+            fail(f"verification manifest requirement {expected_id} is not canonical")
+    return policy, sha256(manifest_path)
 
 
 def final_json_line(path: Path, root: Path, label: str) -> dict[str, Any]:
@@ -584,6 +630,17 @@ def derive_seeded(requirement: str, output: dict[str, Any]) -> str:
     fail(f"seeded value is not defined for {requirement}")
 
 
+def bind_seeded_evidence(requirement: str, item: dict[str, Any], output: dict[str, Any], policy: dict[str, Any]) -> None:
+    """Derive AC claims from fresh run output; never bind stale red/green aliases."""
+    if requirement not in ("AC-1", "AC-2"):
+        return
+    if policy.get("requires_red_evidence") is not False or policy.get("requires_seeded_evidence") is not True:
+        fail("verification policy does not permit the canonical seeded-evidence contract")
+    item.pop("red_against_start_file", None)
+    item.pop("green_file", None)
+    item["seeded_value"] = derive_seeded(requirement, output)
+
+
 def atomic_write(path: Path, value: dict[str, Any], root: Path) -> None:
     absolute = path.absolute()
     regular_root = root.absolute()
@@ -612,6 +669,7 @@ def main() -> None:
     root = recipe.parent
     repo_root = root.parent.parent
     validate_archive_and_base_shape(root)
+    verification_policy, verification_manifest_sha = validate_verification_policy(root)
     summary_path = Path(args.summary)
     if not summary_path.is_absolute():
         summary_path = Path.cwd() / summary_path
@@ -630,6 +688,8 @@ def main() -> None:
     for requirement in REQUIREMENT_IDS:
         if by_id[requirement].get("output_file") != REQUIREMENT_OUTPUT_FILES[requirement]:
             fail(f"{requirement} output_file does not match the canonical requirement mapping")
+        if by_id[requirement].get("verify") != CANONICAL_REQUIREMENT_COMMANDS[requirement]:
+            fail(f"{requirement} verify command does not match the canonical task manifest")
     focused_test_count, focused_test_sha = validate_gate_outputs(root, by_id, repo_root)
     output_values: dict[str, dict[str, Any]] = {}
     raw_by_requirement: dict[str, list[dict[str, Any]]] = {}
@@ -695,6 +755,11 @@ def main() -> None:
             "derived_from": "final JSON line artifact objects with exists=true, byte_length, and path",
             "postprocessor": recipe_relative,
         },
+        "verification_policy": {
+            "path": VERIFY_MANIFEST_FILE,
+            "sha256": verification_manifest_sha,
+            **verification_policy,
+        },
     }
     inputs = []
     for path in STOCK_INPUTS:
@@ -702,8 +767,9 @@ def main() -> None:
         inputs.append({"path": path, "sha256": sha256(absolute)})
     inputs.extend({"path": path, "sha256": item["sha256"]} for path, item in sorted(all_raw.items()))
     inputs.append({"path": FOCUSED_TEST_SOURCE, "sha256": focused_test_sha})
+    inputs.append({"path": VERIFY_MANIFEST_FILE, "sha256": verification_manifest_sha})
     inputs.append({"path": recipe_relative, "sha256": recipe_hash})
-    expected_inputs = len(STOCK_INPUTS) + len(all_raw) + 2
+    expected_inputs = len(STOCK_INPUTS) + len(all_raw) + 3
     if len(inputs) != expected_inputs or len({item["path"] for item in inputs}) != len(inputs):
         fail(f"generator input count does not equal stock + raw + recipe: {len(inputs)} != {expected_inputs}")
     generator["inputs"] = inputs
@@ -712,16 +778,7 @@ def main() -> None:
         item = by_id[requirement]
         output = output_values[requirement]
         item["raw_artifacts"] = raw_by_requirement[requirement]
-        if requirement in ("AC-1", "AC-2"):
-            item["seeded_value"] = derive_seeded(requirement, output)
-            red = item.get("red_against_start_file")
-            if not isinstance(red, str):
-                fail(f"{requirement} red_against_start_file is missing")
-            relative_path(red, root, f"{requirement} red_against_start_file")
-            green = item.get("green_file")
-            if not isinstance(green, str):
-                fail(f"{requirement} green_file is missing")
-            relative_path(green, root, f"{requirement} green_file")
+        bind_seeded_evidence(requirement, item, output, verification_policy)
     summary["generator"] = generator
     atomic_write(summary_path, summary, root)
     print(json.dumps({"task_id": TASK_ID, "summary": str(summary_path), "unique_raw_artifacts": len(all_raw), "generator_inputs": len(inputs), "recipe_sha256": recipe_hash}, sort_keys=True))

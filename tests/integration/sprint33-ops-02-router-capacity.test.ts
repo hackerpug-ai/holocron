@@ -1122,6 +1122,37 @@ repo_root = Path(sys.argv[2])
 expected_test_count = module.focused_test_case_count(repo_root / module.FOCUSED_TEST_SOURCE, repo_root)
 assert expected_test_count != 8
 
+with tempfile.TemporaryDirectory(prefix='s33-policy-') as temp:
+    policy_root = Path(temp)
+    policy_path = policy_root / module.VERIFY_MANIFEST_FILE
+    shutil.copyfile(repo_root / '.tmp' / 'S33-OPS-02' / module.VERIFY_MANIFEST_FILE, policy_path)
+    policy, policy_sha = module.validate_verification_policy(policy_root)
+    assert len(policy_sha) == 64
+    stock_row_path = policy_root / 'stock-ac-2-row.json'
+    stock_row_path.write_text(json.dumps({'id': 'AC-2', 'output_file': 'ac-2-output.txt'}), encoding='utf-8')
+    stock_row = json.loads(stock_row_path.read_text(encoding='utf-8'))
+    module.bind_seeded_evidence('AC-2', stock_row, {
+        'run_id': 'filesystem-policy-run',
+        'request_count': 6,
+        'tracked_request_count': 6,
+        'distinct_nonempty_body_count': 2,
+        'backend_headers': [inference1, inference2],
+        'backend_request_counts': {inference1: 1, inference2: 1},
+        'backend_fresh_completion_counts': {inference1: 2, inference2: 7},
+    }, policy)
+    assert 'red_against_start_file' not in stock_row
+    assert 'green_file' not in stock_row
+    assert 'Fresh run filesystem-policy-run' in stock_row['seeded_value']
+    policy_value = json.loads(policy_path.read_text(encoding='utf-8'))
+    policy_value['verification_policy']['requires_red_evidence'] = True
+    policy_path.write_text(json.dumps(policy_value), encoding='utf-8')
+    try:
+        module.validate_verification_policy(policy_root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('manifest requiring RED evidence was accepted')
+
 with tempfile.TemporaryDirectory(prefix='s33-manifestless-run-') as temp:
     root = Path(temp)
     run = root / 'models-reviewer' / 'runs' / 'manifestless-run'
