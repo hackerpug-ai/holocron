@@ -1,6 +1,10 @@
 # SPEC-REPAIR-S33-OPS-03-PID1-ENV: Verify the scheduler secret on PID 1 without exposing it to exec children
 
-> Status: ⬜ Pending
+> Status: 🔵 In Review
+> Cycle: 2
+> Commit: c60b2ffcf2b0256b3d815cce4c3fdab0a9db8903
+> Reviewer: product-manager
+> Updated: 2026-08-17T23:35:28Z
 > Assignee: planner
 > Priority: P0
 > Type: SPEC-REPAIR
