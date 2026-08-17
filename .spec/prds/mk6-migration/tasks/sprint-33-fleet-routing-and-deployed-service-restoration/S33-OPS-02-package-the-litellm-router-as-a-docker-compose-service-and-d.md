@@ -29,6 +29,8 @@ Stand up a real LiteLLM router on the holocron host as a pinned-digest Docker Co
 - Use restart: unless-stopped for reboot persistence — do NOT install a launchd LaunchAgent; README.md explicitly warns against native LaunchAgents alongside the Docker Compose production path (double-bind risk), and live inspection of holocron confirms none of the four existing services use launchd either.
 - AC-1 must prove reachability from a REAL second device inside the fleet (inference1 curling the router over its own SSH session), not just from the operator's laptop — this is a genuine two-device claim (holocron + inference1) and both sides must be driven through their own real entrypoints.
 - AC-2 must send concurrent requests to `implementer`, not `reviewer`: Qwen3.6 is the only real model resident on both inference1 and inference2, so it is the only valid role for the preserved two-mini distribution proof.
+- Implement `scripts/verify-s33-router-capacity.sh` as the single fail-closed runtime verifier with the exact `models-reviewer` and `implementer-distribution` modes specified below; every required capture and assertion is load-bearing, every curl/SSH/background-job failure propagates to a nonzero exit, and success emits a JSON result into the selected `.tmp/S33-OPS-02/**` evidence directory.
+- Implement `tests/integration/sprint33-ops-02-router-capacity.test.ts` as a real-service integration test that executes both verifier modes against the deployed Holocron router and real minis. Missing HTTP, SSH, log, header, body, or service evidence must fail the test, never skip or fall back to fixtures.
 
 **NEVER**
 
@@ -38,6 +40,7 @@ Stand up a real LiteLLM router on the holocron host as a pinned-digest Docker Co
 - Never hardcode services/platform/fleet/manifest.json's endpoint fields to host.docker.internal:4545 — mastra-planner (s33-platform) deliberately keeps the manifest's loopback value as the committed dev fallback and is instead adding FLEET_URL precedence (S33-PLAT-01/02: endpointOverride > FLEET_URL > manifest role endpoint > manifest defaultEndpoint), so this task must not propose or depend on a manifest hardcode.
 - Never claim the full chat-completion path works end-to-end through Mastra from this task alone. Confirmed mechanism: probeFleet() in services/platform/src/http/health.ts:205 is the ONLY consumer of process.env.FLEET_URL — it is what this task's /health AC exercises. resolveModel() in services/platform/src/inference/resolve-model.ts:332 uses manifest.json's entry.endpoint via an endpointOverride, and never reads FLEET_URL directly, so real model calls do not reach this router until S33-PLAT-01/02's endpoint-precedence fix lands (mastra-planner's lane, not touched here). This task proves the router itself is live, reachable, and capacity-routes real inference — nothing more.
 - Do not remove the inference1-driven curl step from AC-1 to simplify the task — without it, AC-1's multi-node claim is unearned (a fixture-injected or laptop-only proof would satisfy neither the real requirement nor the fakeability gate).
+- Never use network disruption, mocked HTTP/SSH/filesystem seams, canned responses, pre-existing log tails, untracked background jobs, ignored curl exit codes, or a runtime skip as proof. Unavailable real dependencies are a blocking failure.
 
 ## Acceptance Criteria
 
@@ -46,16 +49,16 @@ Stand up a real LiteLLM router on the holocron host as a pinned-digest Docker Co
 - **GIVEN** holocron:44111/health currently reports status 'degraded', fleet.ready:false, endpoint http://host.docker.internal:4545, error 'Unable to connect' (live-verified 2026-08-16 and re-confirmed twice by temporary router smoke tests during planning, each of which flipped it to ok and back to degraded on teardown). Today, nothing on the tailnet — including a real fleet member like inference1 — can reach holocron:4545 either, since nothing listens there. S33-OPS-01 proved Qwen3.8-27B-8bit is served by inference2, while inference1's Qwen3.8 path is absent and inference1 still serves only Qwen3.6-35B-A3B-MLX-8bit.
 - **WHEN** `docker compose -f services/platform/deploy/compose/router.compose.yaml up -d` is run on holocron with `reviewer` wired only to inference2's Qwen3.8 backend and `implementer` wired to both minis' Qwen3.6 backends.
 - **THEN** The router answers to both the laptop (an external observer) AND inference1 (a real second device inside the fleet, querying holocron:4545 over its own SSH-issued curl) with 'implementer' and 'reviewer'; a real `reviewer` completion reports inference2, never inference1, in `x-litellm-model-api-base`; holocron's own /health endpoint returns status 'ok', fleet.ready:true, failing_dependency:null, with zero restart of the mastra container.
-- **Verify:** `curl -sS https://holocron.tail011a51.ts.net:44111/health | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='ok' and d['fleet']['ready'] is True and d['failing_dependency'] is None" && ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models' | grep -q reviewer && reviewer_headers=$(curl -sS -D - -o /dev/null -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"reviewer","messages":[{"role":"user","content":"Reply with exactly S33_REVIEWER_OK"}],"max_tokens":40}') && printf '%s\n' "$reviewer_headers" | grep -Fqi 'x-litellm-model-api-base: http://inference2.tail011a51.ts.net:8003/v1' && ! printf '%s\n' "$reviewer_headers" | grep -Fqi 'inference1.tail011a51.ts.net'`
+- **Verify:** `bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer`
 - **Tier:** integration · **Service:** real deployed holocron service /health + LiteLLM router on holocron:4545, confirmed reachable from inference1's own entrypoint · **Flow:** UC-PLAT-05
 - **Scenario:** topology `multi-node` · evidence `api_response` · negative control: disconnect, stub
 
 ### AC-2 — Capacity/least-busy routing distributes real implementer inference load across BOTH minis
 
 - **GIVEN** The router's 'implementer' model_name has two backends at weight=100: inference1:8003 and inference2:8003, both serving the already-resident real Qwen3.6-35B-A3B-MLX-8bit weights. LiteLLM's response header x-litellm-model-api-base names the exact backend that served each request (confirmed live 2026-08-16 for the 'implementer' model_name, returning x-litellm-model-api-base: http://inference1.tail011a51.ts.net:8003/v1 on a real completion).
-- **WHEN** 6 concurrent POST /v1/chat/completions requests are fired at the router for model 'implementer'.
-- **THEN** The x-litellm-model-api-base header across the 6 responses includes BOTH http://inference1.tail011a51.ts.net:8003/v1 and http://inference2.tail011a51.ts.net:8003/v1 (app-layer proof); AND both inference1 and inference2's own oMLX logs (~/local-llm/logs/omlx-mini-8003.log, confirmed present on both real minis) show request activity within the test window, read directly from each mini's own SSH entrypoint — evidence spans two devices, not one (device-side corroboration, not a fixture); each response contains genuinely different generated content (real tokens, not a canned/static reply).
-- **Verify:** `for i in 1 2 3 4 5 6; do curl -sS -i -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"implementer","messages":[{"role":"user","content":"count to 3"}],"max_tokens":20}' | grep -i x-litellm-model-api-base & done; wait; ssh inference1 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'; ssh inference2 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'`
+- **WHEN** the verifier captures each mini's log baseline and then fires 6 tracked concurrent POST /v1/chat/completions requests at the router for model 'implementer'.
+- **THEN** Every tracked request succeeds with a nonempty validated JSON body; per-request headers, bodies, and HTTP statuses are persisted; the x-litellm-model-api-base headers include BOTH http://inference1.tail011a51.ts.net:8003/v1 and http://inference2.tail011a51.ts.net:8003/v1; at least two nonempty response bodies are byte-distinct; and post-baseline log growth read independently through each mini's own SSH entrypoint contains fresh request evidence on both devices. Any missing assertion or evidence exits nonzero.
+- **Verify:** `bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution`
 - **Tier:** integration · **Service:** LiteLLM least-busy routing across real inference1+inference2 oMLX · **Flow:** UC-INFER-01
 - **Scenario:** topology `multi-node` · evidence `stdout` · negative control: stub, static
 
@@ -63,10 +66,12 @@ Stand up a real LiteLLM router on the holocron host as a pinned-digest Docker Co
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | holocron:44111/health reports ok+fleet.ready after the router is up | AC-1 | `curl -sS https://holocron.tail011a51.ts.net:44111/health | grep -q '"status":"ok"'` |
-| TC-2 | the router is reachable from inference1's own SSH-issued curl, not only from the laptop | AC-1 | `ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models' | grep -q reviewer` |
+| TC-1 | holocron:44111/health reports ok+fleet.ready after the router is up | AC-1 | `bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer` |
+| TC-2 | inference1-originated models contains both public roles and a real reviewer completion succeeds only through inference2 | AC-1 | `bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer` |
 | TC-3 | stopping the router reverts /health to degraded | AC-1 | `docker compose -f router.compose.yaml down && curl -sS https://holocron.tail011a51.ts.net:44111/health | grep -q degraded` |
-| TC-4 | concurrent `implementer` requests land on both minis' real Qwen3.6 backends, evidenced app-side and device-side | AC-2 | `grep x-litellm-model-api-base headers for both mini hostnames from model=implementer responses; ssh inference1/inference2 log tails both show recent activity` |
+| TC-4 | concurrent `implementer` requests land on both minis' real Qwen3.6 backends, evidenced by tracked response artifacts and fresh post-baseline logs from both devices | AC-2 | `bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution` |
+| TC-5 | the focused integration test executes both modes against real HTTP, SSH, filesystem, and model-service seams | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-02-router-capacity.test.ts` |
+| TC-6 | the declared integration test and its evidence contract pass the canonical test-reality audit | AC-2 | `python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-02/reality-spec.json` |
 
 ## Fixtures
 
@@ -94,6 +99,9 @@ Stand up a real LiteLLM router on the holocron host as a pinned-digest Docker Co
 **WRITE-ALLOWED**
 
 - services/platform/deploy/compose/router.compose.yaml (NEW)
+- scripts/verify-s33-router-capacity.sh (NEW)
+- tests/integration/sprint33-ops-02-router-capacity.test.ts (NEW)
+- .tmp/S33-OPS-02/** (NEW real-service evidence and test-reality declaration)
 
 **WRITE-PROHIBITED**
 
@@ -109,15 +117,23 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
 
 **Anti-pattern** — Adding the router as a 5th service inside compose.yaml, breaking the documented and tooling-enforced four-service contract
 
+### Fail-closed verifier contract
+
+`scripts/verify-s33-router-capacity.sh` owns all runtime assertions and emits one final JSON object to stdout plus `<evidence-dir>/result.json`. It must use bounded curl/SSH timeouts, preserve raw captures, and exit nonzero before emitting `ok:true` when any dependency, request, parse, or assertion fails.
+
+- `--mode models-reviewer` must capture the live `/health` JSON and require `status=ok`, `fleet.ready=true`, `failing_dependency=null`; capture `/v1/models` by running curl from inside the real inference1 SSH session and require both exact public IDs `implementer` and `reviewer`; perform a real `model=reviewer` completion with an HTTP-success status and nonempty parsed `choices[0].message.content`; persist its status, headers, and body; require the exact api-base header `http://inference2.tail011a51.ts.net:8003/v1`; and reject any api-base header containing inference1. Its result JSON records every assertion and artifact path.
+- `--mode implementer-distribution` must record each mini's remote log byte length before sending requests and fail if either baseline cannot be obtained. It then writes each request's unique prompt, PID, HTTP status, headers, and body under `<evidence-dir>/requests/`, waits for every tracked PID with failure propagation, and requires every request to have an HTTP-success status, parseable nonempty body, and nonempty generated content. Across the completed requests it requires exact api-base headers for both minis and at least two byte-distinct nonempty bodies. It reads only bytes added after each captured baseline, fails closed on log truncation/rotation or empty growth, persists each post-baseline segment, and requires fresh chat-completion request evidence in both minis' segments before emitting `ok:true` JSON.
+- `tests/integration/sprint33-ops-02-router-capacity.test.ts` must execute both exact modes against the real deployed router and minis, assert their nonzero-on-missing-evidence behavior, and validate their emitted result JSON and artifact manifests. It must not mock fetch, child processes, SSH, filesystem, LiteLLM, or oMLX; it must not skip when a real dependency is absent.
+
 ## Verification Gates
 
 | Gate | Command | Expected |
 |---|---|---|
 | router config renders | `docker compose -f services/platform/deploy/compose/router.compose.yaml config --quiet` | Exit 0 |
-| deployed health flips | `curl -sS https://holocron.tail011a51.ts.net:44111/health` | status=ok, fleet.ready=true, failing_dependency=null |
-| reachable from a real second device | `ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models'` | response contains 'reviewer' |
-| reviewer uses its only real backend | `curl -sS -D - -o /dev/null -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"reviewer","messages":[{"role":"user","content":"Reply with exactly S33_REVIEWER_OK"}],"max_tokens":40}'` | x-litellm-model-api-base names inference2 and never inference1 |
-| implementer two-mini evidence capture | `for i in 1 2 3 4 5 6; do curl -sS -i -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"implementer","messages":[{"role":"user","content":"count to 3"}],"max_tokens":20}' | grep -i x-litellm-model-api-base & done; wait; ssh inference1 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'; ssh inference2 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'` | Captures response headers and both logs for reviewer inspection; this command is not itself a fail-closed assertion that both nodes served traffic |
+| health, inference1 roles, reviewer backend | `bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer` | Exit 0; JSON `ok:true`; health ready; inference1-originated models has both roles; reviewer HTTP/body valid; api-base is inference2 and not inference1 |
+| implementer two-mini distribution | `bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution` | Exit 0; JSON `ok:true`; all requests tracked; both api-base hostnames; >=2 distinct nonempty bodies; fresh post-baseline request evidence on each mini |
+| focused real integration test | `PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-02-router-capacity.test.ts` | Exit 0 against real HTTP, SSH, filesystem, LiteLLM, and oMLX seams; absence fails, never skips |
+| test-reality fakeability audit | `python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-02/reality-spec.json` | Reports REAL for the focused integration test and both verifier modes |
 
 ## Agent Assignment
 
@@ -163,7 +179,7 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN the deployed service reports fleet unreachable and Qwen3.8 exists only on inference2 WHEN the packaged router is deployed on holocron THEN /health flips to ok/fleet.ready with zero mastra restart, a second real device (inference1) independently confirms reachability, and reviewer completions identify inference2 rather than inference1",
-      "verify": "curl -sS https://holocron.tail011a51.ts.net:44111/health | python3 -c \"import json,sys; d=json.load(sys.stdin); assert d['status']=='ok' and d['fleet']['ready'] is True and d['failing_dependency'] is None\" && ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models' | grep -q reviewer && reviewer_headers=$(curl -sS -D - -o /dev/null -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"reviewer\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly S33_REVIEWER_OK\"}],\"max_tokens\":40}') && printf '%s\\n' \"$reviewer_headers\" | grep -Fqi 'x-litellm-model-api-base: http://inference2.tail011a51.ts.net:8003/v1' && ! printf '%s\\n' \"$reviewer_headers\" | grep -Fqi 'inference1.tail011a51.ts.net'",
+      "verify": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer",
       "scenario": {
         "id": "AC-1",
         "primary": true,
@@ -188,10 +204,9 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
               "actor": "devops-engineer",
               "steps": [
                 "docker compose -f services/platform/deploy/compose/router.compose.yaml up -d   # run ON holocron via ssh",
-                "curl -sS http://holocron.tail011a51.ts.net:4545/v1/models   # queried from the laptop, an external observer",
-                "curl -sS https://holocron.tail011a51.ts.net:44111/health",
-                "ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models'   # drives a second real device (inference1) through its OWN entrypoint \u2014 proves the router is reachable across two devices inside the fleet, not only from the operator's laptop",
-                "send a real reviewer chat completion through holocron:4545 and capture x-litellm-model-api-base   # reviewer has one real backend: inference2 Qwen3.8"
+                "run scripts/verify-s33-router-capacity.sh in models-reviewer mode with bounded HTTP/SSH timeouts and a dedicated .tmp/S33-OPS-02 evidence directory",
+                "capture live /health and capture /v1/models from inference1's own SSH-issued curl; require both exact public role IDs implementer and reviewer",
+                "send a real reviewer completion through holocron:4545, require HTTP success plus a nonempty parsed generated body, and persist status, headers, body, and result JSON"
               ]
             },
             "end_state": {
@@ -201,14 +216,18 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
                 "/health fleet.ready==true and fleet.latency_ms>=1",
                 "/health failing_dependency==null",
                 "inference1's own curl (issued from inference1 itself over SSH, not the laptop) to holocron:4545/v1/models returns a response containing both 'implementer' and 'reviewer'",
-                "reviewer completion x-litellm-model-api-base == 'http://inference2.tail011a51.ts.net:8003/v1'"
+                "reviewer completion returns an HTTP-success status and nonempty choices[0].message.content",
+                "reviewer completion x-litellm-model-api-base == 'http://inference2.tail011a51.ts.net:8003/v1'",
+                "result.json has ok==true, mode=='models-reviewer', and every named artifact has exists==true and byte_length>=1"
               ],
               "must_not_observe": [
                 "/health status=='degraded'",
                 "/health fleet.error field present",
                 "/health fleet contains 0 reachable endpoints (the pre-fix failure signature)",
                 "inference1's own curl to holocron:4545 timing out or returning 0 bytes (would mean the router is unreachable from within the fleet, not only from the laptop)",
-                "reviewer completion x-litellm-model-api-base == 'http://inference1.tail011a51.ts.net:8003/v1' (the backend has 0 Qwen3.8 model files)"
+                "inference1-originated /v1/models omits either public role name",
+                "reviewer completion has a non-success HTTP status or an empty/unparseable generated body",
+                "reviewer completion x-litellm-model-api-base contains inference1.tail011a51.ts.net (the backend has 0 Qwen3.8 model files)"
               ]
             }
           },
@@ -239,8 +258,8 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN both minis serve the implementer role with real Qwen3.6 backends WHEN concurrent implementer requests are routed THEN both minis observably handle real traffic, proven both app-side (headers) and device-side (logs)",
-      "verify": "for i in 1 2 3 4 5 6; do curl -sS -i -X POST http://holocron.tail011a51.ts.net:4545/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"implementer\",\"messages\":[{\"role\":\"user\",\"content\":\"count to 3\"}],\"max_tokens\":20}' | grep -i x-litellm-model-api-base & done; wait; ssh inference1 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'; ssh inference2 'tail -n 20 ~/local-llm/logs/omlx-mini-8003.log'",
+      "description": "GIVEN both minis serve the implementer role with real Qwen3.6 backends WHEN the verifier captures per-mini log baselines and routes tracked concurrent implementer requests THEN every request succeeds with persisted evidence, both backend headers occur, at least two nonempty bodies differ, and fresh post-baseline request evidence exists on both minis",
+      "verify": "bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution",
       "scenario": {
         "id": "AC-2",
         "primary": true,
@@ -264,21 +283,26 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
             "action": {
               "actor": "devops-engineer",
               "steps": [
-                "fire 6 concurrent chat-completion requests through http://holocron.tail011a51.ts.net:4545/v1/chat/completions with model=implementer, capturing response headers from the two real Qwen3.6 backends",
-                "immediately tail both minis' real oMLX logs over SSH (each mini's own entrypoint) \u2014 evidence spans two devices, inference1 and inference2, each queried independently"
+                "capture each mini's remote oMLX log byte length before requests and record the test window; fail if either baseline is unavailable",
+                "fire 6 uniquely identified concurrent model=implementer requests, persist every PID/status/header/body, and wait for every tracked PID with failure propagation",
+                "read and persist only each mini's post-baseline log growth through its own SSH entrypoint; fail on truncation, rotation, empty growth, or missing fresh request evidence"
               ]
             },
             "end_state": {
               "must_observe": [
                 "x-litellm-model-api-base header values across the 6 responses include both 'http://inference1.tail011a51.ts.net:8003/v1' and 'http://inference2.tail011a51.ts.net:8003/v1'",
-                "inference1's own log file shows >=1 request timestamp in the test window",
-                "inference2's own log file shows >=1 request timestamp in the test window",
-                "at least 2 distinct response bodies among the 6 (proves real generation, not a cached static reply)"
+                "all 6 tracked requests have an HTTP-success status, parseable nonempty response body, and nonempty generated content",
+                "inference1's persisted post-baseline log segment contains fresh chat-completion request evidence from the test window",
+                "inference2's persisted post-baseline log segment contains fresh chat-completion request evidence from the test window",
+                "at least 2 byte-distinct nonempty response bodies among the 6 (proves real generation, not a canned static reply)",
+                "result.json has ok==true, mode=='implementer-distribution', request_count==6, inference1.fresh_request_count>=1, and inference2.fresh_request_count>=1"
               ],
               "must_not_observe": [
                 "all 6 x-litellm-model-api-base values identical (proves single-node pinning, not capacity routing)",
-                "all 6 requests' timestamps appearing only in one mini's log",
-                "0 of the 6 responses show inference2.tail011a51.ts.net as the api-base value (would mean inference2 was never selected)"
+                "any background request exits without its failure propagating to the verifier",
+                "either mini has no post-baseline log growth or no fresh request evidence",
+                "0 of the 6 responses show either required mini hostname as the api-base value",
+                "fewer than 2 distinct nonempty response bodies"
               ]
             }
           }
@@ -290,28 +314,42 @@ _Source:_ `services/platform/deploy/compose/langfuse.compose.yaml:1-30`
       "type": "test_criterion",
       "description": "health flips to ok",
       "maps_to_ac": "AC-1",
-      "verify": "curl -sS https://holocron.tail011a51.ts.net:44111/health | grep -q '\"status\":\"ok\"'"
+      "verify": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "router reachable from a real second device",
+      "description": "inference1-originated models contains both public roles and reviewer completes only through inference2",
       "maps_to_ac": "AC-1",
-      "verify": "ssh inference1 'curl -sS http://holocron.tail011a51.ts.net:4545/v1/models' | grep -q reviewer"
+      "verify": "bash scripts/verify-s33-router-capacity.sh --mode models-reviewer --router-url http://holocron.tail011a51.ts.net:4545 --health-url https://holocron.tail011a51.ts.net:44111/health --inference1-host inference1 --evidence-dir .tmp/S33-OPS-02/models-reviewer"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "health reverts on router stop",
       "maps_to_ac": "AC-1",
-      "verify": "curl -sS https://holocron.tail011a51.ts.net:44111/health | grep -q degraded"
+      "verify": "docker compose -f router.compose.yaml down && curl -sS https://holocron.tail011a51.ts.net:44111/health | grep -q degraded"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
-      "description": "both minis serve real implementer load from their resident Qwen3.6 backends",
+      "description": "tracked concurrent implementer requests prove both real Qwen3.6 backends through exact headers, distinct nonempty bodies, and fresh post-baseline logs on both minis",
       "maps_to_ac": "AC-2",
-      "verify": "grep x-litellm-model-api-base headers for both mini hostnames from model=implementer responses; ssh inference1/inference2 log tails both show recent activity"
+      "verify": "bash scripts/verify-s33-router-capacity.sh --mode implementer-distribution --router-url http://holocron.tail011a51.ts.net:4545 --inference1-host inference1 --inference2-host inference2 --request-count 6 --evidence-dir .tmp/S33-OPS-02/implementer-distribution"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "the focused integration test executes both verifier modes against real services and fails rather than skips when dependencies or evidence are missing",
+      "maps_to_ac": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-02-router-capacity.test.ts"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "the focused real integration test and verifier evidence contract pass the canonical test-reality audit",
+      "maps_to_ac": "AC-2",
+      "verify": "python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-02/reality-spec.json"
     }
   ]
 }
