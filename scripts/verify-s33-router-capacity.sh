@@ -14,6 +14,9 @@ INFERENCE1_HOST=
 INFERENCE2_HOST=
 REQUEST_COUNT=6
 EVIDENCE_DIR=.tmp/S33-OPS-02
+EVIDENCE_BASE_PATH=
+RUN_ID=
+RUN_DIR_REL=
 HTTP_TIMEOUT=180
 SSH_TIMEOUT=12
 EXPECTED_REVIEWER_BASE=http://inference2.tail011a51.ts.net:8003/v1
@@ -119,6 +122,65 @@ PY
   fi
   IFS=$'\t' read -r EVIDENCE_ROOT EVIDENCE_PATH <<<"$resolved"
   [[ -n "$EVIDENCE_ROOT" && -n "$EVIDENCE_PATH" ]] || die 'evidence path resolution returned no path'
+  EVIDENCE_BASE_PATH=$EVIDENCE_PATH
+}
+
+guard_legacy_attempts_path() {
+  [[ "$MODE" == health-flip ]] || return 0
+  local attempts canonical
+  attempts="$EVIDENCE_ROOT/health-flip-attempts"
+  if [[ -L "$attempts" ]]; then
+    die 'health-flip-attempts must not be a symlink'
+  fi
+  if [[ -e "$attempts" ]]; then
+    canonical=$(realpath "$attempts") || die 'could not resolve health-flip-attempts'
+    [[ "$canonical" == "$EVIDENCE_ROOT/health-flip-attempts" ]] || die 'health-flip-attempts escapes the evidence root'
+  fi
+}
+
+allocate_evidence_run() {
+  local allocation
+  if ! allocation=$(python3 - "$EVIDENCE_ROOT" "$EVIDENCE_BASE_PATH" "$MODE" <<'PY'
+import os
+import sys
+import time
+
+approved, base, mode = sys.argv[1:]
+approved = os.path.abspath(approved)
+base = os.path.abspath(base)
+if os.path.commonpath((approved, base)) != approved:
+    raise SystemExit('evidence base escapes the approved root')
+if os.path.lexists(base) and os.path.islink(base):
+    raise SystemExit('evidence base is a symlink')
+if os.path.realpath(base) != base:
+    raise SystemExit('evidence base resolves outside its lexical path')
+runs = os.path.join(base, 'runs')
+if os.path.lexists(runs) and os.path.islink(runs):
+    raise SystemExit('evidence runs directory must not be a symlink')
+os.makedirs(runs, exist_ok=True)
+if os.path.realpath(runs) != runs:
+    raise SystemExit('evidence runs directory resolves outside its lexical path')
+for attempt in range(20):
+    run_id = f'{time.time_ns()}-{os.getpid()}-{mode}-{attempt}'
+    candidate = os.path.join(runs, run_id)
+    try:
+        os.mkdir(candidate)
+    except FileExistsError:
+        continue
+    canonical = os.path.realpath(candidate)
+    if canonical != candidate or os.path.commonpath((approved, canonical)) != approved:
+        raise SystemExit('allocated run directory escapes the approved root')
+    print(f'{run_id}\t{candidate}')
+    break
+else:
+    raise SystemExit('could not allocate a unique evidence run directory')
+PY
+  ); then
+    die 'could not allocate immutable evidence run'
+  fi
+  IFS=$'\t' read -r RUN_ID EVIDENCE_PATH <<<"$allocation"
+  [[ -n "$RUN_ID" && -n "$EVIDENCE_PATH" ]] || die 'evidence run allocation returned no path'
+  RUN_DIR_REL=$(printf '%s\n' "$EVIDENCE_PATH" | sed "s#^$REPO_ROOT#.#")
 }
 
 health_ssh() {
@@ -141,24 +203,6 @@ health_capture_raw() {
   mv -f -- "$temporary" "$destination"
   printf '%s\n' "$status" >"$EVIDENCE_PATH/$label.status.txt"
 }
-
-health_archive_existing_outcome() {
-  [[ "$MODE" == health-flip ]] || return 0
-  if [[ -e "$EVIDENCE_PATH" ]]; then
-    if [[ -d "$EVIDENCE_PATH" ]] && [[ -z "$(find "$EVIDENCE_PATH" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
-      return 0
-    fi
-    local stamp archive suffix
-    stamp="$(date '+%Y%m%dT%H%M%S')-$$"
-    suffix=normal
-    [[ "$NEGATIVE_CONTROL" == fail-after-stop ]] && suffix=negative
-    archive="$EVIDENCE_ROOT/health-flip-attempts/$stamp-$suffix"
-    mkdir -p -- "$EVIDENCE_ROOT/health-flip-attempts"
-    [[ ! -e "$archive" ]] || die "outcome archive already exists"
-    mv -- "$EVIDENCE_PATH" "$archive"
-  fi
-}
-
 
 health_assert_state() {
   python3 - "$1" "$2" <<'PY'
@@ -358,11 +402,11 @@ PY
 health_write_failure() {
   local reason=$1 comparison=''
   comparison=$(health_validate_raw_invariants 2>/dev/null || true)
-  python3 - "$EVIDENCE_PATH/failure.json" "$NEGATIVE_CONTROL" "$reason" "$HEALTH_CLEANUP_RESTORE_ARMED" "$HEALTH_CLEANUP_RESTORE_ATTEMPTED" "$HEALTH_RESTORE_SUCCEEDED" "$comparison" <<'PY'
+  python3 - "$EVIDENCE_PATH/failure.json" "$NEGATIVE_CONTROL" "$reason" "$HEALTH_CLEANUP_RESTORE_ARMED" "$HEALTH_CLEANUP_RESTORE_ATTEMPTED" "$HEALTH_RESTORE_SUCCEEDED" "$comparison" "$RUN_ID" "$RUN_DIR_REL" <<'PY'
 import json, os, sys
-out, negative, reason, armed, attempted, succeeded, comparison = sys.argv[1:]
+out, negative, reason, armed, attempted, succeeded, comparison, run_id, run_dir = sys.argv[1:]
 root = os.path.dirname(out)
-result = {'ok': False, 'mode': 'health-flip', 'negative_control': negative or None, 'intentional_failure_observed': negative == 'fail-after-stop', 'failure_reason': reason, 'cleanup_restore_armed': armed == '1', 'cleanup_restore_attempted': attempted == '1', 'restore_succeeded': succeeded == '1'}
+result = {'ok': False, 'mode': 'health-flip', 'run_id': run_id, 'run_dir': run_dir, 'negative_control': negative or None, 'intentional_failure_observed': negative == 'fail-after-stop', 'failure_reason': reason, 'cleanup_restore_armed': armed == '1', 'cleanup_restore_attempted': attempted == '1', 'restore_succeeded': succeeded == '1'}
 def read_json(name):
     path = os.path.join(root, name)
     if os.path.isfile(path) and os.path.getsize(path):
@@ -439,6 +483,7 @@ health_cleanup() {
   fi
   if [[ "$NEGATIVE_CONTROL" == fail-after-stop ]]; then
     health_write_failure "intentional fail-after-stop control"
+    cat "$EVIDENCE_PATH/failure.json"
     if ((HEALTH_RESTORE_SUCCEEDED == 1 && original_rc != 0)); then
       exit "$original_rc"
     fi
@@ -490,7 +535,7 @@ def art(path):
     return {'path': os.path.relpath(path, os.getcwd()), 'exists': True, 'byte_length': os.path.getsize(path)}
 files = ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json')
 manifest = {name.replace('.', '_'): art(os.path.join(root, name)) for name in files}
-result = {'ok': True, 'mode': 'health-flip', 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
+result = {'ok': True, 'mode': 'health-flip', 'run_id': os.path.basename(root), 'run_dir': os.path.relpath(root, os.getcwd()), 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
 json.dump(result, open(out, 'w', encoding='utf-8'), indent=2, sort_keys=True)
 open(out, 'a', encoding='utf-8').write('\n')
 PY
@@ -501,28 +546,13 @@ PY
 
 
 resolve_evidence_paths
-health_archive_existing_outcome
+guard_legacy_attempts_path
 if [[ "$MODE" != health-regression ]]; then
-  mkdir -p -- "$EVIDENCE_PATH"
+  allocate_evidence_run
   ERRORS_PATH=$EVIDENCE_PATH/errors.log
   : > "$ERRORS_PATH"
   RESULT_PATH=$EVIDENCE_PATH/result.json
   ROUTER_BASE=$(printf '%s' "$ROUTER_URL" | sed 's:/*$::')
-
-# Preserve other S33 evidence.  A mode owns only these paths and its request
-# subtree; never erase the task evidence root or another mode's artifacts.
-for owned in \
-  result.json health.json health.headers.txt health.status.txt health.json.curl.stderr \
-  laptop-models.json laptop-models.headers.txt laptop-models.status.txt laptop-models.json.curl.stderr \
-  inference1-models.json inference1-models.ssh.stderr inference1-models.ssh.provenance.txt inference1-models.ssh.exit.txt reviewer-payload.json reviewer-body.json \
-  reviewer-headers.txt reviewer.status.txt reviewer-body.json.curl.stderr \
-  inference1-log-baseline.bytes inference2-log-baseline.bytes inference1-log-post.bytes \
-  inference2-log-post.bytes inference1-log-growth.bytes inference2-log-growth.bytes \
-  inference1-log-baseline.json inference2-log-baseline.json inference1-log-post.json inference2-log-post.json \
-  inference1-log-post-baseline.log inference2-log-post-baseline.log request-summaries.jsonl; do
-  rm -f -- "$EVIDENCE_PATH/$owned"
-done
-rm -rf -- "$EVIDENCE_PATH/requests"
 fi
 
 relative_path() {
@@ -763,6 +793,8 @@ models_reviewer() {
   local lm=$EVIDENCE_PATH/laptop-models.json im=$EVIDENCE_PATH/inference1-models.json
   local rp=$EVIDENCE_PATH/reviewer-payload.json rb=$EVIDENCE_PATH/reviewer-body.json rh=$EVIDENCE_PATH/reviewer-headers.txt rs=$EVIDENCE_PATH/reviewer.status.txt
   local health_json reviewer_json deployment_json
+  [[ -f "$EVIDENCE_BASE_PATH/health.pre-deploy.json" && ! -L "$EVIDENCE_BASE_PATH/health.pre-deploy.json" ]] || die 'pre-router-deploy health baseline is missing'
+  cp -- "$EVIDENCE_BASE_PATH/health.pre-deploy.json" "$pre"
   require_pre_deploy_health_baseline "$pre"
   local_http GET "$HEALTH_URL" "$hb" "$hh" "$hs" ""
   health_json=$(assert_health "$hb")
@@ -778,15 +810,15 @@ with open(sys.argv[1],'w',encoding='utf-8') as h:
 PY
   local_http POST "$ROUTER_BASE/v1/chat/completions" "$rb" "$rh" "$rs" "$rp"
   reviewer_json=$(assert_reviewer "$rb" "$rh" "$rs")
-  python3 - "$RESULT_PATH" "$MODE" "$pre" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$deployment_json" "$reviewer_json" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$RUN_ID" "$RUN_DIR_REL" "$pre" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$deployment_json" "$reviewer_json" <<'PY'
 import json,os,sys
-out,mode,pre,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,deployment_json,reviewer_json=sys.argv[1:]
+out,mode,run_id,run_dir,pre,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,deployment_json,reviewer_json=sys.argv[1:]
 def art(p):
     if not os.path.isfile(p) or os.path.getsize(p)<1: raise SystemExit(f'missing or empty artifact: {p}')
     return {'path':os.path.relpath(p,os.getcwd()),'exists':True,'byte_length':os.path.getsize(p)}
 manifest={'health_pre_deploy':art(pre),'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
 comparison=json.loads(deployment_json)
-r={'ok':True,'mode':mode,'health':json.loads(health_json),'health_pre_deploy_artifact':manifest['health_pre_deploy'],'deployment_identity_comparison':comparison,'deployment_identity_unchanged':comparison['stable_identity_unchanged'],'deployment_pid_unchanged':comparison['pid_unchanged'],'deployment_uptime_monotonic':comparison['uptime_monotonic'],'deployment_restart_oracle_limitation':'health exposes no container restart count; oracle enforces stable deployment identity, unchanged pid, and monotonic uptime','laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
+r={'ok':True,'mode':mode,'run_id':run_id,'run_dir':run_dir,'health':json.loads(health_json),'health_pre_deploy_artifact':manifest['health_pre_deploy'],'deployment_identity_comparison':comparison,'deployment_identity_unchanged':comparison['stable_identity_unchanged'],'deployment_pid_unchanged':comparison['pid_unchanged'],'deployment_uptime_monotonic':comparison['uptime_monotonic'],'deployment_restart_oracle_limitation':'health exposes no container restart count; oracle enforces stable deployment identity, unchanged pid, and monotonic uptime','laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
 if r['laptop_models_artifact_path']==r['inference1_models_artifact_path']: raise SystemExit('models artifact paths are not distinct')
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
 PY
@@ -831,9 +863,9 @@ distribution() {
   fresh2=$(grep -Ec 'Chat completion: model=Qwen3\.6-35B-A3B-MLX-8bit' "$EVIDENCE_PATH/inference2-log-post-baseline.log" || true)
   [[ "$fresh1" =~ ^[1-9][0-9]*$ ]] || die "inference1 fresh completion evidence missing"
   [[ "$fresh2" =~ ^[1-9][0-9]*$ ]] || die "inference2 fresh completion evidence missing"
-  python3 - "$RESULT_PATH" "$MODE" "$EVIDENCE_PATH/request-summaries.jsonl" "$EVIDENCE_PATH/inference1-log-post-baseline.log" "$EVIDENCE_PATH/inference2-log-post-baseline.log" "$EVIDENCE_PATH/inference1-log-baseline.json" "$EVIDENCE_PATH/inference2-log-baseline.json" "$EVIDENCE_PATH/inference1-log-post.json" "$EVIDENCE_PATH/inference2-log-post.json" "$rr" "$REQUEST_COUNT" "$fresh1" "$fresh2" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$RUN_ID" "$RUN_DIR_REL" "$EVIDENCE_PATH/request-summaries.jsonl" "$EVIDENCE_PATH/inference1-log-post-baseline.log" "$EVIDENCE_PATH/inference2-log-post-baseline.log" "$EVIDENCE_PATH/inference1-log-baseline.json" "$EVIDENCE_PATH/inference2-log-baseline.json" "$EVIDENCE_PATH/inference1-log-post.json" "$EVIDENCE_PATH/inference2-log-post.json" "$rr" "$REQUEST_COUNT" "$fresh1" "$fresh2" <<'PY'
 import json,os,sys
-out,mode,summaries,log1,log2,baseline1,baseline2,post1,post2,requests_dir,count,fresh1,fresh2=sys.argv[1:]
+out,mode,run_id,run_dir,summaries,log1,log2,baseline1,baseline2,post1,post2,requests_dir,count,fresh1,fresh2=sys.argv[1:]
 rows=[json.loads(x) for x in open(summaries) if x.strip()]
 if len(rows)!=int(count): raise SystemExit(f'expected {count} request summaries, found {len(rows)}')
 hosts={r['api_base'] for r in rows}
@@ -855,7 +887,7 @@ if len(request_dirs)!=int(count): raise SystemExit(f'expected {count} raw reques
 for request_dir in request_dirs:
     request_artifacts.append({'path':os.path.relpath(request_dir,os.getcwd()),'artifacts':{name:required_artifact(os.path.join(request_dir,name)) for name in ('metadata.json','pid','status.txt','headers.txt','body.json','curl-exit.txt')}})
 manifest={'request_summaries':required_artifact(summaries),'inference1_log_baseline_identity':required_artifact(baseline1),'inference2_log_baseline_identity':required_artifact(baseline2),'inference1_log_post_identity':required_artifact(post1),'inference2_log_post_identity':required_artifact(post2),'inference1_log_post_baseline':required_artifact(log1),'inference2_log_post_baseline':required_artifact(log2)}
-r={'ok':True,'mode':mode,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'backend_request_counts':backend_request_counts,'backend_fresh_completion_counts':backend_fresh_completion_counts,'backend_completion_counts_sufficient':True,'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(requests_dir,os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
+r={'ok':True,'mode':mode,'run_id':run_id,'run_dir':run_dir,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'backend_request_counts':backend_request_counts,'backend_fresh_completion_counts':backend_fresh_completion_counts,'backend_completion_counts_sufficient':True,'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(requests_dir,os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
 PY
 }
