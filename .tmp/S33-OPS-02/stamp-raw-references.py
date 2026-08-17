@@ -631,14 +631,24 @@ def derive_seeded(requirement: str, output: dict[str, Any]) -> str:
 
 
 def bind_seeded_evidence(requirement: str, item: dict[str, Any], output: dict[str, Any], policy: dict[str, Any]) -> None:
-    """Derive AC claims from fresh run output; never bind stale red/green aliases."""
+    """Sanitize every row, then derive seeded claims only for the AC rows."""
+    for field in ("red_against_start_file", "green_file", "seeded_value"):
+        item.pop(field, None)
     if requirement not in ("AC-1", "AC-2"):
         return
     if policy.get("requires_red_evidence") is not False or policy.get("requires_seeded_evidence") is not True:
         fail("verification policy does not permit the canonical seeded-evidence contract")
-    item.pop("red_against_start_file", None)
-    item.pop("green_file", None)
     item["seeded_value"] = derive_seeded(requirement, output)
+
+
+def canonicalize_red_evidence(summary: dict[str, Any], policy: dict[str, Any]) -> None:
+    """Never preserve a stale or broader RED claim than the task manifest permits."""
+    if policy.get("requires_red_evidence") is not False:
+        fail("verification policy does not permit the canonical no-RED contract")
+    supplied = summary.get("red_evidence")
+    if supplied is not None and not isinstance(supplied, dict):
+        fail("summary red_evidence has an incompatible shape")
+    summary["red_evidence"] = {"required": False}
 
 
 def atomic_write(path: Path, value: dict[str, Any], root: Path) -> None:
@@ -681,6 +691,7 @@ def main() -> None:
         fail("git HEAD is not a full commit SHA")
     if summary.get("commit_sha") != current_sha:
         fail(f"summary commit_sha {summary.get('commit_sha')!r} does not match current HEAD {current_sha!r}")
+    canonicalize_red_evidence(summary, verification_policy)
     results = summary.get("requirement_results")
     if not isinstance(results, list) or len(results) != len(REQUIREMENT_IDS) or any(not isinstance(item, dict) for item in results) or [item.get("id") for item in results] != list(REQUIREMENT_IDS):
         fail("summary does not contain exactly the eight requirement results")

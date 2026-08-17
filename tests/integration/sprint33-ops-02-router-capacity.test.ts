@@ -1128,10 +1128,16 @@ with tempfile.TemporaryDirectory(prefix='s33-policy-') as temp:
     shutil.copyfile(repo_root / '.tmp' / 'S33-OPS-02' / module.VERIFY_MANIFEST_FILE, policy_path)
     policy, policy_sha = module.validate_verification_policy(policy_root)
     assert len(policy_sha) == 64
-    stock_row_path = policy_root / 'stock-ac-2-row.json'
-    stock_row_path.write_text(json.dumps({'id': 'AC-2', 'output_file': 'ac-2-output.txt'}), encoding='utf-8')
-    stock_row = json.loads(stock_row_path.read_text(encoding='utf-8'))
-    module.bind_seeded_evidence('AC-2', stock_row, {
+    rows_root = policy_root / 'stock-requirement-rows'
+    rows_root.mkdir()
+    ac1_output = {
+        'run_id': 'filesystem-policy-ac-1-run',
+        'health': {'status': 'ok', 'fleet_ready': True},
+        'laptop_models_has_both_roles': True,
+        'inference1_models_has_both_roles': True,
+        'reviewer_completion': {'http_status': 200, 'api_base': module.BACKEND_URLS['inference2']},
+    }
+    ac2_output = {
         'run_id': 'filesystem-policy-run',
         'request_count': 6,
         'tracked_request_count': 6,
@@ -1139,10 +1145,37 @@ with tempfile.TemporaryDirectory(prefix='s33-policy-') as temp:
         'backend_headers': [inference1, inference2],
         'backend_request_counts': {inference1: 1, inference2: 1},
         'backend_fresh_completion_counts': {inference1: 2, inference2: 7},
-    }, policy)
-    assert 'red_against_start_file' not in stock_row
-    assert 'green_file' not in stock_row
-    assert 'Fresh run filesystem-policy-run' in stock_row['seeded_value']
+    }
+    outputs = {'AC-1': ac1_output, 'AC-2': ac2_output}
+    for requirement in module.REQUIREMENT_IDS:
+        row_path = rows_root / f'{requirement}.json'
+        row_path.write_text(json.dumps({
+            'id': requirement,
+            'output_file': f'{requirement.lower()}-output.txt',
+            'red_against_start_file': 'stale-red.txt',
+            'green_file': 'stale-green.txt',
+            'seeded_value': 'stale-seeded-value',
+        }), encoding='utf-8')
+        row = json.loads(row_path.read_text(encoding='utf-8'))
+        module.bind_seeded_evidence(requirement, row, outputs.get(requirement, {'run_id': f'{requirement}-filesystem-run'}), policy)
+        assert 'red_against_start_file' not in row
+        assert 'green_file' not in row
+        assert 'seeded_value' not in row if requirement not in ('AC-1', 'AC-2') else 'Fresh run ' in row['seeded_value']
+        row_path.write_text(json.dumps(row), encoding='utf-8')
+        persisted = json.loads(row_path.read_text(encoding='utf-8'))
+        assert 'red_against_start_file' not in persisted
+        assert 'green_file' not in persisted
+        if requirement in ('AC-1', 'AC-2'):
+            assert persisted['seeded_value'].startswith(f'Fresh run {outputs[requirement]["run_id"]}')
+        else:
+            assert 'seeded_value' not in persisted
+    summary_control_path = policy_root / 'stock-summary.json'
+    summary_control_path.write_text(json.dumps({'red_evidence': {'required': True, 'stale': 'untrusted'}}), encoding='utf-8')
+    summary_control = json.loads(summary_control_path.read_text(encoding='utf-8'))
+    module.canonicalize_red_evidence(summary_control, policy)
+    assert summary_control['red_evidence'] == {'required': False}
+    summary_control_path.write_text(json.dumps(summary_control), encoding='utf-8')
+    assert json.loads(summary_control_path.read_text(encoding='utf-8'))['red_evidence'] == {'required': False}
     policy_value = json.loads(policy_path.read_text(encoding='utf-8'))
     policy_value['verification_policy']['requires_red_evidence'] = True
     policy_path.write_text(json.dumps(policy_value), encoding='utf-8')
