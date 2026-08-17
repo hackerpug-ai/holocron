@@ -1,9 +1,10 @@
 # S33-OPS-01: Provision Qwen3.8-27B-8bit onto inference2 and inference1 (disk-headroom-gated) and verify oMLX serves it
 
-> Status: 🔴 Needs Fixes
-> Commit: 26bfc9a6e0c32f836c7c861ec708b2c27b4735de
-> Fix: SPEC-REPAIR-S33-OPS-01-TEST-REALITY
-> Updated: 2026-08-17T00:17:47Z
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: e2307a4bbd9ab0de864fb807f95d4a8ae4f02a45
+> Reviewer: product-manager+code-reviewer
+> Completed: 2026-08-17T00:55:27Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
