@@ -1,8 +1,9 @@
 # S33-OPS-02: Package the LiteLLM router as a Docker Compose service and deploy it on the holocron host, capacity-routing to both minis
 
-> Status: 🟡 In Progress
-> Commit: pending
-> Updated: 2026-08-17T02:12:13Z
+> Status: 🔴 Needs Fixes
+> Commit: ec6277f70582560de3b768fb6048a99993753808
+> Fix: HOLOCRON-SSH-AUTH-AND-LIVE-DEPLOY
+> Updated: 2026-08-17T04:02:53Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
