@@ -22,6 +22,10 @@ const VERIFIER = resolve(REPO_ROOT, 'scripts/verify-s33-router-capacity.sh');
 const EVIDENCE_ROOT = resolve(REPO_ROOT, '.tmp/S33-OPS-02');
 const ROUTER_URL = 'http://holocron.tail011a51.ts.net:4545';
 const HEALTH_URL = 'https://holocron.tail011a51.ts.net:44111/health';
+const HOLOCRON_HOST = 'holocron';
+const REMOTE_COMPOSE_FILE =
+  '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml';
+const REMOTE_DOCKER_BIN = '/usr/local/bin/docker';
 const INFERENCE1 = 'inference1';
 const INFERENCE2 = 'inference2';
 const EXPECTED_BASES = [
@@ -286,6 +290,236 @@ async function runVerifierFailure(
     return result.stderr ?? '';
   }
   throw new Error(`${mode} unexpectedly succeeded in a negative control`);
+}
+
+async function runHealthFlip(
+  negative = false
+): Promise<{ stdout: string; stderr: string; result?: VerifierResult }> {
+  const evidenceName = negative ? 'health-flip-negative' : 'health-flip';
+  const outputDir = resolve(REPO_ROOT, '.tmp/S33-OPS-02/' + evidenceName);
+  await mkdir(outputDir, { recursive: true });
+  const args = [
+    VERIFIER,
+    '--mode',
+    'health-flip',
+    '--holocron-host',
+    HOLOCRON_HOST,
+    '--remote-compose-file',
+    REMOTE_COMPOSE_FILE,
+    '--remote-docker-bin',
+    REMOTE_DOCKER_BIN,
+    '--router-url',
+    ROUTER_URL,
+    '--health-url',
+    HEALTH_URL,
+  ];
+  if (negative) args.push('--negative-control', 'fail-after-stop');
+  args.push('--evidence-dir', '.tmp/S33-OPS-02/' + evidenceName);
+  try {
+    const { stdout, stderr } = await execFileAsync('bash', args, {
+      cwd: REPO_ROOT,
+      env: { ...process.env, PLATFORM_IT: '1' },
+      encoding: 'utf8',
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: 240_000,
+    });
+    await writeFile(resolve(outputDir, 'verifier.stdout.txt'), stdout, 'utf8');
+    await writeFile(resolve(outputDir, 'verifier.stderr.txt'), stderr, 'utf8');
+    const result = JSON.parse(stdout) as VerifierResult;
+    expect(result.ok).toBe(true);
+    expect(result.mode).toBe('health-flip');
+    return { stdout, stderr, result };
+  } catch (error) {
+    const result = error as { stdout?: string; stderr?: string };
+    const stdout = result.stdout ?? '';
+    const stderr = result.stderr ?? '';
+    await writeFile(resolve(outputDir, 'verifier.stdout.txt'), stdout, 'utf8');
+    await writeFile(resolve(outputDir, 'verifier.stderr.txt'), stderr, 'utf8');
+    if (!negative) throw error;
+    return { stdout, stderr };
+  }
+}
+
+async function readRawHealth(evidenceName: string, name: string): Promise<Record<string, unknown>> {
+  const raw = await readFile(
+    resolve(REPO_ROOT, '.tmp/S33-OPS-02/' + evidenceName + '/' + name),
+    'utf8'
+  );
+  return parseJson(raw, evidenceName + '/' + name) as Record<string, unknown>;
+}
+
+function assertHealthTriplet(
+  pre: Record<string, unknown>,
+  degraded: Record<string, unknown>,
+  restored: Record<string, unknown>
+): DeploymentIdentity[] {
+  const states: Array<[Record<string, unknown>, string, boolean, string | null]> = [
+    [pre, 'ok', true, null],
+    [degraded, 'degraded', false, 'fleet'],
+    [restored, 'ok', true, null],
+  ];
+  const identities = states.map(([health, status, ready, failing], index) => {
+    expect(health.status, 'health ' + index + ' status').toBe(status);
+    const fleet = health.fleet as { ready?: unknown } | undefined;
+    expect(fleet?.ready, 'health ' + index + ' fleet.ready').toBe(ready);
+    expect(Object.hasOwn(health, 'failing_dependency')).toBe(true);
+    expect(health.failing_dependency, 'health ' + index + ' failing_dependency').toBe(failing);
+    const identity = deploymentIdentity(health, 'health ' + index);
+    expect(Number.isFinite(identity.uptimeMs), 'health ' + index + ' uptimeMs finite').toBe(true);
+    return identity;
+  });
+  for (const field of [
+    'host',
+    'runtime',
+    'imageDigest',
+    'sourceRevision',
+    'composeGeneration',
+    'pid',
+  ] as const) {
+    expect(identities[1][field], 'health ' + field + ' stable').toBe(identities[0][field]);
+    expect(identities[2][field], 'health ' + field + ' stable').toBe(identities[0][field]);
+  }
+  expect(identities[1].uptimeMs).toBeGreaterThanOrEqual(identities[0].uptimeMs);
+  expect(identities[2].uptimeMs).toBeGreaterThanOrEqual(identities[1].uptimeMs);
+  return identities;
+}
+
+type ProductionIdentity = {
+  id: string;
+  image: string;
+  startedAt: string;
+};
+
+function productionIdentities(value: unknown, label: string): Record<string, ProductionIdentity> {
+  if (!Array.isArray(value) || value.length !== 4) {
+    throw new Error(label + ' must contain exactly four Docker inspect records');
+  }
+  const expected = new Set(['postgres', 'mastra', 'scheduler', 'zero-cache']);
+  const result: Record<string, ProductionIdentity> = {};
+  for (const record of value) {
+    if (!record || typeof record !== 'object') throw new Error(label + ' has a malformed record');
+    const item = record as {
+      Id?: unknown;
+      Image?: unknown;
+      State?: { StartedAt?: unknown };
+      Config?: { Labels?: Record<string, unknown> };
+    };
+    const service = item.Config?.Labels?.['com.docker.compose.service'];
+    if (typeof service !== 'string' || !expected.has(service) || result[service]) {
+      throw new Error(label + ' has an invalid service identity');
+    }
+    expect(typeof item.Id, label + ' ' + service + ' id').toBe('string');
+    expect(typeof item.Image, label + ' ' + service + ' image').toBe('string');
+    expect(typeof item.State?.StartedAt, label + ' ' + service + ' startedAt').toBe('string');
+    result[service] = {
+      id: item.Id as string,
+      image: item.Image as string,
+      startedAt: item.State?.StartedAt as string,
+    };
+  }
+  expect(new Set(Object.keys(result))).toEqual(expected);
+  return result;
+}
+
+function primarySentinel(value: unknown, label: string): Record<string, string> {
+  if (!value || typeof value !== 'object') throw new Error(label + ' is malformed');
+  const result = value as Record<string, unknown>;
+  expect(Object.keys(result).sort(), label + ' exact keys').toEqual([
+    'head',
+    'status_sha256',
+    'tracked_hash',
+  ]);
+  for (const key of ['head', 'status_sha256', 'tracked_hash']) {
+    expect(typeof result[key], label + ' ' + key + ' type').toBe('string');
+    expect(result[key], label + ' ' + key + ' nonempty').not.toBe('');
+  }
+  return result as Record<string, string>;
+}
+
+async function independentlyVerifyHealthFlip(evidenceName: string): Promise<void> {
+  const pre = await readRawHealth(evidenceName, 'health.pre.json');
+  const degraded = await readRawHealth(evidenceName, 'health.degraded.json');
+  const restored = await readRawHealth(evidenceName, 'health.restored.json');
+  assertHealthTriplet(pre, degraded, restored);
+  const root = resolve(REPO_ROOT, '.tmp/S33-OPS-02/' + evidenceName);
+  const productionPre = productionIdentities(
+    parseJson(
+      await readFile(resolve(root, 'production-containers.pre.json'), 'utf8'),
+      'production pre'
+    ),
+    'production pre'
+  );
+  const productionPost = productionIdentities(
+    parseJson(
+      await readFile(resolve(root, 'production-containers.post.json'), 'utf8'),
+      'production post'
+    ),
+    'production post'
+  );
+  expect(productionPost).toEqual(productionPre);
+  const primaryPre = primarySentinel(
+    parseJson(await readFile(resolve(root, 'remote-primary.pre.json'), 'utf8'), 'primary pre'),
+    'primary pre'
+  );
+  const primaryPost = primarySentinel(
+    parseJson(await readFile(resolve(root, 'remote-primary.post.json'), 'utf8'), 'primary post'),
+    'primary post'
+  );
+  expect(primaryPost).toEqual(primaryPre);
+}
+
+async function independentlyProbeRestoredState(): Promise<void> {
+  const health = await execFileAsync(
+    'curl',
+    [
+      '--fail',
+      '--silent',
+      '--show-error',
+      '--connect-timeout',
+      '5',
+      '--max-time',
+      '20',
+      HEALTH_URL,
+    ],
+    { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+  );
+  const parsed = parseJson(health.stdout, 'independent restored health');
+  expect((parsed as { status?: string }).status).toBe('ok');
+  expect((parsed as { fleet?: { ready?: boolean } }).fleet?.ready).toBe(true);
+  expect((parsed as { failing_dependency?: unknown }).failing_dependency).toBeNull();
+  const command =
+    REMOTE_DOCKER_BIN +
+    ' inspect "$(' +
+    REMOTE_DOCKER_BIN +
+    ' compose -f ' +
+    REMOTE_COMPOSE_FILE +
+    ' ps -q litellm-router)"';
+  const router = await execFileAsync(
+    'ssh',
+    [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'StrictHostKeyChecking=yes',
+      '-o',
+      'ConnectTimeout=10',
+      '-o',
+      'ServerAliveInterval=5',
+      '-o',
+      'ServerAliveCountMax=2',
+      HOLOCRON_HOST,
+      command,
+    ],
+    { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+  );
+  const records = parseJson(router.stdout, 'independent restored router');
+  expect(Array.isArray(records)).toBe(true);
+  expect(records).toHaveLength(1);
+  const record = (
+    records as Array<{ State?: { Status?: string; Health?: { Status?: string } } }>
+  )[0];
+  expect(record.State?.Status).toBe('running');
+  expect(record.State?.Health?.Status).toBe('healthy');
 }
 
 async function captureIndependentModelsObserver(evidenceName: string): Promise<unknown> {
@@ -732,4 +966,80 @@ describe('S33-OPS-02 router capacity against real services', () => {
       'S33-OPS-02 verifier failed: could not read oMLX log identity'
     );
   }, 180_000);
+
+  it('executes the bounded health flip and fail-after-stop cleanup against real Docker and HTTP', async () => {
+    requireLiveEnvironment();
+    const invalidEvidenceName = '.tmp/S33-OPS-02/health-flip-invalid-' + randomUUID();
+    const invalidEvidence = resolve(REPO_ROOT, invalidEvidenceName);
+    await expect(stat(invalidEvidence)).rejects.toThrow();
+    let invalid: { stderr?: string; stdout?: string; code?: number } | undefined;
+    try {
+      await execFileAsync(
+        'bash',
+        [
+          VERIFIER,
+          '--mode',
+          'health-flip',
+          '--holocron-host',
+          HOLOCRON_HOST,
+          '--remote-compose-file',
+          REMOTE_COMPOSE_FILE,
+          '--remote-docker-bin',
+          REMOTE_DOCKER_BIN,
+          '--router-url',
+          ROUTER_URL,
+          '--health-url',
+          HEALTH_URL,
+          '--evidence-dir',
+          invalidEvidenceName,
+        ],
+        {
+          cwd: REPO_ROOT,
+          env: { ...process.env, PLATFORM_IT: '1' },
+          encoding: 'utf8',
+          timeout: 30_000,
+        }
+      );
+    } catch (error) {
+      invalid = error as { stderr?: string; stdout?: string; code?: number };
+    }
+    expect(invalid, 'invalid evidence path must fail').toBeDefined();
+    expect(invalid?.code).not.toBe(0);
+    expect(invalid?.stderr).toContain('health-flip evidence path is not allowlisted');
+
+    const normal = await runHealthFlip(false);
+    expect(normal.result?.cleanup_restore_armed).toBe(true);
+    expect(normal.result?.restore_succeeded).toBe(true);
+    await independentlyVerifyHealthFlip('health-flip');
+
+    const negative = await runHealthFlip(true);
+    expect(negative.stderr).toContain('intentional fail-after-stop control');
+    const failure = parseJson(
+      await readFile(
+        resolve(REPO_ROOT, '.tmp/S33-OPS-02/health-flip-negative/failure.json'),
+        'utf8'
+      ),
+      'health-flip failure'
+    ) as Record<string, unknown>;
+    expect(failure.ok).toBe(false);
+    expect(failure.mode).toBe('health-flip');
+    expect(failure.negative_control).toBe('fail-after-stop');
+    expect(failure.intentional_failure_observed).toBe(true);
+    expect(failure.cleanup_restore_armed).toBe(true);
+    expect(failure.cleanup_restore_attempted).toBe(true);
+    expect(failure.restore_succeeded).toBe(true);
+    expect(failure.deployment_identity_unchanged).toBe(true);
+    expect(failure.deployment_pid_unchanged).toBe(true);
+    expect(failure.deployment_uptime_monotonic).toBe(true);
+    expect(failure.production_service_identities_unchanged).toBe(true);
+    expect(failure.remote_primary_unchanged).toBe(true);
+    expect(failure.final_router).toEqual({ state: 'running', health: 'healthy' });
+    expect((failure.restored_health as { status?: string }).status).toBe('ok');
+    expect((failure.restored_health as { fleet?: { ready?: boolean } }).fleet?.ready).toBe(true);
+    expect(
+      (failure.restored_health as { failing_dependency?: unknown }).failing_dependency
+    ).toBeNull();
+    await independentlyVerifyHealthFlip('health-flip-negative');
+    await independentlyProbeRestoredState();
+  }, 360_000);
 });

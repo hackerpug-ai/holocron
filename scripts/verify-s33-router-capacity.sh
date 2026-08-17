@@ -6,6 +6,10 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 MODE=
 ROUTER_URL=http://holocron.tail011a51.ts.net:4545
 HEALTH_URL=https://holocron.tail011a51.ts.net:44111/health
+HOLOCRON_HOST=
+REMOTE_COMPOSE_FILE=
+REMOTE_DOCKER_BIN=
+NEGATIVE_CONTROL=
 INFERENCE1_HOST=
 INFERENCE2_HOST=
 REQUEST_COUNT=6
@@ -18,13 +22,17 @@ EXPECTED_INFERENCE2_BASE=http://inference2.tail011a51.ts.net:8003/v1
 LOG_PATH='${HOME}/local-llm/logs/omlx-mini-8003.log'
 
 die() { echo "S33-OPS-02 verifier failed: $*" >&2; exit 1; }
-usage() { echo "usage: $0 --mode models-reviewer|implementer-distribution [options]" >&2; exit 2; }
+usage() { echo "usage: $0 --mode models-reviewer|implementer-distribution|health-flip [options]" >&2; exit 2; }
 
 while (($#)); do
   case "$1" in
     --mode) (($# > 1)) || usage; MODE=$2; shift 2 ;;
     --router-url) (($# > 1)) || usage; ROUTER_URL=$2; shift 2 ;;
     --health-url) (($# > 1)) || usage; HEALTH_URL=$2; shift 2 ;;
+    --holocron-host) (($# > 1)) || usage; HOLOCRON_HOST=$2; shift 2 ;;
+    --remote-compose-file) (($# > 1)) || usage; REMOTE_COMPOSE_FILE=$2; shift 2 ;;
+    --remote-docker-bin) (($# > 1)) || usage; REMOTE_DOCKER_BIN=$2; shift 2 ;;
+    --negative-control) (($# > 1)) || usage; NEGATIVE_CONTROL=$2; shift 2 ;;
     --inference1-host) (($# > 1)) || usage; INFERENCE1_HOST=$2; shift 2 ;;
     --inference2-host) (($# > 1)) || usage; INFERENCE2_HOST=$2; shift 2 ;;
     --request-count) (($# > 1)) || usage; REQUEST_COUNT=$2; shift 2 ;;
@@ -42,7 +50,25 @@ case "$MODE" in
     [[ -n "$INFERENCE1_HOST" && -n "$INFERENCE2_HOST" ]] || die "both mini hosts are required"
     [[ "$REQUEST_COUNT" =~ ^[1-9][0-9]*$ && "$REQUEST_COUNT" -ge 2 ]] || die "--request-count must be >= 2"
     ;;
-  health-regression) ;;
+  health-regression) [[ -z "$NEGATIVE_CONTROL" ]] || die "--negative-control is only valid with --mode health-flip" ;;
+  health-flip)
+    [[ -z "$INFERENCE1_HOST" && -z "$INFERENCE2_HOST" ]] || die "inference host options are not valid for health-flip"
+    [[ "$REQUEST_COUNT" == 6 ]] || die "request count is not valid for health-flip"
+    [[ "$LOG_PATH" == '${HOME}/local-llm/logs/omlx-mini-8003.log' ]] || die "remote log path is not valid for health-flip"
+    [[ "$HOLOCRON_HOST" == holocron ]] || die "--holocron-host must be exactly holocron"
+    [[ "$REMOTE_COMPOSE_FILE" == /Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml ]] || die "--remote-compose-file must be the exact deployed isolated compose file"
+    [[ "$REMOTE_DOCKER_BIN" == /usr/local/bin/docker ]] || die "--remote-docker-bin must be exactly /usr/local/bin/docker"
+    [[ "$ROUTER_URL" == http://holocron.tail011a51.ts.net:4545 ]] || die "--router-url must be the canonical router URL"
+    [[ "$HEALTH_URL" == https://holocron.tail011a51.ts.net:44111/health ]] || die "--health-url must be the canonical health URL"
+    if [[ -n "$NEGATIVE_CONTROL" && "$NEGATIVE_CONTROL" != fail-after-stop ]]; then
+      die "unsupported health-flip negative control"
+    fi
+    if [[ "$NEGATIVE_CONTROL" == fail-after-stop ]]; then
+      [[ "$EVIDENCE_DIR" == .tmp/S33-OPS-02/health-flip-negative ]] || die "negative health-flip evidence path is not allowlisted"
+    else
+      [[ "$EVIDENCE_DIR" == .tmp/S33-OPS-02/health-flip ]] || die "health-flip evidence path is not allowlisted"
+    fi
+    ;;
   *) die "unsupported mode" ;;
 esac
 if [[ "$MODE" != health-regression ]]; then
@@ -95,7 +121,387 @@ PY
   [[ -n "$EVIDENCE_ROOT" && -n "$EVIDENCE_PATH" ]] || die 'evidence path resolution returned no path'
 }
 
+health_ssh() {
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+    -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$HOLOCRON_HOST" "$1"
+}
+
+health_capture_raw() {
+  local destination=$1 label=$2 temporary status rc
+  temporary="$EVIDENCE_PATH/.$label.$$"
+  rm -f -- "$temporary"
+  set +e
+  status=$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+    --output "$temporary" --write-out '%{http_code}' "$HEALTH_URL" \
+    2>"$EVIDENCE_PATH/$label.curl.stderr")
+  rc=$?
+  set -e
+  ((rc == 0)) || return "$rc"
+  [[ -s "$temporary" ]] || return 1
+  mv -f -- "$temporary" "$destination"
+  printf '%s\n' "$status" >"$EVIDENCE_PATH/$label.status.txt"
+}
+
+health_archive_existing_outcome() {
+  [[ "$MODE" == health-flip ]] || return 0
+  if [[ -e "$EVIDENCE_PATH" ]]; then
+    if [[ -d "$EVIDENCE_PATH" ]] && [[ -z "$(find "$EVIDENCE_PATH" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+      return 0
+    fi
+    local stamp archive suffix
+    stamp="$(date '+%Y%m%dT%H%M%S')-$$"
+    suffix=normal
+    [[ "$NEGATIVE_CONTROL" == fail-after-stop ]] && suffix=negative
+    archive="$EVIDENCE_ROOT/health-flip-attempts/$stamp-$suffix"
+    mkdir -p -- "$EVIDENCE_ROOT/health-flip-attempts"
+    [[ ! -e "$archive" ]] || die "outcome archive already exists"
+    mv -- "$EVIDENCE_PATH" "$archive"
+  fi
+}
+
+
+health_assert_state() {
+  python3 - "$1" "$2" <<'PY'
+import json, math, sys
+path, expected = sys.argv[1:]
+value = json.load(open(path, encoding='utf-8'))
+states = {'pre': ('ok', True, None), 'degraded': ('degraded', False, 'fleet'), 'restored': ('ok', True, None)}
+if expected not in states:
+    raise SystemExit(f'unknown health state {expected!r}')
+status, ready, failure = states[expected]
+if value.get('status') != status:
+    raise SystemExit(f'{expected} status={value.get("status")!r}')
+fleet = value.get('fleet')
+if not isinstance(fleet, dict) or fleet.get('ready') is not ready:
+    raise SystemExit(f'{expected} fleet.ready mismatch')
+if value.get('failing_dependency') != failure:
+    raise SystemExit(f'{expected} failing_dependency={value.get("failing_dependency")!r}')
+identity = value.get('deployment', {}).get('identity')
+if not isinstance(identity, dict):
+    raise SystemExit(f'{expected} deployment identity is missing')
+for field in ('host', 'runtime', 'imageDigest', 'sourceRevision', 'composeGeneration'):
+    if not isinstance(identity.get(field), str) or not identity[field].strip():
+        raise SystemExit(f'{expected} deployment identity field {field} is missing')
+if not isinstance(identity.get('pid'), int) or isinstance(identity.get('pid'), bool) or identity['pid'] <= 0:
+    raise SystemExit(f'{expected} deployment pid is invalid')
+uptime = identity.get('uptimeMs')
+if isinstance(uptime, bool) or not isinstance(uptime, (int, float)) or not math.isfinite(uptime) or uptime < 0:
+    raise SystemExit(f'{expected} deployment uptimeMs is not finite')
+print(json.dumps({'status': status, 'fleet_ready': ready, 'failing_dependency': failure, 'uptimeMs': uptime}, sort_keys=True))
+PY
+}
+
+health_poll_state() {
+  local destination=$1 expected=$2 attempt temporary
+  for ((attempt=1; attempt<=45; attempt++)); do
+    temporary="$EVIDENCE_PATH/.health-$expected-$attempt.json"
+    if health_capture_raw "$temporary" "health-$expected-$attempt" && health_assert_state "$temporary" "$expected" >/dev/null 2>&1; then
+      mv -f -- "$temporary" "$destination"
+      return 0
+    fi
+    rm -f -- "$temporary"
+    sleep 1
+  done
+  return 1
+}
+
+health_capture_remote_file() {
+  local destination=$1 label=$2 command=$3 temporary
+  temporary="$EVIDENCE_PATH/.$label.$$"
+  rm -f -- "$temporary"
+  if ! health_ssh "$command" >"$temporary" 2>"$EVIDENCE_PATH/$label.ssh.stderr"; then
+    rm -f -- "$temporary"
+    return 1
+  fi
+  [[ -s "$temporary" ]] || { rm -f -- "$temporary"; return 1; }
+  mv -f -- "$temporary" "$destination"
+}
+
+health_router_inspect() {
+  health_ssh "set -eu
+D='$REMOTE_DOCKER_BIN'
+C='$REMOTE_COMPOSE_FILE'
+ids=\$(\"\$D\" compose -f \"\$C\" ps -q litellm-router)
+set -- \$ids
+test \$# -eq 1
+test -n \"\$1\"
+\"\$D\" inspect \"\$1\""
+}
+
+health_production_command() {
+  cat <<'REMOTE'
+set -eu
+D='/usr/local/bin/docker'
+for service in postgres mastra scheduler zero-cache; do
+  found=$("$D" ps -q --filter "label=com.docker.compose.service=$service")
+  count=$(printf '%s\n' "$found" | awk 'NF {n++} END {print n+0}')
+  test "$count" -eq 1
+  id=$(printf '%s\n' "$found" | awk 'NF {print; exit}')
+  case "$service" in
+    postgres) id_postgres="$id" ;;
+    mastra) id_mastra="$id" ;;
+    scheduler) id_scheduler="$id" ;;
+    zero-cache) id_zero_cache="$id" ;;
+  esac
+done
+"$D" inspect "$id_postgres" "$id_mastra" "$id_scheduler" "$id_zero_cache"
+REMOTE
+}
+
+health_primary_command() {
+  cat <<'REMOTE'
+set -eu
+P=/Users/holocron/Projects/holocron
+head=$(git -C "$P" rev-parse HEAD)
+status_sha256=$(git -C "$P" status --porcelain=v1 | shasum -a 256 | awk '{print $1}')
+tracked_hash=$(git -C "$P" ls-files -s | shasum -a 256 | awk '{print $1}')
+test -n "$head" -a -n "$status_sha256" -a -n "$tracked_hash"
+printf '{"head":"%s","status_sha256":"%s","tracked_hash":"%s"}\n' "$head" "$status_sha256" "$tracked_hash"
+REMOTE
+}
+
+health_assert_router_inspect() {
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+path, expected = sys.argv[1:]
+value = json.load(open(path, encoding='utf-8'))
+if not isinstance(value, list) or len(value) != 1:
+    raise SystemExit('router inspect must contain exactly one record')
+record = value[0]
+labels = record.get('Config', {}).get('Labels', {})
+if labels.get('com.docker.compose.project') != 'holocron-router':
+    raise SystemExit('router compose project label is not holocron-router')
+if labels.get('com.docker.compose.service') != 'litellm-router':
+    raise SystemExit('router compose service label is not litellm-router')
+if labels.get('com.docker.compose.project.config_files') != '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml':
+    raise SystemExit('router compose file label is not the exact isolated file')
+state = record.get('State', {})
+if expected == 'running-healthy' and (state.get('Status') != 'running' or state.get('Health', {}).get('Status') != 'healthy'):
+    raise SystemExit('router is not running and healthy')
+print(json.dumps({'state': state.get('Status'), 'health': state.get('Health', {}).get('Status')}, sort_keys=True))
+PY
+}
+
+health_wait_router_healthy() {
+  local destination=$1 attempt temporary
+  for ((attempt=1; attempt<=45; attempt++)); do
+    temporary="$EVIDENCE_PATH/.router-post-$attempt.json"
+    if health_router_inspect >"$temporary" 2>"$EVIDENCE_PATH/router-inspect-$attempt.ssh.stderr" && health_assert_router_inspect "$temporary" running-healthy >/dev/null 2>&1; then
+      mv -f -- "$temporary" "$destination"
+      return 0
+    fi
+    rm -f -- "$temporary"
+    sleep 1
+  done
+  return 1
+}
+
+health_validate_raw_invariants() {
+  python3 - "$EVIDENCE_PATH/health.pre.json" "$EVIDENCE_PATH/health.degraded.json" "$EVIDENCE_PATH/health.restored.json" "$EVIDENCE_PATH/production-containers.pre.json" "$EVIDENCE_PATH/production-containers.post.json" "$EVIDENCE_PATH/remote-primary.pre.json" "$EVIDENCE_PATH/remote-primary.post.json" <<'PY'
+import json, math, sys
+pre, degraded, restored, containers_pre, containers_post, primary_pre, primary_post = sys.argv[1:]
+def load(path):
+    return json.load(open(path, encoding='utf-8'))
+health = [load(path) for path in (pre, degraded, restored)]
+expected = [('ok', True, None), ('degraded', False, 'fleet'), ('ok', True, None)]
+identities = []
+for index, (value, state) in enumerate(zip(health, expected)):
+    if (value.get('status'), value.get('fleet', {}).get('ready'), value.get('failing_dependency')) != state:
+        raise SystemExit(f'health triplet mismatch at {index}')
+    identity = value.get('deployment', {}).get('identity')
+    if not isinstance(identity, dict):
+        raise SystemExit(f'missing deployment identity at {index}')
+    for field in ('host', 'runtime', 'imageDigest', 'sourceRevision', 'composeGeneration'):
+        if not isinstance(identity.get(field), str) or not identity[field]:
+            raise SystemExit(f'missing identity field {field} at {index}')
+    if not isinstance(identity.get('pid'), int) or identity['pid'] <= 0:
+        raise SystemExit(f'invalid pid at {index}')
+    uptime = identity.get('uptimeMs')
+    if isinstance(uptime, bool) or not isinstance(uptime, (int, float)) or not math.isfinite(uptime):
+        raise SystemExit(f'uptimeMs is not finite at {index}')
+    identities.append(identity)
+for field in ('host', 'runtime', 'imageDigest', 'sourceRevision', 'composeGeneration', 'pid'):
+    if not (identities[0][field] == identities[1][field] == identities[2][field]):
+        raise SystemExit(f'deployment identity changed in {field}')
+if not (identities[0]['uptimeMs'] <= identities[1]['uptimeMs'] <= identities[2]['uptimeMs']):
+    raise SystemExit('deployment uptime is not monotonic')
+def container_identities(path):
+    records = load(path)
+    if not isinstance(records, list) or len(records) != 4:
+        raise SystemExit(f'production inspect is not exactly four records: {path}')
+    result = {}
+    for record in records:
+        service = record.get('Config', {}).get('Labels', {}).get('com.docker.compose.service')
+        if service not in {'postgres', 'mastra', 'scheduler', 'zero-cache'} or service in result:
+            raise SystemExit(f'invalid production service in {path}: {service!r}')
+        state = record.get('State', {})
+        identity = (record.get('Id'), record.get('Image'), state.get('StartedAt'))
+        if not all(isinstance(item, str) and item for item in identity):
+            raise SystemExit(f'incomplete production identity in {path}: {service}')
+        result[service] = identity
+    if set(result) != {'postgres', 'mastra', 'scheduler', 'zero-cache'}:
+        raise SystemExit(f'production service set mismatch in {path}')
+    return result
+if container_identities(containers_pre) != container_identities(containers_post):
+    raise SystemExit('production container identities changed')
+def primary(path):
+    value = load(path)
+    if set(value) != {'head', 'status_sha256', 'tracked_hash'} or not all(isinstance(item, str) and item for item in value.values()):
+        raise SystemExit(f'invalid protected primary sentinel: {path}')
+    return value
+if primary(primary_pre) != primary(primary_post):
+    raise SystemExit('protected remote primary sentinel changed')
+print(json.dumps({'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'finite_numeric_uptime_count': 3}, sort_keys=True))
+PY
+}
+
+health_write_failure() {
+  local reason=$1 comparison=''
+  comparison=$(health_validate_raw_invariants 2>/dev/null || true)
+  python3 - "$EVIDENCE_PATH/failure.json" "$NEGATIVE_CONTROL" "$reason" "$HEALTH_CLEANUP_RESTORE_ARMED" "$HEALTH_CLEANUP_RESTORE_ATTEMPTED" "$HEALTH_RESTORE_SUCCEEDED" "$comparison" <<'PY'
+import json, os, sys
+out, negative, reason, armed, attempted, succeeded, comparison = sys.argv[1:]
+root = os.path.dirname(out)
+result = {'ok': False, 'mode': 'health-flip', 'negative_control': negative or None, 'intentional_failure_observed': negative == 'fail-after-stop', 'failure_reason': reason, 'cleanup_restore_armed': armed == '1', 'cleanup_restore_attempted': attempted == '1', 'restore_succeeded': succeeded == '1'}
+def read_json(name):
+    path = os.path.join(root, name)
+    if os.path.isfile(path) and os.path.getsize(path):
+        return json.load(open(path, encoding='utf-8'))
+    return None
+restored = read_json('health.restored.json')
+if isinstance(restored, dict):
+    result['restored_health'] = {'status': restored.get('status'), 'fleet': restored.get('fleet'), 'failing_dependency': restored.get('failing_dependency')}
+for key in ('deployment_identity_unchanged', 'deployment_pid_unchanged', 'deployment_uptime_monotonic', 'production_service_identities_unchanged', 'remote_primary_unchanged'):
+    result[key] = False
+if comparison:
+    result.update(json.loads(comparison))
+router = read_json('router.post.json')
+result['final_router'] = {'state': router[0].get('State', {}).get('Status'), 'health': router[0].get('State', {}).get('Health', {}).get('Status')} if isinstance(router, list) and router else {'state': None, 'health': None}
+result['artifact_manifest'] = {}
+for name in ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json'):
+    path = os.path.join(root, name)
+    if os.path.isfile(path) and os.path.getsize(path):
+        result['artifact_manifest'][name.replace('.', '_')] = {'path': os.path.relpath(path, os.getcwd()), 'exists': True, 'byte_length': os.path.getsize(path)}
+json.dump(result, open(out, 'w', encoding='utf-8'), indent=2, sort_keys=True)
+open(out, 'a', encoding='utf-8').write('\n')
+PY
+}
+
+HEALTH_MUTATION_STARTED=0
+HEALTH_CLEANUP_RESTORE_ARMED=0
+HEALTH_CLEANUP_RESTORE_ATTEMPTED=0
+HEALTH_RESTORE_SUCCEEDED=0
+HEALTH_CLEANUP_RUNNING=0
+
+health_restore_router() {
+  local restore_rc=0 comparison
+  HEALTH_CLEANUP_RESTORE_ATTEMPTED=1
+  set +e
+  health_ssh "set -eu
+D='$REMOTE_DOCKER_BIN'
+C='$REMOTE_COMPOSE_FILE'
+\"\$D\" compose -f \"\$C\" up -d litellm-router >/dev/null" >"$EVIDENCE_PATH/restore.stdout" 2>"$EVIDENCE_PATH/restore.ssh.stderr"
+  restore_rc=$?
+  if ((restore_rc == 0)); then
+    health_wait_router_healthy "$EVIDENCE_PATH/router.post.json"
+    restore_rc=$?
+  fi
+  if ((restore_rc == 0)); then
+    health_poll_state "$EVIDENCE_PATH/health.restored.json" restored
+    restore_rc=$?
+  fi
+  if ((restore_rc == 0)); then
+    health_capture_remote_file "$EVIDENCE_PATH/production-containers.post.json" production-containers-post "$(health_production_command)"
+    restore_rc=$?
+  fi
+  if ((restore_rc == 0)); then
+    health_capture_remote_file "$EVIDENCE_PATH/remote-primary.post.json" remote-primary-post "$(health_primary_command)"
+    restore_rc=$?
+  fi
+  if ((restore_rc == 0)); then
+    comparison=$(health_validate_raw_invariants 2>"$EVIDENCE_PATH/raw-invariants.stderr")
+    restore_rc=$?
+  fi
+  set -e
+  if ((restore_rc == 0)); then
+    HEALTH_RESTORE_SUCCEEDED=1
+  fi
+  return "$restore_rc"
+}
+
+health_cleanup() {
+  local original_rc=$1 restore_rc=0
+  ((HEALTH_CLEANUP_RUNNING == 0)) || exit "$original_rc"
+  ((HEALTH_MUTATION_STARTED == 1)) || exit "$original_rc"
+  HEALTH_CLEANUP_RUNNING=1
+  if ((HEALTH_RESTORE_SUCCEEDED == 0)); then
+    health_restore_router || restore_rc=$?
+  fi
+  if [[ "$NEGATIVE_CONTROL" == fail-after-stop ]]; then
+    health_write_failure "intentional fail-after-stop control"
+    if ((HEALTH_RESTORE_SUCCEEDED == 1 && original_rc != 0)); then
+      exit "$original_rc"
+    fi
+    exit 1
+  fi
+  if ((restore_rc != 0 || HEALTH_RESTORE_SUCCEEDED != 1)); then
+    health_write_failure "cleanup restore failed"
+    exit 1
+  fi
+  exit "$original_rc"
+}
+
+health_flip() {
+  local comparison restored_json router_json
+  trap 'health_cleanup "$?"' EXIT
+  trap 'exit 130' HUP INT TERM
+
+  health_ssh "test -x '$REMOTE_DOCKER_BIN'" || die 'remote Docker CLI is not executable'
+  health_router_inspect >"$EVIDENCE_PATH/router.pre.json" 2>"$EVIDENCE_PATH/router-pre.ssh.stderr" || die 'could not inspect isolated router before mutation'
+  health_assert_router_inspect "$EVIDENCE_PATH/router.pre.json" running-healthy >/dev/null || die 'isolated router is not running and healthy before mutation'
+  health_capture_remote_file "$EVIDENCE_PATH/production-containers.pre.json" production-containers-pre "$(health_production_command)" || die 'could not capture production identities before mutation'
+  health_capture_remote_file "$EVIDENCE_PATH/remote-primary.pre.json" remote-primary-pre "$(health_primary_command)" || die 'could not capture protected primary before mutation'
+  health_capture_raw "$EVIDENCE_PATH/health.pre.json" health-pre || die 'could not capture pre-stop health'
+  health_assert_state "$EVIDENCE_PATH/health.pre.json" pre >/dev/null || die 'pre-stop health is not ready'
+
+  HEALTH_MUTATION_STARTED=1
+  HEALTH_CLEANUP_RESTORE_ARMED=1
+  health_ssh "set -eu
+D='$REMOTE_DOCKER_BIN'
+C='$REMOTE_COMPOSE_FILE'
+\"\$D\" compose -f \"\$C\" stop litellm-router >/dev/null" || die 'router-only stop failed'
+  health_poll_state "$EVIDENCE_PATH/health.degraded.json" degraded || die 'router stop did not produce exact degraded health'
+
+  if [[ "$NEGATIVE_CONTROL" == fail-after-stop ]]; then
+    die 'intentional fail-after-stop control'
+  fi
+
+  health_restore_router || die 'router restore or post-state validation failed'
+  comparison=$(health_validate_raw_invariants) || die 'raw health/container/primary invariants failed'
+  restored_json=$(health_assert_state "$EVIDENCE_PATH/health.restored.json" restored)
+  router_json=$(health_assert_router_inspect "$EVIDENCE_PATH/router.post.json" running-healthy)
+  python3 - "$RESULT_PATH" "$restored_json" "$router_json" "$comparison" <<'PY'
+import json, os, sys
+out, restored, router, comparison = sys.argv[1:]
+root = os.path.dirname(out)
+def art(path):
+    if not os.path.isfile(path) or os.path.getsize(path) < 1:
+        raise SystemExit(f'missing or empty artifact: {path}')
+    return {'path': os.path.relpath(path, os.getcwd()), 'exists': True, 'byte_length': os.path.getsize(path)}
+files = ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json')
+manifest = {name.replace('.', '_'): art(os.path.join(root, name)) for name in files}
+result = {'ok': True, 'mode': 'health-flip', 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
+json.dump(result, open(out, 'w', encoding='utf-8'), indent=2, sort_keys=True)
+open(out, 'a', encoding='utf-8').write('\n')
+PY
+  HEALTH_MUTATION_STARTED=0
+}
+
+
+
+
 resolve_evidence_paths
+health_archive_existing_outcome
 if [[ "$MODE" != health-regression ]]; then
   mkdir -p -- "$EVIDENCE_PATH"
   ERRORS_PATH=$EVIDENCE_PATH/errors.log
@@ -458,6 +864,7 @@ case "$MODE" in
   models-reviewer) models_reviewer ;;
   implementer-distribution) distribution ;;
   health-regression) health_assertion_regression ;;
+  health-flip) health_flip ;;
 esac
 [[ "$MODE" == health-regression ]] && exit 0
 [[ -s "$RESULT_PATH" ]] || die "result.json missing"
