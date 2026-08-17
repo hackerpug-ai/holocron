@@ -1131,6 +1131,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
     const script = String.raw`
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -1166,11 +1167,51 @@ seeded = module.derive_seeded('AC-2', {
 assert f'inference1[{inference1}]=2' in seeded
 assert f'inference2[{inference2}]=7' in seeded
 
+repo_root = Path(sys.argv[2])
+expected_test_count = module.focused_test_case_count(repo_root / module.FOCUSED_TEST_SOURCE, repo_root)
+assert expected_test_count != 8
+
+with tempfile.TemporaryDirectory(prefix='s33-manifestless-run-') as temp:
+    root = Path(temp)
+    run = root / 'models-reviewer' / 'runs' / 'manifestless-run'
+    run.mkdir(parents=True)
+    errors = run / 'errors.log'
+    errors.write_text('', encoding='utf-8')
+    try:
+        module.validate_active_run('models-reviewer', run, root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('nonempty manifestless active run was accepted')
+
+with tempfile.TemporaryDirectory(prefix='s33-archive-coverage-') as temp:
+    root = Path(temp)
+    shutil.copytree(repo_root / '.tmp' / 'S33-OPS-02', root, dirs_exist_ok=True)
+    uncovered = root / 'historical-archive' / 'c3-base-blobs' / 'models-reviewer' / 'uncovered.txt'
+    uncovered.write_text('uncovered archive payload\n', encoding='utf-8')
+    try:
+        module.validate_archive_and_base_shape(root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('uncovered archive payload was accepted')
+    uncovered.unlink()
+    tampered = root / 'historical-archive' / 'c3-base-blobs' / 'models-reviewer' / 'result.json'
+    original_tampered = tampered.read_bytes()
+    tampered.write_bytes(original_tampered + b'\ntampered')
+    try:
+        module.validate_archive_and_base_shape(root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('tampered archive payload was accepted')
+    assert tampered.read_bytes() != original_tampered
+
 with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     root = Path(temp)
     tc5 = root / 'tc-5-output.txt'
     tc6 = root / 'tc-6-output.txt'
-    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed (8)\n', encoding='utf-8')
+    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
     tc6.write_text(json.dumps({
         'overall': 'REAL',
         'acs': [
@@ -1178,28 +1219,47 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
             {'ac_id': 'AC-2', 'verdict': 'REAL', 'boundary_mocked': False, 'watched_red': True, 'boundary_matches': [], 'unreadable_test_files': []},
         ],
     }), encoding='utf-8')
-    module.validate_gate_outputs(root, rows)
+    module.validate_gate_outputs(root, rows, repo_root)
+    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed | 0 skipped (8)\n', encoding='utf-8')
+    tc5_bytes = tc5.read_bytes()
+    try:
+        module.validate_gate_outputs(root, rows, repo_root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('stale TC-5 test count was accepted')
+    assert tc5.read_bytes() == tc5_bytes
+    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 1 skipped ({expected_test_count + 1})\n', encoding='utf-8')
+    tc5_bytes = tc5.read_bytes()
+    try:
+        module.validate_gate_outputs(root, rows, repo_root)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('skipped TC-5 test was accepted')
+    assert tc5.read_bytes() == tc5_bytes
+    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
     tc5.write_text('Test Files 1 failed (1)\nTests 8 failed (8)\n', encoding='utf-8')
     tc5_bytes = tc5.read_bytes()
     try:
-        module.validate_gate_outputs(root, rows)
+        module.validate_gate_outputs(root, rows, repo_root)
     except SystemExit:
         pass
     else:
         raise AssertionError('stale TC-5 failure was accepted')
     assert tc5.read_bytes() == tc5_bytes
-    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed (8)\n', encoding='utf-8')
+    tc5.write_text(f'Test Files 1 passed (1)\nTests {expected_test_count} passed | 0 skipped ({expected_test_count})\n', encoding='utf-8')
     tc6.write_text(json.dumps({'overall': 'NOT_REAL', 'acs': []}), encoding='utf-8')
     tc6_bytes = tc6.read_bytes()
     try:
-        module.validate_gate_outputs(root, rows)
+        module.validate_gate_outputs(root, rows, repo_root)
     except SystemExit:
         pass
     else:
         raise AssertionError('stale TC-6 non-REAL result was accepted')
     assert tc6.read_bytes() == tc6_bytes
 `;
-    await execFileAsync('python3', ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py')], {
+    await execFileAsync('python3', ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py'), REPO_ROOT], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       timeout: 30_000,
