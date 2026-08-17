@@ -23,7 +23,7 @@ from typing import Any
 
 
 TASK_ID = "S33-OPS-02"
-RECIPE_VERSION = "1.1"
+RECIPE_VERSION = "1.2"
 REQUIREMENT_IDS = ("AC-1", "AC-2", "TC-1", "TC-2", "TC-3", "TC-4", "TC-5", "TC-6")
 REQUIREMENT_OUTPUTS = REQUIREMENT_IDS[:6]
 REQUIREMENT_OUTPUT_FILES = {requirement: f".tmp/{TASK_ID}/{requirement.lower()}-output.txt" for requirement in REQUIREMENT_IDS}
@@ -92,6 +92,7 @@ CANONICAL_REQUIREMENT_COMMANDS = {
     "TC-6": EXPECTED_GATE_COMMANDS["TC-6"],
 }
 FOCUSED_TEST_SOURCE = "tests/integration/sprint33-ops-02-router-capacity.test.ts"
+FOCUSED_TEST_SOURCE_SNAPSHOT_ROOT = "source-snapshot"
 BACKEND_URLS = {
     "inference1": "http://inference1.tail011a51.ts.net:8003/v1",
     "inference2": "http://inference2.tail011a51.ts.net:8003/v1",
@@ -108,6 +109,10 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def regular_file(path: Path, root: Path, label: str, *, allow_empty: bool = True) -> tuple[Path, int]:
@@ -491,15 +496,24 @@ def validate_archive_and_base_shape(root: Path, repo_root: Path | None = None) -
         fail("relocation manifest does not cover exactly every archived file")
 
 
-def focused_test_case_count(source_path: Path, repo_root: Path) -> int:
-    absolute, _ = regular_file(source_path, repo_root, "focused integration test source", allow_empty=False)
-    source = absolute.read_text(encoding="utf-8")
+def focused_test_case_count(source: bytes | Path, repo_root: Path | None = None) -> int:
+    if isinstance(source, Path):
+        if repo_root is None:
+            fail("focused integration test source requires a repository root")
+        absolute, _ = regular_file(source, repo_root, "focused integration test source", allow_empty=False)
+        source_bytes = absolute.read_bytes()
+    else:
+        source_bytes = source
+    try:
+        source_text = source_bytes.decode("utf-8")
+    except UnicodeDecodeError as error:
+        fail(f"focused integration test source is not UTF-8: {error}")
     count = 0
     index = 0
     state = "code"
-    while index < len(source):
-        char = source[index]
-        next_char = source[index + 1] if index + 1 < len(source) else ""
+    while index < len(source_text):
+        char = source_text[index]
+        next_char = source_text[index + 1] if index + 1 < len(source_text) else ""
         if state == "code":
             if char == "/" and next_char == "/":
                 state = "line-comment"
@@ -513,21 +527,21 @@ def focused_test_case_count(source_path: Path, repo_root: Path) -> int:
                 state = char
                 index += 1
                 continue
-            if source.startswith("it", index):
-                before = source[index - 1] if index else ""
+            if source_text.startswith("it", index):
+                before = source_text[index - 1] if index else ""
                 after_index = index + 2
-                while after_index < len(source) and source[after_index].isspace():
+                while after_index < len(source_text) and source_text[after_index].isspace():
                     after_index += 1
-                if (not (before.isalnum() or before in "_$")) and after_index < len(source):
-                    if source[after_index] == "(":
+                if (not (before.isalnum() or before in "_$")) and after_index < len(source_text):
+                    if source_text[after_index] == "(":
                         count += 1
-                    elif source[after_index] == ".":
+                    elif source_text[after_index] == ".":
                         after_index += 1
-                        while after_index < len(source) and (source[after_index].isalnum() or source[after_index] in "_$"):
+                        while after_index < len(source_text) and (source_text[after_index].isalnum() or source_text[after_index] in "_$"):
                             after_index += 1
-                        while after_index < len(source) and source[after_index].isspace():
+                        while after_index < len(source_text) and source_text[after_index].isspace():
                             after_index += 1
-                        if after_index < len(source) and source[after_index] == "(":
+                        if after_index < len(source_text) and source_text[after_index] == "(":
                             count += 1
             index += 1
             continue
@@ -555,10 +569,131 @@ def focused_test_case_count(source_path: Path, repo_root: Path) -> int:
     return count
 
 
-def validate_gate_outputs(root: Path, by_id: dict[str, dict[str, Any]], repo_root: Path) -> tuple[int, str]:
+def git_focused_source(repo_root: Path, commit_sha: str) -> tuple[str, bytes]:
+    source_spec = f"{commit_sha}:{FOCUSED_TEST_SOURCE}"
+    try:
+        blob = subprocess.check_output(["git", "rev-parse", "--verify", source_spec], cwd=repo_root, text=True).strip()
+        object_type = subprocess.check_output(["git", "cat-file", "-t", blob], cwd=repo_root, text=True).strip()
+        source_bytes = subprocess.check_output(["git", "cat-file", "blob", blob], cwd=repo_root)
+    except subprocess.CalledProcessError as error:
+        fail(f"focused integration test source cannot be resolved from Git: {error}")
+    if not re.fullmatch(r"[0-9a-f]{40}", blob) or object_type != "blob":
+        fail("focused integration test source Git object is not a full blob")
+    return blob, source_bytes
+
+
+def focused_test_source_snapshot(commit_sha: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{40}", commit_sha):
+        fail("focused integration test snapshot commit is not a full SHA")
+    return f"{FOCUSED_TEST_SOURCE_SNAPSHOT_ROOT}/{commit_sha}/{FOCUSED_TEST_SOURCE}"
+
+
+def snapshot_destination(root: Path, snapshot_relative: str) -> Path:
+    root_absolute = root.absolute()
+    root_info = root_absolute.lstat()
+    if stat.S_ISLNK(root_info.st_mode) or not stat.S_ISDIR(root_info.st_mode):
+        fail("focused integration test snapshot root is not a real directory")
+    current = root_absolute
+    snapshot_parts = Path(snapshot_relative).parts
+    for part in snapshot_parts[:-1]:
+        current /= part
+        if os.path.lexists(current):
+            info = current.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                fail(f"focused integration test snapshot parent is unsafe: {current}")
+        else:
+            current.mkdir()
+    destination = root_absolute.joinpath(*snapshot_parts)
+    try:
+        if os.path.lexists(destination):
+            info = destination.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+                fail("focused integration test snapshot destination is not a regular non-symlink file")
+    except FileNotFoundError:
+        pass
+    return destination
+
+
+def create_focused_test_snapshot(root: Path, repo_root: Path, commit_sha: str) -> tuple[dict[str, Any], bytes]:
+    """Create an exact Git-bound snapshot once, or accept the same bytes idempotently."""
+    source_absolute, source_size = regular_file(repo_root / FOCUSED_TEST_SOURCE, repo_root, "focused integration test source", allow_empty=False)
+    source_bytes = source_absolute.read_bytes()
+    source_blob, git_bytes = git_focused_source(repo_root, commit_sha)
+    if source_bytes != git_bytes:
+        fail("focused integration test source differs from the exact Git HEAD blob")
+    if source_size != len(git_bytes):
+        fail("focused integration test source byte length is not Git-bound")
+    snapshot_relative = focused_test_source_snapshot(commit_sha)
+    destination = snapshot_destination(root, snapshot_relative)
+    if os.path.lexists(destination):
+        existing = destination.read_bytes()
+        if existing != git_bytes:
+            fail("focused integration test source snapshot differs from the exact Git HEAD blob")
+    else:
+        temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
+        if os.path.lexists(temporary):
+            fail("focused integration test snapshot temporary path already exists")
+        try:
+            with temporary.open("xb") as handle:
+                handle.write(git_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if os.path.lexists(destination):
+                fail("focused integration test snapshot destination appeared during atomic creation")
+            os.replace(temporary, destination)
+        finally:
+            if os.path.lexists(temporary):
+                temporary.unlink()
+    return validate_focused_test_source(root, repo_root, commit_sha)
+
+
+def validate_focused_test_source(
+    root: Path,
+    repo_root: Path,
+    commit_sha: str,
+    claimed_metadata: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], bytes]:
+    """Bind the evidence-local snapshot to the exact tracked HEAD blob."""
+    source_absolute, source_size = regular_file(repo_root / FOCUSED_TEST_SOURCE, repo_root, "focused integration test source", allow_empty=False)
+    source_bytes = source_absolute.read_bytes()
+    source_blob, git_bytes = git_focused_source(repo_root, commit_sha)
+    if source_bytes != git_bytes:
+        fail("focused integration test source differs from the exact Git HEAD blob")
+    snapshot_relative = focused_test_source_snapshot(commit_sha)
+    snapshot_absolute, snapshot_size = regular_file(root / snapshot_relative, root, "focused integration test source snapshot", allow_empty=False)
+    snapshot_bytes = snapshot_absolute.read_bytes()
+    if snapshot_bytes != git_bytes:
+        fail("focused integration test source snapshot differs from the exact Git HEAD blob")
+    if source_size != snapshot_size or source_size != len(git_bytes):
+        fail("focused integration test source snapshot byte length is not Git-bound")
+    metadata = {
+        "original_path": FOCUSED_TEST_SOURCE,
+        "source_commit": commit_sha,
+        "source_blob": source_blob,
+        "path": snapshot_relative,
+        "sha256": sha256_bytes(snapshot_bytes),
+        "byte_length": len(snapshot_bytes),
+        "declared_test_cases": focused_test_case_count(git_bytes),
+        "source_sha256": sha256_bytes(source_bytes),
+    }
+    if claimed_metadata is not None:
+        for key in ("original_path", "source_commit", "source_blob", "path", "sha256", "byte_length"):
+            if claimed_metadata.get(key) != metadata[key]:
+                fail(f"focused integration test source metadata does not match Git-bound snapshot: {key}")
+    return metadata, git_bytes
+
+
+def validate_gate_outputs(
+    root: Path,
+    by_id: dict[str, dict[str, Any]],
+    repo_root: Path,
+    focused_source_bytes: bytes | None = None,
+) -> tuple[int, str]:
     """Validate the two non-JSON gates before allowing any summary rewrite."""
-    source_path = repo_root / FOCUSED_TEST_SOURCE
-    expected_test_count = focused_test_case_count(source_path, repo_root)
+    if focused_source_bytes is None:
+        source_path = repo_root / FOCUSED_TEST_SOURCE
+        focused_source_bytes = source_path.read_bytes()
+    expected_test_count = focused_test_case_count(focused_source_bytes)
     for requirement, expected_command in EXPECTED_GATE_COMMANDS.items():
         item = by_id[requirement]
         exit_code = item.get("exit_code")
@@ -594,7 +729,7 @@ def validate_gate_outputs(root: Path, by_id: dict[str, dict[str, Any]], repo_roo
         for ac in acs:
             if not isinstance(ac, dict) or ac.get("verdict") != "REAL" or ac.get("boundary_mocked") is not False or ac.get("watched_red") is not True or ac.get("boundary_matches") != [] or ac.get("unreadable_test_files") != []:
                 fail("TC-6 output contains a non-REAL or incomplete AC reality row")
-    return expected_test_count, sha256(source_path)
+    return expected_test_count, sha256_bytes(focused_source_bytes)
 
 
 def derive_seeded(requirement: str, output: dict[str, Any]) -> str:
@@ -719,7 +854,8 @@ def main() -> None:
             fail(f"{requirement} output_file does not match the canonical requirement mapping")
         if by_id[requirement].get("verify") != CANONICAL_REQUIREMENT_COMMANDS[requirement]:
             fail(f"{requirement} verify command does not match the canonical task manifest")
-    focused_test_count, focused_test_sha = validate_gate_outputs(root, by_id, repo_root)
+    focused_source, focused_source_bytes = create_focused_test_snapshot(root, repo_root, current_sha)
+    focused_test_count, focused_test_sha = validate_gate_outputs(root, by_id, repo_root, focused_source_bytes)
     output_values: dict[str, dict[str, Any]] = {}
     raw_by_requirement: dict[str, list[dict[str, Any]]] = {}
     all_raw: dict[str, dict[str, Any]] = {}
@@ -773,8 +909,7 @@ def main() -> None:
         "original_harvest": original_harvest,
         "postprocessor": {"path": recipe_relative, "version": RECIPE_VERSION, "sha256": recipe_hash},
         "focused_test_source": {
-            "path": FOCUSED_TEST_SOURCE,
-            "sha256": focused_test_sha,
+            **focused_source,
             "declared_test_cases": focused_test_count,
         },
         "raw_artifact_hash_binding": {
@@ -795,7 +930,7 @@ def main() -> None:
         absolute, _ = regular_file(root / path, root, f"stock input {path}")
         inputs.append({"path": path, "sha256": sha256(absolute)})
     inputs.extend({"path": path, "sha256": item["sha256"]} for path, item in sorted(all_raw.items()))
-    inputs.append({"path": FOCUSED_TEST_SOURCE, "sha256": focused_test_sha})
+    inputs.append({"path": focused_source["path"], "sha256": focused_test_sha})
     inputs.append({"path": VERIFY_MANIFEST_FILE, "sha256": verification_manifest_sha})
     inputs.append({"path": recipe_relative, "sha256": recipe_hash})
     expected_inputs = len(STOCK_INPUTS) + len(all_raw) + 3

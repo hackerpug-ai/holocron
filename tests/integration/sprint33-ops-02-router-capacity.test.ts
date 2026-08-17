@@ -1328,6 +1328,165 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     );
   });
 
+  it('binds the focused source snapshot to the exact Git blob and exposes the prior lineage RED', async () => {
+    const lineageValidator = resolve(
+      REPO_ROOT,
+      '../../../../brain/skills/kb-run-sprint/scripts/validate-evidence-lineage.sh'
+    );
+    const { stdout: headOutput } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    const headSha = headOutput.trim();
+    const controlRoot = resolve(EVIDENCE_ROOT, `lineage-controls-${randomUUID()}`);
+    await mkdir(controlRoot, { recursive: true });
+    try {
+      const { stdout: gitSource } = await execFileAsync(
+        'git',
+        [
+          'cat-file',
+          'blob',
+          `${headSha}:tests/integration/sprint33-ops-02-router-capacity.test.ts`,
+        ],
+        { cwd: REPO_ROOT, encoding: 'utf8' }
+      );
+      const snapshotRelative = `source-snapshot/${headSha}/tests/integration/sprint33-ops-02-router-capacity.test.ts`;
+      const snapshotPath = resolve(controlRoot, snapshotRelative);
+      const snapshotBytes = Buffer.from(gitSource, 'utf8');
+      const snapshotSha = createHash('sha256').update(snapshotBytes).digest('hex');
+      await mkdir(resolve(snapshotPath, '..'), { recursive: true });
+      await writeFile(snapshotPath, snapshotBytes);
+      const missingSummary = resolve(controlRoot, 'missing-source-summary.json');
+      await writeFile(
+        missingSummary,
+        `${JSON.stringify({
+          requirement_results: [],
+          generator: {
+            inputs: [
+              {
+                path: 'tests/integration/sprint33-ops-02-router-capacity.test.ts',
+                sha256: snapshotSha,
+              },
+            ],
+          },
+        })}\n`,
+        'utf8'
+      );
+      let missingFailure: { code?: number; stdout?: string; stderr?: string } | undefined;
+      try {
+        await execFileAsync(
+          'bash',
+          [lineageValidator, '--summary', missingSummary, '--dir', controlRoot],
+          { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+        );
+      } catch (error) {
+        missingFailure = error as { code?: number; stdout?: string; stderr?: string };
+      }
+      expect(missingFailure?.code, 'prior source-path lineage RED').toBe(1);
+      expect(`${missingFailure?.stdout ?? ''}${missingFailure?.stderr ?? ''}`).toContain(
+        'stamped input missing on disk: tests/integration/sprint33-ops-02-router-capacity.test.ts'
+      );
+
+      const snapshotSummary = resolve(controlRoot, 'snapshot-summary.json');
+      await writeFile(
+        snapshotSummary,
+        `${JSON.stringify({
+          requirement_results: [],
+          generator: {
+            inputs: [
+              {
+                path: snapshotRelative,
+                sha256: snapshotSha,
+              },
+            ],
+          },
+        })}\n`,
+        'utf8'
+      );
+      const green = await execFileAsync(
+        'bash',
+        [lineageValidator, '--summary', snapshotSummary, '--dir', controlRoot],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+      );
+      expect(green.stdout).toContain('stamp: all 1 input hash(es) match on-disk bytes');
+
+      const script = String.raw`
+import importlib.util
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+recipe_path = Path(__import__('sys').argv[1])
+actual_repo = Path(__import__('sys').argv[2])
+spec = importlib.util.spec_from_file_location('stamp_raw_references', recipe_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory(prefix='s33-source-repo-') as repo_temp:
+    repo_root = Path(repo_temp)
+    source = repo_root / module.FOCUSED_TEST_SOURCE
+    source.parent.mkdir(parents=True)
+    shutil.copyfile(actual_repo / module.FOCUSED_TEST_SOURCE, source)
+    subprocess.run(['git', 'init', '-q'], cwd=repo_root, check=True)
+    subprocess.run(['git', 'config', 'user.email', 'test@example.invalid'], cwd=repo_root, check=True)
+    subprocess.run(['git', 'config', 'user.name', 'test'], cwd=repo_root, check=True)
+    subprocess.run(['git', 'add', module.FOCUSED_TEST_SOURCE], cwd=repo_root, check=True)
+    subprocess.run(['git', 'commit', '-q', '-m', 'source snapshot test'], cwd=repo_root, check=True)
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_root, text=True).strip()
+    with tempfile.TemporaryDirectory(prefix='s33-source-snapshot-') as temp:
+        root = Path(temp)
+        metadata, git_bytes = module.create_focused_test_snapshot(root, repo_root, commit)
+        assert metadata['path'] == module.focused_test_source_snapshot(commit)
+        assert metadata['original_path'] == module.FOCUSED_TEST_SOURCE
+        assert metadata['source_commit'] == commit
+        assert metadata['source_blob'] == subprocess.check_output(
+            ['git', 'rev-parse', f'{commit}:{module.FOCUSED_TEST_SOURCE}'], cwd=repo_root, text=True
+        ).strip()
+        assert metadata['byte_length'] == len(git_bytes)
+        snapshot = root / module.focused_test_source_snapshot(commit)
+        before_mtime = snapshot.stat().st_mtime_ns
+        repeated, repeated_bytes = module.create_focused_test_snapshot(root, repo_root, commit)
+        assert repeated == metadata
+        assert repeated_bytes == git_bytes
+        assert snapshot.stat().st_mtime_ns == before_mtime
+        snapshot.write_bytes(git_bytes + b'\ncoordinated tamper')
+        claimed = {
+            'path': module.focused_test_source_snapshot(commit),
+            'sha256': module.sha256(snapshot),
+            'source_blob': '0' * 40,
+        }
+        assert claimed['sha256'] != metadata['sha256']
+        try:
+            module.validate_focused_test_source(root, repo_root, commit, claimed)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError('tampered source snapshot was accepted against Git')
+    with tempfile.TemporaryDirectory(prefix='s33-source-symlink-') as temp:
+        root = Path(temp)
+        parent = root / module.FOCUSED_TEST_SOURCE_SNAPSHOT_ROOT / commit
+        parent.mkdir(parents=True)
+        outside = root / 'outside'
+        outside.mkdir()
+        os.symlink(outside, parent / 'tests', target_is_directory=True)
+        try:
+            module.create_focused_test_snapshot(root, repo_root, commit)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError('symlinked source snapshot parent was accepted')
+`;
+      await execFileAsync(
+        'python3',
+        ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py'), REPO_ROOT],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+      );
+    } finally {
+      await rm(controlRoot, { recursive: true, force: true });
+    }
+  });
+
   it('AC-1 independently verifies health, both model observers, and reviewer inference2 routing', async () => {
     requireLiveEnvironment();
     const run = await runVerifier('models-reviewer', 'integration-models-reviewer');
