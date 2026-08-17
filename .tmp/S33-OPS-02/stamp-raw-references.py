@@ -651,6 +651,24 @@ def canonicalize_red_evidence(summary: dict[str, Any], policy: dict[str, Any]) -
     summary["red_evidence"] = {"required": False}
 
 
+def finalize_requirement_rows(
+    by_id: dict[str, dict[str, Any]],
+    output_values: dict[str, dict[str, Any]],
+    raw_by_requirement: dict[str, list[dict[str, Any]]],
+    policy: dict[str, Any],
+) -> None:
+    """Apply the production postcondition to all eight rows in canonical order."""
+    for requirement in REQUIREMENT_IDS:
+        item = by_id[requirement]
+        if requirement in REQUIREMENT_OUTPUTS:
+            item["raw_artifacts"] = raw_by_requirement[requirement]
+            output = output_values[requirement]
+        else:
+            item.pop("raw_artifacts", None)
+            output = {}
+        bind_seeded_evidence(requirement, item, output, policy)
+
+
 def atomic_write(path: Path, value: dict[str, Any], root: Path) -> None:
     absolute = path.absolute()
     regular_root = root.absolute()
@@ -785,11 +803,7 @@ def main() -> None:
         fail(f"generator input count does not equal stock + raw + recipe: {len(inputs)} != {expected_inputs}")
     generator["inputs"] = inputs
     summary["tests"] = derive_tests(root)
-    for requirement in REQUIREMENT_OUTPUTS:
-        item = by_id[requirement]
-        output = output_values[requirement]
-        item["raw_artifacts"] = raw_by_requirement[requirement]
-        bind_seeded_evidence(requirement, item, output, verification_policy)
+    finalize_requirement_rows(by_id, output_values, raw_by_requirement, verification_policy)
     summary["generator"] = generator
     atomic_write(summary_path, summary, root)
     print(json.dumps({"task_id": TASK_ID, "summary": str(summary_path), "unique_raw_artifacts": len(all_raw), "generator_inputs": len(inputs), "recipe_sha256": recipe_hash}, sort_keys=True))

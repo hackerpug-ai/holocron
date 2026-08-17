@@ -1147,6 +1147,7 @@ with tempfile.TemporaryDirectory(prefix='s33-policy-') as temp:
         'backend_fresh_completion_counts': {inference1: 2, inference2: 7},
     }
     outputs = {'AC-1': ac1_output, 'AC-2': ac2_output}
+    requirement_rows = {}
     for requirement in module.REQUIREMENT_IDS:
         row_path = rows_root / f'{requirement}.json'
         row_path.write_text(json.dumps({
@@ -1155,20 +1156,39 @@ with tempfile.TemporaryDirectory(prefix='s33-policy-') as temp:
             'red_against_start_file': 'stale-red.txt',
             'green_file': 'stale-green.txt',
             'seeded_value': 'stale-seeded-value',
+            'raw_artifacts': [{'path': 'stale-raw.json'}],
         }), encoding='utf-8')
-        row = json.loads(row_path.read_text(encoding='utf-8'))
-        module.bind_seeded_evidence(requirement, row, outputs.get(requirement, {'run_id': f'{requirement}-filesystem-run'}), policy)
+        requirement_rows[requirement] = json.loads(row_path.read_text(encoding='utf-8'))
+    output_values = {requirement: outputs.get(requirement, {'run_id': f'{requirement}-filesystem-run'}) for requirement in module.REQUIREMENT_OUTPUTS}
+    raw_by_requirement = {requirement: [{'path': f'{requirement}/fresh-raw.json'}] for requirement in module.REQUIREMENT_OUTPUTS}
+    module.finalize_requirement_rows(requirement_rows, output_values, raw_by_requirement, policy)
+    for requirement in module.REQUIREMENT_IDS:
+        row_path = rows_root / f'{requirement}.json'
+        row = requirement_rows[requirement]
         assert 'red_against_start_file' not in row
         assert 'green_file' not in row
-        assert 'seeded_value' not in row if requirement not in ('AC-1', 'AC-2') else 'Fresh run ' in row['seeded_value']
+        if requirement in ('AC-1', 'AC-2'):
+            assert row['seeded_value'].startswith(f'Fresh run {outputs[requirement]["run_id"]}')
+            assert 'raw_artifacts' in row
+        else:
+            assert 'seeded_value' not in row
+            if requirement in module.REQUIREMENT_OUTPUTS:
+                assert 'raw_artifacts' in row
+            else:
+                assert 'raw_artifacts' not in row
         row_path.write_text(json.dumps(row), encoding='utf-8')
         persisted = json.loads(row_path.read_text(encoding='utf-8'))
         assert 'red_against_start_file' not in persisted
         assert 'green_file' not in persisted
         if requirement in ('AC-1', 'AC-2'):
             assert persisted['seeded_value'].startswith(f'Fresh run {outputs[requirement]["run_id"]}')
+            assert 'raw_artifacts' in persisted
         else:
             assert 'seeded_value' not in persisted
+            if requirement in module.REQUIREMENT_OUTPUTS:
+                assert 'raw_artifacts' in persisted
+            else:
+                assert 'raw_artifacts' not in persisted
     summary_control_path = policy_root / 'stock-summary.json'
     summary_control_path.write_text(json.dumps({'red_evidence': {'required': True, 'stale': 'untrusted'}}), encoding='utf-8')
     summary_control = json.loads(summary_control_path.read_text(encoding='utf-8'))
