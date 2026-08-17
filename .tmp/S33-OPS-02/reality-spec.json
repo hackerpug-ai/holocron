@@ -15,7 +15,7 @@
         "filesystem",
         "process"
       ],
-      "watched_red_artifact": ".tmp/S33-OPS-02/negative-models-new.stderr"
+      "watched_red_artifact": ".tmp/S33-OPS-02/negative-ac1-router-unreachable.stderr"
     },
     {
       "ac_id": "AC-2",
@@ -30,7 +30,7 @@
         "filesystem",
         "process"
       ],
-      "watched_red_artifact": ".tmp/S33-OPS-02/negative-models-new.stderr"
+      "watched_red_artifact": ".tmp/S33-OPS-02/negative-ac2-router-unreachable.stderr"
     }
   ]
 }

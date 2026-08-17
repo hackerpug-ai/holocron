@@ -29,6 +29,7 @@ while (($#)); do
     --inference2-host) (($# > 1)) || usage; INFERENCE2_HOST=$2; shift 2 ;;
     --request-count) (($# > 1)) || usage; REQUEST_COUNT=$2; shift 2 ;;
     --evidence-dir) (($# > 1)) || usage; EVIDENCE_DIR=$2; shift 2 ;;
+    --remote-log-path) (($# > 1)) || usage; LOG_PATH=$2; shift 2 ;;
     --help|-h) usage ;;
     *) usage ;;
   esac
@@ -46,12 +47,51 @@ esac
 [[ "$HEALTH_URL" =~ ^https?://[^[:space:]]+$ ]] || die "health URL must be an http(s) URL without whitespace"
 [[ -z "$INFERENCE1_HOST" || "$INFERENCE1_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference1 host is invalid"
 [[ -z "$INFERENCE2_HOST" || "$INFERENCE2_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference2 host is invalid"
+[[ "$LOG_PATH" =~ ^(\$\{HOME\}/|/)[A-Za-z0-9._/-]+$ ]] || die "remote log path is invalid"
 
-if [[ "$EVIDENCE_DIR" = /* ]]; then EVIDENCE_PATH=$EVIDENCE_DIR; else EVIDENCE_PATH=$REPO_ROOT/$EVIDENCE_DIR; fi
-case "$EVIDENCE_PATH" in
-  "$REPO_ROOT/.tmp/S33-OPS-02"|"$REPO_ROOT/.tmp/S33-OPS-02"/*) ;;
-  *) die "evidence path must be below .tmp/S33-OPS-02" ;;
-esac
+resolve_evidence_paths() {
+  local resolved
+  if ! resolved=$(python3 - "$REPO_ROOT" "$EVIDENCE_DIR" <<'PY'
+import os
+import pathlib
+import sys
+
+repo, candidate_arg = sys.argv[1:]
+approved = os.path.abspath(os.path.join(repo, '.tmp', 'S33-OPS-02'))
+approved_real = os.path.realpath(approved)
+if not os.path.isdir(approved_real):
+    raise SystemExit('approved evidence root is missing or not a directory')
+if approved_real != approved:
+    raise SystemExit('approved evidence root is a symlink')
+
+parts = pathlib.PurePath(candidate_arg).parts
+if '..' in parts:
+    raise SystemExit('candidate evidence path contains ..')
+candidate = os.path.abspath(candidate_arg if os.path.isabs(candidate_arg) else os.path.join(repo, candidate_arg))
+if os.path.commonpath((approved, candidate)) != approved:
+    raise SystemExit('candidate evidence path is outside the approved root')
+
+relative = os.path.relpath(candidate, approved)
+current = approved
+if relative != '.':
+    for part in pathlib.PurePath(relative).parts:
+        current = os.path.join(current, part)
+        if os.path.islink(current):
+            raise SystemExit('candidate evidence path contains a symlink')
+
+candidate_real = os.path.realpath(candidate)
+if os.path.commonpath((approved_real, candidate_real)) != approved_real:
+    raise SystemExit('canonical candidate evidence path is outside the approved root')
+print(f'{approved_real}\t{candidate_real}')
+PY
+  ); then
+    die "evidence path rejected"
+  fi
+  IFS=$'\t' read -r EVIDENCE_ROOT EVIDENCE_PATH <<<"$resolved"
+  [[ -n "$EVIDENCE_ROOT" && -n "$EVIDENCE_PATH" ]] || die 'evidence path resolution returned no path'
+}
+
+resolve_evidence_paths
 mkdir -p -- "$EVIDENCE_PATH"
 ERRORS_PATH=$EVIDENCE_PATH/errors.log
 : > "$ERRORS_PATH"
@@ -63,10 +103,11 @@ ROUTER_BASE=$(printf '%s' "$ROUTER_URL" | sed 's:/*$::')
 for owned in \
   result.json health.json health.headers.txt health.status.txt health.json.curl.stderr \
   laptop-models.json laptop-models.headers.txt laptop-models.status.txt laptop-models.json.curl.stderr \
-  inference1-models.json inference1-models.ssh.stderr reviewer-payload.json reviewer-body.json \
+  inference1-models.json inference1-models.ssh.stderr inference1-models.ssh.provenance.txt inference1-models.ssh.exit.txt reviewer-payload.json reviewer-body.json \
   reviewer-headers.txt reviewer.status.txt reviewer-body.json.curl.stderr \
   inference1-log-baseline.bytes inference2-log-baseline.bytes inference1-log-post.bytes \
   inference2-log-post.bytes inference1-log-growth.bytes inference2-log-growth.bytes \
+  inference1-log-baseline.json inference2-log-baseline.json inference1-log-post.json inference2-log-post.json \
   inference1-log-post-baseline.log inference2-log-post-baseline.log request-summaries.jsonl; do
   rm -f -- "$EVIDENCE_PATH/$owned"
 done
@@ -95,17 +136,23 @@ local_http() {
 remote_models() {
   local host=$1 url=$2 body=$3 err=$4 qurl
   printf -v qurl '%q' "$url"
-  if ! ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout="$SSH_TIMEOUT" -o ConnectionAttempts=1 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$host" "curl --silent --show-error --fail --connect-timeout 8 --max-time $HTTP_TIMEOUT $qurl" >"$body" 2>"$err"; then
+  printf 'host=%s\nssh_options=BatchMode=yes,StrictHostKeyChecking=yes,ConnectTimeout=%s,ConnectionAttempts=1,ServerAliveInterval=5,ServerAliveCountMax=2\ncommand=curl --silent --show-error --fail --connect-timeout 8 --max-time %s %s\n' "$host" "$SSH_TIMEOUT" "$HTTP_TIMEOUT" "$url" >"$EVIDENCE_PATH/inference1-models.ssh.provenance.txt"
+  set +e
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout="$SSH_TIMEOUT" -o ConnectionAttempts=1 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$host" "curl --silent --show-error --fail --connect-timeout 8 --max-time $HTTP_TIMEOUT $qurl" >"$body" 2>"$err"
+  local rc=$?
+  set -e
+  printf '%s\n' "$rc" >"$EVIDENCE_PATH/inference1-models.ssh.exit.txt"
+  if ((rc != 0)); then
     cat "$err" >> "$ERRORS_PATH"; die "SSH-originated models curl failed"
   fi
   [[ -s "$body" ]] || die "SSH-originated models response is empty"
 }
 
-remote_log_size() {
+remote_log_identity() {
   local host=$1 out
-  out=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout="$SSH_TIMEOUT" -o ConnectionAttempts=1 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$host" 'p="$HOME/local-llm/logs/omlx-mini-8003.log"; stat -f "%z" "$p" 2>/dev/null || stat -c "%s" "$p"' 2>>"$ERRORS_PATH") || die "could not read oMLX log size from $host"
+  out=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout="$SSH_TIMEOUT" -o ConnectionAttempts=1 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$host" "p=\"$LOG_PATH\"; stat -f \"%d %i %z\" \"\$p\" 2>/dev/null || stat -c \"%d %i %s\" \"\$p\"" 2>>"$ERRORS_PATH") || die "could not read oMLX log identity from $host"
   out=$(printf '%s' "$out" | tr -d '\r\n')
-  [[ "$out" =~ ^[0-9]+$ ]] || die "non-numeric oMLX log size from $host"
+  [[ "$out" =~ ^[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+$ ]] || die "invalid oMLX log identity from $host"
   printf '%s\n' "$out"
 }
 
@@ -114,12 +161,22 @@ remote_segment() {
   ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout="$SSH_TIMEOUT" -o ConnectionAttempts=1 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$host" "dd if=\"$LOG_PATH\" bs=1 skip=$offset count=$count 2>/dev/null" >"$destination" 2>>"$ERRORS_PATH" || die "could not read post-baseline log segment from $host"
 }
 
+write_log_identity() {
+  local path=$1 host=$2 identity=$3 device inode size
+  read -r device inode size <<<"$identity"
+  printf '{"host":"%s","device":%s,"inode":%s,"byte_size":%s}\n' "$host" "$device" "$inode" "$size" >"$path"
+}
+
 wait_for_log_growth() {
   local host=$1 baseline=$2 current deadline=$((SECONDS + 30))
+  local baseline_device baseline_inode baseline_size current_device current_inode current_size
+  read -r baseline_device baseline_inode baseline_size <<<"$baseline"
   while :; do
-    current=$(remote_log_size "$host")
-    ((current >= baseline)) || die "oMLX log shrank or rotated on $host"
-    if ((current > baseline)); then
+    current=$(remote_log_identity "$host")
+    read -r current_device current_inode current_size <<<"$current"
+    [[ "$current_device" == "$baseline_device" && "$current_inode" == "$baseline_inode" ]] || die "oMLX log identity changed on $host"
+    ((current_size >= baseline_size)) || die "oMLX log was truncated on $host"
+    if ((current_size > baseline_size)); then
       printf '%s\n' "$current"
       return 0
     fi
@@ -236,13 +293,13 @@ with open(sys.argv[1],'w',encoding='utf-8') as h:
 PY
   local_http POST "$ROUTER_BASE/v1/chat/completions" "$rb" "$rh" "$rs" "$rp"
   reviewer_json=$(assert_reviewer "$rb" "$rh" "$rs")
-  python3 - "$RESULT_PATH" "$MODE" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$rb" "$rh" "$rp" "$health_json" "$reviewer_json" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$reviewer_json" <<'PY'
 import json,os,sys
-out,mode,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,body,headers,payload,health_json,reviewer_json=sys.argv[1:]
+out,mode,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,reviewer_json=sys.argv[1:]
 def art(p):
     if not os.path.isfile(p) or os.path.getsize(p)<1: raise SystemExit(f'missing or empty artifact: {p}')
     return {'path':os.path.relpath(p,os.getcwd()),'exists':True,'byte_length':os.path.getsize(p)}
-manifest={'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers)}
+manifest={'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
 r={'ok':True,'mode':mode,'health':json.loads(health_json),'laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
 if r['laptop_models_artifact_path']==r['inference1_models_artifact_path']: raise SystemExit('models artifact paths are not distinct')
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
@@ -253,9 +310,13 @@ distribution() {
   local rr=$EVIDENCE_PATH/requests
   local id dir baseline1 baseline2 post1 post2 growth1 growth2 failed=0 pid
   mkdir -p "$rr"
-  baseline1=$(remote_log_size "$INFERENCE1_HOST"); baseline2=$(remote_log_size "$INFERENCE2_HOST")
-  printf '%s\n' "$baseline1" >"$EVIDENCE_PATH/inference1-log-baseline.bytes"
-  printf '%s\n' "$baseline2" >"$EVIDENCE_PATH/inference2-log-baseline.bytes"
+  baseline1=$(remote_log_identity "$INFERENCE1_HOST"); baseline2=$(remote_log_identity "$INFERENCE2_HOST")
+  read -r _baseline1_device _baseline1_inode _baseline1_size <<<"$baseline1"
+  read -r _baseline2_device _baseline2_inode _baseline2_size <<<"$baseline2"
+  printf '%s\n' "$_baseline1_size" >"$EVIDENCE_PATH/inference1-log-baseline.bytes"
+  printf '%s\n' "$_baseline2_size" >"$EVIDENCE_PATH/inference2-log-baseline.bytes"
+  write_log_identity "$EVIDENCE_PATH/inference1-log-baseline.json" "$INFERENCE1_HOST" "$baseline1"
+  write_log_identity "$EVIDENCE_PATH/inference2-log-baseline.json" "$INFERENCE2_HOST" "$baseline2"
   for ((id=1;id<=REQUEST_COUNT;id++)); do
     dir=$rr/request-$id; mkdir -p "$dir"; make_payload "$dir/payload.json" "$id"
     request_one "$dir" "$ROUTER_BASE/v1/chat/completions" &
@@ -268,21 +329,25 @@ distribution() {
   : >"$EVIDENCE_PATH/request-summaries.jsonl"
   for ((id=1;id<=REQUEST_COUNT;id++)); do assert_request "$rr/request-$id" >>"$EVIDENCE_PATH/request-summaries.jsonl"; done
   post1=$(wait_for_log_growth "$INFERENCE1_HOST" "$baseline1"); post2=$(wait_for_log_growth "$INFERENCE2_HOST" "$baseline2")
-  printf '%s\n' "$post1" >"$EVIDENCE_PATH/inference1-log-post.bytes"; printf '%s\n' "$post2" >"$EVIDENCE_PATH/inference2-log-post.bytes"
-  growth1=$((post1-baseline1)); growth2=$((post2-baseline2))
+  read -r _post1_device _post1_inode _post1_size <<<"$post1"
+  read -r _post2_device _post2_inode _post2_size <<<"$post2"
+  printf '%s\n' "$_post1_size" >"$EVIDENCE_PATH/inference1-log-post.bytes"; printf '%s\n' "$_post2_size" >"$EVIDENCE_PATH/inference2-log-post.bytes"
+  write_log_identity "$EVIDENCE_PATH/inference1-log-post.json" "$INFERENCE1_HOST" "$post1"
+  write_log_identity "$EVIDENCE_PATH/inference2-log-post.json" "$INFERENCE2_HOST" "$post2"
+  growth1=$((_post1_size-_baseline1_size)); growth2=$((_post2_size-_baseline2_size))
   ((growth1>0 && growth2>0)) || die "one mini log has no post-baseline growth"
   printf '%s\n' "$growth1" >"$EVIDENCE_PATH/inference1-log-growth.bytes"; printf '%s\n' "$growth2" >"$EVIDENCE_PATH/inference2-log-growth.bytes"
-  remote_segment "$INFERENCE1_HOST" "$baseline1" "$growth1" "$EVIDENCE_PATH/inference1-log-post-baseline.log"
-  remote_segment "$INFERENCE2_HOST" "$baseline2" "$growth2" "$EVIDENCE_PATH/inference2-log-post-baseline.log"
+  remote_segment "$INFERENCE1_HOST" "$_baseline1_size" "$growth1" "$EVIDENCE_PATH/inference1-log-post-baseline.log"
+  remote_segment "$INFERENCE2_HOST" "$_baseline2_size" "$growth2" "$EVIDENCE_PATH/inference2-log-post-baseline.log"
   [[ -s "$EVIDENCE_PATH/inference1-log-post-baseline.log" && -s "$EVIDENCE_PATH/inference2-log-post-baseline.log" ]] || die "post-baseline log segment empty"
   local fresh1 fresh2
   fresh1=$(grep -Ec 'Chat completion: model=Qwen3\.6-35B-A3B-MLX-8bit' "$EVIDENCE_PATH/inference1-log-post-baseline.log" || true)
   fresh2=$(grep -Ec 'Chat completion: model=Qwen3\.6-35B-A3B-MLX-8bit' "$EVIDENCE_PATH/inference2-log-post-baseline.log" || true)
   [[ "$fresh1" =~ ^[1-9][0-9]*$ ]] || die "inference1 fresh completion evidence missing"
   [[ "$fresh2" =~ ^[1-9][0-9]*$ ]] || die "inference2 fresh completion evidence missing"
-  python3 - "$RESULT_PATH" "$MODE" "$EVIDENCE_PATH/request-summaries.jsonl" "$EVIDENCE_PATH/inference1-log-post-baseline.log" "$EVIDENCE_PATH/inference2-log-post-baseline.log" "$REQUEST_COUNT" "$fresh1" "$fresh2" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$EVIDENCE_PATH/request-summaries.jsonl" "$EVIDENCE_PATH/inference1-log-post-baseline.log" "$EVIDENCE_PATH/inference2-log-post-baseline.log" "$EVIDENCE_PATH/inference1-log-baseline.json" "$EVIDENCE_PATH/inference2-log-baseline.json" "$EVIDENCE_PATH/inference1-log-post.json" "$EVIDENCE_PATH/inference2-log-post.json" "$rr" "$REQUEST_COUNT" "$fresh1" "$fresh2" <<'PY'
 import json,os,sys
-out,mode,summaries,log1,log2,count,fresh1,fresh2=sys.argv[1:]
+out,mode,summaries,log1,log2,baseline1,baseline2,post1,post2,requests_dir,count,fresh1,fresh2=sys.argv[1:]
 rows=[json.loads(x) for x in open(summaries) if x.strip()]
 if len(rows)!=int(count): raise SystemExit(f'expected {count} request summaries, found {len(rows)}')
 hosts={r['api_base'] for r in rows}
@@ -291,7 +356,16 @@ if hosts!=expected: raise SystemExit(f'expected both exact backend headers, got 
 bodies={r['body_sha256'] for r in rows if r['body_bytes']>0}
 if len(bodies)<2: raise SystemExit('expected >=2 byte-distinct nonempty bodies')
 def art(p): return {'path':os.path.relpath(p,os.getcwd()),'exists':os.path.isfile(p),'byte_length':os.path.getsize(p) if os.path.isfile(p) else 0}
-r={'ok':True,'mode':mode,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(os.path.dirname(summaries),os.getcwd()),'request_summaries_artifact':art(summaries),'inference1_log_post_baseline_artifact':art(log1),'inference2_log_post_baseline_artifact':art(log2),'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1}
+def required_artifact(path):
+    if not os.path.isfile(path) or os.path.getsize(path)<1: raise SystemExit(f'missing or empty artifact: {path}')
+    return art(path)
+request_artifacts=[]
+request_dirs=sorted(os.path.join(requests_dir,name) for name in os.listdir(requests_dir) if name.startswith('request-') and os.path.isdir(os.path.join(requests_dir,name)))
+if len(request_dirs)!=int(count): raise SystemExit(f'expected {count} raw request directories, found {len(request_dirs)}')
+for request_dir in request_dirs:
+    request_artifacts.append({'path':os.path.relpath(request_dir,os.getcwd()),'artifacts':{name:required_artifact(os.path.join(request_dir,name)) for name in ('metadata.json','pid','status.txt','headers.txt','body.json','curl-exit.txt')}})
+manifest={'request_summaries':required_artifact(summaries),'inference1_log_baseline_identity':required_artifact(baseline1),'inference2_log_baseline_identity':required_artifact(baseline2),'inference1_log_post_identity':required_artifact(post1),'inference2_log_post_identity':required_artifact(post2),'inference1_log_post_baseline':required_artifact(log1),'inference2_log_post_baseline':required_artifact(log2)}
+r={'ok':True,'mode':mode,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(os.path.dirname(summaries),os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
 PY
 }
