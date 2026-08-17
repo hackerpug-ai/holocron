@@ -1130,6 +1130,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
   it('recipe rejects stale nonzero gate output and preserves exact backend count labels', async () => {
     const script = String.raw`
 import importlib.util
+import hashlib
 import json
 import re
 import shutil
@@ -1191,7 +1192,7 @@ with tempfile.TemporaryDirectory(prefix='s33-archive-coverage-') as temp:
     uncovered = root / 'historical-archive' / 'c3-base-blobs' / 'models-reviewer' / 'uncovered.txt'
     uncovered.write_text('uncovered archive payload\n', encoding='utf-8')
     try:
-        module.validate_archive_and_base_shape(root)
+        module.validate_archive_and_base_shape(root, repo_root)
     except SystemExit:
         pass
     else:
@@ -1199,9 +1200,17 @@ with tempfile.TemporaryDirectory(prefix='s33-archive-coverage-') as temp:
     uncovered.unlink()
     tampered = root / 'historical-archive' / 'c3-base-blobs' / 'models-reviewer' / 'result.json'
     original_tampered = tampered.read_bytes()
-    tampered.write_bytes(original_tampered + b'\ntampered')
+    tampered_bytes = original_tampered + b'\ntampered'
+    tampered.write_bytes(tampered_bytes)
+    manifest_path = root / 'historical-archive' / 'relocation-manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    entry = next(item for item in manifest['entries'] if item['archive_path'] == 'historical-archive/c3-base-blobs/models-reviewer/result.json')
+    entry['byte_length'] = len(tampered_bytes)
+    entry['sha256'] = hashlib.sha256(tampered_bytes).hexdigest()
+    entry['source_blob'] = '0' * 40
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     try:
-        module.validate_archive_and_base_shape(root)
+        module.validate_archive_and_base_shape(root, repo_root)
     except SystemExit:
         pass
     else:

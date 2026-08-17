@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -278,8 +279,10 @@ def validate_active_run(base_name: str, run: Path, root: Path) -> None:
         fail(f"active run outcome has no hashable artifacts: {outcome}")
 
 
-def validate_archive_and_base_shape(root: Path) -> None:
+def validate_archive_and_base_shape(root: Path, repo_root: Path | None = None) -> None:
     """Reject historical payloads in active run trees and polluted bases."""
+    if repo_root is None:
+        repo_root = root.parent.parent
     for base_name in EVIDENCE_BASES:
         base = root / base_name
         if not base.is_dir() or base.is_symlink():
@@ -344,6 +347,7 @@ def validate_archive_and_base_shape(root: Path) -> None:
     seen_sources: set[str] = set()
     seen_archives: set[str] = set()
     origin_counts: dict[str, int] = {}
+    git_bound_records: list[tuple[dict[str, Any], Path]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             fail("relocation manifest contains a malformed entry")
@@ -385,6 +389,7 @@ def validate_archive_and_base_shape(root: Path) -> None:
                     fail(f"tracked relocation source mapping is not canonical: {source!r} -> {archive_path!r}")
             else:
                 fail(f"git-bound relocation archive path has unknown origin: {archive_path!r}")
+            git_bound_records.append((entry, absolute))
         elif origin == "local_untracked_pre_relocation":
             if "source_commit" in entry or "source_blob" in entry or parts[1] != RELOCATION_DIRECTORY or len(parts) < 5:
                 fail(f"local-untracked relocation entry has invalid provenance: {archive_path!r}")
@@ -399,6 +404,36 @@ def validate_archive_and_base_shape(root: Path) -> None:
                 fail(f"incomplete relocation source mapping is not canonical: {source!r} -> {archive_path!r}")
     if origin_counts != {"git_bound": 368, "local_untracked_pre_relocation": 70, "incomplete_active_run_relocation": 2}:
         fail(f"relocation manifest origin counts are incomplete: {origin_counts}")
+    git_specs = "".join(f"{entry['source_commit']}:{entry['source_path']}\n" for entry, _ in git_bound_records).encode()
+    try:
+        git_batch = subprocess.run(
+            ["git", "cat-file", "--batch"],
+            cwd=repo_root,
+            input=git_specs,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+    except subprocess.CalledProcessError as error:
+        fail(f"git-bound relocation sources cannot be resolved: {error}")
+    output = io.BytesIO(git_batch.stdout)
+    for entry, absolute in git_bound_records:
+        header = output.readline().rstrip(b"\n").split(b" ")
+        if len(header) != 3 or header[1] != b"blob":
+            fail(f"git-bound relocation source is missing or not a blob: {entry['source_path']}")
+        resolved_blob = header[0].decode("ascii", errors="strict")
+        try:
+            blob_size = int(header[2])
+        except ValueError:
+            fail(f"git-bound relocation source has an invalid blob size: {entry['source_path']}")
+        git_bytes = output.read(blob_size)
+        if output.read(1) != b"\n":
+            fail(f"git-bound relocation source has a truncated blob response: {entry['source_path']}")
+        if resolved_blob != entry["source_blob"] or blob_size != entry["byte_length"]:
+            fail(f"git-bound relocation source OID/size mismatch: {entry['archive_path']}")
+        archived_bytes = absolute.read_bytes()
+        if archived_bytes != git_bytes or sha256(absolute) != hashlib.sha256(git_bytes).hexdigest():
+            fail(f"git-bound relocation bytes do not match Git source blob: {entry['archive_path']}")
     actual_archives: set[str] = set()
     for child in archive.rglob("*"):
         info = child.lstat()
