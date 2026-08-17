@@ -11,7 +11,17 @@
  */
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  readlink,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
@@ -389,9 +399,17 @@ async function snapshotTree(root: string): Promise<string> {
       const childRelative = relative ? `${relative}/${child.name}` : child.name;
       const childPath = resolve(current, child.name);
       const info = await lstat(childPath);
-      entries.push(
-        `${childRelative}|${info.mode}|${info.size}|${info.mtimeMs}|${info.isSymbolicLink() ? 'symlink' : info.isDirectory() ? 'directory' : 'file'}`
-      );
+      let detail: string;
+      if (info.isSymbolicLink()) {
+        detail = `symlink|${await readlink(childPath)}`;
+      } else if (info.isDirectory()) {
+        detail = 'directory';
+      } else {
+        detail = `file|${createHash('sha256')
+          .update(await readFile(childPath))
+          .digest('hex')}`;
+      }
+      entries.push(`${childRelative}|${detail}`);
       if (info.isDirectory()) await visit(childPath, childRelative);
     }
   }
@@ -414,7 +432,11 @@ async function snapshotBaseLevelArtifacts(root: string): Promise<string> {
     const info = await lstat(childPath);
     const detail = info.isDirectory()
       ? await snapshotTree(childPath)
-      : `${info.mode}|${info.size}|${info.mtimeMs}|${info.isSymbolicLink() ? 'symlink' : 'file'}`;
+      : info.isSymbolicLink()
+        ? `symlink|${await readlink(childPath)}`
+        : `file|${createHash('sha256')
+            .update(await readFile(childPath))
+            .digest('hex')}`;
     entries.push(`${child.name}|${detail}`);
   }
   return entries.join('\n');
@@ -424,8 +446,10 @@ async function snapshotRunNames(root: string): Promise<string[]> {
   try {
     const children = await readdir(resolve(root, 'runs'), { withFileTypes: true });
     return children
-      .filter((child) => child.isDirectory())
-      .map((child) => child.name)
+      .map(
+        (child) =>
+          `${child.name}|${child.isDirectory() ? 'directory' : child.isSymbolicLink() ? 'symlink' : 'file'}`
+      )
       .sort();
   } catch (error) {
     if ((error as { code?: string }).code === 'ENOENT') return [];
@@ -441,8 +465,11 @@ async function assertOnlySelectedRunWasAdded(
 ): Promise<void> {
   expect(await snapshotBaseLevelArtifacts(root), 'base-level artifacts unchanged').toBe(beforeBase);
   expect(await snapshotRunNames(root), 'only selected immutable run added').toEqual(
-    [...beforeRuns, runId].sort()
+    [...beforeRuns, `${runId}|directory`].sort()
   );
+  const info = await lstat(resolve(root, 'runs', runId));
+  expect(info.isDirectory(), 'selected run is a directory').toBe(true);
+  expect(info.isSymbolicLink(), 'selected run is not a symlink').toBe(false);
 }
 
 async function runHealthFlipContractFailure(
