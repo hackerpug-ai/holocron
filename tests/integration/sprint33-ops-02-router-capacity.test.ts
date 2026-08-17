@@ -230,7 +230,7 @@ async function captureCurrentHealthBaseline(evidenceDir: string): Promise<void> 
   await mkdir(outputDir, { recursive: true });
   const { stdout } = await execFileAsync(
     'curl',
-    ['--silent', '--show-error', '--connect-timeout', '8', '--max-time', '15', '-k', HEALTH_URL],
+    ['--silent', '--show-error', '--connect-timeout', '8', '--max-time', '15', HEALTH_URL],
     { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30_000 }
   );
   const baseline = parseJson(stdout, 'negative-control current health baseline');
@@ -366,6 +366,31 @@ describe('S33-OPS-02 router capacity against real services', () => {
       throw new Error('PLATFORM_IT=1 is required; this real-service test never skips');
     }
   }
+
+  it('changed transport commands keep TLS and SSH verification strict', async () => {
+    const sourcePaths = [
+      VERIFIER,
+      resolve(REPO_ROOT, 'tests/integration/sprint33-ops-02-router-capacity.test.ts'),
+    ];
+    const sourceTexts = await Promise.all(sourcePaths.map((path) => readFile(path, 'utf8')));
+    const forbiddenTokens = [
+      ['-', 'k'].join(''),
+      ['--', 'insecure'].join(''),
+      ['StrictHostKeyChecking=', 'no'].join(''),
+      ['StrictHostKeyChecking=', 'accept-new'].join(''),
+      ['UserKnownHostsFile=', '/dev/null'].join(''),
+      ['ssh', '-', 'keyscan'].join(''),
+    ];
+    for (const [index, source] of sourceTexts.entries()) {
+      for (const token of forbiddenTokens) {
+        const optionPattern = new RegExp(`(?:^|[\\s'"=])${token}(?:$|[\\s'"=])`);
+        expect(
+          source,
+          `${sourcePaths[index]} contains unsafe transport token ${token}`
+        ).not.toMatch(optionPattern);
+      }
+    }
+  });
 
   it('verifier health assertion rejects missing and non-null failing_dependency', async () => {
     const { stdout } = await execFileAsync('bash', [VERIFIER, '--health-regression'], {
