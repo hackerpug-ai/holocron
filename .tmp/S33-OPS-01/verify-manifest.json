@@ -1,7 +1,7 @@
 {
   "task_id": "S33-OPS-01",
   "verification_policy": {
-    "requires_tests": false,
+    "requires_tests": true,
     "requires_red_evidence": false,
     "requires_seeded_evidence": true,
     "tdd_lineage_required": false
@@ -9,7 +9,7 @@
   "project_commands": {
     "typecheck": "pnpm tsc --noEmit",
     "lint": "pnpm lint",
-    "test": "pnpm test"
+    "test": "set -o pipefail; PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-01-fleet-state.test.ts 2>&1 | sed -E '/^   Start at /d; /^   Duration /d'"
   },
   "requirements": [
     {
@@ -26,7 +26,7 @@
     },
     {
       "id": "TC-2",
-      "verify": "ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit'"
+      "verify": "ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit'; rc=$?; printf 'exit_code=%s\\n' \"$rc\"; exit \"$rc\""
     }
   ]
 }
