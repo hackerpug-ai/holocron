@@ -1,6 +1,8 @@
 # S33-PLAT-02: Make resolveModel reach the real router: add configured-base precedence over the six hardcoded manifest endpoints and correct the role model revisions
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Cycle: 1
+> Updated: 2026-08-17T23:03:39Z
 > Assignee: mastra-implementer
 > Priority: P0
 > Type: FEATURE
