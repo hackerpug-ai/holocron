@@ -73,23 +73,13 @@ function artifactPath(artifact: Artifact, expectedRunDir?: string): string {
     throw new Error(`artifact path is a symlink: ${artifact.path}`);
   }
   const canonical = realpathSync(path);
-  if (
-    canonical !== EVIDENCE_ROOT &&
-    !canonical.startsWith(`${EVIDENCE_ROOT}/`)
-  ) {
-    throw new Error(
-      `artifact path physically escapes approved evidence root: ${artifact.path}`
-    );
+  if (canonical !== EVIDENCE_ROOT && !canonical.startsWith(`${EVIDENCE_ROOT}/`)) {
+    throw new Error(`artifact path physically escapes approved evidence root: ${artifact.path}`);
   }
   if (expectedRunDir) {
     const canonicalRunDir = realpathSync(expectedRunDir);
-    if (
-      canonical !== canonicalRunDir &&
-      !canonical.startsWith(`${canonicalRunDir}/`)
-    ) {
-      throw new Error(
-        `artifact path is outside emitted run directory: ${artifact.path}`
-      );
+    if (canonical !== canonicalRunDir && !canonical.startsWith(`${canonicalRunDir}/`)) {
+      throw new Error(`artifact path is outside emitted run directory: ${artifact.path}`);
     }
     if (!info.isFile()) {
       throw new Error(`artifact path is not a regular file: ${artifact.path}`);
@@ -110,19 +100,13 @@ function manifestArtifact(result: VerifierResult, name: string): Artifact {
   return artifact as Artifact;
 }
 
-async function assertResultArtifacts(
-  result: VerifierResult,
-  runDir: string
-): Promise<void> {
+async function assertResultArtifacts(result: VerifierResult, runDir: string): Promise<void> {
   const manifest = result.artifact_manifest;
   if (!manifest || typeof manifest !== 'object') {
     throw new Error('verifier result has no artifact manifest');
   }
-  for (const [name, value] of Object.entries(
-    manifest as Record<string, unknown>
-  )) {
-    if (!value || typeof value !== 'object')
-      throw new Error(`artifact ${name} is malformed`);
+  for (const [name, value] of Object.entries(manifest as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') throw new Error(`artifact ${name} is malformed`);
     const artifact = value as Partial<Artifact>;
     if (artifact.exists !== true || typeof artifact.path !== 'string') {
       throw new Error(`artifact ${name} is not a real manifest file`);
@@ -131,17 +115,9 @@ async function assertResultArtifacts(
     const info = lstatSync(path);
     expect(info.isFile(), `${name} is a regular file`).toBe(true);
     expect(info.isSymbolicLink(), `${name} is not a symlink`).toBe(false);
-    expect(typeof artifact.byte_length, `${name} byte_length type`).toBe(
-      'number'
-    );
-    expect(
-      Number.isInteger(artifact.byte_length),
-      `${name} byte_length integer`
-    ).toBe(true);
-    expect(
-      artifact.byte_length,
-      `${name} byte_length positive`
-    ).toBeGreaterThan(0);
+    expect(typeof artifact.byte_length, `${name} byte_length type`).toBe('number');
+    expect(Number.isInteger(artifact.byte_length), `${name} byte_length integer`).toBe(true);
+    expect(artifact.byte_length, `${name} byte_length positive`).toBeGreaterThan(0);
     expect(info.size, `${name} byte_length exact`).toBe(artifact.byte_length);
   }
 }
@@ -157,19 +133,10 @@ function emittedRunDir(result: VerifierResult, evidenceBase?: string): string {
   });
   const info = lstatSync(runDir);
   expect(info.isDirectory(), 'emitted run directory').toBe(true);
-  expect(info.isSymbolicLink(), 'emitted run directory is not a symlink').toBe(
-    false
-  );
+  expect(info.isSymbolicLink(), 'emitted run directory is not a symlink').toBe(false);
   if (evidenceBase) {
-    const expectedRunDir = resolve(
-      REPO_ROOT,
-      evidenceBase,
-      'runs',
-      result.run_id as string
-    );
-    expect(runDir, 'emitted run directory is exact stdout-selected path').toBe(
-      expectedRunDir
-    );
+    const expectedRunDir = resolve(REPO_ROOT, evidenceBase, 'runs', result.run_id as string);
+    expect(runDir, 'emitted run directory is exact stdout-selected path').toBe(expectedRunDir);
   }
   return runDir;
 }
@@ -234,10 +201,7 @@ async function assertCaptureReceipt(
   expect(value.exists, `${label} raw exists`).toBe(true);
   expect(typeof value.raw_path, `${label} raw path`).toBe('string');
   expect(typeof value.byte_length, `${label} raw byte length`).toBe('number');
-  expect(
-    Number.isInteger(value.byte_length),
-    `${label} raw byte length integer`
-  ).toBe(true);
+  expect(Number.isInteger(value.byte_length), `${label} raw byte length integer`).toBe(true);
   expect(typeof value.sha256, `${label} raw SHA-256`).toBe('string');
   const rawPath = artifactPath(
     {
@@ -553,8 +517,7 @@ async function snapshotBaseLevelArtifacts(root: string): Promise<string> {
 
 async function snapshotRunNames(root: string): Promise<string[]> {
   try {
-    const children = await readdir(resolve(root, 'runs'), { withFileTypes: true ,
-    });
+    const children = await readdir(resolve(root, 'runs'), { withFileTypes: true });
     return children
       .map(
         (child) =>
@@ -602,10 +565,7 @@ async function assertCleanEvidenceBase(root: string): Promise<void> {
   ).toEqual(['runs|directory']);
   const info = await lstat(resolve(root, 'runs'));
   expect(info.isDirectory(), 'evidence runs directory').toBe(true);
-  expect(
-    info.isSymbolicLink(),
-    'evidence runs directory is not a symlink'
-  ).toBe(false);
+  expect(info.isSymbolicLink(), 'evidence runs directory is not a symlink').toBe(false);
 }
 
 async function runHealthFlipContractFailure(
@@ -815,8 +775,7 @@ async function independentlyProbeRestoredState(): Promise<void> {
   expect(Array.isArray(records)).toBe(true);
   expect(records).toHaveLength(1);
   const record = (
-    records as Array<{ State?: { Status?: string; Health?: { Status?: string } } ;
-    }>
+    records as Array<{ State?: { Status?: string; Health?: { Status?: string } } }>
   )[0];
   expect(record.State?.Status).toBe('running');
   expect(record.State?.Health?.Status).toBe('healthy');
@@ -843,8 +802,7 @@ async function captureRemoteMutationSentinel(): Promise<RemoteMutationSentinel> 
       '20',
       HEALTH_URL,
     ],
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30_000 ,
-    }
+    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30_000 }
   );
   const healthValue = parseJson(health.stdout, 'remote mutation health sentinel');
   const identity = deploymentIdentity(healthValue, 'remote mutation health sentinel');
@@ -961,8 +919,7 @@ async function captureIndependentModelsObserver(runDir: string): Promise<unknown
     await writeFile(resolve(outputDir, 'exit.txt'), '0\n', 'utf8');
     return parseJson(result.stdout, 'independent inference1 models observer');
   } catch (error) {
-    const result = error as { stdout?: string; stderr?: string; code?: string | number ;
-    };
+    const result = error as { stdout?: string; stderr?: string; code?: string | number };
     await writeFile(resolve(outputDir, 'models.json'), result.stdout ?? '', 'utf8');
     await writeFile(resolve(outputDir, 'stderr.log'), result.stderr ?? '', 'utf8');
     await writeFile(resolve(outputDir, 'exit.txt'), `${String(result.code ?? 1)}\n`, 'utf8');
@@ -990,12 +947,10 @@ async function probeRouter(): Promise<{ reachable: boolean; detail: string }> {
         timeout: 15_000,
       }
     );
-    return { reachable: result.stdout.trim().length > 0, detail: result.stdout ,
-    };
+    return { reachable: result.stdout.trim().length > 0, detail: result.stdout };
   } catch (error) {
     const result = error as { stderr?: string; stdout?: string };
-    return { reachable: false, detail: `${result.stderr ?? ''}${result.stdout ?? ''}`.trim() ,
-    };
+    return { reachable: false, detail: `${result.stderr ?? ''}${result.stdout ?? ''}`.trim() };
   }
 }
 
@@ -1050,9 +1005,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
     const pristine = await snapshotTree(base);
     const pristineRuns = await snapshotRunNames(base);
     await writeFile(pollution, 'pollution\n', 'utf8');
-    let failure:
-      | { stderr?: string; stdout?: string; code?: number }
-      | undefined;
+    let failure: { stderr?: string; stdout?: string; code?: number } | undefined;
     try {
       await execFileAsync(
         'bash',
@@ -1090,11 +1043,7 @@ describe('S33-OPS-02 router capacity against real services', () => {
   it('rejects manifest leaf symlinks and physical escapes', async () => {
     const target = resolve(EVIDENCE_ROOT, 'manifest-leaf-target.txt');
     const leaf = resolve(EVIDENCE_ROOT, 'manifest-leaf-symlink.txt');
-    const outsideTarget = resolve(
-      EVIDENCE_ROOT,
-      '..',
-      `manifest-leaf-outside-${randomUUID()}.txt`
-    );
+    const outsideTarget = resolve(EVIDENCE_ROOT, '..', `manifest-leaf-outside-${randomUUID()}.txt`);
     const outsideLeaf = resolve(EVIDENCE_ROOT, 'manifest-leaf-escape.txt');
     await rm(target, { force: true });
     await rm(leaf, { force: true });
@@ -1221,7 +1170,19 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     root = Path(temp)
     tc5 = root / 'tc-5-output.txt'
     tc6 = root / 'tc-6-output.txt'
-    native_tc5 = (repo_root / '.tmp' / 'S33-OPS-02' / 'tc-5-output.txt').read_text(encoding='utf-8')
+    # Native Vitest v4 formatter sample captured from the prior real 8/8 run,
+    # before this focused file grew to its current eleven executable cases.
+    # Keep this parser-format fixture independent of tc-5-output.txt: harvest
+    # writes that file while this test is running.
+    native_tc5 = '''
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:12:31
+   Duration  54.91s (transform 406ms, setup 699ms, import 115ms, tests 53.81s, environment 0ms)
+'''
     assert re.search(r'(?m)^[ \t]*Test Files[ \t]+1[ \t]+passed[ \t]+\(1\)[ \t]*$', native_tc5)
     assert re.search(r'(?m)^[ \t]*Tests[ \t]+8[ \t]+passed[ \t]+\(8\)[ \t]*$', native_tc5)
     positive_tc5 = re.sub(r'(?m)^[ \t]*Tests[ \t]+8[ \t]+passed[ \t]+\(8\)[ \t]*$', f'      Tests  {expected_test_count} passed ({expected_test_count})', native_tc5)
@@ -1272,11 +1233,15 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
         raise AssertionError('stale TC-6 non-REAL result was accepted')
     assert tc6.read_bytes() == tc6_bytes
 `;
-    await execFileAsync('python3', ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py'), REPO_ROOT], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      timeout: 30_000,
-    });
+    await execFileAsync(
+      'python3',
+      ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py'), REPO_ROOT],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 30_000,
+      }
+    );
   });
 
   it('AC-1 independently verifies health, both model observers, and reviewer inference2 routing', async () => {
@@ -1313,10 +1278,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
       await assertNonEmptyArtifact(artifact, `models ${name}`);
     }
 
-    const runDir = emittedRunDir(
-      result,
-      '.tmp/S33-OPS-02/integration-models-reviewer'
-    );
+    const runDir = emittedRunDir(result, '.tmp/S33-OPS-02/integration-models-reviewer');
     await assertCaptureReceipt(
       artifacts.health_pre_deploy_curl_stderr_receipt,
       runDir,
@@ -1531,10 +1493,10 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     const ac1Failure = await runVerifierFailure(
       'models-reviewer',
       'negative-ac1-router-unreachable',
-      { }
+      {}
     );
     expect(ac1Failure).toContain(
-      'S33-OPS-02 verifier failed: curl failed for http://127.0.0.1:1/health'
+      'S33-OPS-02 verifier failed: could not capture run-local pre-router-deploy health baseline'
     );
     const ac2Failure = await runVerifierFailure(
       'implementer-distribution',
@@ -1608,7 +1570,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
         routerUrl: ROUTER_URL,
         healthUrl: HEALTH_URL,
         inference1: 'not-a-real-inference1-host',
-        }
+      }
     );
     expect(invalidObserverFailure).toContain(
       'S33-OPS-02 verifier failed: SSH-originated models curl failed'
@@ -1628,8 +1590,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     const healthEvidenceBase = resolve(REPO_ROOT, '.tmp/S33-OPS-02/health-flip');
     const beforeInvalidHost = await snapshotTree(healthEvidenceBase);
     const remoteBeforeInvalidHost = await captureRemoteMutationSentinel();
-    const invalidHostFailure = await runHealthFlipContractFailure({ holocronHost: 'not-holocron' ,
-    });
+    const invalidHostFailure = await runHealthFlipContractFailure({ holocronHost: 'not-holocron' });
     expect(invalidHostFailure).toContain('--holocron-host must be exactly holocron');
     expect(await snapshotTree(healthEvidenceBase)).toBe(beforeInvalidHost);
     assertNoRemoteMutation(remoteBeforeInvalidHost, await captureRemoteMutationSentinel());
@@ -1648,7 +1609,7 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     const invalidEvidenceName = '.tmp/S33-OPS-02/health-flip-invalid-' + randomUUID();
     const invalidEvidence = resolve(REPO_ROOT, invalidEvidenceName);
     await expect(stat(invalidEvidence)).rejects.toThrow();
-    let invalid: | { stderr?: string; stdout?: string; code?: number } | undefined;
+    let invalid: { stderr?: string; stdout?: string; code?: number } | undefined;
     try {
       await execFileAsync(
         'bash',
@@ -1687,7 +1648,8 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     const normal = await runHealthFlip(false);
     expect(normal.result?.cleanup_restore_armed).toBe(true);
     expect(normal.result?.restore_succeeded).toBe(true);
-    const normalRunDir = emittedRunDir(normal.result as VerifierResult,
+    const normalRunDir = emittedRunDir(
+      normal.result as VerifierResult,
       '.tmp/S33-OPS-02/health-flip'
     );
     await independentlyVerifyHealthFlip(normalRunDir);
@@ -1707,16 +1669,13 @@ with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
     expect(failure.deployment_uptime_monotonic).toBe(true);
     expect(failure.production_service_identities_unchanged).toBe(true);
     expect(failure.remote_primary_unchanged).toBe(true);
-    expect(failure.final_router).toEqual({ state: 'running', health: 'healthy' ,
-    });
+    expect(failure.final_router).toEqual({ state: 'running', health: 'healthy' });
     expect((failure.restored_health as { status?: string }).status).toBe('ok');
     expect((failure.restored_health as { fleet?: { ready?: boolean } }).fleet?.ready).toBe(true);
     expect(
       (failure.restored_health as { failing_dependency?: unknown }).failing_dependency
     ).toBeNull();
-    const negativeRunDir = emittedRunDir(failure,
-      '.tmp/S33-OPS-02/health-flip-negative'
-    );
+    const negativeRunDir = emittedRunDir(failure, '.tmp/S33-OPS-02/health-flip-negative');
     await independentlyVerifyHealthFlip(negativeRunDir);
     await independentlyProbeRestoredState();
   }, 360_000);
