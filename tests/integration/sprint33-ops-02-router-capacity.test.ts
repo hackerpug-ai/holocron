@@ -1127,6 +1127,85 @@ describe('S33-OPS-02 router capacity against real services', () => {
     }
   });
 
+  it('recipe rejects stale nonzero gate output and preserves exact backend count labels', async () => {
+    const script = String.raw`
+import importlib.util
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+recipe_path = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('stamp_raw_references', recipe_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+rows = {
+    'TC-5': {
+        'exit_code': 0,
+        'verify': module.EXPECTED_GATE_COMMANDS['TC-5'],
+        'output_file': module.REQUIREMENT_OUTPUT_FILES['TC-5'],
+    },
+    'TC-6': {
+        'exit_code': 0,
+        'verify': module.EXPECTED_GATE_COMMANDS['TC-6'],
+        'output_file': module.REQUIREMENT_OUTPUT_FILES['TC-6'],
+    },
+}
+inference1 = module.BACKEND_URLS['inference1']
+inference2 = module.BACKEND_URLS['inference2']
+seeded = module.derive_seeded('AC-2', {
+    'run_id': 'filesystem-test-run',
+    'request_count': 6,
+    'tracked_request_count': 6,
+    'distinct_nonempty_body_count': 2,
+    'backend_headers': [inference1, inference2],
+    'backend_request_counts': {inference1: 1, inference2: 1},
+    'backend_fresh_completion_counts': {inference1: 2, inference2: 7},
+})
+assert f'inference1[{inference1}]=2' in seeded
+assert f'inference2[{inference2}]=7' in seeded
+
+with tempfile.TemporaryDirectory(prefix='s33-stamp-gates-') as temp:
+    root = Path(temp)
+    tc5 = root / 'tc-5-output.txt'
+    tc6 = root / 'tc-6-output.txt'
+    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed (8)\n', encoding='utf-8')
+    tc6.write_text(json.dumps({
+        'overall': 'REAL',
+        'acs': [
+            {'ac_id': 'AC-1', 'verdict': 'REAL', 'boundary_mocked': False, 'watched_red': True, 'boundary_matches': [], 'unreadable_test_files': []},
+            {'ac_id': 'AC-2', 'verdict': 'REAL', 'boundary_mocked': False, 'watched_red': True, 'boundary_matches': [], 'unreadable_test_files': []},
+        ],
+    }), encoding='utf-8')
+    module.validate_gate_outputs(root, rows)
+    tc5.write_text('Test Files 1 failed (1)\nTests 8 failed (8)\n', encoding='utf-8')
+    tc5_bytes = tc5.read_bytes()
+    try:
+        module.validate_gate_outputs(root, rows)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('stale TC-5 failure was accepted')
+    assert tc5.read_bytes() == tc5_bytes
+    tc5.write_text('Test Files 1 passed (1)\nTests 8 passed (8)\n', encoding='utf-8')
+    tc6.write_text(json.dumps({'overall': 'NOT_REAL', 'acs': []}), encoding='utf-8')
+    tc6_bytes = tc6.read_bytes()
+    try:
+        module.validate_gate_outputs(root, rows)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('stale TC-6 non-REAL result was accepted')
+    assert tc6.read_bytes() == tc6_bytes
+`;
+    await execFileAsync('python3', ['-c', script, resolve(EVIDENCE_ROOT, 'stamp-raw-references.py')], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+  });
+
   it('AC-1 independently verifies health, both model observers, and reviewer inference2 routing', async () => {
     requireLiveEnvironment();
     const run = await runVerifier('models-reviewer', 'integration-models-reviewer');

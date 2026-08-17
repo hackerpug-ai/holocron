@@ -1,0 +1,42 @@
+2026-08-17 09:12:58,353 - omlx.engine_pool - INFO - Evicting 'Qwen3.8-27B-8bit' to fit 'Qwen3.6-35B-A3B-MLX-8bit' under the admission soft target (69.85GB > 47.95GB)
+2026-08-17 09:12:58,353 - omlx.engine_pool - INFO - Unloading model: Qwen3.8-27B-8bit (immediate abort)
+2026-08-17 09:12:58,354 - omlx.engine_core - INFO - Engine stopped
+2026-08-17 09:12:58,385 - omlx.scheduler - INFO - Scheduler shutdown initiated...
+2026-08-17 09:12:58,386 - omlx.cache.paged_ssd_cache - INFO - Shutting down PagedSSDCacheManager...
+2026-08-17 09:12:58,386 - omlx.scheduler - INFO - Scheduler shutdown completed
+2026-08-17 09:12:58,388 - omlx.cache.paged_cache - INFO - PagedCacheManager cleared (reset to 256 initial blocks)
+2026-08-17 09:12:58,440 - omlx.scheduler - INFO - Deep reset completed - all caches cleared
+2026-08-17 09:12:58,661 - omlx.engine.vlm - INFO - VLMBatchedEngine stopped
+2026-08-17 09:12:58,678 - omlx.engine_pool - INFO - Unloaded model: Qwen3.8-27B-8bit, freed=31.49GB (expected>=26.85GB), active_memory: 1.78KB (settled)
+2026-08-17 09:12:58,678 - omlx.engine_pool - INFO - Loading model: Qwen3.6-35B-A3B-MLX-8bit
+2026-08-17 09:12:58,679 - omlx.patches.mlx_lm_mtp.nemotron_h_chain - INFO - nemotron_h MTP chain patch applied (depth-k drafting, sequential fused verify, replay-free rollback)
+2026-08-17 09:12:58,680 - omlx.utils.model_loading - INFO - mlx-vlm runtime MTP patch applied for /Users/inference1/models/lmstudio-community/Qwen3.6-35B-A3B-MLX-8bit (config declares mtp heads but checkpoint ships no mtp.* weights; MTPModule attachment skipped to keep strict load_weights happy)
+2026-08-17 09:13:10,171 - omlx.patches.qwen35_moe_gate_up - INFO - Qwen MoE gate+up fusion applied: 40 layers
+2026-08-17 09:13:10,172 - omlx.engine.vlm - INFO - Vision feature cache enabled (SSD: /Users/inference1/.omlx/cache/vision_features)
+2026-08-17 09:13:10,578 - omlx.scheduler - INFO - Loaded 1 additional EOS token(s) from generation_config.json: {248044}
+2026-08-17 09:13:10,578 - omlx.scheduler - INFO - Enlarging paged cache block_size=256 to 2048 for ArraysCache hybrid model (reduces boundary snapshot overhead)
+2026-08-17 09:13:10,578 - omlx.memory_monitor - INFO - MemoryMonitor initialized (estimator-only, eviction disabled)
+2026-08-17 09:13:10,578 - omlx.memory_monitor - INFO - Model info set: 40 layers (10 KVCache), 2 KV heads, 16 Q heads, 256 head_dim. Estimated memory per 64-token block: 5.00 MB
+2026-08-17 09:13:10,578 - omlx.scheduler - INFO - paged SSD-only mode: max_blocks=100000, block_size=2048 tokens
+2026-08-17 09:13:10,578 - omlx.cache.paged_cache - INFO - PagedCacheManager initialized: block_size=2048, initial_blocks=256, max_blocks=100000, max_tokens=204800000
+2026-08-17 09:13:10,578 - omlx.cache.paged_ssd_cache - INFO - Scanning SSD cache directory: /Users/inference1/.omlx/cache
+2026-08-17 09:13:10,581 - omlx.cache.paged_ssd_cache - INFO - SSD cache scan complete: scanned=6, indexed=0, errors=0, total_size=0 B, skipped_incompatible=6 blocks (608.50 MB)
+2026-08-17 09:13:10,581 - omlx.cache.paged_ssd_cache - INFO - PagedSSDCacheManager initialized: dir=/Users/inference1/.omlx/cache, max_size=46.04 GB, hot_cache=8.00 GB, existing_files=0, disk_free=241.63 GB, cache_used=608.50 MB, incompatible_files=6
+2026-08-17 09:13:10,581 - omlx.cache.paged_cache - INFO - paged SSD cache manager connected to PagedCacheManager
+2026-08-17 09:13:10,581 - omlx.cache.prefix_cache - INFO - PagedSSDCacheManager connected to BlockAwarePrefixCache
+2026-08-17 09:13:10,582 - omlx.scheduler - INFO - paged SSD cache enabled: cache_dir=/Users/inference1/.omlx/cache, max_size=46.04 GB, block_size=2048 tokens
+2026-08-17 09:13:10,582 - omlx.scheduler - INFO - paged SSD cache enabled: /Users/inference1/.omlx/cache, block_size=2048, max_blocks=100000
+2026-08-17 09:13:10,582 - omlx.engine_core - INFO - Engine started
+2026-08-17 09:13:10,582 - omlx.cache.paged_ssd_cache - INFO - PagedSSDCacheManager updated layer cache signature (40 layers, 2 unique types, turboquant_kv_bits=None, cachelist_subtypes=no)
+2026-08-17 09:13:10,619 - omlx.engine.vlm - INFO - VLM tool calling enabled: parser=qwen3_coder
+2026-08-17 09:13:10,621 - omlx.engine.vlm - INFO - VLMBatchedEngine loaded: /Users/inference1/models/lmstudio-community/Qwen3.6-35B-A3B-MLX-8bit
+2026-08-17 09:13:10,622 - omlx.engine_pool - INFO - Loaded model: Qwen3.6-35B-A3B-MLX-8bit (actual: 35.26GB, estimated: 36.89GB, total: 36.89GB)
+2026-08-17 09:13:10,622 - omlx.engine.vlm - INFO - Structured output requires xgrammar. Reinstall with: brew reinstall omlx --with-grammar
+2026-08-17 09:13:14,492 - omlx.scheduler - INFO - Enabled boundary cache snapshots for stateful non-sliceable cache layers
+2026-08-17 09:13:14,497 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=0.0ms/1, store_cache_main_boundary=0.1ms/1
+2026-08-17 09:13:14,497 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 3.87s (24.8 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96
+2026-08-17 09:13:14,533 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=0.1ms/2, store_cache_main_boundary=0.1ms/2
+2026-08-17 09:13:14,535 - omlx.patches.mlx_lm_mtp.batch_generator - INFO - MTP singleton recovery: multirow marker cleared (compact cache)
+2026-08-17 09:13:14,565 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=0.1ms/3, store_cache_main_boundary=0.1ms/3
+2026-08-17 09:13:14,565 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 3.94s (24.4 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96
+2026-08-17 09:13:14,565 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 3.94s (24.4 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96

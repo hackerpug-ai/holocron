@@ -1,0 +1,3 @@
+host=inference1
+ssh_options=BatchMode=yes,StrictHostKeyChecking=yes,ConnectTimeout=12,ConnectionAttempts=1,ServerAliveInterval=5,ServerAliveCountMax=2
+command=curl --silent --show-error --fail --connect-timeout 8 --max-time 180 http://holocron.tail011a51.ts.net:4545/v1/models

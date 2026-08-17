@@ -1,0 +1,305 @@
+[
+    {
+        "Id": "56b7107ed6dbff41aa7b9305e1f2f56e899c99e574d6416c218bda8c1b5dc639",
+        "Created": "2026-08-17T14:55:20.154330345Z",
+        "Path": "docker/prod_entrypoint.sh",
+        "Args": [
+            "--config",
+            "/etc/litellm/config.yaml",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "4545"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 25054,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-08-17T16:46:41.170855215Z",
+            "FinishedAt": "2026-08-17T16:46:40.474884965Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-08-17T16:47:11.500962132Z",
+                        "End": "2026-08-17T16:47:11.572046174Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-08-17T16:47:21.57341647Z",
+                        "End": "2026-08-17T16:47:21.652960137Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-08-17T16:47:31.653682336Z",
+                        "End": "2026-08-17T16:47:31.738000086Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-08-17T16:47:41.739706632Z",
+                        "End": "2026-08-17T16:47:41.803788132Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-08-17T16:47:51.805413387Z",
+                        "End": "2026-08-17T16:47:51.888999595Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:468c25f35f3e5ec4e414974f00deab93337b1b4d9953cabcfd3722e59415f834",
+        "ResolvConfPath": "/var/lib/docker/containers/56b7107ed6dbff41aa7b9305e1f2f56e899c99e574d6416c218bda8c1b5dc639/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/56b7107ed6dbff41aa7b9305e1f2f56e899c99e574d6416c218bda8c1b5dc639/hostname",
+        "HostsPath": "/var/lib/docker/containers/56b7107ed6dbff41aa7b9305e1f2f56e899c99e574d6416c218bda8c1b5dc639/hosts",
+        "LogPath": "",
+        "Name": "/holocron-router-litellm-router-1",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "local",
+                "Config": {
+                    "max-file": "3",
+                    "max-size": "10m"
+                }
+            },
+            "NetworkMode": "holocron-router_default",
+            "PortBindings": {
+                "4545/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "4545"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "56b7107ed6db",
+            "Domainname": "",
+            "User": "root",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "4000/tcp": {},
+                "4545/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/app/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin",
+                "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
+                "PRISMA_BINARY_CACHE_DIR=/opt/prisma/binaries",
+                "PRISMA_CLI_PATH=/opt/prisma/binaries/node_modules/.bin/prisma",
+                "PRISMA_CLI_QUERY_ENGINE_TYPE=binary",
+                "PRISMA_OFFLINE_MODE=true"
+            ],
+            "Cmd": [
+                "--config",
+                "/etc/litellm/config.yaml",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "4545"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "python",
+                    "-c",
+                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4545/health/liveliness', timeout=3)"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 5000000000,
+                "StartPeriod": 20000000000,
+                "Retries": 6
+            },
+            "Image": "ghcr.io/berriai/litellm@sha256:468c25f35f3e5ec4e414974f00deab93337b1b4d9953cabcfd3722e59415f834",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "docker/prod_entrypoint.sh"
+            ],
+            "Labels": {
+                "com.docker.compose.config-hash": "e5385a82d73bc8cd0dc4194f3837d32651b03cbcf6873eb43270dceeb8e27b6e",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "",
+                "com.docker.compose.image": "sha256:468c25f35f3e5ec4e414974f00deab93337b1b4d9953cabcfd3722e59415f834",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "holocron-router",
+                "com.docker.compose.project.config_files": "/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml",
+                "com.docker.compose.project.working_dir": "/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose",
+                "com.docker.compose.service": "litellm-router",
+                "com.docker.compose.version": "5.3.1",
+                "dev.chainguard.image.title": "wolfi-base",
+                "dev.chainguard.package.main": "",
+                "org.opencontainers.image.authors": "Chainguard Team https://www.chainguard.dev/",
+                "org.opencontainers.image.created": "2026-07-02T22:43:55Z",
+                "org.opencontainers.image.revision": "ef84494d52c6708e4e9f4a54ce551a265995ad8f",
+                "org.opencontainers.image.source": "https://github.com/BerriAI/litellm",
+                "org.opencontainers.image.title": "wolfi-base",
+                "org.opencontainers.image.url": "https://images.chainguard.dev/directory/image/wolfi-base/overview",
+                "org.opencontainers.image.vendor": "Chainguard"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "4969bb3adcac8ef83d5623dae08e9c9ca8b4d31b89bd2d404969fd2d8ad5dc91",
+            "SandboxKey": "/var/run/docker/netns/4969bb3adcac",
+            "Ports": {
+                "4545/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "4545"
+                    }
+                ]
+            },
+            "Networks": {
+                "holocron-router_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "holocron-router-litellm-router-1",
+                        "litellm-router"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "a27b96fead1073f9315fcc7d9175de120a2861ebdaa3b87f235e9881459ba8ac",
+                    "EndpointID": "f85804ea844642a5bed51dd48ddf072ef90d500aef711486795b473138c95c5b",
+                    "Gateway": "172.20.0.1",
+                    "IPAddress": "172.20.0.2",
+                    "MacAddress": "aa:56:5a:83:bd:7a",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "holocron-router-litellm-router-1",
+                        "litellm-router",
+                        "56b7107ed6db"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:f2f77179c0c3e342906da3c06c4d5f77434b2fed098d1c23fbb12aac886e72ac",
+            "size": 4296,
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux"
+            }
+        }
+    }
+]

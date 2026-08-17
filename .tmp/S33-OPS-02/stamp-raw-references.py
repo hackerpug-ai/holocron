@@ -23,7 +23,27 @@ from typing import Any
 
 TASK_ID = "S33-OPS-02"
 RECIPE_VERSION = "1.0"
-REQUIREMENT_OUTPUTS = ("AC-1", "AC-2", "TC-1", "TC-2", "TC-3", "TC-4")
+REQUIREMENT_IDS = ("AC-1", "AC-2", "TC-1", "TC-2", "TC-3", "TC-4", "TC-5", "TC-6")
+REQUIREMENT_OUTPUTS = REQUIREMENT_IDS[:6]
+REQUIREMENT_OUTPUT_FILES = {requirement: f".tmp/{TASK_ID}/{requirement.lower()}-output.txt" for requirement in REQUIREMENT_IDS}
+EVIDENCE_BASES = (
+    "models-reviewer",
+    "implementer-distribution",
+    "integration-models-reviewer",
+    "integration-implementer-distribution",
+    "health-flip",
+    "health-flip-negative",
+)
+HISTORICAL_ARCHIVE = "historical-archive"
+RELOCATION_DIRECTORY = "relocated-pre-base-clean-1786992180796459000-61265"
+C3_BASE_BLOB_DIRECTORY = "c3-base-blobs"
+RELOCATION_MANIFEST = "relocation-manifest.json"
+C3_BASES = (
+    "models-reviewer",
+    "implementer-distribution",
+    "integration-models-reviewer",
+    "integration-implementer-distribution",
+)
 EXPECTED_MODES = {
     "AC-1": ("models-reviewer", "models-reviewer"),
     "AC-2": ("implementer-distribution", "implementer-distribution"),
@@ -45,6 +65,14 @@ STOCK_INPUTS = (
     "test-output.txt",
     "typecheck-output.txt",
 )
+EXPECTED_GATE_COMMANDS = {
+    "TC-5": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-02-router-capacity.test.ts",
+    "TC-6": "python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-02/reality-spec.json",
+}
+BACKEND_URLS = {
+    "inference1": "http://inference1.tail011a51.ts.net:8003/v1",
+    "inference2": "http://inference2.tail011a51.ts.net:8003/v1",
+}
 
 
 def fail(message: str) -> "NoReturn":
@@ -219,6 +247,129 @@ def derive_tests(root: Path) -> dict[str, Any]:
     }
 
 
+def validate_archive_and_base_shape(root: Path) -> None:
+    """Reject historical payloads in active run trees and polluted bases."""
+    for base_name in EVIDENCE_BASES:
+        base = root / base_name
+        if not base.is_dir() or base.is_symlink():
+            fail(f"evidence base is not a real directory: {base_name}")
+        direct = sorted(child.name for child in base.iterdir())
+        if direct != ["runs"]:
+            fail(f"evidence base is polluted: {base_name} direct children={direct}")
+        runs = base / "runs"
+        if runs.is_symlink() or not runs.is_dir():
+            fail(f"evidence runs is not a real directory: {base_name}")
+        for run in runs.iterdir():
+            if run.is_symlink() or not run.is_dir():
+                fail(f"active evidence run is not a real directory: {run}")
+            if run.name.startswith("historical-"):
+                fail(f"historical archive remains in active runs: {run}")
+    archive = root / HISTORICAL_ARCHIVE
+    if archive.is_symlink() or not archive.is_dir():
+        fail("historical archive is not a real directory")
+    direct = sorted(child.name for child in archive.iterdir())
+    expected_archive = sorted((C3_BASE_BLOB_DIRECTORY, RELOCATION_DIRECTORY, RELOCATION_MANIFEST))
+    if direct != expected_archive:
+        fail(f"historical archive bases are incomplete: {direct}")
+    c3_blobs = archive / C3_BASE_BLOB_DIRECTORY
+    if c3_blobs.is_symlink() or not c3_blobs.is_dir():
+        fail("c3 base blob archive is not a real directory")
+    if sorted(child.name for child in c3_blobs.iterdir()) != sorted(C3_BASES):
+        fail("c3 base blob archive has an unexpected base set")
+    for base_name in C3_BASES:
+        base = c3_blobs / base_name
+        if base.is_symlink() or not base.is_dir():
+            fail(f"c3 base blob archive is not a real directory: {base_name}")
+        for child in base.rglob("*"):
+            info = child.lstat()
+            if stat.S_ISLNK(info.st_mode) or not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                fail(f"c3 base blob archive contains an unsafe entry: {child}")
+    relocated = archive / RELOCATION_DIRECTORY
+    if relocated.is_symlink() or not relocated.is_dir():
+        fail("relocated evidence archive is not a real directory")
+    if sorted(child.name for child in relocated.iterdir()) != sorted(EVIDENCE_BASES):
+        fail("relocated evidence archive has an unexpected base set")
+    for base_name in EVIDENCE_BASES:
+        base = relocated / base_name
+        entries = list(base.iterdir()) if base.is_dir() and not base.is_symlink() else []
+        if base.is_symlink() or not base.is_dir() or len(entries) != 1 or entries[0].is_symlink() or not entries[0].is_dir():
+            fail(f"relocated evidence archive is malformed: {base_name}")
+        for child in entries[0].rglob("*"):
+            info = child.lstat()
+            if stat.S_ISLNK(info.st_mode) or not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                fail(f"relocated evidence archive contains an unsafe entry: {child}")
+    manifest_path = archive / RELOCATION_MANIFEST
+    manifest = load_json(manifest_path, root, "relocation manifest")
+    if manifest.get("task_id") != TASK_ID or manifest.get("source_commit") != "c3e3db9124bdbc91cf7caa37803c6cc79ee6ae66":
+        fail("relocation manifest has an unexpected source identity")
+    entries = manifest.get("entries")
+    if not isinstance(entries, list) or not entries:
+        fail("relocation manifest has no entries")
+    seen_sources: set[str] = set()
+    seen_archives: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            fail("relocation manifest contains a malformed entry")
+        source = entry.get("source_path")
+        archive_path = entry.get("archive_path")
+        if not isinstance(source, str) or not source.startswith(f".tmp/{TASK_ID}/") or "/runs/" in source:
+            fail(f"relocation manifest source is not a base-level path: {source!r}")
+        if not isinstance(archive_path, str) or not archive_path.startswith(f"{HISTORICAL_ARCHIVE}/{C3_BASE_BLOB_DIRECTORY}/"):
+            fail(f"relocation manifest archive path is invalid: {archive_path!r}")
+        blob_rel = archive_path.removeprefix(f"{HISTORICAL_ARCHIVE}/{C3_BASE_BLOB_DIRECTORY}/")
+        if source != f".tmp/{TASK_ID}/{blob_rel}":
+            fail(f"relocation manifest source/archive mapping is not canonical: {source!r} -> {archive_path!r}")
+        if source in seen_sources or archive_path in seen_archives:
+            fail("relocation manifest contains duplicate paths")
+        seen_sources.add(source)
+        seen_archives.add(archive_path)
+        rel, absolute = relative_path(archive_path, root, "relocation manifest archive path")
+        if rel != archive_path:
+            fail("relocation manifest archive path is not canonical")
+        _, size = regular_file(absolute, root, "relocation manifest archive blob")
+        if entry.get("byte_length") != size or not isinstance(entry.get("sha256"), str) or entry["sha256"] != sha256(absolute):
+            fail(f"relocation manifest hash/length mismatch: {archive_path}")
+    actual_archives = {
+        child.relative_to(root).as_posix()
+        for child in c3_blobs.rglob("*")
+        if child.is_file() and not child.is_symlink()
+    }
+    if seen_archives != actual_archives:
+        fail("relocation manifest does not cover exactly every archived c3 blob")
+
+
+def validate_gate_outputs(root: Path, by_id: dict[str, dict[str, Any]]) -> None:
+    """Validate the two non-JSON gates before allowing any summary rewrite."""
+    for requirement, expected_command in EXPECTED_GATE_COMMANDS.items():
+        item = by_id[requirement]
+        exit_code = item.get("exit_code")
+        if isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0:
+            fail(f"{requirement} exit_code is not numeric zero")
+        expected_file = REQUIREMENT_OUTPUT_FILES[requirement]
+        if item.get("verify") != expected_command or item.get("output_file") != expected_file:
+            fail(f"{requirement} command/output contract does not match the manifest")
+        _, output_path = relative_path(expected_file, root, f"{requirement} output")
+        text = output_path.read_text(encoding="utf-8")
+        if re.search(r"(?m)^\s*(?:Test Files|Tests)\s+\d+\s+failed\b", text):
+            fail(f"{requirement} output contains failed tests")
+        if requirement == "TC-5":
+            if not re.search(r"(?m)^\s*Test Files\s+1\s+passed\b", text) or not re.search(r"(?m)^\s*Tests\s+8\s+passed\b", text):
+                fail("TC-5 output does not prove the focused eight-test contract")
+            continue
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as error:
+            fail(f"TC-6 output is not valid JSON: {error}")
+        if not isinstance(value, dict) or value.get("overall") != "REAL":
+            fail("TC-6 output does not prove overall REAL test reality")
+        acs = value.get("acs")
+        if not isinstance(acs, list) or {item.get("ac_id") for item in acs if isinstance(item, dict)} != {"AC-1", "AC-2"} or len(acs) != 2:
+            fail("TC-6 output does not contain exactly AC-1 and AC-2 reality rows")
+        for ac in acs:
+            if not isinstance(ac, dict) or ac.get("verdict") != "REAL" or ac.get("boundary_mocked") is not False or ac.get("watched_red") is not True or ac.get("boundary_matches") != [] or ac.get("unreadable_test_files") != []:
+                fail("TC-6 output contains a non-REAL or incomplete AC reality row")
+
+
 def derive_seeded(requirement: str, output: dict[str, Any]) -> str:
     run_id = output.get("run_id")
     if not isinstance(run_id, str) or not run_id:
@@ -239,15 +390,16 @@ def derive_seeded(requirement: str, output: dict[str, Any]) -> str:
             fail("AC-2 output does not prove six tracked distributed requests")
         counts = output.get("backend_fresh_completion_counts")
         request_counts = output.get("backend_request_counts")
-        expected_backends = {"http://inference1.tail011a51.ts.net:8003/v1", "http://inference2.tail011a51.ts.net:8003/v1"}
+        expected_backends = set(BACKEND_URLS.values())
         if output.get("backend_headers") is None or set(output.get("backend_headers", [])) != expected_backends:
             fail("AC-2 output does not prove both exact backend headers")
         if not isinstance(request_counts, dict) or set(request_counts) != expected_backends or any(not isinstance(value, int) or value < 1 for value in request_counts.values()):
             fail("AC-2 output does not prove positive request counts for both exact backends")
         if not isinstance(counts, dict) or set(counts) != expected_backends or any(not isinstance(value, int) or value < request_counts[key] for key, value in counts.items()):
             fail("AC-2 output does not prove fresh completion counts")
-        values = sorted(counts.values())
-        return f"Fresh run {run_id} reports request_count=6, tracked_request_count=6, distinct_nonempty_body_count={expected[2]}, and fresh completion counts {values[0]} / {values[1]} for inference1/inference2."
+        inference1_count = counts[BACKEND_URLS["inference1"]]
+        inference2_count = counts[BACKEND_URLS["inference2"]]
+        return f"Fresh run {run_id} reports request_count=6, tracked_request_count=6, distinct_nonempty_body_count={expected[2]}, and fresh completion counts inference1[{BACKEND_URLS['inference1']}]={inference1_count}, inference2[{BACKEND_URLS['inference2']}]={inference2_count}."
     fail(f"seeded value is not defined for {requirement}")
 
 
@@ -277,6 +429,7 @@ def main() -> None:
     args = parser.parse_args()
     recipe = Path(__file__).absolute()
     root = recipe.parent
+    validate_archive_and_base_shape(root)
     summary_path = Path(args.summary)
     if not summary_path.is_absolute():
         summary_path = Path.cwd() / summary_path
@@ -289,9 +442,13 @@ def main() -> None:
     if summary.get("commit_sha") != current_sha:
         fail(f"summary commit_sha {summary.get('commit_sha')!r} does not match current HEAD {current_sha!r}")
     results = summary.get("requirement_results")
-    if not isinstance(results, list) or len(results) != 8 or any(not isinstance(item, dict) for item in results) or len({item.get("id") for item in results}) != 8 or {item.get("id") for item in results} != {"AC-1", "AC-2", "TC-1", "TC-2", "TC-3", "TC-4", "TC-5", "TC-6"}:
+    if not isinstance(results, list) or len(results) != len(REQUIREMENT_IDS) or any(not isinstance(item, dict) for item in results) or [item.get("id") for item in results] != list(REQUIREMENT_IDS):
         fail("summary does not contain exactly the eight requirement results")
     by_id = {item["id"]: item for item in results}
+    for requirement in REQUIREMENT_IDS:
+        if by_id[requirement].get("output_file") != REQUIREMENT_OUTPUT_FILES[requirement]:
+            fail(f"{requirement} output_file does not match the canonical requirement mapping")
+    validate_gate_outputs(root, by_id)
     output_values: dict[str, dict[str, Any]] = {}
     raw_by_requirement: dict[str, list[dict[str, Any]]] = {}
     all_raw: dict[str, dict[str, Any]] = {}
@@ -335,6 +492,8 @@ def main() -> None:
     original_harvest = original.get("original_harvest")
     if not isinstance(original_harvest, dict):
         original_harvest = {key: original.get(key) for key in ("tool", "version", "generated_at")}
+    if original_harvest.get("tool") != "harvest-evidence.sh" or original_harvest.get("version") != "1.0" or not isinstance(original_harvest.get("generated_at"), str) or not original_harvest["generated_at"].strip():
+        fail("original harvest identity is missing or not the stock harvest-evidence.sh/1.0 producer")
     generator = {
         "tool": "harvest-evidence.sh+stamp-raw-references.py",
         "version": f"harvest-evidence.sh/1.0+stamp-raw-references.py/{RECIPE_VERSION}",
