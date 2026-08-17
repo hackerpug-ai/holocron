@@ -1,9 +1,9 @@
 # S33-OPS-01: Provision Qwen3.8-27B-8bit onto inference2 and inference1 (disk-headroom-gated) and verify oMLX serves it
 
 > Status: 🔴 Needs Fixes
-> Commit: 48e0fa03b643445f40011915534ae94b753faecd
-> Fix: SPEC-REPAIR-S33-OPS-01-TC2-VERIFY
-> Updated: 2026-08-16T23:47:34Z
+> Commit: 26bfc9a6e0c32f836c7c861ec708b2c27b4735de
+> Fix: SPEC-REPAIR-S33-OPS-01-TEST-REALITY
+> Updated: 2026-08-17T00:17:47Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
@@ -73,6 +73,7 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 |-------|-----|-------------|----------|----|
 | — | SPEC-REPAIR-S33-OPS-01-VERIFY | — | — | 2026-08-16T22:58:56Z |
 | — | SPEC-REPAIR-S33-OPS-01-TC2-VERIFY | — | — | 2026-08-16T23:47:34Z |
+| — | SPEC-REPAIR-S33-OPS-01-TEST-REALITY | — | — | 2026-08-17T00:17:47Z |
 ## Fixtures
 
 **`qwen38-27b-8bit-source`** — Real, already-downloaded MLX weight directory on the laptop: 6 safetensors shards (~27.5 GiB), config.json sha256 8f80874ac3ad8fa386d3f6dc0ea85377f703376e009a03dee0360e08e289a25d, 40 files total. _(seed: cli)_
@@ -92,6 +93,8 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 **WRITE-ALLOWED**
 
 - .tmp/sprint-33/S33-OPS-01-*.json (NEW evidence/blocker artifacts)
+- .tmp/S33-OPS-01/**
+- tests/integration/sprint33-ops-01-fleet-state.test.ts
 - ~/models/mlx-community/Qwen3.8-27B-8bit on inference1/inference2 (NEW, remote hosts, not repo-tracked)
 
 **WRITE-PROHIBITED**
@@ -117,6 +120,8 @@ _Source:_ `~/models/DEVICES.md:60-95`
 |---|---|---|
 | inference2 serves new model | `curl -sS http://inference2.tail011a51.ts.net:8003/v1/models` | response contains id 'Qwen3.8-27B-8bit' |
 | inference1 headroom gate is honest | `ssh inference1 'df -k /'` | free bytes unchanged from pre-attempt measurement if threshold not met |
+| real fleet integration test | `PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/sprint33-ops-01-fleet-state.test.ts` | exit 0 against the real HTTP/SSH/filesystem seams |
+| test-reality fakeability audit | `python3 ~/Projects/brain/tools/test-reality/test_reality.py .tmp/S33-OPS-01/reality-spec.json` | reports REAL for the declared integration test |
 
 ## Agent Assignment
 
