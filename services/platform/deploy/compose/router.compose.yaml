@@ -1,0 +1,68 @@
+# Auxiliary Holocron LiteLLM router contract (S33-OPS-02).
+# Keep this beside compose.yaml: the production platform contract remains the
+# four services declared there. The router is a separately managed dependency.
+name: holocron-router
+
+x-holocron-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  litellm-router:
+    image: ghcr.io/berriai/litellm@sha256:468c25f35f3e5ec4e414974f00deab93337b1b4d9953cabcfd3722e59415f834
+    restart: unless-stopped
+    logging: *bounded-logging
+    ports:
+      - "0.0.0.0:4545:4545"
+    configs:
+      - source: router-config
+        target: /etc/litellm/config.yaml
+        mode: 0444
+    command:
+      - --config
+      - /etc/litellm/config.yaml
+      - --host
+      - 0.0.0.0
+      - --port
+      - "4545"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:4545/health/liveliness', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+configs:
+  router-config:
+    content: |
+      model_list:
+        - model_name: reviewer
+          litellm_params:
+            model: openai/Qwen3.8-27B-8bit
+            api_base: http://inference2.tail011a51.ts.net:8003/v1
+            api_key: sk-none
+        - model_name: implementer
+          litellm_params:
+            model: openai/Qwen3.6-35B-A3B-MLX-8bit
+            api_base: http://inference1.tail011a51.ts.net:8003/v1
+            api_key: sk-none
+            weight: 100
+        - model_name: implementer
+          litellm_params:
+            model: openai/Qwen3.6-35B-A3B-MLX-8bit
+            api_base: http://inference2.tail011a51.ts.net:8003/v1
+            api_key: sk-none
+            weight: 100
+      router_settings:
+        routing_strategy: least-busy
+        num_retries: 2
+        timeout: 600
+        cooldown_time: 60
