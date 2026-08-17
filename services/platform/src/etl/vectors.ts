@@ -255,13 +255,9 @@ export function selectPast8kRetrievalAnchor(
   return anchor;
 }
 
-async function probeEmbedCapability(endpointOverride?: string) {
-  const resolved = await resolveModel('embed', endpointOverride ? { endpointOverride } : undefined);
-  const probeVector = await embed(
-    'holocron etl:vectors fleet probe',
-    'document',
-    endpointOverride ? { endpointOverride } : undefined
-  );
+async function probeEmbedCapability() {
+  const resolved = await resolveModel('embed');
+  const probeVector = await embed('holocron etl:vectors fleet probe', 'document');
 
   const probeVectorNorm = vectorNorm(probeVector);
   return {
@@ -413,8 +409,7 @@ export async function runEtlVectors(options?: {
   });
   const { sql } = ctx;
   try {
-    const endpointOverride = process.env.FLEET_URL;
-    const fleetProbe = await probeEmbedCapability(endpointOverride);
+    const fleetProbe = await probeEmbedCapability();
 
     const docs = await sql<
       Array<{
@@ -535,14 +530,12 @@ export async function runEtlVectors(options?: {
     const embedResult = await embedAllPassages({
       sql,
       databaseUrl: ctx.databaseUrl,
-      embedFn: (text, mode) =>
-        embed(text, mode, endpointOverride ? { endpointOverride } : undefined),
+      embedFn: (text, mode) => embed(text, mode),
     });
 
     const unitNorm = await verifyUnitNorm(sql);
     const emptyCorpus = docs.length === 0 && passagesInserted === 0;
     const retrieval = await verifyPast8kRetrieval(sql, {
-      endpointOverride,
       emptyCorpus,
       anchor: past8kAnchor,
     });
