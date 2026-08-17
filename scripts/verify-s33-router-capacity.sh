@@ -23,6 +23,9 @@ EXPECTED_REVIEWER_BASE=http://inference2.tail011a51.ts.net:8003/v1
 EXPECTED_INFERENCE1_BASE=http://inference1.tail011a51.ts.net:8003/v1
 EXPECTED_INFERENCE2_BASE=http://inference2.tail011a51.ts.net:8003/v1
 LOG_PATH='${HOME}/local-llm/logs/omlx-mini-8003.log'
+REMOTE_HOLOCRON_HOST=holocron
+REMOTE_COMPOSE_FILE_DEFAULT=/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml
+REMOTE_DOCKER_BIN_DEFAULT=/usr/local/bin/docker
 
 die() { echo "S33-OPS-02 verifier failed: $*" >&2; exit 1; }
 usage() { echo "usage: $0 --mode models-reviewer|implementer-distribution|health-flip [options]" >&2; exit 2; }
@@ -139,13 +142,20 @@ if os.path.commonpath((approved, base)) != approved:
     raise SystemExit('evidence base escapes the approved root')
 if os.path.lexists(base) and os.path.islink(base):
     raise SystemExit('evidence base is a symlink')
-if os.path.realpath(base) != base:
-    raise SystemExit('evidence base resolves outside its lexical path')
+if not os.path.lexists(base):
+    os.makedirs(base)
+if not os.path.isdir(base) or os.path.realpath(base) != base:
+    raise SystemExit('evidence base is not a real directory')
+children = sorted(os.listdir(base))
+unexpected = [name for name in children if name != 'runs']
+if unexpected:
+    raise SystemExit('evidence base must contain only runs')
 runs = os.path.join(base, 'runs')
 if os.path.lexists(runs) and os.path.islink(runs):
     raise SystemExit('evidence runs directory must not be a symlink')
-os.makedirs(runs, exist_ok=True)
-if os.path.realpath(runs) != runs:
+if not os.path.lexists(runs):
+    os.mkdir(runs)
+if not os.path.isdir(runs) or os.path.realpath(runs) != runs:
     raise SystemExit('evidence runs directory resolves outside its lexical path')
 for attempt in range(20):
     run_id = f'{time.time_ns()}-{os.getpid()}-{mode}-{attempt}'
@@ -175,26 +185,101 @@ health_ssh() {
     -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$HOLOCRON_HOST" "$1"
 }
 
+health_router_compose_up() {
+  local stdout=$1 stderr=$2 provenance=$3 exit_file=$4 rc
+  printf 'host=%s\nssh_options=BatchMode=yes,StrictHostKeyChecking=yes,ConnectTimeout=10,ServerAliveInterval=5,ServerAliveCountMax=2\ncommand=PATH=/usr/local/bin:/Users/holocron/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin /usr/local/bin/docker compose -f %s up -d litellm-router\n' \
+    "$REMOTE_HOLOCRON_HOST" "$REMOTE_COMPOSE_FILE_DEFAULT" >"$provenance"
+  set +e
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+    -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$REMOTE_HOLOCRON_HOST" \
+    "set -eu; PATH=/usr/local/bin:/Users/holocron/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; /usr/local/bin/docker compose -f '$REMOTE_COMPOSE_FILE_DEFAULT' up -d litellm-router" \
+    >"$stdout" 2>"$stderr"
+  rc=$?
+  set -e
+  printf '%s\n' "$rc" >"$exit_file"
+  ((rc == 0)) || die 'isolated router compose up failed'
+}
+
+health_write_capture_receipt() {
+  local raw=$1 receipt=$2 kind=$3 exit_file=${4:-}
+  [[ ! -e "$receipt" && ! -L "$receipt" ]] || die "capture receipt would overwrite an existing path: $receipt"
+  python3 - "$raw" "$receipt" "$kind" "$exit_file" <<'PY'
+import hashlib, json, os, stat, sys
+
+raw, receipt, kind, exit_file = sys.argv[1:]
+root = os.path.abspath(os.path.dirname(receipt))
+
+def regular(path, label):
+    absolute = os.path.abspath(path)
+    if os.path.commonpath((root, absolute)) != root:
+        raise SystemExit(f'{label} escapes exact run directory')
+    info = os.lstat(absolute)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise SystemExit(f'{label} is not a non-symlink regular file')
+    canonical = os.path.realpath(absolute)
+    if os.path.commonpath((root, canonical)) != root:
+        raise SystemExit(f'{label} physically escapes exact run directory')
+    return absolute, info.st_size
+
+raw_path, byte_length = regular(raw, 'capture source')
+receipt_path = os.path.abspath(receipt)
+if os.path.commonpath((root, receipt_path)) != root:
+    raise SystemExit('capture receipt escapes exact run directory')
+if os.path.lexists(receipt_path):
+    raise SystemExit('capture receipt already exists')
+payload = {
+    'kind': kind,
+    'raw_path': os.path.relpath(raw_path, os.getcwd()),
+    'exists': True,
+    'byte_length': byte_length,
+    'sha256': hashlib.sha256(open(raw_path, 'rb').read()).hexdigest(),
+}
+if exit_file:
+    exit_path, _ = regular(exit_file, 'capture exit')
+    raw_exit = open(exit_path, encoding='utf-8').read().strip()
+    if not raw_exit.isdigit():
+        raise SystemExit('capture exit is not numeric')
+    payload['exit_code'] = int(raw_exit)
+temporary = f'{receipt_path}.tmp-{os.getpid()}'
+if os.path.lexists(temporary):
+    raise SystemExit('capture receipt temporary path already exists')
+with open(temporary, 'x', encoding='utf-8') as handle:
+    json.dump(payload, handle, indent=2, sort_keys=True)
+    handle.write('\n')
+    handle.flush()
+    os.fsync(handle.fileno())
+try:
+    os.link(temporary, receipt_path)
+finally:
+    os.unlink(temporary)
+PY
+}
+
 health_capture_raw() {
-  local destination=$1 label=$2 temporary status rc
-  temporary="$EVIDENCE_PATH/.$label.$$"
+  local destination=$1 label=$2 temporary status rc capture_root
+  capture_root=$(dirname -- "$destination")
+  temporary="$capture_root/.$label.$$"
   rm -f -- "$temporary"
   set +e
   status=$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
     --output "$temporary" --write-out '%{http_code}' "$HEALTH_URL" \
-    2>"$EVIDENCE_PATH/$label.curl.stderr")
+    2>"$capture_root/$label.curl.stderr")
   rc=$?
   set -e
   ((rc == 0)) || return "$rc"
   [[ -s "$temporary" ]] || return 1
-  mv -f -- "$temporary" "$destination"
-  printf '%s\n' "$status" >"$EVIDENCE_PATH/$label.status.txt"
+  [[ ! -e "$destination" && ! -L "$destination" ]] || return 1
+  mv -- "$temporary" "$destination"
+  printf '%s\n' "$status" >"$capture_root/$label.status.txt"
 }
 
 health_assert_state() {
   python3 - "$1" "$2" <<'PY'
-import json, math, sys
+import json, math, os, stat, sys
 path, expected = sys.argv[1:]
+info = os.lstat(path)
+if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path):
+    raise SystemExit(f'health artifact is not a direct regular file: {path}')
 value = json.load(open(path, encoding='utf-8'))
 states = {'pre': ('ok', True, None), 'degraded': ('degraded', False, 'fleet'), 'restored': ('ok', True, None)}
 if expected not in states:
@@ -223,11 +308,12 @@ PY
 }
 
 health_poll_state() {
-  local destination=$1 expected=$2 attempt temporary
+  local destination=$1 expected=$2 attempt temporary capture_root=${3:-$(dirname -- "$1")}
   for ((attempt=1; attempt<=45; attempt++)); do
-    temporary="$EVIDENCE_PATH/.health-$expected-$attempt.json"
+    temporary="$capture_root/.health-$expected-$attempt.json"
     if health_capture_raw "$temporary" "health-$expected-$attempt" && health_assert_state "$temporary" "$expected" >/dev/null 2>&1; then
-      mv -f -- "$temporary" "$destination"
+      [[ ! -e "$destination" && ! -L "$destination" ]] || return 1
+      mv -- "$temporary" "$destination"
       return 0
     fi
     rm -f -- "$temporary"
@@ -237,15 +323,17 @@ health_poll_state() {
 }
 
 health_capture_remote_file() {
-  local destination=$1 label=$2 command=$3 temporary
-  temporary="$EVIDENCE_PATH/.$label.$$"
+  local destination=$1 label=$2 command=$3 temporary capture_root
+  capture_root=$(dirname -- "$destination")
+  temporary="$capture_root/.$label.$$"
   rm -f -- "$temporary"
-  if ! health_ssh "$command" >"$temporary" 2>"$EVIDENCE_PATH/$label.ssh.stderr"; then
+  if ! health_ssh "$command" >"$temporary" 2>"$capture_root/$label.ssh.stderr"; then
     rm -f -- "$temporary"
     return 1
   fi
   [[ -s "$temporary" ]] || { rm -f -- "$temporary"; return 1; }
-  mv -f -- "$temporary" "$destination"
+  [[ ! -e "$destination" && ! -L "$destination" ]] || { rm -f -- "$temporary"; return 1; }
+  mv -- "$temporary" "$destination"
 }
 
 health_router_inspect() {
@@ -293,8 +381,11 @@ REMOTE
 
 health_assert_router_inspect() {
   python3 - "$1" "$2" <<'PY'
-import json, sys
+import json, os, stat, sys
 path, expected = sys.argv[1:]
+info = os.lstat(path)
+if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path):
+    raise SystemExit(f'router inspect artifact is not a direct regular file: {path}')
 value = json.load(open(path, encoding='utf-8'))
 if not isinstance(value, list) or len(value) != 1:
     raise SystemExit('router inspect must contain exactly one record')
@@ -314,11 +405,12 @@ PY
 }
 
 health_wait_router_healthy() {
-  local destination=$1 attempt temporary
+  local destination=$1 attempt temporary capture_root=${2:-$(dirname -- "$1")}
   for ((attempt=1; attempt<=45; attempt++)); do
-    temporary="$EVIDENCE_PATH/.router-post-$attempt.json"
-    if health_router_inspect >"$temporary" 2>"$EVIDENCE_PATH/router-inspect-$attempt.ssh.stderr" && health_assert_router_inspect "$temporary" running-healthy >/dev/null 2>&1; then
-      mv -f -- "$temporary" "$destination"
+    temporary="$capture_root/.router-post-$attempt.json"
+    if health_router_inspect >"$temporary" 2>"$capture_root/router-inspect-$attempt.ssh.stderr" && health_assert_router_inspect "$temporary" running-healthy >/dev/null 2>&1; then
+      [[ ! -e "$destination" && ! -L "$destination" ]] || return 1
+      mv -- "$temporary" "$destination"
       return 0
     fi
     rm -f -- "$temporary"
@@ -328,10 +420,16 @@ health_wait_router_healthy() {
 }
 
 health_validate_raw_invariants() {
-  python3 - "$EVIDENCE_PATH/health.pre.json" "$EVIDENCE_PATH/health.degraded.json" "$EVIDENCE_PATH/health.restored.json" "$EVIDENCE_PATH/production-containers.pre.json" "$EVIDENCE_PATH/production-containers.post.json" "$EVIDENCE_PATH/remote-primary.pre.json" "$EVIDENCE_PATH/remote-primary.post.json" <<'PY'
-import json, math, sys
+  local pre_root=${1:-$EVIDENCE_PATH} post_root=${2:-${1:-$EVIDENCE_PATH}}
+  python3 - "$pre_root/health.pre.json" "$pre_root/health.degraded.json" "$post_root/health.restored.json" "$pre_root/production-containers.pre.json" "$post_root/production-containers.post.json" "$pre_root/remote-primary.pre.json" "$post_root/remote-primary.post.json" <<'PY'
+import json, math, os, stat, sys
 pre, degraded, restored, containers_pre, containers_post, primary_pre, primary_post = sys.argv[1:]
 def load(path):
+    info = os.lstat(path)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise SystemExit(f'raw invariant input is not a regular file: {path}')
+    if os.path.realpath(path) != os.path.abspath(path):
+        raise SystemExit(f'raw invariant input is physically redirected: {path}')
     return json.load(open(path, encoding='utf-8'))
 health = [load(path) for path in (pre, degraded, restored)]
 expected = [('ok', True, None), ('degraded', False, 'fleet'), ('ok', True, None)]
@@ -390,13 +488,25 @@ health_write_failure() {
   local reason=$1 comparison=''
   comparison=$(health_validate_raw_invariants 2>/dev/null || true)
   python3 - "$EVIDENCE_PATH/failure.json" "$NEGATIVE_CONTROL" "$reason" "$HEALTH_CLEANUP_RESTORE_ARMED" "$HEALTH_CLEANUP_RESTORE_ATTEMPTED" "$HEALTH_RESTORE_SUCCEEDED" "$comparison" "$RUN_ID" "$RUN_DIR_REL" <<'PY'
-import json, os, sys
+import json, os, stat, sys
 out, negative, reason, armed, attempted, succeeded, comparison, run_id, run_dir = sys.argv[1:]
 root = os.path.dirname(out)
 result = {'ok': False, 'mode': 'health-flip', 'run_id': run_id, 'run_dir': run_dir, 'negative_control': negative or None, 'intentional_failure_observed': negative == 'fail-after-stop', 'failure_reason': reason, 'cleanup_restore_armed': armed == '1', 'cleanup_restore_attempted': attempted == '1', 'restore_succeeded': succeeded == '1'}
+def regular(path, label):
+    absolute = os.path.abspath(path)
+    if os.path.commonpath((root, absolute)) != root:
+        raise SystemExit(f'{label} escapes exact run directory')
+    info = os.lstat(absolute)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise SystemExit(f'{label} is not a non-symlink regular file')
+    if os.path.realpath(absolute) != absolute:
+        raise SystemExit(f'{label} physically escapes exact run directory')
+    return absolute
 def read_json(name):
     path = os.path.join(root, name)
-    if os.path.isfile(path) and os.path.getsize(path):
+    if os.path.lexists(path):
+        path = regular(path, name)
+    if os.path.exists(path) and os.path.getsize(path):
         return json.load(open(path, encoding='utf-8'))
     return None
 restored = read_json('health.restored.json')
@@ -411,10 +521,24 @@ result['final_router'] = {'state': router[0].get('State', {}).get('Status'), 'he
 result['artifact_manifest'] = {}
 for name in ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json'):
     path = os.path.join(root, name)
-    if os.path.isfile(path) and os.path.getsize(path):
+    if os.path.lexists(path):
+        path = regular(path, name)
+    if os.path.exists(path) and os.path.getsize(path):
         result['artifact_manifest'][name.replace('.', '_')] = {'path': os.path.relpath(path, os.getcwd()), 'exists': True, 'byte_length': os.path.getsize(path)}
-json.dump(result, open(out, 'w', encoding='utf-8'), indent=2, sort_keys=True)
-open(out, 'a', encoding='utf-8').write('\n')
+if os.path.lexists(out):
+    raise SystemExit('failure manifest would overwrite an existing path')
+temporary = f'{out}.tmp-{os.getpid()}'
+if os.path.lexists(temporary):
+    raise SystemExit('failure manifest temporary path already exists')
+with open(temporary, 'x', encoding='utf-8') as handle:
+    json.dump(result, handle, indent=2, sort_keys=True)
+    handle.write('\n')
+    handle.flush()
+    os.fsync(handle.fileno())
+try:
+    os.link(temporary, out)
+finally:
+    os.unlink(temporary)
 PY
 }
 
@@ -423,34 +547,67 @@ HEALTH_CLEANUP_RESTORE_ARMED=0
 HEALTH_CLEANUP_RESTORE_ATTEMPTED=0
 HEALTH_RESTORE_SUCCEEDED=0
 HEALTH_CLEANUP_RUNNING=0
+HEALTH_RESTORE_ATTEMPT_COUNT=0
+
+health_publish_restore_attempt() {
+  local attempt_root=$1 publish_dir name source destination
+  publish_dir="$EVIDENCE_PATH/.restore-publish-$HEALTH_RESTORE_ATTEMPT_COUNT-$$"
+  [[ ! -e "$publish_dir" && ! -L "$publish_dir" ]] || return 1
+  mkdir "$publish_dir"
+  local files=(router.post.json health.restored.json production-containers.post.json remote-primary.post.json restore.stdout restore.ssh.stderr raw-invariants.stderr)
+  for name in "${files[@]}"; do
+    source="$attempt_root/$name"
+    destination="$EVIDENCE_PATH/$name"
+    [[ -f "$source" && ! -L "$source" ]] || { rm -rf -- "$publish_dir"; return 1; }
+    [[ ! -e "$destination" && ! -L "$destination" ]] || { rm -rf -- "$publish_dir"; return 1; }
+    cp -- "$source" "$publish_dir/$name"
+    cmp -- "$source" "$publish_dir/$name" >/dev/null || { rm -rf -- "$publish_dir"; return 1; }
+  done
+  for name in "${files[@]}"; do
+    destination="$EVIDENCE_PATH/$name"
+    [[ ! -e "$destination" && ! -L "$destination" ]] || { rm -rf -- "$publish_dir"; return 1; }
+  done
+  for name in "${files[@]}"; do
+    mv -- "$publish_dir/$name" "$EVIDENCE_PATH/$name" || { rm -rf -- "$publish_dir"; return 1; }
+  done
+  rmdir -- "$publish_dir"
+}
 
 health_restore_router() {
-  local restore_rc=0 comparison
+  local restore_rc=0 comparison attempt_root
   HEALTH_CLEANUP_RESTORE_ATTEMPTED=1
+  HEALTH_RESTORE_ATTEMPT_COUNT=$((HEALTH_RESTORE_ATTEMPT_COUNT + 1))
+  attempt_root="$EVIDENCE_PATH/restore-attempts/attempt-$HEALTH_RESTORE_ATTEMPT_COUNT-$(date +%s%N)-$$"
+  [[ ! -e "$attempt_root" && ! -L "$attempt_root" ]] || return 1
+  mkdir -p -- "$attempt_root"
   set +e
   health_ssh "set -eu
 D='$REMOTE_DOCKER_BIN'
 C='$REMOTE_COMPOSE_FILE'
-\"\$D\" compose -f \"\$C\" up -d litellm-router >/dev/null" >"$EVIDENCE_PATH/restore.stdout" 2>"$EVIDENCE_PATH/restore.ssh.stderr"
+\"\$D\" compose -f \"\$C\" up -d litellm-router >/dev/null" >"$attempt_root/restore.stdout" 2>"$attempt_root/restore.ssh.stderr"
   restore_rc=$?
   if ((restore_rc == 0)); then
-    health_wait_router_healthy "$EVIDENCE_PATH/router.post.json"
+    health_wait_router_healthy "$attempt_root/router.post.json" "$attempt_root"
     restore_rc=$?
   fi
   if ((restore_rc == 0)); then
-    health_poll_state "$EVIDENCE_PATH/health.restored.json" restored
+    health_poll_state "$attempt_root/health.restored.json" restored "$attempt_root"
     restore_rc=$?
   fi
   if ((restore_rc == 0)); then
-    health_capture_remote_file "$EVIDENCE_PATH/production-containers.post.json" production-containers-post "$(health_production_command)"
+    health_capture_remote_file "$attempt_root/production-containers.post.json" production-containers-post "$(health_production_command)"
     restore_rc=$?
   fi
   if ((restore_rc == 0)); then
-    health_capture_remote_file "$EVIDENCE_PATH/remote-primary.post.json" remote-primary-post "$(health_primary_command)"
+    health_capture_remote_file "$attempt_root/remote-primary.post.json" remote-primary-post "$(health_primary_command)"
     restore_rc=$?
   fi
   if ((restore_rc == 0)); then
-    comparison=$(health_validate_raw_invariants 2>"$EVIDENCE_PATH/raw-invariants.stderr")
+    comparison=$(health_validate_raw_invariants "$EVIDENCE_PATH" "$attempt_root" 2>"$attempt_root/raw-invariants.stderr")
+    restore_rc=$?
+  fi
+  if ((restore_rc == 0)); then
+    health_publish_restore_attempt "$attempt_root"
     restore_rc=$?
   fi
   set -e
@@ -513,18 +670,41 @@ C='$REMOTE_COMPOSE_FILE'
   restored_json=$(health_assert_state "$EVIDENCE_PATH/health.restored.json" restored)
   router_json=$(health_assert_router_inspect "$EVIDENCE_PATH/router.post.json" running-healthy)
   python3 - "$RESULT_PATH" "$restored_json" "$router_json" "$comparison" <<'PY'
-import json, os, sys
+import json, os, stat, sys
 out, restored, router, comparison = sys.argv[1:]
 root = os.path.dirname(out)
+def regular(path, label):
+    absolute = os.path.abspath(path)
+    if os.path.commonpath((root, absolute)) != root:
+        raise SystemExit(f'{label} escapes exact run directory')
+    info = os.lstat(absolute)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise SystemExit(f'{label} is not a non-symlink regular file')
+    if os.path.realpath(absolute) != absolute:
+        raise SystemExit(f'{label} physically escapes exact run directory')
+    if info.st_size < 1:
+        raise SystemExit(f'{label} is empty')
+    return absolute, info.st_size
 def art(path):
-    if not os.path.isfile(path) or os.path.getsize(path) < 1:
-        raise SystemExit(f'missing or empty artifact: {path}')
-    return {'path': os.path.relpath(path, os.getcwd()), 'exists': True, 'byte_length': os.path.getsize(path)}
+    absolute, size = regular(path, 'result artifact')
+    return {'path': os.path.relpath(absolute, os.getcwd()), 'exists': True, 'byte_length': size}
 files = ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json')
 manifest = {name.replace('.', '_'): art(os.path.join(root, name)) for name in files}
 result = {'ok': True, 'mode': 'health-flip', 'run_id': os.path.basename(root), 'run_dir': os.path.relpath(root, os.getcwd()), 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
-json.dump(result, open(out, 'w', encoding='utf-8'), indent=2, sort_keys=True)
-open(out, 'a', encoding='utf-8').write('\n')
+if os.path.lexists(out):
+    raise SystemExit('result manifest would overwrite an existing path')
+temporary = f'{out}.tmp-{os.getpid()}'
+if os.path.lexists(temporary):
+    raise SystemExit('result manifest temporary path already exists')
+with open(temporary, 'x', encoding='utf-8') as handle:
+    json.dump(result, handle, indent=2, sort_keys=True)
+    handle.write('\n')
+    handle.flush()
+    os.fsync(handle.fileno())
+try:
+    os.link(temporary, out)
+finally:
+    os.unlink(temporary)
 PY
   HEALTH_MUTATION_STARTED=0
 }
@@ -617,8 +797,12 @@ wait_for_log_growth() {
 
 assert_models() {
   python3 - "$1" <<'PY'
-import json,sys
-try: d=json.load(open(sys.argv[1],encoding='utf-8'))
+import json,os,stat,sys
+path=sys.argv[1]
+try:
+    info=os.lstat(path)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path): raise ValueError('models artifact is redirected')
+    d=json.load(open(path,encoding='utf-8'))
 except Exception as e: raise SystemExit(f'invalid models JSON: {e}')
 ids=[x.get('id') for x in d.get('data',[]) if isinstance(x,dict)]
 if 'implementer' not in ids or 'reviewer' not in ids: raise SystemExit(f'missing exact roles: {ids!r}')
@@ -628,10 +812,13 @@ PY
 
 assert_health() {
   python3 - "$@" <<'PY'
-import json,sys
+import json,os,stat,sys
 try:
     if sys.argv[1]=='--json': d=json.loads(sys.argv[2])
-    else: d=json.load(open(sys.argv[1],encoding='utf-8'))
+    else:
+        path=sys.argv[1]; info=os.lstat(path)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path): raise ValueError('health artifact is redirected')
+        d=json.load(open(path,encoding='utf-8'))
 except Exception as e: raise SystemExit(f'invalid health JSON: {e}')
 if d.get('status')!='ok': raise SystemExit(f'health status={d.get("status")!r}')
 f=d.get('fleet')
@@ -645,9 +832,12 @@ PY
 
 assert_deployment_identity() {
   python3 - "$1" "$2" <<'PY'
-import json,sys
+import json,os,stat,sys
 path,label=sys.argv[1:]
-try: d=json.load(open(path,encoding='utf-8'))
+try:
+    info=os.lstat(path)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path): raise ValueError('health artifact is redirected')
+    d=json.load(open(path,encoding='utf-8'))
 except Exception as e: raise SystemExit(f'invalid {label} health JSON: {e}')
 deployment=d.get('deployment')
 identity=deployment.get('identity') if isinstance(deployment,dict) else None
@@ -663,10 +853,13 @@ PY
 
 compare_deployment_identity() {
   python3 - "$1" "$2" <<'PY'
-import json,sys
+import json,os,stat,sys
 baseline_path,post_path=sys.argv[1:]
 def load(path,label):
-    try: d=json.load(open(path,encoding='utf-8'))
+    try:
+        info=os.lstat(path)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or os.path.realpath(path) != os.path.abspath(path): raise ValueError('health artifact is redirected')
+        d=json.load(open(path,encoding='utf-8'))
     except Exception as e: raise SystemExit(f'invalid {label} health JSON: {e}')
     deployment=d.get('deployment')
     identity=deployment.get('identity') if isinstance(deployment,dict) else None
@@ -708,6 +901,37 @@ health_assertion_regression() {
   valid_output=$(assert_health --json '{"status":"ok","fleet":{"ready":true,"latency_ms":1},"failing_dependency":null}')
   [[ "$valid_output" == *'"fleet_ready": true'* ]] || die 'health assertion regression rejected exact null failing_dependency'
   printf '%s\n' "$valid_output"
+  health_restore_publication_regression
+}
+
+health_restore_publication_regression() {
+  local probe_root attempt_one attempt_two name first_rc
+  probe_root=$(mktemp -d "${TMPDIR:-/tmp}/s33-ops02-restore-publication.XXXXXX")
+  (
+    EVIDENCE_PATH="$probe_root"
+    mkdir "$probe_root/restore-attempts"
+    attempt_one="$probe_root/restore-attempts/attempt-one"
+    attempt_two="$probe_root/restore-attempts/attempt-two"
+    mkdir "$attempt_one" "$attempt_two"
+    for name in router.post.json health.restored.json production-containers.post.json remote-primary.post.json restore.stdout restore.ssh.stderr raw-invariants.stderr; do
+      printf 'first-attempt:%s\n' "$name" >"$attempt_one/$name"
+      printf 'second-attempt:%s\n' "$name" >"$attempt_two/$name"
+    done
+    HEALTH_RESTORE_ATTEMPT_COUNT=1
+    health_publish_restore_attempt "$attempt_one"
+    set +e
+    health_publish_restore_attempt "$attempt_two"
+    first_rc=$?
+    set -e
+    ((first_rc != 0)) || exit 1
+    for name in router.post.json health.restored.json production-containers.post.json remote-primary.post.json restore.stdout restore.ssh.stderr raw-invariants.stderr; do
+      grep -Fq "first-attempt:$name" "$probe_root/$name" || exit 1
+    done
+  )
+  local rc=$?
+  rm -rf -- "$probe_root"
+  ((rc == 0)) || die 'restore publication regression detected clobber or failed first publish'
+  printf '{"restore_publication_no_clobber":true,"second_attempt_rejected":true}\n'
 }
 
 assert_reviewer() {
@@ -775,13 +999,20 @@ PY
 
 models_reviewer() {
   local pre=$EVIDENCE_PATH/health.pre-deploy.json
+  local pre_stderr_receipt=$EVIDENCE_PATH/health-pre-deploy.curl.stderr.receipt.json
   local hb=$EVIDENCE_PATH/health.json hh=$EVIDENCE_PATH/health.headers.txt hs=$EVIDENCE_PATH/health.status.txt
   local lm=$EVIDENCE_PATH/laptop-models.json im=$EVIDENCE_PATH/inference1-models.json
   local rp=$EVIDENCE_PATH/reviewer-payload.json rb=$EVIDENCE_PATH/reviewer-body.json rh=$EVIDENCE_PATH/reviewer-headers.txt rs=$EVIDENCE_PATH/reviewer.status.txt
+  local up_stdout=$EVIDENCE_PATH/router-compose-up.stdout.txt up_stderr=$EVIDENCE_PATH/router-compose-up.stderr.txt
+  local up_provenance=$EVIDENCE_PATH/router-compose-up.provenance.txt up_exit=$EVIDENCE_PATH/router-compose-up.exit.txt
+  local up_stdout_receipt=$EVIDENCE_PATH/router-compose-up.stdout.receipt.json up_stderr_receipt=$EVIDENCE_PATH/router-compose-up.stderr.receipt.json
   local health_json reviewer_json deployment_json
-  [[ -f "$EVIDENCE_BASE_PATH/health.pre-deploy.json" && ! -L "$EVIDENCE_BASE_PATH/health.pre-deploy.json" ]] || die 'pre-router-deploy health baseline is missing'
-  cp -- "$EVIDENCE_BASE_PATH/health.pre-deploy.json" "$pre"
+  health_capture_raw "$pre" health-pre-deploy || die 'could not capture run-local pre-router-deploy health baseline'
   require_pre_deploy_health_baseline "$pre"
+  health_write_capture_receipt "$EVIDENCE_PATH/health-pre-deploy.curl.stderr" "$pre_stderr_receipt" health-pre-deploy-curl-stderr
+  health_router_compose_up "$up_stdout" "$up_stderr" "$up_provenance" "$up_exit"
+  health_write_capture_receipt "$up_stdout" "$up_stdout_receipt" router-compose-up-stdout "$up_exit"
+  health_write_capture_receipt "$up_stderr" "$up_stderr_receipt" router-compose-up-stderr "$up_exit"
   local_http GET "$HEALTH_URL" "$hb" "$hh" "$hs" ""
   health_json=$(assert_health "$hb")
   deployment_json=$(compare_deployment_identity "$pre" "$hb") || die "deployment identity changed across router deploy"
@@ -796,17 +1027,35 @@ with open(sys.argv[1],'w',encoding='utf-8') as h:
 PY
   local_http POST "$ROUTER_BASE/v1/chat/completions" "$rb" "$rh" "$rs" "$rp"
   reviewer_json=$(assert_reviewer "$rb" "$rh" "$rs")
-  python3 - "$RESULT_PATH" "$MODE" "$RUN_ID" "$RUN_DIR_REL" "$pre" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$deployment_json" "$reviewer_json" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$RUN_ID" "$RUN_DIR_REL" "$pre" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$pre_stderr_receipt" "$up_stdout_receipt" "$up_stderr_receipt" "$up_provenance" "$up_exit" "$health_json" "$deployment_json" "$reviewer_json" <<'PY'
 import json,os,sys
-out,mode,run_id,run_dir,pre,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,deployment_json,reviewer_json=sys.argv[1:]
+import stat
+out,mode,run_id,run_dir,pre,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,pre_stderr_receipt,up_stdout_receipt,up_stderr_receipt,up_provenance,up_exit,health_json,deployment_json,reviewer_json=sys.argv[1:]
+root=os.path.dirname(out)
+def regular(p,label):
+    absolute=os.path.abspath(p)
+    if os.path.commonpath((root,absolute)) != root: raise SystemExit(f'{label} escapes exact run directory')
+    info=os.lstat(absolute)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode): raise SystemExit(f'{label} is not a non-symlink regular file')
+    if os.path.realpath(absolute) != absolute: raise SystemExit(f'{label} physically escapes exact run directory')
+    return absolute,info.st_size
 def art(p):
-    if not os.path.isfile(p) or os.path.getsize(p)<1: raise SystemExit(f'missing or empty artifact: {p}')
-    return {'path':os.path.relpath(p,os.getcwd()),'exists':True,'byte_length':os.path.getsize(p)}
-manifest={'health_pre_deploy':art(pre),'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
+    absolute,size=regular(p,'result artifact')
+    if size < 1: raise SystemExit(f'missing or empty artifact: {p}')
+    return {'path':os.path.relpath(absolute,os.getcwd()),'exists':True,'byte_length':size}
+manifest={'health_pre_deploy':art(pre),'health_pre_deploy_curl_stderr_receipt':art(pre_stderr_receipt),'health_pre_deploy_status':art(os.path.join(root,'health-pre-deploy.status.txt')),'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'router_compose_up_stdout_receipt':art(up_stdout_receipt),'router_compose_up_stderr_receipt':art(up_stderr_receipt),'router_compose_up_provenance':art(up_provenance),'router_compose_up_exit':art(up_exit),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
 comparison=json.loads(deployment_json)
 r={'ok':True,'mode':mode,'run_id':run_id,'run_dir':run_dir,'health':json.loads(health_json),'health_pre_deploy_artifact':manifest['health_pre_deploy'],'deployment_identity_comparison':comparison,'deployment_identity_unchanged':comparison['stable_identity_unchanged'],'deployment_pid_unchanged':comparison['pid_unchanged'],'deployment_uptime_monotonic':comparison['uptime_monotonic'],'deployment_restart_oracle_limitation':'health exposes no container restart count; oracle enforces stable deployment identity, unchanged pid, and monotonic uptime','laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
 if r['laptop_models_artifact_path']==r['inference1_models_artifact_path']: raise SystemExit('models artifact paths are not distinct')
-json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
+if os.path.lexists(out): raise SystemExit('result manifest would overwrite an existing path')
+temporary=f'{out}.tmp-{os.getpid()}'
+if os.path.lexists(temporary): raise SystemExit('result manifest temporary path already exists')
+with open(temporary,'x',encoding='utf-8') as handle:
+    json.dump(r,handle,indent=2,sort_keys=True); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+try:
+    os.link(temporary,out)
+finally:
+    os.unlink(temporary)
 PY
 }
 
@@ -850,8 +1099,16 @@ distribution() {
   [[ "$fresh1" =~ ^[1-9][0-9]*$ ]] || die "inference1 fresh completion evidence missing"
   [[ "$fresh2" =~ ^[1-9][0-9]*$ ]] || die "inference2 fresh completion evidence missing"
   python3 - "$RESULT_PATH" "$MODE" "$RUN_ID" "$RUN_DIR_REL" "$EVIDENCE_PATH/request-summaries.jsonl" "$EVIDENCE_PATH/inference1-log-post-baseline.log" "$EVIDENCE_PATH/inference2-log-post-baseline.log" "$EVIDENCE_PATH/inference1-log-baseline.json" "$EVIDENCE_PATH/inference2-log-baseline.json" "$EVIDENCE_PATH/inference1-log-post.json" "$EVIDENCE_PATH/inference2-log-post.json" "$rr" "$REQUEST_COUNT" "$fresh1" "$fresh2" <<'PY'
-import json,os,sys
+import json,os,stat,sys
 out,mode,run_id,run_dir,summaries,log1,log2,baseline1,baseline2,post1,post2,requests_dir,count,fresh1,fresh2=sys.argv[1:]
+root=os.path.dirname(out)
+def regular(path,label):
+    absolute=os.path.abspath(path)
+    if os.path.commonpath((root,absolute)) != root: raise SystemExit(f'{label} escapes exact run directory')
+    info=os.lstat(absolute)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode): raise SystemExit(f'{label} is not a non-symlink regular file')
+    if os.path.realpath(absolute) != absolute: raise SystemExit(f'{label} physically escapes exact run directory')
+    return absolute,info.st_size
 rows=[json.loads(x) for x in open(summaries) if x.strip()]
 if len(rows)!=int(count): raise SystemExit(f'expected {count} request summaries, found {len(rows)}')
 hosts={r['api_base'] for r in rows}
@@ -863,18 +1120,37 @@ if len(bodies)<2: raise SystemExit('expected >=2 byte-distinct nonempty bodies')
 backend_fresh_completion_counts={'http://inference1.tail011a51.ts.net:8003/v1':int(fresh1),'http://inference2.tail011a51.ts.net:8003/v1':int(fresh2)}
 for backend in sorted(expected):
     if backend_fresh_completion_counts[backend] < backend_request_counts[backend]: raise SystemExit(f'insufficient fresh completion records for {backend}: {backend_fresh_completion_counts[backend]} < {backend_request_counts[backend]}')
-def art(p): return {'path':os.path.relpath(p,os.getcwd()),'exists':os.path.isfile(p),'byte_length':os.path.getsize(p) if os.path.isfile(p) else 0}
+def art(p):
+    absolute,size=regular(p,'result artifact')
+    if size < 1: raise SystemExit(f'missing or empty artifact: {p}')
+    return {'path':os.path.relpath(absolute,os.getcwd()),'exists':True,'byte_length':size}
 def required_artifact(path):
-    if not os.path.isfile(path) or os.path.getsize(path)<1: raise SystemExit(f'missing or empty artifact: {path}')
+    regular(path,'required artifact')
     return art(path)
 request_artifacts=[]
-request_dirs=sorted(os.path.join(requests_dir,name) for name in os.listdir(requests_dir) if name.startswith('request-') and os.path.isdir(os.path.join(requests_dir,name)))
+requests_info=os.lstat(requests_dir)
+if stat.S_ISLNK(requests_info.st_mode) or not stat.S_ISDIR(requests_info.st_mode) or os.path.realpath(requests_dir) != os.path.abspath(requests_dir): raise SystemExit('requests directory is not a real directory')
+request_dirs=[]
+for name in sorted(os.listdir(requests_dir)):
+    if not name.startswith('request-'): continue
+    request_dir=os.path.join(requests_dir,name)
+    info=os.lstat(request_dir)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or os.path.realpath(request_dir) != os.path.abspath(request_dir): raise SystemExit(f'request directory is not a real directory: {request_dir}')
+    request_dirs.append(request_dir)
 if len(request_dirs)!=int(count): raise SystemExit(f'expected {count} raw request directories, found {len(request_dirs)}')
 for request_dir in request_dirs:
-    request_artifacts.append({'path':os.path.relpath(request_dir,os.getcwd()),'artifacts':{name:required_artifact(os.path.join(request_dir,name)) for name in ('metadata.json','pid','status.txt','headers.txt','body.json','curl-exit.txt')}})
+    request_artifacts.append({'path':os.path.relpath(request_dir,os.getcwd()),'artifacts':{name:required_artifact(os.path.join(request_dir,name)) for name in ('metadata.json','pid','payload.json','status.txt','headers.txt','body.json','curl-exit.txt')}})
 manifest={'request_summaries':required_artifact(summaries),'inference1_log_baseline_identity':required_artifact(baseline1),'inference2_log_baseline_identity':required_artifact(baseline2),'inference1_log_post_identity':required_artifact(post1),'inference2_log_post_identity':required_artifact(post2),'inference1_log_post_baseline':required_artifact(log1),'inference2_log_post_baseline':required_artifact(log2)}
 r={'ok':True,'mode':mode,'run_id':run_id,'run_dir':run_dir,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'backend_request_counts':backend_request_counts,'backend_fresh_completion_counts':backend_fresh_completion_counts,'backend_completion_counts_sufficient':True,'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(requests_dir,os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
-json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
+if os.path.lexists(out): raise SystemExit('result manifest would overwrite an existing path')
+temporary=f'{out}.tmp-{os.getpid()}'
+if os.path.lexists(temporary): raise SystemExit('result manifest temporary path already exists')
+with open(temporary,'x',encoding='utf-8') as handle:
+    json.dump(r,handle,indent=2,sort_keys=True); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+try:
+    os.link(temporary,out)
+finally:
+    os.unlink(temporary)
 PY
 }
 
