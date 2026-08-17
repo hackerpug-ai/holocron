@@ -93,15 +93,20 @@ services:
     mem_limit: ${HOLO_SCHEDULER_MEM_LIMIT:-8g}
     logging: *bounded-logging
     labels: *contract
+    environment:
+      FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
     command:
       - /bin/sh
       - -ec
       - >-
         export DATABASE_URL="$$(cat /run/secrets/database_url)";
+        export FLEET_KEY="$$(cat /run/secrets/fleet_key)";
         exec bun src/queue/scheduler-worker.ts
     secrets:
       - source: database-url
         target: database_url
+      - source: fleet-key
+        target: fleet_key
     volumes:
       - blob-data:/var/lib/holocron/blobs
     depends_on:
