@@ -125,19 +125,6 @@ PY
   EVIDENCE_BASE_PATH=$EVIDENCE_PATH
 }
 
-guard_legacy_attempts_path() {
-  [[ "$MODE" == health-flip ]] || return 0
-  local attempts canonical
-  attempts="$EVIDENCE_ROOT/health-flip-attempts"
-  if [[ -L "$attempts" ]]; then
-    die 'health-flip-attempts must not be a symlink'
-  fi
-  if [[ -e "$attempts" ]]; then
-    canonical=$(realpath "$attempts") || die 'could not resolve health-flip-attempts'
-    [[ "$canonical" == "$EVIDENCE_ROOT/health-flip-attempts" ]] || die 'health-flip-attempts escapes the evidence root'
-  fi
-}
-
 allocate_evidence_run() {
   local allocation
   if ! allocation=$(python3 - "$EVIDENCE_ROOT" "$EVIDENCE_BASE_PATH" "$MODE" <<'PY'
@@ -546,7 +533,6 @@ PY
 
 
 resolve_evidence_paths
-guard_legacy_attempts_path
 if [[ "$MODE" != health-regression ]]; then
   allocate_evidence_run
   ERRORS_PATH=$EVIDENCE_PATH/errors.log

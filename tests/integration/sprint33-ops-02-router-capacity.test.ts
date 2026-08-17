@@ -11,17 +11,7 @@
  */
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  lstat,
-  mkdir,
-  readdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
@@ -218,6 +208,9 @@ async function runVerifier(
   evidenceName: string
 ): Promise<VerifierRun> {
   const evidenceDir = `.tmp/S33-OPS-02/${evidenceName}`;
+  const outputBase = resolve(REPO_ROOT, evidenceDir);
+  const beforeBase = await snapshotBaseLevelArtifacts(outputBase);
+  const beforeRuns = await snapshotRunNames(outputBase);
   const args = [
     VERIFIER,
     '--mode',
@@ -246,6 +239,7 @@ async function runVerifier(
   expect(result.ok, `${mode} result`).toBe(true);
   expect(result.mode, `${mode} result mode`).toBe(mode);
   const outputDir = emittedRunDir(result);
+  await assertOnlySelectedRunWasAdded(outputBase, beforeBase, beforeRuns, result.run_id as string);
   const stdoutPath = resolve(outputDir, 'verifier.stdout.json');
   const stderrPath = resolve(outputDir, 'verifier.stderr.log');
   await writeFile(stdoutPath, stdout, 'utf8');
@@ -325,6 +319,9 @@ async function runHealthFlip(
   negative = false
 ): Promise<{ stdout: string; stderr: string; result?: VerifierResult }> {
   const evidenceName = negative ? 'health-flip-negative' : 'health-flip';
+  const outputBase = resolve(REPO_ROOT, `.tmp/S33-OPS-02/${evidenceName}`);
+  const beforeBase = await snapshotBaseLevelArtifacts(outputBase);
+  const beforeRuns = await snapshotRunNames(outputBase);
   const args = [
     VERIFIER,
     '--mode',
@@ -354,6 +351,12 @@ async function runHealthFlip(
     expect(result.ok).toBe(true);
     expect(result.mode).toBe('health-flip');
     const outputDir = emittedRunDir(result);
+    await assertOnlySelectedRunWasAdded(
+      outputBase,
+      beforeBase,
+      beforeRuns,
+      result.run_id as string
+    );
     await writeFile(resolve(outputDir, 'verifier.stdout.txt'), stdout, 'utf8');
     await writeFile(resolve(outputDir, 'verifier.stderr.txt'), stderr, 'utf8');
     return { stdout, stderr, result };
@@ -366,6 +369,12 @@ async function runHealthFlip(
     expect(failure.ok).toBe(false);
     expect(failure.mode).toBe('health-flip');
     const outputDir = emittedRunDir(failure);
+    await assertOnlySelectedRunWasAdded(
+      outputBase,
+      beforeBase,
+      beforeRuns,
+      failure.run_id as string
+    );
     await writeFile(resolve(outputDir, 'verifier.stdout.txt'), stdout, 'utf8');
     await writeFile(resolve(outputDir, 'verifier.stderr.txt'), stderr, 'utf8');
     return { stdout, stderr, result: failure };
@@ -388,6 +397,52 @@ async function snapshotTree(root: string): Promise<string> {
   }
   await visit(root, '');
   return entries.sort().join('\n');
+}
+
+async function snapshotBaseLevelArtifacts(root: string): Promise<string> {
+  let children: import('node:fs').Dirent[] = [];
+  try {
+    children = await readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return '<base-missing>';
+    throw error;
+  }
+  const entries: string[] = [];
+  for (const child of children.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (child.name === 'runs') continue;
+    const childPath = resolve(root, child.name);
+    const info = await lstat(childPath);
+    const detail = info.isDirectory()
+      ? await snapshotTree(childPath)
+      : `${info.mode}|${info.size}|${info.mtimeMs}|${info.isSymbolicLink() ? 'symlink' : 'file'}`;
+    entries.push(`${child.name}|${detail}`);
+  }
+  return entries.join('\n');
+}
+
+async function snapshotRunNames(root: string): Promise<string[]> {
+  try {
+    const children = await readdir(resolve(root, 'runs'), { withFileTypes: true });
+    return children
+      .filter((child) => child.isDirectory())
+      .map((child) => child.name)
+      .sort();
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function assertOnlySelectedRunWasAdded(
+  root: string,
+  beforeBase: string,
+  beforeRuns: string[],
+  runId: string
+): Promise<void> {
+  expect(await snapshotBaseLevelArtifacts(root), 'base-level artifacts unchanged').toBe(beforeBase);
+  expect(await snapshotRunNames(root), 'only selected immutable run added').toEqual(
+    [...beforeRuns, runId].sort()
+  );
 }
 
 async function runHealthFlipContractFailure(
@@ -1200,34 +1255,6 @@ describe('S33-OPS-02 router capacity against real services', () => {
     expect(invalid?.code).not.toBe(0);
     expect(invalid?.stderr).toContain('health-flip evidence path is not allowlisted');
     await expect(stat(invalidEvidence)).rejects.toThrow();
-
-    const legacyAttempts = resolve(REPO_ROOT, '.tmp/S33-OPS-02/health-flip-attempts');
-    const preservedAttempts = `${legacyAttempts}.preserved-${randomUUID()}`;
-    const attemptsTarget = resolve(
-      REPO_ROOT,
-      '.tmp/S33-OPS-02/health-flip-attempts-symlink-target'
-    );
-    const beforeLegacyEvidence = await snapshotTree(EVIDENCE_ROOT);
-    let movedLegacyAttempts = false;
-    try {
-      try {
-        await lstat(legacyAttempts);
-        await rename(legacyAttempts, preservedAttempts);
-        movedLegacyAttempts = true;
-      } catch {
-        movedLegacyAttempts = false;
-      }
-      await mkdir(attemptsTarget, { recursive: true });
-      await symlink(attemptsTarget, legacyAttempts, 'dir');
-      const attemptsFailure = await runHealthFlipContractFailure({});
-      expect(attemptsFailure).toContain('health-flip-attempts must not be a symlink');
-    } finally {
-      await rm(legacyAttempts, { recursive: true, force: true });
-      await rm(attemptsTarget, { recursive: true, force: true });
-      if (movedLegacyAttempts) await rename(preservedAttempts, legacyAttempts);
-      else await rm(preservedAttempts, { recursive: true, force: true });
-    }
-    expect(await snapshotTree(EVIDENCE_ROOT)).toBe(beforeLegacyEvidence);
 
     const normal = await runHealthFlip(false);
     expect(normal.result?.cleanup_restore_armed).toBe(true);
