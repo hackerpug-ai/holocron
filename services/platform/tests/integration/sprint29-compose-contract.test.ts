@@ -609,9 +609,9 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     expect(dockerfile).toContain(
       'COPY --chown=bun:bun services/platform/fleet/manifest.json ./fleet/manifest.json'
     );
-    expect(readFileSync(resolve(REPO_ROOT, 'services/platform/fleet/manifest.json'), 'utf8')).toMatch(
-      /"roles"\s*:\s*\{/
-    );
+    expect(
+      readFileSync(resolve(REPO_ROOT, 'services/platform/fleet/manifest.json'), 'utf8')
+    ).toMatch(/"roles"\s*:\s*\{/);
   });
 
   it('IMP-AC-6 configurable 50 GiB memory ceiling', () => {
