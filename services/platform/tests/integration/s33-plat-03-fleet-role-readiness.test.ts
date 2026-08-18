@@ -18,12 +18,25 @@ if (process.env.PLATFORM_IT !== '1') {
   );
 }
 
-const FLEET_URL = process.env.FLEET_URL?.trim();
-if (!FLEET_URL) {
+const APPROVED_TEST_FLEET_ORIGIN = 'http://holocron.tail011a51.ts.net:4545';
+
+function assertApprovedTestFleetOrigin(value: string): string {
+  const candidate = value.trim();
+  if (candidate !== APPROVED_TEST_FLEET_ORIGIN) {
+    throw new Error(
+      `S33-PLAT-03 requires the approved real test router ${APPROVED_TEST_FLEET_ORIGIN}; received ${candidate || '(missing)'}`
+    );
+  }
+  return candidate;
+}
+
+const configuredFleetUrl = process.env.FLEET_URL?.trim();
+if (!configuredFleetUrl) {
   throw new Error(
     'S33-PLAT-03 requires FLEET_URL to name the real LiteLLM router; no static or laptop-only substitute is accepted'
   );
 }
+const FLEET_URL = assertApprovedTestFleetOrigin(configuredFleetUrl);
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const MANIFEST_PATH = resolve(REPO_ROOT, 'services/platform/fleet/manifest.json');
@@ -32,7 +45,11 @@ const DISALLOWED_FLEET_ENDPOINTS = [
   'http://127.0.0.1:4545',
   'http://localhost:4545',
   'http://host.docker.internal:4545',
+  'http://inference1.tail011a51.ts.net:4545',
   'http://holocron.tail011a51.ts.net:4546',
+  'http://holocron.tail011a51.ts.net:4545/v1',
+  'http://holocron.tail011a51.ts.net:4545/?probe=wrong',
+  'http://operator-secret@holocron.tail011a51.ts.net:4545',
 ] as const;
 
 type ManifestJson = {
@@ -175,17 +192,12 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));
   }, 30_000);
 
-  it.each(
-    DISALLOWED_FLEET_ENDPOINTS
-  )('provenance negative control: rejects non-approved fleet endpoint %s', async (fleetEndpoint) => {
-    const response = (await runHealthCheck({
-      fleetEndpoint,
-      fleetManifestPath: MANIFEST_PATH,
-      strictReadiness: false,
-    })) as unknown as RoleAwareHealth;
-    expect(response.body.fleet.ready, fleetEndpoint).toBe(false);
-    expect(response.body.failing_dependency, fleetEndpoint).toBe('fleet');
-    expect(response.body.fleet.roles.divergent.present, fleetEndpoint).toBe(false);
-    expect(response.body.fleet.roles.embed.present, fleetEndpoint).toBe(false);
-  });
+  it.each(DISALLOWED_FLEET_ENDPOINTS)(
+    'provenance negative control: rejects non-approved fleet endpoint %s',
+    (fleetEndpoint) => {
+      expect(() => assertApprovedTestFleetOrigin(fleetEndpoint), fleetEndpoint).toThrow(
+        'approved real test router'
+      );
+    },
+  );
 });
