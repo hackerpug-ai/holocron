@@ -1,6 +1,8 @@
 # S33-PLAT-03: Make /health tell the truth about the fleet: per-role model availability, not just endpoint reachability
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Cycle: 1
+> Updated: 2026-08-18T00:14:44Z
 > Assignee: mastra-implementer
 > Priority: P0
 > Type: FEATURE
