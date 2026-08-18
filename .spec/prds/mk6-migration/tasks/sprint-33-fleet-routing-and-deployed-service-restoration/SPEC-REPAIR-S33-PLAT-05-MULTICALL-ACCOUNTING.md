@@ -34,7 +34,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 8. Only `HOLO_KEY_RN` may authorize the public Hono chat routes; `HOLO_KEY_MCP` is forbidden for every public request. Auth travels over private SSH stdin into a trap-removed mode-0600 temporary curl config; every URL/header value is quoted and escaped, and no secret value may appear in argv, stdout, stderr, JSON receipts, or retained artifacts. A fail-closed positive grammar allows literal names in prose/lists plus exactly two expansion-bearing standalone command forms: `test "${HOLO_KEY_RN+x}" = x` and the target's exact private-stdin verifier invocation. Every other shell expansion rejects independently of wrappers, prefixes, absolute paths, curl options, or positional argv; private non-secret stdin/config path arguments remain valid.
 9. In-container telemetry/trace reads use `/app/src/cli/holo.ts` and privately bootstrap `DATABASE_URL` from `/run/secrets/database_url` without disclosing it.
 10. A contractually executable `post-chat-invalid-stream` control must first complete a real public 2xx POST, capture its non-empty run ID and real SSE stream, truncate only a private copy of the first SSE JSON payload, and invoke the target verifier's production response parser. That target path must exit nonzero with `CHAT_STREAM_PARSE_FAILED`, `chat_request_issued:true`, real-stream and target-verifier receipt provenance, `synthetic:false`, zero secret exposure, and zero network mutation; a hand-authored receipt cannot pass.
-11. The target adds a real credential-canary integration gate with separate positive and intentional-negative evidence. A unique synthetic value generated only in test memory traverses the positive verifier's private stdin, an actual mode-0600 curl config, actual observed verifier/curl processes, real filesystem cleanup, and the real public Hono HTTP boundary; `positive_path` must record zero matches on every forbidden argv/environment/output/receipt/evidence/artifact/retained-file surface. Each of six distinct `negative_controls[]` must spawn one bounded real subprocess, bind its actual PID and exact expected surface to the observer's PID/surface, observe at least one intentional canary match, then make the target gate fail nonzero with `CREDENTIAL_CANARY_EXPOSURE_DETECTED` before any public request or external side effect. Expected control detections and fail-closed exits are recomputed separately from `unexpected_exposure_count`; zeroed detections, PID/surface relabeling, and hand-authored counters reject. Unavailable process observation fails rather than skips, and no live credential value may be loaded or printed. Static-only, mocked, stubbed, or recorded proof is invalid.
+11. The target adds a real credential-canary integration gate with separate positive and intentional-negative evidence. A unique synthetic value generated only in test memory traverses the positive verifier's private stdin, an actual mode-0600 curl config, actual observed verifier/curl processes, real filesystem cleanup, and the real public Hono HTTP boundary; `positive_path` records zero matches on every forbidden surface. `negative_controls[]` must equal the target's exact ID-sorted six-row unique ID/kind/method/expected-surface manifest. Each row owns exactly one real bounded process with a pairwise-distinct robust process-instance identity, binds actual/observed PID and instance, records at least one match only on its expected surface and zero off-surface/request/side-effect counts, then fails nonzero `CREDENTIAL_CANARY_EXPOSURE_DETECTED`. Exact-map aggregates are recomputed with zero duplicate/missing/extra/wrong-surface/unexpected-exposure counts. Duplicate/missing/extra kinds, wrong surfaces, reused identity, zeroed detection, or submitted aggregates reject. Unavailable observation fails rather than skips, and static-only, mocked, stubbed, recorded, or live-secret-bearing proof is invalid.
 12. The static repair oracle pins and recomputes the complete canonical target file's SHA-256 before any semantic inspection. Every target byte mutation or injection therefore rejects even when a dynamic retrieval expression evades the semantic grammar; the semantic mutation suite remains independently exercised with the hash precondition disabled only inside that local test oracle.
 13. Network Continuity remains absolute: only bounded public HTTP plus read-only SSH/Docker reads are allowed; no service, Tailscale, Wi-Fi, interface, route, DNS, or other network mutation and no literal disconnect claim is permitted.
 
@@ -46,8 +46,8 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 - **WHEN** the static verifier first recomputes the complete canonical target file's pinned SHA-256, then uniquely extracts both requirement contracts, syntax-checks every shell verifier, validates every scenario, checks human/JSON parity, evaluates a synthetic two-call serving receipt with the target's actual `jq` predicate, and applies structured receipt, semantic-contract, and whole-file hash mutations
 - **THEN** the two-call baseline passes and distinct mutations for two serving minis, zero calls, serving/model/fleet/telemetry-row/transport/plural-header mismatches, missing or mismatched top-level and telemetry singular headers, laptop attribution, unknown traffic, or non-provider-model instrumentation all fail
 - **AND** the target AC-10/TC-13 command is identical in human and JSON forms, syntax-valid, invokes the target verifier's real post-POST invalid-stream mode, requires a nonzero verifier exit, and the credential grammar accepts only its 2 canonical expansion-bearing lines while rejecting every wrapper/prefix/absolute-path/argv/inline-assignment variant plus all prior post-chat, MCP-auth, secret-exposure, unquoted/temp-leak, and network-mutation mutants
-- **AND** target AC-11/TC-14 are identical in human and JSON forms and separate a positive verifier/curl path whose forbidden-surface counters are all zero from six bounded real negative-control subprocesses; every control binds actual/observed PID and expected/observed surface, records at least one expected match, fails nonzero with `CREDENTIAL_CANARY_EXPOSURE_DETECTED` before any request/side effect, and contributes only to recomputed expected-detection aggregates while unexpected exposure remains zero
-- **AND** semantic mutations that zero a control detection, relabel its PID, relabel its surface, claim a public request or external side effect, or substitute hand-authored observation counters all reject with hash enforcement disabled only for that semantic-oracle pass
+- **AND** target AC-11/TC-14 are identical in human and JSON forms and separate a positive verifier/curl path whose forbidden-surface counters are all zero from the exact ID-sorted six-row unique ID/kind/method/surface manifest; every row owns one distinct bounded real process instance, binds actual/observed PID and robust instance identity, has positive expected-surface plus zero off-surface/request/side-effect counts, fails nonzero, and contributes only to exact-map recomputed aggregates
+- **AND** semantic mutations that duplicate, omit, add, or relabel a manifest kind/surface; reuse a process identity; zero a detection; relabel PID; claim a request/side effect; or substitute submitted observation/aggregate counters all reject with hash enforcement disabled only for that semantic-oracle pass
 - **AND** indirect name/length expansion for both credential names, `printenv` command substitution, inline substitution assignment, Python `getenv`, arbitrary credential-line injection, and a one-byte edit all fail at the content-hash precondition before any semantic check; the pre-existing semantic mutants remain independently rejected with hash enforcement disabled only for that semantic-oracle pass
 - **AND** the only changed paths are the target task and this new repair artifact, based on exact main `146b6e64472461219b52f820894138678b8c0371`
 - **Verify:** `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'`
@@ -57,7 +57,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | The full target-file SHA-256 matches before semantic inspection; both contracts parse uniquely; all shell verifiers and scenarios validate; positive, post-POST, and canary human/JSON commands match; positive canary counters remain zero while each real negative control proves an expected PID/surface-bound detection and fail-closed exit; semantic mutants reject independently; and indirect RN/MCP expansion, command substitution, Python getenv, arbitrary injection, and byte-edit controls reject at the hash precondition. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
+| TC-1 | The full target-file SHA-256 matches before semantic inspection; both contracts parse uniquely; all shell verifiers and scenarios validate; positive, post-POST, and canary human/JSON commands match; positive canary counters remain zero while the exact six-row manifest proves unique kinds/methods, distinct real process instances, expected-only surface matches, fail-closed exits, and exact-map aggregation; semantic mutants reject independently; and indirect RN/MCP expansion, command substitution, Python getenv, arbitrary injection, and byte-edit controls reject at the hash precondition. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
 
 ## Static verifier and mutation oracle
 
@@ -79,7 +79,7 @@ target_path = repair_path.with_name(
     "S33-PLAT-05-prove-a-deployed-chat-turn-is-generated-on-a-mac-mini-two-no.md"
 )
 base_sha = "146b6e64472461219b52f820894138678b8c0371"
-canonical_target_sha256 = "9c9d79faecc61c2c55c60c0ebbe28e88ea36cc5d618114407aa50cd5548d46f8"
+canonical_target_sha256 = "760f20c5f8f69e3aeab94d0093550974e9d4342fc7c7597f954966e05607ffc7"
 target_rel = ".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/S33-PLAT-05-prove-a-deployed-chat-turn-is-generated-on-a-mac-mini-two-no.md"
 repair_rel = ".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"
 marker = "<!-- REQUIREMENT-" + "CONTRACT v1 -->"
@@ -267,17 +267,21 @@ required_canary_fragments = [
     "public Hono request",
     "platform observer inspects owned-process argv/environment",
     "positive_path has zero matches on every forbidden surface",
-    "six separate negative_controls",
-    "bind actual/observed PID and expected/observed surface",
-    "observe at least one intentional match",
-    "before public request or external side effect",
-    "recomputed expected-detection aggregates rather than unexpected exposure",
-    "zeroed detections, PID/surface relabeling, hand-authored counters",
+    "exact ID-sorted six-row unique ID/kind/method/surface manifest",
+    "every row owns one distinct bounded real process instance",
+    "binds actual/observed PID and robust instance identity",
+    "positive expected-surface plus zero off-surface matches",
+    "zero request/side-effect counts",
+    "exact-map recomputed aggregates",
+    "duplicate/missing/extra/relabelled rows",
+    "reused process identity",
+    "submitted aggregates",
     "CREDENTIAL_CANARY_EXPOSURE_DETECTED",
     "mocks, stubs, skips, and static-only proof reject",
 ]
 assert all(fragment in target_by_id["AC-11"]["description"] for fragment in required_canary_fragments)
 
+canonical_negative_control_manifest = "negative_control_manifest === [{id:artifact-write,kind:artifact,method:private-artifact-write,expected_surface:artifact},{id:command-substitution-printenv,kind:command-substitution,method:printenv-command-substitution-into-argv,expected_surface:argv},{id:direct-argv,kind:direct-argv,method:direct-positional-argv,expected_surface:argv},{id:direct-environment,kind:direct-environment,method:direct-child-environment,expected_surface:environment},{id:indirect-parameter-name-length,kind:indirect-parameter,method:indirect-shell-parameter-name-length-to-stdout,expected_surface:stdout},{id:runtime-language-getenv,kind:runtime-getenv,method:runtime-language-getenv-to-stdout,expected_surface:stdout}] and negative_control_manifest_is_id_sorted === true"
 required_canary_scenario_fragments = [
     "positive_path.argv_canary_matches === 0",
     "positive_path.environment_canary_matches === 0",
@@ -289,20 +293,38 @@ required_canary_scenario_fragments = [
     "positive_path.retained_file_canary_matches === 0",
     "negative_controls | length === 6",
     "actual_process_spawned === true",
+    "spawned_process_count === 1",
+    "bounded_process === true",
     "actual_pid > 1",
     "observed_pid === actual_pid",
+    "actual_process_instance_id === observed_process_instance_id",
     "observed_surface === expected_surface",
-    "observed_canary_matches >= 1",
+    "observed_canary_matches === expected_surface_canary_matches",
+    "expected_surface_canary_matches >= 1",
+    "non_expected_surface_canary_matches === 0",
     "exit_code != 0",
     "error_code === CREDENTIAL_CANARY_EXPOSURE_DETECTED",
-    "public_request_issued === false",
-    "external_side_effect_performed === false",
+    "public_request_count === 0",
+    "external_side_effect_count === 0",
+    "control_artifact_removed === true when expected_surface === artifact",
+    "negative_control_manifest_match === true",
+    "negative_control_unique_id_count === 6",
+    "negative_control_unique_kind_count === 6",
+    "negative_control_unique_method_count === 6",
+    "negative_control_unique_process_instance_count === 6",
+    "negative_control_duplicate_count === 0",
+    "negative_control_missing_count === 0",
+    "negative_control_extra_count === 0",
+    "negative_control_wrong_surface_count === 0",
     "negative_controls_expected_detection_count === 6",
     "negative_controls_failed_closed_count === 6",
     "unexpected_exposure_count === 0",
     "observation_recomputed === true",
+    "aggregate_recomputed_from_exact_manifest === true",
 ]
-assert all(fragment in json.dumps(target_by_id["AC-11"]["scenario"], sort_keys=True) for fragment in required_canary_scenario_fragments)
+canary_scenario_text = json.dumps(target_by_id["AC-11"]["scenario"], sort_keys=True)
+assert canonical_negative_control_manifest in canary_scenario_text
+assert all(fragment in canary_scenario_text for fragment in required_canary_scenario_fragments)
 
 for contract in [target_contract, repair_contract]:
     for item in contract["requirements"]:
@@ -494,6 +516,7 @@ def static_target_passes(candidate: str, *, enforce_content_hash: bool = True) -
             and all(by_id[item_id]["verify"] == canary for item_id in canary_ids)
             and canary == canary_verify
             and all(fragment in by_id["AC-11"]["description"] for fragment in required_canary_fragments)
+            and canonical_negative_control_manifest in json.dumps(by_id["AC-11"]["scenario"], sort_keys=True)
             and all(fragment in json.dumps(by_id["AC-11"]["scenario"], sort_keys=True) for fragment in required_canary_scenario_fragments)
             and all(human_verify(candidate, item_id) == by_id[item_id]["verify"] for item_id in positive_ids + post_chat_ids + canary_ids)
             and candidate.splitlines().count(canonical_presence_line) == 1
@@ -574,8 +597,8 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
     )
     canary_control_mutations = {
         "zero-negative-control-detection": (
-            "observed_canary_matches >= 1",
-            "observed_canary_matches === 0",
+            "expected_surface_canary_matches >= 1",
+            "expected_surface_canary_matches === 0",
         ),
         "relabel-negative-control-pid": (
             "observed_pid === actual_pid",
@@ -590,12 +613,36 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
             "observation_recomputed === false",
         ),
         "negative-control-issued-public-request": (
-            "public_request_issued === false",
-            "public_request_issued === true",
+            "public_request_count === 0",
+            "public_request_count === 1",
         ),
         "negative-control-external-side-effect": (
-            "external_side_effect_performed === false",
-            "external_side_effect_performed === true",
+            "external_side_effect_count === 0",
+            "external_side_effect_count === 1",
+        ),
+        "duplicate-negative-control-kind": (
+            "id:direct-environment,kind:direct-environment,method:direct-child-environment,expected_surface:environment",
+            "id:direct-environment,kind:direct-argv,method:direct-child-environment,expected_surface:environment",
+        ),
+        "missing-negative-control-kind": (
+            ",{id:runtime-language-getenv,kind:runtime-getenv,method:runtime-language-getenv-to-stdout,expected_surface:stdout}",
+            "",
+        ),
+        "extra-negative-control-kind": (
+            "}] and negative_control_manifest_is_id_sorted === true",
+            "},{id:extra-kind,kind:extra-kind,method:extra-kind-method,expected_surface:stderr}] and negative_control_manifest_is_id_sorted === true",
+        ),
+        "wrong-negative-control-surface-map": (
+            "id:direct-environment,kind:direct-environment,method:direct-child-environment,expected_surface:environment",
+            "id:direct-environment,kind:direct-environment,method:direct-child-environment,expected_surface:argv",
+        ),
+        "reused-negative-control-process-identity": (
+            "negative_control_unique_process_instance_count === 6",
+            "negative_control_unique_process_instance_count === 5",
+        ),
+        "aggregate-not-recomputed-from-manifest": (
+            "aggregate_recomputed_from_exact_manifest === true",
+            "aggregate_recomputed_from_exact_manifest === false",
         ),
     }
     for name, (old, new) in canary_control_mutations.items():
@@ -684,7 +731,7 @@ print(json.dumps({
 
 | Gate | Command | Expected |
 |---|---|---|
-| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; full target SHA-256 equals `9c9d79faecc61c2c55c60c0ebbe28e88ea36cc5d618114407aa50cd5548d46f8`; 25 target plus 2 repair shell verifiers; 11 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls, 66 semantic contract mutations including distinct zeroed-detection/PID-relabel/surface-relabel/request/side-effect/hand-authored controls, and 12 whole-file hash mutations rejected before semantics; 2 exact safe credential controls accepted |
+| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; full target SHA-256 equals `760f20c5f8f69e3aeab94d0093550974e9d4342fc7c7597f954966e05607ffc7`; 25 target plus 2 repair shell verifiers; 11 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls, 72 semantic contract mutations including duplicate/missing/extra kind, wrong-surface map, reused-process-identity, aggregate-not-recomputed, and all prior controls, plus 12 whole-file hash mutations rejected before semantics; 2 exact safe credential controls accepted |
 | planning consistency | `pnpm prd:consistency` | Exit 0 |
 | diff scope | canonical verifier local Git checks | Exactly target M plus this repair A relative to `146b6e64472461219b52f820894138678b8c0371` |
 | hooks | normal commit, no bypass | Exit 0 |
@@ -709,10 +756,10 @@ print(json.dumps({
         "only the target task and this repair artifact may differ",
         "the two-call synthetic baseline mirrors the observed provider-model accounting shape without substituting for live governed proof",
         "AC-10 and TC-13 contract a real public POST followed by the target verifier parser rejecting a truncated private copy of the real SSE stream; the static oracle validates the executable contract but performs no network request",
-        "AC-11 and TC-14 contract a real synthetic-canary integration gate with positive_path forbidden-surface counters all zero and six separate bounded real negative_controls whose actual PID, observer PID, expected surface, observed surface, positive match count, fail-closed exit, no-request fact, no-side-effect fact, and cleanup are recomputed from observations",
+        "AC-11 and TC-14 contract positive_path zero counters plus an exact ID-sorted six-row unique ID/kind/method/surface manifest whose rows each own one distinct bounded real process instance and recompute actual/observed identity, expected-only matches, fail-closed exits, zero request/side effects, cleanup, and exact-map aggregates",
         "public Hono auth is HOLO_KEY_RN only; HOLO_KEY_MCP, credential argv/print/log/receipt/artifact exposure, unquoted curl config, and leaked temp config are rejection mutants",
         "the positive grammar accepts exactly the canonical names-only presence line and exact target-verifier private-stdin line; direct, command-wrapped, timeout-wrapped, randomly prefixed absolute-path, parameter-variant, curl-option, positional argv, and inline-assignment expansions are adversarial candidates",
-        "the complete target file is pinned to SHA-256 9c9d79faecc61c2c55c60c0ebbe28e88ea36cc5d618114407aa50cd5548d46f8 and recomputed before semantic checks; indirect RN/MCP expansions, printenv substitution, inline substitution assignment, Python getenv, arbitrary injection, and a byte edit reject at that precondition"
+        "the complete target file is pinned to SHA-256 760f20c5f8f69e3aeab94d0093550974e9d4342fc7c7597f954966e05607ffc7 and recomputed before semantic checks; indirect RN/MCP expansions, printenv substitution, inline substitution assignment, Python getenv, arbitrary injection, and a byte edit reject at that precondition"
       ]
     }
   },
@@ -721,7 +768,7 @@ print(json.dumps({
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN the target and repair WHEN the local static verifier first recomputes the pinned complete-target SHA-256, then extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive/post-POST/canary parity, runs the target jq predicate on a two-call baseline, and independently runs semantic mutations with hash enforcement disabled only for that suite THEN the exact target and two canonical credential forms pass while every whole-file mutation rejects before semantics; positive canary counters are distinct from six expected real negative-control detections, and zeroed detection, PID/surface relabeling, control request/side effect, hand-authored observation, false serving, cardinality, provenance, post-chat, CLI-path, secret, and Network Continuity contracts all reject.",
+      "description": "GIVEN the target and repair WHEN the local static verifier first recomputes the pinned complete-target SHA-256, then extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive/post-POST/canary parity, runs the target jq predicate on a two-call baseline, and independently runs semantic mutations with hash enforcement disabled only for that suite THEN the exact target and two canonical credential forms pass while every whole-file mutation rejects before semantics; positive canary counters remain separate from the exact ID-sorted six-row unique ID/kind/method/surface manifest, and duplicate/missing/extra kind, wrong surface, reused process identity, submitted aggregate, zeroed detection, PID relabel, control request/side effect, false serving, cardinality, provenance, post-chat, CLI-path, secret, and Network Continuity contracts all reject.",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'",
       "scenario": {
         "id": "SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING/AC-1",
@@ -730,7 +777,7 @@ print(json.dumps({
         "verification_service": "local-filesystem-git-jq",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": ["static", "stub", "mock", "target_hash_mismatch", "arbitrary_injection", "dynamic_secret_retrieval", "canary_contract_missing", "observer_skip", "zeroed_control_detection", "relabeled_control_pid", "relabeled_control_surface", "control_public_request", "control_external_side_effect", "hand_authored_control_observation", "two_serving_minis", "count_mismatch", "singular_header_mismatch", "laptop", "unknown", "false_post_chat_issuance", "hand_authored_receipt", "mcp_public_auth", "secret_exposure"]
+          "would_fail_if": ["static", "stub", "mock", "target_hash_mismatch", "arbitrary_injection", "dynamic_secret_retrieval", "canary_contract_missing", "observer_skip", "duplicate_control_kind", "missing_control_kind", "extra_control_kind", "wrong_control_surface", "reused_process_identity", "aggregate_not_recomputed", "zeroed_control_detection", "relabeled_control_pid", "relabeled_control_surface", "control_public_request", "control_external_side_effect", "hand_authored_control_observation", "two_serving_minis", "count_mismatch", "singular_header_mismatch", "laptop", "unknown", "false_post_chat_issuance", "hand_authored_receipt", "mcp_public_auth", "secret_exposure"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -749,16 +796,16 @@ print(json.dumps({
                 "Add command and timeout wrappers around each -H/-d/-u bypass, one random-prefix absolute-path curl bypass, a parameter-expansion variant, and a prefixed canonical-lookalike; require rejection without adding those wrapper names to a blacklist.",
                 "Use the canonical target containing exactly one names-only presence form and one target-verifier private-stdin form; add only literal credential names and private non-secret stdin/config paths in the second safe control, and require both controls to remain accepted.",
                 "Mutate indirect RN/MCP name and length expansions, direct MCP expansion, printenv command substitution, inline substitution assignment, Python getenv, an arbitrary semantically allowed credential line, and one byte; require every candidate to fail the content hash without incrementing the semantic-check counter.",
-                "Require AC-11/TC-14 to give positive_path zero forbidden-surface counters and six separate bounded real negative_controls; recompute actual/observed PID equality, expected/observed surface equality, at least one expected match, nonzero CREDENTIAL_CANARY_EXPOSURE_DETECTED, no public request/external side effect, and cleanup for each control.",
-                "Mutate one negative control at a time to zero its detection, relabel its PID, relabel its surface, issue a public request, perform an external side effect, or claim hand-authored rather than recomputed observation; require every mutation to reject."
+                "Require AC-11/TC-14 to give positive_path zero forbidden-surface counters and the exact ID-sorted six-row unique ID/kind/method/surface manifest; require one distinct bounded real process instance per row, actual/observed PID and robust-instance equality, positive expected-surface plus zero off-surface/request/side-effect counts, nonzero detection, cleanup, and exact-map aggregation.",
+                "Mutate one control at a time to duplicate a kind, omit a kind, add a kind, change its pinned surface, reuse a process identity, disable exact-map aggregate recomputation, zero a detection, relabel its PID/surface, issue a public request, perform an external side effect, or claim hand-authored observation; require every mutation to reject."
               ]
             },
             "end_state": {
               "must_observe": [
                 "baseline matching_completion_count === 2 and telemetry.modelRequests === 2 passes jq -e",
                 "exactly 16 receipt mutations including 4 distinct singular-header controls are rejected",
-                "target_content_sha256 === 9c9d79faecc61c2c55c60c0ebbe28e88ea36cc5d618114407aa50cd5548d46f8 and exactly 12 whole-file mutations reject before semantic_checks_run changes",
-                "exactly 66 semantic contract mutations are rejected with the hash precondition disabled only for that semantic suite, including distinct zeroed-detection, PID-relabel, surface-relabel, request, side-effect, and hand-authored-observation controls",
+                "target_content_sha256 === 760f20c5f8f69e3aeab94d0093550974e9d4342fc7c7597f954966e05607ffc7 and exactly 12 whole-file mutations reject before semantic_checks_run changes",
+                "exactly 72 semantic contract mutations are rejected with the hash precondition disabled only for that semantic suite, including duplicate/missing/extra kind, wrong-surface map, reused-process-identity, aggregate-not-recomputed, and all prior controls",
                 "exactly 2 canonical safe credential controls are accepted",
                 "all 12 scenarios validate with zero violations and 27 shell verifiers pass bash -n",
                 "Git scope contains exactly 2 paths and network_mutation_performed === false and literal_disconnect_claimed === false"
@@ -770,7 +817,7 @@ print(json.dumps({
                 "HOLO_KEY_MCP used for the public route",
                 "a secret in argv, stdout, stderr, JSON receipt, or retained artifact",
                 "any noncanonical credential expansion, including command/timeout/random-wrapper curl or a parameter variant",
-                "an indirect RN/MCP retrieval, printenv substitution, Python getenv, arbitrary target injection, target hash mismatch, static-only canary gate, zeroed negative-control detection, relabeled control PID/surface, control public request/external side effect, or hand-authored control counter",
+                "an indirect RN/MCP retrieval, printenv substitution, Python getenv, arbitrary target injection, target hash mismatch, static-only canary gate, duplicate/missing/extra kind, wrong surface, reused process identity, unrecomputed aggregate, zeroed detection, relabeled PID/surface, control request/side effect, or hand-authored counter",
                 "a false chat_request_issued value after POST, a hand-authored failure receipt, or a target-verifier bypass",
                 "a service or network mutation"
               ]
@@ -782,7 +829,7 @@ print(json.dumps({
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "The complete target SHA-256 matches before semantic inspection; both contracts parse uniquely; 27 shell verifiers and 12 scenarios validate; positive, post-POST, and canary human/JSON commands match; positive canary counters remain zero while six real negative controls require recomputed PID/surface-bound expected detections and fail-closed exits; the two-call receipt plus two safe credential controls pass; four singular-header plus 66 semantic mutations reject independently; and 12 indirect/dynamic/arbitrary/byte-edit whole-file mutations reject before semantics.",
+      "description": "The complete target SHA-256 matches before semantic inspection; both contracts parse uniquely; 27 shell verifiers and 12 scenarios validate; positive, post-POST, and canary human/JSON commands match; positive canary counters remain zero while the exact six-row manifest requires unique kinds/methods, distinct real process instances, expected-only surface matches, fail-closed exits, and exact-map aggregation; the two-call receipt plus two safe credential controls pass; four singular-header plus 72 semantic mutations reject independently; and 12 indirect/dynamic/arbitrary/byte-edit whole-file mutations reject before semantics.",
       "maps_to_ac": "AC-1",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'"
     }
