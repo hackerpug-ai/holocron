@@ -16,10 +16,13 @@ import {
   resolveHolocronNonprodDatabaseUrl,
 } from '../db/connection.ts';
 import {
+  assertModelRequestAccountingSnapshot,
   createModelRequestAccounting,
+  createModelRequestAccountingEvent,
   type ModelRequestAccounting,
   runWithModelRequestAccounting,
   snapshotModelRequestAccounting,
+  terminalizeModelRequestAccounting,
 } from '../inference/telemetry.ts';
 import {
   CHAT_POLICY_PROCESSOR_ID,
@@ -372,117 +375,109 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
           resolvedEndpoint: agentBundle.resolved.baseURL,
         });
         accounting = requestAccounting;
-        const result = await runWithModelRequestAccounting(requestAccounting, () =>
-          agentBundle.agent.stream(
-            `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
-            {
-              maxSteps: run.max_steps,
-              abortSignal: controller.signal,
-              ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
-            }
-          )
-        );
-        await runWithModelRequestAccounting(requestAccounting, async () => {
-          for await (const chunk of result.fullStream as AsyncIterable<unknown>) {
-            if (controller.signal.aborted) break;
-            const handled = handleStreamChunk(chunk);
-            if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
-
-            if (isRecord(chunk) && chunk.type === 'step-finish') {
-              stepsUsed = Math.min(stepsUsed + 1, run.max_steps);
-              await appendEvent(sql, run.id, 'step', {
-                step: stepsUsed,
+        let accountingSnapshot: ReturnType<typeof snapshotModelRequestAccounting> | undefined;
+        try {
+          await runWithModelRequestAccounting(requestAccounting, async () => {
+            const result = await agentBundle.agent.stream(
+              `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
+              {
                 maxSteps: run.max_steps,
-              });
-              if (stepsUsed >= run.max_steps) {
+                abortSignal: controller.signal,
+                ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
+              }
+            );
+            // The accounting ALS must remain active through the complete stream.
+            // Mastra may issue additional doGenerate/doStream calls while this
+            // iterator consumes tool-loop steps.
+            for await (const chunk of result.fullStream as AsyncIterable<unknown>) {
+              if (controller.signal.aborted) break;
+              const handled = handleStreamChunk(chunk);
+              if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
+
+              if (isRecord(chunk) && chunk.type === 'step-finish') {
+                stepsUsed = Math.min(stepsUsed + 1, run.max_steps);
+                await appendEvent(sql, run.id, 'step', {
+                  step: stepsUsed,
+                  maxSteps: run.max_steps,
+                });
+                if (stepsUsed >= run.max_steps) {
+                  hitMaxSteps = true;
+                }
+              }
+
+              if (
+                isRecord(chunk) &&
+                (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-start')
+              ) {
+                const payload = isRecord(chunk.payload) ? chunk.payload : {};
+                await appendEvent(sql, run.id, 'tool-call', {
+                  toolName:
+                    typeof payload.toolName === 'string'
+                      ? payload.toolName
+                      : typeof payload.tool_name === 'string'
+                        ? payload.tool_name
+                        : chunk.type,
+                  toolCallId:
+                    typeof payload.toolCallId === 'string'
+                      ? payload.toolCallId
+                      : typeof payload.tool_call_id === 'string'
+                        ? payload.tool_call_id
+                        : undefined,
+                  args: payload.args ?? payload.input,
+                });
+                // A tool-using step is observable even if step-finish is delayed.
+                if (stepsUsed === 0) {
+                  stepsUsed = 1;
+                }
+              }
+
+              const textDelta = getTextDelta(chunk);
+              if (isRecord(chunk) && chunk.type === 'text-delta' && textDelta !== undefined) {
+                finalText += textDelta;
+                await appendEvent(sql, run.id, 'token', { token: textDelta });
+              }
+            }
+
+            // Prefer authoritative step count from the stream result when present.
+            const streamResult = result as {
+              steps?: unknown;
+              finishReason?: unknown;
+              text?: Promise<string> | string;
+            };
+            if (Array.isArray(streamResult.steps) && streamResult.steps.length > 0) {
+              stepsUsed = Math.min(streamResult.steps.length, run.max_steps);
+            }
+            if (typeof streamResult.finishReason === 'string') {
+              if (
+                streamResult.finishReason === 'length' ||
+                /max.?step/i.test(streamResult.finishReason)
+              ) {
                 hitMaxSteps = true;
+                stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
               }
             }
-
-            if (
-              isRecord(chunk) &&
-              (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-start')
-            ) {
-              const payload = isRecord(chunk.payload) ? chunk.payload : {};
-              await appendEvent(sql, run.id, 'tool-call', {
-                toolName:
-                  typeof payload.toolName === 'string'
-                    ? payload.toolName
-                    : typeof payload.tool_name === 'string'
-                      ? payload.tool_name
-                      : chunk.type,
-                toolCallId:
-                  typeof payload.toolCallId === 'string'
-                    ? payload.toolCallId
-                    : typeof payload.tool_call_id === 'string'
-                      ? payload.tool_call_id
-                      : undefined,
-                args: payload.args ?? payload.input,
-              });
-              // A tool-using step is observable even if step-finish is delayed.
-              if (stepsUsed === 0) {
-                stepsUsed = 1;
+            if (!finalText.trim() && streamResult.text) {
+              const maybe = await Promise.resolve(streamResult.text);
+              if (typeof maybe === 'string' && maybe.trim()) {
+                finalText = maybe;
               }
             }
-
-            const textDelta = getTextDelta(chunk);
-            if (isRecord(chunk) && chunk.type === 'text-delta' && textDelta !== undefined) {
-              finalText += textDelta;
-              await appendEvent(sql, run.id, 'token', { token: textDelta });
-            }
-          }
-
-          // Prefer authoritative step count from the stream result when present.
-          const streamResult = result as {
-            steps?: unknown;
-            finishReason?: unknown;
-            text?: Promise<string> | string;
-          };
-          if (Array.isArray(streamResult.steps) && streamResult.steps.length > 0) {
-            stepsUsed = Math.min(streamResult.steps.length, run.max_steps);
-          }
-          if (typeof streamResult.finishReason === 'string') {
-            if (
-              streamResult.finishReason === 'length' ||
-              /max.?step/i.test(streamResult.finishReason)
-            ) {
-              hitMaxSteps = true;
-              stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
-            }
-          }
-          if (!finalText.trim() && streamResult.text) {
-            const maybe = await Promise.resolve(streamResult.text);
-            if (typeof maybe === 'string' && maybe.trim()) {
-              finalText = maybe;
-            }
-          }
-        });
-        const accountingSnapshot = snapshotModelRequestAccounting(accounting);
-        if (
-          !accountingSnapshot.terminalized ||
-          accountingSnapshot.modelRequests < 1 ||
-          accountingSnapshot.fleetRequests < 1 ||
-          accountingSnapshot.cloudRequests !== 0 ||
-          accountingSnapshot.unknownRequests !== 0 ||
-          !accountingSnapshot.reconciliationComplete ||
-          accountingSnapshot.responseHeaderApiBase === null
-        ) {
-          throw new ChatModelAccountingError(
-            `public model accounting rejected: ${JSON.stringify(accountingSnapshot)}`
-          );
+          });
+        } finally {
+          // This is the sole terminalization point, after agent.stream and the
+          // complete fullStream/tool-loop iterator have settled.
+          accountingSnapshot = terminalizeModelRequestAccounting(requestAccounting);
         }
-        await appendEvent(sql, run.id, 'model-accounting', {
-          requestId: run.request_id,
-          runId: run.id,
-          resolvedEndpoint: accountingSnapshot.resolvedEndpoint,
-          responseHeaderApiBase: accountingSnapshot.responseHeaderApiBase,
-          modelRequests: accountingSnapshot.modelRequests,
-          fleetRequests: accountingSnapshot.fleetRequests,
-          cloudRequests: accountingSnapshot.cloudRequests,
-          unknownRequests: accountingSnapshot.unknownRequests,
-          terminalized: accountingSnapshot.terminalized,
-          reconciliationComplete: accountingSnapshot.reconciliationComplete,
-        });
+        if (!accountingSnapshot) {
+          throw new ChatModelAccountingError('public model accounting did not terminalize');
+        }
+        assertModelRequestAccountingSnapshot(accountingSnapshot);
+        await appendEvent(
+          sql,
+          run.id,
+          'model-accounting',
+          createModelRequestAccountingEvent(accountingSnapshot)
+        );
       } catch (error) {
         if (controller.signal.aborted) {
           return;

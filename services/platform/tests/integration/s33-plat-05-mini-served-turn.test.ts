@@ -14,8 +14,9 @@ import { createFleetAgentWithResolved, runAgentCell } from '../../src/compat/cel
 import { createSql } from '../../src/db/client.ts';
 import { createHonoApp } from '../../src/http/hono-app.ts';
 import {
-  assertModelRequestAccountingSnapshot,
+  assertModelRequestAccountingSource,
   listInferenceTelemetry,
+  type ModelRequestAccountingEvent,
   type ModelRequestAccountingSnapshot,
 } from '../../src/inference/telemetry.ts';
 import { createStorage } from '../../src/mastra.ts';
@@ -285,63 +286,83 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
   it('AC-5: the same accounting oracle rejects six real source-copy mutations', async () => {
     const sourcePath = new URL('../../src/http/chat-runs.ts', import.meta.url);
     const source = await readFile(sourcePath, 'utf8');
+    const app = createHonoApp({ keys: { rn: scopedRnKey, mcp: '', control: '' } });
+    const requestId = `s33-plat-05-mutation-${randomUUID()}`;
+    const createResponse = await app.request('/api/chat-runs', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${scopedRnKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        requestId,
+        maxSteps: 1,
+        msg: `S33 accounting mutation baseline ${randomUUID()}: reply with one short sentence.`,
+      }),
+    });
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { runId: string };
+    const terminal = await waitForTerminalRun(app, created.runId);
+    expect(terminal.status).toBe('completed');
+    const persistedResponse = await app.request(`/api/chat-runs/${created.runId}`, {
+      headers: { authorization: `Bearer ${scopedRnKey}` },
+    });
+    expect(persistedResponse.status).toBe(200);
+    const persisted = (await persistedResponse.json()) as PublicChatRun;
+    const accounting = persisted.events.find((event) => event.event_type === 'model-accounting');
+    expect(accounting, 'real mutation-control baseline accounting event').toBeDefined();
+    if (!accounting) throw new Error('real mutation-control baseline accounting event missing');
+    const event = accounting.data_json as ModelRequestAccountingEvent;
+    const rows = await listInferenceTelemetry({ runId: created.runId, databaseUrl });
+    expect(rows.length, 'real mutation-control baseline telemetry rows').toBeGreaterThanOrEqual(1);
+    expect(event.modelRequests).toBe(rows.length);
+    expect(event.reconciliationComplete).toBe(true);
     const root = await mkdtemp(join(tmpdir(), 's33-plat-05-accounting-'));
     const base: ModelRequestAccountingSnapshot = {
-      requestId: 'mutation-request',
-      runId: randomUUID(),
-      resolvedEndpoint: fleetUrl,
-      modelRequests: 2,
-      underlyingTransportCalls: 2,
-      fleetRequests: 2,
-      cloudRequests: 0,
-      unknownRequests: 0,
-      responseHeaderApiBase: 'http://inference1.tail011a51.ts.net:8003/v1',
-      responseHeaderApiBases: ['http://inference1.tail011a51.ts.net:8003/v1'],
-      terminalized: true,
-      reconciliationComplete: true,
-      instrumentationBoundary: 'provider-model',
+      ...event,
+      responseHeaderApiBases: [event.responseHeaderApiBase],
     };
-    const mutations: Array<{
-      name: string;
-      mutate: (input: string) => string;
-      snapshot: ModelRequestAccountingSnapshot;
-    }> = [
+    assertModelRequestAccountingSource(source, base);
+    const mutations: Array<{ name: string; mutate: (input: string) => string }> = [
       {
         name: 'missing-wrapper',
         mutate: (input) => input.replace('runWithModelRequestAccounting(', 'withoutAccounting('),
-        snapshot: { ...base, modelRequests: 0, underlyingTransportCalls: 0 },
       },
       {
         name: 'outer-stream-only',
         mutate: (input) =>
           input.replace(
-            'runWithModelRequestAccounting(requestAccounting, async () => {',
-            'async () => {'
+            'for await (const chunk of result.fullStream',
+            'for (const chunk of result.fullStream'
           ),
-        snapshot: { ...base, modelRequests: 1, underlyingTransportCalls: 0 },
       },
       {
         name: 'global-fetch-patch',
         mutate: (input) => `${input}\nconst mutationGlobalFetchPatch = globalThis.fetch;\n`,
-        snapshot: { ...base, instrumentationBoundary: 'global-fetch' },
       },
       {
         name: 'direct-cloud-api-openai',
         mutate: (input) =>
-          input.replace('accountingSnapshot.resolvedEndpoint', '"https://api.openai.com/v1"'),
-        snapshot: { ...base, fleetRequests: 0, cloudRequests: 2 },
+          input.replace(
+            'resolvedEndpoint: agentBundle.resolved.baseURL,',
+            'resolvedEndpoint: "https://api.openai.com/v1",'
+          ),
       },
       {
         name: 'unknown-transport',
         mutate: (input) =>
-          input.replace('accountingSnapshot.unknownRequests', 'accountingSnapshot.modelRequests'),
-        snapshot: { ...base, fleetRequests: 0, unknownRequests: 2 },
+          input.replace(
+            'resolvedEndpoint: agentBundle.resolved.baseURL,',
+            'resolvedEndpoint: "https://unknown.invalid/v1",'
+          ),
       },
       {
         name: 'counter-mismatch',
         mutate: (input) =>
-          input.replace('accountingSnapshot.modelRequests', 'accountingSnapshot.modelRequests + 1'),
-        snapshot: { ...base, modelRequests: 3 },
+          input.replace(
+            'createModelRequestAccountingEvent(accountingSnapshot)',
+            'createModelRequestAccountingEvent({ ...accountingSnapshot, modelRequests: accountingSnapshot.modelRequests + 1 })'
+          ),
       },
     ];
 
@@ -353,9 +374,9 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         await writeFile(copyPath, mutated, 'utf8');
         const persistedMutation = await readFile(copyPath, 'utf8');
         expect(persistedMutation).toBe(mutated);
-        expect(() =>
-          assertModelRequestAccountingSnapshot({ ...mutation.snapshot, requestId: mutation.name })
-        ).toThrow(mutation.name);
+        expect(() => assertModelRequestAccountingSource(persistedMutation, base)).toThrow(
+          mutation.name
+        );
       }
       console.info(
         'S33-PLAT-05-EVIDENCE',

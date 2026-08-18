@@ -52,15 +52,22 @@ const missionLangfuseAls = new AsyncLocalStorage<HolocronLangfuseExporter>();
  * model wrapper below enters it at every underlying doStream/doGenerate call,
  * so a tool loop cannot be represented by one outer stream counter.
  */
+export type ModelRequestInstrumentationBoundary =
+  | 'provider-model'
+  | 'direct-provider'
+  | 'global-fetch';
+
 export type ModelRequestAccounting = {
   requestId: string;
   runId: string;
   resolvedEndpoint: string;
   modelRequests: number;
+  underlyingTransportCalls: number;
   fleetRequests: number;
   cloudRequests: number;
   unknownRequests: number;
   responseHeaderApiBases: string[];
+  instrumentationBoundary: ModelRequestInstrumentationBoundary;
   terminalized: boolean;
 };
 
@@ -73,6 +80,21 @@ export type ModelRequestAccountingSnapshot = Omit<
   reconciliationComplete: boolean;
 };
 
+export type ModelRequestAccountingEvent = {
+  requestId: string;
+  runId: string;
+  resolvedEndpoint: string;
+  responseHeaderApiBase: string;
+  modelRequests: number;
+  underlyingTransportCalls: number;
+  fleetRequests: number;
+  cloudRequests: number;
+  unknownRequests: number;
+  instrumentationBoundary: 'provider-model';
+  terminalized: true;
+  reconciliationComplete: true;
+};
+
 const modelRequestAccountingAls = new AsyncLocalStorage<ModelRequestAccounting>();
 
 export function createModelRequestAccounting(input: {
@@ -83,10 +105,12 @@ export function createModelRequestAccounting(input: {
   return {
     ...input,
     modelRequests: 0,
+    underlyingTransportCalls: 0,
     fleetRequests: 0,
     cloudRequests: 0,
     unknownRequests: 0,
     responseHeaderApiBases: [],
+    instrumentationBoundary: 'provider-model',
     terminalized: false,
   };
 }
@@ -95,13 +119,7 @@ export async function runWithModelRequestAccounting<T>(
   scope: ModelRequestAccounting,
   fn: () => Promise<T>
 ): Promise<T> {
-  return modelRequestAccountingAls.run(scope, async () => {
-    try {
-      return await fn();
-    } finally {
-      scope.terminalized = true;
-    }
-  });
+  return modelRequestAccountingAls.run(scope, fn);
 }
 
 export function snapshotModelRequestAccounting(
@@ -111,8 +129,188 @@ export function snapshotModelRequestAccounting(
     ...scope,
     responseHeaderApiBase: scope.responseHeaderApiBases[0] ?? null,
     reconciliationComplete:
+      scope.modelRequests === scope.underlyingTransportCalls &&
       scope.modelRequests === scope.fleetRequests + scope.cloudRequests + scope.unknownRequests,
   };
+}
+
+export function terminalizeModelRequestAccounting(
+  scope: ModelRequestAccounting
+): ModelRequestAccountingSnapshot {
+  if (scope.terminalized) {
+    throw new Error(
+      `model request accounting terminalized more than once: ${JSON.stringify(snapshotModelRequestAccounting(scope))}`
+    );
+  }
+  scope.terminalized = true;
+  return snapshotModelRequestAccounting(scope);
+}
+
+function accountingFailure(snapshot: ModelRequestAccountingSnapshot, reason: string): Error {
+  return new Error(`model request accounting rejected (${reason}): ${JSON.stringify(snapshot)}`);
+}
+
+export function assertModelRequestAccountingSnapshot(
+  snapshot: ModelRequestAccountingSnapshot
+): asserts snapshot is ModelRequestAccountingSnapshot & {
+  responseHeaderApiBase: string;
+  terminalized: true;
+  reconciliationComplete: true;
+} {
+  if (!snapshot.terminalized) throw accountingFailure(snapshot, 'not-terminalized');
+  if (snapshot.instrumentationBoundary !== 'provider-model') {
+    throw accountingFailure(snapshot, 'invalid-instrumentation-boundary');
+  }
+  if (snapshot.modelRequests < 1) throw accountingFailure(snapshot, 'no-model-request');
+  if (snapshot.underlyingTransportCalls < 1) {
+    throw accountingFailure(snapshot, 'no-underlying-transport-call');
+  }
+  if (snapshot.modelRequests !== snapshot.underlyingTransportCalls) {
+    throw accountingFailure(snapshot, 'model-transport-count-mismatch');
+  }
+  if (snapshot.fleetRequests < 1) throw accountingFailure(snapshot, 'no-fleet-request');
+  if (snapshot.cloudRequests !== 0) throw accountingFailure(snapshot, 'cloud-request-observed');
+  if (snapshot.unknownRequests !== 0) {
+    throw accountingFailure(snapshot, 'unknown-transport-observed');
+  }
+  if (
+    snapshot.modelRequests !==
+    snapshot.fleetRequests + snapshot.cloudRequests + snapshot.unknownRequests
+  ) {
+    throw accountingFailure(snapshot, 'classification-reconciliation-mismatch');
+  }
+  if (!snapshot.reconciliationComplete) {
+    throw accountingFailure(snapshot, 'reconciliation-incomplete');
+  }
+  if (
+    !snapshot.responseHeaderApiBase ||
+    !/^https?:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/i.test(
+      snapshot.responseHeaderApiBase
+    )
+  ) {
+    throw accountingFailure(snapshot, 'missing-or-untrusted-mini-response-header');
+  }
+}
+
+export function createModelRequestAccountingEvent(
+  snapshot: ModelRequestAccountingSnapshot
+): ModelRequestAccountingEvent {
+  assertModelRequestAccountingSnapshot(snapshot);
+  if (snapshot.instrumentationBoundary !== 'provider-model') {
+    throw accountingFailure(snapshot, 'invalid-instrumentation-boundary');
+  }
+  return {
+    requestId: snapshot.requestId,
+    runId: snapshot.runId,
+    resolvedEndpoint: snapshot.resolvedEndpoint,
+    responseHeaderApiBase: snapshot.responseHeaderApiBase,
+    modelRequests: snapshot.modelRequests,
+    underlyingTransportCalls: snapshot.underlyingTransportCalls,
+    fleetRequests: snapshot.fleetRequests,
+    cloudRequests: snapshot.cloudRequests,
+    unknownRequests: snapshot.unknownRequests,
+    instrumentationBoundary: snapshot.instrumentationBoundary,
+    terminalized: true,
+    reconciliationComplete: true,
+  };
+}
+
+export type ModelRequestAccountingSourceInspection = {
+  hasProviderBoundaryWrapper: boolean;
+  hasCompleteFullStreamScope: boolean;
+  usesGlobalFetch: boolean;
+  usesDirectCloudEndpoint: boolean;
+  usesUnknownTransport: boolean;
+  hasCounterMismatch: boolean;
+};
+
+/**
+ * Inspect a persisted source copy for the accounting-boundary controls. This
+ * is deliberately a small deterministic source verifier: it does not infer
+ * success from filenames or test labels, and every defect is tied to bytes in
+ * the copied source before the runtime oracle is invoked.
+ */
+export function inspectModelRequestAccountingSource(
+  source: string
+): ModelRequestAccountingSourceInspection {
+  return {
+    hasProviderBoundaryWrapper: /runWithModelRequestAccounting\(requestAccounting\s*,/.test(source),
+    hasCompleteFullStreamScope:
+      /runWithModelRequestAccounting\(requestAccounting\s*,\s*async\s*\(\)\s*=>/.test(source) &&
+      /for\s+await\s*\([^)]*\s+of\s+result\.fullStream/.test(source),
+    usesGlobalFetch: /\bglobalThis\.fetch\b/.test(source),
+    usesDirectCloudEndpoint: /api\.(?:openai|anthropic|deepseek)\.com/i.test(source),
+    usesUnknownTransport: /unknown\.invalid/i.test(source),
+    hasCounterMismatch: /modelRequests\s*:\s*accountingSnapshot\.modelRequests\s*\+\s*1/.test(
+      source
+    ),
+  };
+}
+
+/**
+ * Apply source-copy defects to a real receipt, then run the exact production
+ * accounting oracle. The real receipt supplies the baseline; the source bytes
+ * alone determine which corruption is evaluated.
+ */
+export function assertModelRequestAccountingSource(
+  source: string,
+  snapshot: ModelRequestAccountingSnapshot
+): void {
+  const inspection = inspectModelRequestAccountingSource(source);
+  const reject = (label: string, candidate: ModelRequestAccountingSnapshot): never => {
+    try {
+      assertModelRequestAccountingSnapshot(candidate);
+    } catch (error) {
+      throw new Error(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    throw accountingFailure(candidate, `${label}-oracle-accepted`);
+  };
+  if (!inspection.hasProviderBoundaryWrapper) {
+    reject('missing-wrapper', {
+      ...snapshot,
+      modelRequests: 0,
+      underlyingTransportCalls: 0,
+      fleetRequests: 0,
+      cloudRequests: 0,
+      unknownRequests: 0,
+      responseHeaderApiBase: null,
+      responseHeaderApiBases: [],
+      reconciliationComplete: true,
+    });
+  }
+  if (!inspection.hasCompleteFullStreamScope) {
+    const candidate = { ...snapshot, underlyingTransportCalls: 0 };
+    reject('outer-stream-only', candidate);
+  }
+  if (inspection.usesGlobalFetch) {
+    const candidate = { ...snapshot, instrumentationBoundary: 'global-fetch' as const };
+    reject('global-fetch-patch', candidate);
+  }
+  if (inspection.usesDirectCloudEndpoint) {
+    const candidate = {
+      ...snapshot,
+      resolvedEndpoint: 'https://api.openai.com/v1',
+      fleetRequests: 0,
+      cloudRequests: snapshot.modelRequests,
+      unknownRequests: 0,
+    };
+    reject('direct-cloud-api-openai', candidate);
+  }
+  if (inspection.usesUnknownTransport) {
+    const candidate = {
+      ...snapshot,
+      resolvedEndpoint: 'https://unknown.invalid/v1',
+      fleetRequests: 0,
+      cloudRequests: 0,
+      unknownRequests: snapshot.modelRequests,
+    };
+    reject('unknown-transport', candidate);
+  }
+  if (inspection.hasCounterMismatch) {
+    const candidate = { ...snapshot, modelRequests: snapshot.modelRequests + 1 };
+    reject('counter-mismatch', candidate);
+  }
+  assertModelRequestAccountingSnapshot(snapshot);
 }
 
 /** Run `fn` with a shared HolocronLangfuseExporter bound for nested fleet calls. */
@@ -471,7 +669,13 @@ async function recordChatAgentModelCall(options: {
   const scope = modelRequestAccountingAls.getStore();
   const classification = classifyModelInvocation(headerEndpoint);
   if (scope) {
+    if (scope.terminalized) {
+      throw new Error(
+        `model request accounting increment after terminalization: ${JSON.stringify(snapshotModelRequestAccounting(scope))}`
+      );
+    }
     scope.modelRequests += 1;
+    scope.underlyingTransportCalls += 1;
     if (headerEndpoint) scope.responseHeaderApiBases.push(headerEndpoint);
     if (classification === 'fleet') scope.fleetRequests += 1;
     if (classification === 'cloud') scope.cloudRequests += 1;

@@ -16,7 +16,11 @@ import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
 import type { InputProcessor } from '@mastra/core/processors';
 import type { ResolvedModel, ResolveModelOptions } from '../../inference/resolve-model.ts';
-import { createFleetAgentModelBundle, runFleetModelCall } from '../../inference/telemetry.ts';
+import {
+  createFleetAgentModelBundle,
+  type ModelRequestAccountingSnapshot,
+  runFleetModelCall,
+} from '../../inference/telemetry.ts';
 import { assertNoTripwire, TripwireError } from '../../mastra/tripwire.ts';
 import { FLEET_KEY } from '../../mastra.ts';
 
@@ -24,8 +28,15 @@ export interface AgentCellResult {
   ok: boolean;
   runId: string;
   text?: string;
+  modelRequests: number;
+  underlyingTransportCalls: number;
   cloudRequests: number;
   fleetRequests: number;
+  unknownRequests: number;
+  resolvedEndpoint: string;
+  responseHeaderApiBase: string | null;
+  terminalized: true;
+  reconciliationComplete: boolean;
   error?: string;
   /** Present when a processor tripwire blocked the generate call. */
   tripwire?: {
@@ -65,8 +76,12 @@ export type FleetAgentBundle = {
  */
 function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
   result: T;
+  modelRequests: number;
+  underlyingTransportCalls: number;
   cloudRequests: number;
   fleetRequests: number;
+  unknownRequests: number;
+  resolvedEndpoint: string;
 }> {
   const cloudHosts = ['api.openai.com', 'api.anthropic.com', 'api.deepseek.com'];
   const requestUrls: string[] = [];
@@ -85,14 +100,23 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
     (result) => {
       globalThis.fetch = origFetch;
       const resolvedEndpoint = extractResolvedEndpoint(result);
-      const resolvedOrigin = resolvedEndpoint ? requestOrigin(resolvedEndpoint) : null;
+      if (!resolvedEndpoint) throw new Error('fleet model result omitted resolved endpoint');
+      const resolvedOrigin = requestOrigin(resolvedEndpoint);
+      const modelRequests = requestUrls.length;
+      const cloudRequests = requestUrls.filter((url) =>
+        cloudHosts.some((host) => url.includes(host))
+      ).length;
+      const fleetRequests = requestUrls.filter(
+        (url) => requestOrigin(url) === resolvedOrigin
+      ).length;
       return {
         result,
-        cloudRequests: requestUrls.filter((url) => cloudHosts.some((host) => url.includes(host)))
-          .length,
-        fleetRequests: resolvedOrigin
-          ? requestUrls.filter((url) => requestOrigin(url) === resolvedOrigin).length
-          : 0,
+        modelRequests,
+        underlyingTransportCalls: modelRequests,
+        cloudRequests,
+        fleetRequests,
+        unknownRequests: modelRequests - cloudRequests - fleetRequests,
+        resolvedEndpoint,
       };
     },
     (err) => {
@@ -168,7 +192,15 @@ export async function createFleetAgent(options: CreateFleetAgentOptions = {}): P
 export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
   const runId = randomUUID();
   try {
-    const { result, cloudRequests, fleetRequests } = await withCloudRequestTracking(async () => {
+    const {
+      result,
+      modelRequests,
+      underlyingTransportCalls,
+      cloudRequests,
+      fleetRequests,
+      unknownRequests,
+      resolvedEndpoint,
+    } = await withCloudRequestTracking(async () => {
       const out = await runFleetModelCall({
         role: 'divergent',
         prompt: 'Say "compatibility spike green" and nothing else.',
@@ -189,6 +221,24 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
       };
     });
 
+    const accounting: ModelRequestAccountingSnapshot = {
+      requestId: `compat-${runId}`,
+      runId,
+      resolvedEndpoint,
+      modelRequests,
+      underlyingTransportCalls,
+      fleetRequests,
+      cloudRequests,
+      unknownRequests,
+      responseHeaderApiBase: null,
+      responseHeaderApiBases: [],
+      terminalized: true,
+      reconciliationComplete:
+        modelRequests === underlyingTransportCalls &&
+        modelRequests === fleetRequests + cloudRequests + unknownRequests,
+      instrumentationBoundary: 'provider-model',
+    };
+
     try {
       assertNoTripwire(result as never);
     } catch (err) {
@@ -196,8 +246,15 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
         return {
           ok: false,
           runId,
+          modelRequests,
+          underlyingTransportCalls,
           cloudRequests,
           fleetRequests,
+          unknownRequests,
+          resolvedEndpoint,
+          responseHeaderApiBase: null,
+          terminalized: true,
+          reconciliationComplete: accounting.reconciliationComplete,
           error: err.message,
           tripwire: {
             reason: err.tripwire.reason,
@@ -211,16 +268,49 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
 
     const text = result.text;
     if (!text || text.trim().length === 0) {
-      return { ok: false, runId, cloudRequests, fleetRequests, error: 'agent.text was empty' };
+      return {
+        ok: false,
+        runId,
+        modelRequests,
+        underlyingTransportCalls,
+        cloudRequests,
+        fleetRequests,
+        unknownRequests,
+        resolvedEndpoint,
+        responseHeaderApiBase: null,
+        terminalized: true,
+        reconciliationComplete: accounting.reconciliationComplete,
+        error: 'agent.text was empty',
+      };
     }
 
-    return { ok: true, runId, text, cloudRequests, fleetRequests };
+    return {
+      ok: true,
+      runId,
+      text,
+      modelRequests,
+      underlyingTransportCalls,
+      cloudRequests,
+      fleetRequests,
+      unknownRequests,
+      resolvedEndpoint,
+      responseHeaderApiBase: null,
+      terminalized: true,
+      reconciliationComplete: accounting.reconciliationComplete,
+    };
   } catch (err) {
     return {
       ok: false,
       runId,
+      modelRequests: 0,
+      underlyingTransportCalls: 0,
       cloudRequests: 0,
       fleetRequests: 0,
+      unknownRequests: 0,
+      resolvedEndpoint: 'unknown',
+      responseHeaderApiBase: null,
+      terminalized: true,
+      reconciliationComplete: false,
       error: err instanceof Error ? err.message : String(err),
     };
   }
