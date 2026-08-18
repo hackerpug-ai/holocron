@@ -8,15 +8,25 @@ ROOT="$(git rev-parse --show-toplevel)"
 DIR="$ROOT/.tmp/$TASK_ID"
 RED_SHA="${1:-}"
 GREEN_SHA="${2:-}"
+SOURCE_SHA="${3:-}"
 SUMMARY="$DIR/verification-summary.json"
 TEST="services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts"
+SOURCE_FILES=(
+  "services/platform/src/mcp/executor.ts"
+  ".spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml"
+  "$TEST"
+  ".tmp/$TASK_ID/stamp-evidence.sh"
+  ".tmp/$TASK_ID/test-source-snapshot.ts"
+)
 
 die() { echo "stamp-evidence: ERROR: $*" >&2; exit 1; }
-[[ -n "$RED_SHA" && -n "$GREEN_SHA" ]] || die "red and green commit SHAs are required"
+[[ -n "$RED_SHA" && -n "$GREEN_SHA" && -n "$SOURCE_SHA" ]] || die "red, green, and source commit SHAs are required"
 git -C "$ROOT" cat-file -e "$RED_SHA^{commit}" || die "red commit is not a commit"
 git -C "$ROOT" cat-file -e "$GREEN_SHA^{commit}" || die "green commit is not a commit"
+git -C "$ROOT" cat-file -e "$SOURCE_SHA^{commit}" || die "source commit is not a commit"
 [[ "$RED_SHA" != "$GREEN_SHA" ]] || die "RED and GREEN commits must be distinct"
 git -C "$ROOT" merge-base --is-ancestor "$RED_SHA" "$GREEN_SHA" || die "RED is not an ancestor of GREEN"
+git -C "$ROOT" merge-base --is-ancestor "$GREEN_SHA" "$SOURCE_SHA" || die "source hardening commit must descend from GREEN"
 [[ -f "$SUMMARY" ]] || die "harvest summary is missing"
 command -v jq >/dev/null || die "jq is required"
 
@@ -56,7 +66,8 @@ require_file "green-ac-2-http-closed-fleet.json"
 require_file "green-ac-3-http-fts-closed-fleet.json"
 require_file "green-ac-4-stdio.json"
 require_file "manifest-output.txt"
-require_file "inspector-smoke-output.txt"
+require_file "inspector-smoke-output.json"
+require_file "stdio-parser-negative-control.json"
 require_file "test-source-snapshot.ts"
 require_file "verify-manifest.json"
 require_file "tdd-lineage.json"
@@ -74,9 +85,22 @@ GREEN_LOG_SHA="$(sha256_file "$DIR/green-output.txt")"
 [[ "$GREEN_LOG_SHA" == "$(blob_sha "$GREEN_SHA" ".tmp/$TASK_ID/green-output.txt")" ]] || die "GREEN log bytes differ from GREEN commit blob"
 TEST_BLOB_RED="$(git -C "$ROOT" rev-parse "$RED_SHA:$TEST")" || die "RED test blob missing"
 TEST_BLOB_GREEN="$(git -C "$ROOT" rev-parse "$GREEN_SHA:$TEST")" || die "GREEN test blob missing"
-TEST_BLOB_CURRENT="$(git -C "$ROOT" rev-parse "HEAD:$TEST")" || die "current test blob missing"
-[[ "$TEST_BLOB_RED" == "$TEST_BLOB_GREEN" && "$TEST_BLOB_GREEN" == "$TEST_BLOB_CURRENT" ]] || die "test source changed across RED/GREEN/current"
+TEST_BLOB_CURRENT="$(git -C "$ROOT" rev-parse "$SOURCE_SHA:$TEST")" || die "hardened test blob missing"
+[[ "$TEST_BLOB_RED" == "$TEST_BLOB_GREEN" ]] || die "original RED and GREEN test blobs differ"
+[[ "$TEST_BLOB_CURRENT" != "$TEST_BLOB_GREEN" ]] || die "hardened test blob unexpectedly equals original TDD source"
 [[ "$(sha256_file "$DIR/test-source-snapshot.ts")" == "$(sha256_file "$ROOT/$TEST")" ]] || die "test source snapshot differs from current source"
+
+SOURCE_ENTRIES_TMP="$(mktemp "$DIR/.source-entries.XXXXXX")"
+for source_file in "${SOURCE_FILES[@]}"; do
+  source_oid="$(git -C "$ROOT" rev-parse "$SOURCE_SHA:$source_file")" || die "source blob missing: $source_file"
+  source_size="$(git -C "$ROOT" cat-file -s "$SOURCE_SHA:$source_file")" || die "source size missing: $source_file"
+  source_sha256="$(git -C "$ROOT" cat-file blob "$SOURCE_SHA:$source_file" | shasum -a 256 | awk '{print $1}')"
+  current_oid="$(git -C "$ROOT" hash-object "$ROOT/$source_file")" || die "current source blob missing: $source_file"
+  [[ "$current_oid" == "$source_oid" ]] || die "current source differs from source commit: $source_file"
+  jq -nc --arg path "$source_file" --arg oid "$source_oid" --arg sha "$source_sha256" --argjson bytes "$source_size" \
+    '{path:$path,git_blob_oid:$oid,sha256:$sha,bytes:$bytes}' >> "$SOURCE_ENTRIES_TMP"
+done
+SOURCE_BINDING_JSON="$(jq -s '.' "$SOURCE_ENTRIES_TMP")"
 
 grep -Fq 'EXIT_CODE:1' "$DIR/red-output.txt" || die "RED terminal marker missing"
 grep -Fq '3 failed | 1 passed' "$DIR/red-output.txt" || die "RED test count missing"
@@ -84,12 +108,20 @@ grep -Fq 'EXIT_CODE:0' "$DIR/green-output.txt" || die "GREEN terminal marker mis
 grep -Eq '[4] passed|4 tests.*passed' "$DIR/green-output.txt" || die "GREEN test count missing"
 grep -Fq '23 passed' "$DIR/manifest-output.txt" || die "manifest gate result missing"
 grep -Fq 'EXIT_CODE:0' "$DIR/manifest-output.txt" || die "manifest gate marker missing"
-grep -Fq 'EXIT_CODE:0' "$DIR/inspector-smoke-output.txt" || die "Inspector marker missing"
-grep -Fq 'hybrid' "$DIR/inspector-smoke-output.txt" || die "Inspector hybrid result missing"
+jq -e '.provenance.transport == "stdio" and (.provenance.credentials|contains("values omitted")) and .toolsList.exitCode == 0 and (.toolsList.stdout|contains("hybrid_search")) and .semanticSuccess.exitCode == 0 and (.semanticSuccess.stdout|contains("S33-MCP-02 Fleet Retrieval Proof")) and (.semanticSuccess.stdout|contains("searchMethod\\\":\\\"hybrid")) and .closedRoleUnavailable.exitCode == 0 and (.closedRoleUnavailable.stdout|contains("ROLE_UNAVAILABLE")) and (.closedRoleUnavailable.stdout|contains("fleet role '\''embed'\''"))' "$DIR/inspector-smoke-output.json" >/dev/null || die "Inspector live/list/closed evidence invalid"
+jq -e '.accepted == false and (.error|contains("not JSON-RPC 2.0"))' "$DIR/stdio-parser-negative-control.json" >/dev/null || die "stdio parser negative control invalid"
 jq -e '.embeddingDimension == 1024 and .semanticTitle == "S33-MCP-02 Fleet Retrieval Proof" and (.closedFleetUrl|startswith("http://127.0.0.1:"))' "$DIR/seeded-artifact-green.json" >/dev/null || die "seeded artifact invariants missing"
 jq -e '.live.parseFailures == [] and .closed.parseFailures == [] and .live.result.isError != true and .closed.result.isError == true and .closedError.code == "ROLE_UNAVAILABLE"' "$DIR/green-ac-4-stdio.json" >/dev/null || die "stdio parity/parse evidence invalid"
 CLOSED_URL="$(jq -r '.closedFleetUrl' "$DIR/green-ac-2-http-closed-fleet.json")"
 jq -e --arg closed "$CLOSED_URL" '.error.code == "ROLE_UNAVAILABLE" and (.error.message|contains("fleet role '\''embed'\''")) and (.error.message|contains($closed))' "$DIR/green-ac-2-http-closed-fleet.json" >/dev/null || die "closed fleet role evidence invalid"
+
+assert_no_secret_values() {
+  local file="$1"
+  if rg -n -i 's33-mcp-02-(rn|mcp|control)|postgres(ql)?://[^[:space:]"/]+:[^[:space:]"/]+@|bearer[[:space:]]+[a-z0-9._-]{12,}' "$file" >/dev/null 2>&1; then
+    die "credential value or canary found in evidence: $(basename "$file")"
+  fi
+}
+assert_no_secret_values "$DIR/inspector-smoke-output.json"
 
 validate_lineage() {
   local red="$1" green="$2"
@@ -114,13 +146,16 @@ if validate_lineage "$GREEN_SHA" "$RED_SHA"; then die "out-of-order lineage nega
 RECIPE_SHA="$(sha256_file "$DIR/stamp-evidence.sh")"
 INPUTS_TMP="$(mktemp "$DIR/.evidence-inputs.XXXXXX")"
 SUMMARY_TMP="$(mktemp "$DIR/.verification-summary.XXXXXX")"
-trap 'rm -f "$INPUTS_TMP" "$SUMMARY_TMP"; rm -rf "$TMP_NEG"' EXIT
-for file in red-output.txt green-output.txt seeded-artifact-red.json seeded-artifact-green.json red-ac-1-http-red.json red-ac-2-http-closed-fleet-red.json red-ac-3-http-fts-closed-fleet-red.json red-ac-4-stdio-red.json green-ac-1-http.json green-ac-2-http-closed-fleet.json green-ac-3-http-fts-closed-fleet.json green-ac-4-stdio.json manifest-output.txt inspector-smoke-output.txt test-source-snapshot.ts verify-manifest.json tdd-lineage.json typecheck-output.txt lint-output.txt test-output.txt requirement-results.json ac-1-output.txt ac-2-output.txt ac-3-output.txt ac-4-output.txt tc-1-output.txt tc-2-output.txt tc-3-output.txt tc-4-output.txt tc-5-output.txt tc-6-output.txt stamp-evidence.sh; do
+trap 'rm -f "$INPUTS_TMP" "$SUMMARY_TMP" "$SOURCE_ENTRIES_TMP"; rm -rf "$TMP_NEG"' EXIT
+for file in red-output.txt green-output.txt seeded-artifact-red.json seeded-artifact-green.json red-ac-1-http-red.json red-ac-2-http-closed-fleet-red.json red-ac-3-http-fts-closed-fleet-red.json red-ac-4-stdio-red.json green-ac-1-http.json green-ac-2-http-closed-fleet.json green-ac-3-http-fts-closed-fleet.json green-ac-4-stdio.json manifest-output.txt inspector-smoke-output.json stdio-parser-negative-control.json test-source-snapshot.ts verify-manifest.json tdd-lineage.json typecheck-output.txt lint-output.txt test-output.txt requirement-results.json ac-1-output.txt ac-2-output.txt ac-3-output.txt ac-4-output.txt tc-1-output.txt tc-2-output.txt tc-3-output.txt tc-4-output.txt tc-5-output.txt tc-6-output.txt stamp-evidence.sh; do
   jq -nc --arg path "$file" --arg sha "$(sha256_file "$DIR/$file")" '{path:$path,sha256:$sha}' >> "$INPUTS_TMP"
 done
 INPUTS_JSON="$(jq -s '.' "$INPUTS_TMP")"
 STAMPED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-jq --arg tool "stamp-evidence.sh" --arg version "1.0" --arg ts "$STAMPED_AT" --arg layered "harvest-evidence.sh" --arg recipe_sha "$RECIPE_SHA" --arg red "$RED_SHA" --arg green "$GREEN_SHA" --arg red_blob "$(blob_sha "$RED_SHA" ".tmp/$TASK_ID/red-output.txt")" --arg green_blob "$(blob_sha "$GREEN_SHA" ".tmp/$TASK_ID/green-output.txt")" --arg test_red "$TEST_BLOB_RED" --arg test_green "$TEST_BLOB_GREEN" --argjson inputs "$INPUTS_JSON" '.generator = {tool:$tool,version:$version,generated_at:$ts,layered_from:$layered,recipe_sha256:$recipe_sha,inputs:$inputs,lineage:{red_commit:$red,green_commit:$green,red_artifact_blob:$red_blob,green_artifact_blob:$green_blob,test_source_blob_red:$test_red,test_source_blob_green:$test_green},negative_controls:{artifact_tamper:true,source_tamper:true,null_lineage:true,out_of_order_lineage:true}}' "$SUMMARY" > "$SUMMARY_TMP"
+jq --arg tool "stamp-evidence.sh" --arg version "1.0" --arg ts "$STAMPED_AT" --arg layered "harvest-evidence.sh" --arg recipe_sha "$RECIPE_SHA" --arg red "$RED_SHA" --arg green "$GREEN_SHA" --arg source "$SOURCE_SHA" --arg red_blob "$(blob_sha "$RED_SHA" ".tmp/$TASK_ID/red-output.txt")" --arg green_blob "$(blob_sha "$GREEN_SHA" ".tmp/$TASK_ID/green-output.txt")" --arg test_red "$TEST_BLOB_RED" --arg test_green "$TEST_BLOB_GREEN" --arg test_current "$TEST_BLOB_CURRENT" --argjson inputs "$INPUTS_JSON" --argjson source_binding "$SOURCE_BINDING_JSON" '.generator = {tool:$tool,version:$version,generated_at:$ts,layered_from:$layered,recipe_sha256:$recipe_sha,inputs:$inputs,lineage:{red_commit:$red,green_commit:$green,source_commit:$source,red_artifact_blob:$red_blob,green_artifact_blob:$green_blob,test_source_blob_red:$test_red,test_source_blob_green:$test_green,test_source_blob_current:$test_current},source_binding:$source_binding,negative_controls:{artifact_tamper:true,source_tamper:true,null_lineage:true,out_of_order_lineage:true,secret_canary_scan:true}}' "$SUMMARY" > "$SUMMARY_TMP"
 mv "$SUMMARY_TMP" "$SUMMARY"
 cp "$INPUTS_TMP" "$DIR/evidence-inputs.jsonl"
+while IFS= read -r input_path; do
+  assert_no_secret_values "$DIR/$input_path"
+done < <(jq -r '.generator.inputs[].path' "$SUMMARY")
 echo "stamp-evidence: layered_from=harvest-evidence.sh inputs=$(jq length <<<"$INPUTS_JSON") recipe_sha256=$RECIPE_SHA"

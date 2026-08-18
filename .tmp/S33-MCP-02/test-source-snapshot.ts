@@ -45,8 +45,19 @@ type GatewayHandle = { baseUrl: string; stop: () => Promise<void> };
 
 type StdioRun = {
   result: McpToolResult | undefined;
-  frames: unknown[];
+  frames: Array<Record<string, unknown>>;
   parseFailures: string[];
+  stderr: string;
+};
+
+type FrameParseResult = { ok: true; frame: Record<string, unknown> } | { ok: false; error: string };
+
+type InspectorRun = {
+  command: string;
+  args: string[];
+  inheritedEnvironmentNames: string[];
+  exitCode: number;
+  stdout: string;
   stderr: string;
 };
 
@@ -93,6 +104,32 @@ function asEnvelope(value: unknown): McpEnvelope {
     throw new Error(`MCP response was not an object: ${JSON.stringify(value)}`);
   }
   return value as McpEnvelope;
+}
+
+function parseJsonRpcStdoutFrame(line: string): FrameParseResult {
+  try {
+    const parsed = JSON.parse(line) as unknown;
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      (parsed as Record<string, unknown>).jsonrpc !== '2.0'
+    ) {
+      return { ok: false, error: `stdout frame is not JSON-RPC 2.0: ${line}` };
+    }
+    return { ok: true, frame: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: `stdout frame is not valid JSON: ${line}` };
+  }
+}
+
+function isJsonRpcFrame(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).jsonrpc === '2.0'
+  );
 }
 
 function freePort(): Promise<number> {
@@ -251,10 +288,108 @@ async function mcpCall(
   return asEnvelope(await response.json());
 }
 
+async function runInspector(
+  fleetUrl: string,
+  method: 'tools/list' | 'tools/call',
+  toolArgs?: Record<string, unknown>
+): Promise<InspectorRun> {
+  const args = [
+    '--yes',
+    '@modelcontextprotocol/inspector',
+    '--cli',
+    'bun',
+    'services/platform/src/cli/holo.ts',
+    'mcp:stdio',
+    '--format',
+    'json',
+    '--cwd',
+    REPO_ROOT,
+    '--method',
+    method,
+  ];
+  if (method === 'tools/call') {
+    args.push(
+      '--tool-name',
+      'hybrid_search',
+      '--tool-args-json',
+      JSON.stringify(toolArgs ?? { query: SEMANTIC_QUERY, limit: 10 })
+    );
+  }
+  const inheritedEnvironmentNames = [
+    'PLATFORM_IT',
+    'DATABASE_URL',
+    'FLEET_URL',
+    'HOLO_HARNESS',
+    'HOLO_KEY_RN',
+    'HOLO_KEY_MCP',
+    'HOLO_KEY_CONTROL',
+    'HOLO_SECRETS_PATH',
+  ];
+  const command = `env ${inheritedEnvironmentNames.map((name) => `${name}=<inherited>`).join(' ')} npx ${args.join(' ')}`;
+  return new Promise((resolveInspector, rejectInspector) => {
+    const child = spawn('npx', args, {
+      cwd: REPO_ROOT,
+      env: {
+        ...process.env,
+        DATABASE_URL,
+        FLEET_URL: fleetUrl,
+        HOLO_HARNESS: '1',
+        HOLO_KEY_RN: KEYS.rn,
+        HOLO_KEY_MCP: KEYS.mcp,
+        HOLO_KEY_CONTROL: KEYS.control,
+        HOLO_SECRETS_PATH: secretsPath,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+    child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      rejectInspector(new Error(`MCP Inspector timed out: ${command}`));
+    }, 60_000);
+    child.once('error', (error) => {
+      clearTimeout(timeout);
+      rejectInspector(error);
+    });
+    child.once('close', (code) => {
+      clearTimeout(timeout);
+      resolveInspector({
+        command,
+        args,
+        inheritedEnvironmentNames,
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
+
+function parseInspectorOutput(run: InspectorRun): Record<string, unknown> {
+  const lines = run.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const lastLine = lines.at(-1);
+  if (!lastLine) throw new Error(`MCP Inspector emitted no stdout JSON: ${run.command}`);
+  const parsed = JSON.parse(lastLine) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`MCP Inspector emitted a non-object response: ${run.stdout}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function readStdioResponse(
   child: ChildProcess,
   id: number,
-  state: { buffer: string; frames: unknown[]; parseFailures: string[]; stderr: string },
+  state: {
+    buffer: string;
+    frames: Array<Record<string, unknown>>;
+    parseFailures: string[];
+    stderr: string;
+  },
   label: string
 ): Promise<McpEnvelope> {
   return new Promise((resolveResponse, rejectResponse) => {
@@ -271,22 +406,17 @@ async function readStdioResponse(
         const line = state.buffer.slice(0, newline).trim();
         state.buffer = state.buffer.slice(newline + 1);
         if (!line) continue;
-        try {
-          const parsed = JSON.parse(line) as unknown;
-          state.frames.push(parsed);
-          if (
-            parsed &&
-            typeof parsed === 'object' &&
-            !Array.isArray(parsed) &&
-            (parsed as Record<string, unknown>).id === id
-          ) {
-            clearTimeout(deadline);
-            child.stdout?.off('data', onData);
-            resolveResponse(asEnvelope(parsed));
-            return;
-          }
-        } catch {
-          state.parseFailures.push(line);
+        const parsed = parseJsonRpcStdoutFrame(line);
+        if (!parsed.ok) {
+          state.parseFailures.push(parsed.error);
+          continue;
+        }
+        state.frames.push(parsed.frame);
+        if (parsed.frame.id === id) {
+          clearTimeout(deadline);
+          child.stdout?.off('data', onData);
+          resolveResponse(asEnvelope(parsed.frame));
+          return;
         }
       }
     };
@@ -314,7 +444,12 @@ async function runStdio(fleetUrl: string, idBase: number): Promise<StdioRun> {
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
-  const state = { buffer: '', frames: [] as unknown[], parseFailures: [] as string[], stderr: '' };
+  const state = {
+    buffer: '',
+    frames: [] as Array<Record<string, unknown>>,
+    parseFailures: [] as string[],
+    stderr: '',
+  };
   child.stderr?.on('data', (chunk: Buffer) => (state.stderr += chunk.toString('utf8')));
   const send = async (payload: Record<string, unknown>, id: number, label: string) => {
     const response = readStdioResponse(child, id, state, label);
@@ -376,13 +511,6 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
     await sql`DELETE FROM sources WHERE content_hash = ${SEMANTIC_CONTENT_HASH}`;
     await sql`DELETE FROM documents WHERE title IN (${SEMANTIC_TITLE}, ${LEXICAL_TITLE})`;
 
-    const lexicalRows = await sql<{ id: string }[]>`
-      INSERT INTO documents (title, content, status, is_public)
-      VALUES (${LEXICAL_TITLE}, ${LEXICAL_CONTENT}, 'published', true)
-      RETURNING id::text AS id
-    `;
-    if (!lexicalRows[0]) throw new Error('failed to seed lexical document');
-
     const sourceRows = await sql<{ id: string }[]>`
       INSERT INTO sources (source_kind, content_hash, title, document_id, metadata_json)
       VALUES ('document', ${SEMANTIC_CONTENT_HASH}, ${SEMANTIC_TITLE}, 's33_mcp02_semantic_document', ${JSON.stringify({ task: 'S33-MCP-02' })}::jsonb)
@@ -403,6 +531,28 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
 
     closedFleetUrl = `http://127.0.0.1:${await verifiedClosedPort()}`;
     liveGateway = await startGateway(FLEET_URL);
+    const lexicalStore = await mcpCall(
+      liveGateway.baseUrl,
+      'store_document',
+      { title: LEXICAL_TITLE, content: LEXICAL_CONTENT },
+      330002
+    );
+    const lexicalPayload = parseToolPayload(lexicalStore.result);
+    if (
+      lexicalStore.error ||
+      lexicalStore.result?.isError ||
+      !lexicalPayload ||
+      typeof lexicalPayload !== 'object' ||
+      Array.isArray(lexicalPayload)
+    ) {
+      throw new Error(`real MCP store_document seed failed: ${JSON.stringify(lexicalStore)}`);
+    }
+    const lexicalRecord = lexicalPayload as Record<string, unknown>;
+    if (lexicalRecord.title !== LEXICAL_TITLE || typeof lexicalRecord.documentId !== 'string') {
+      throw new Error(
+        `real MCP store_document seed payload was invalid: ${JSON.stringify(lexicalPayload)}`
+      );
+    }
     closedGateway = await startGateway(closedFleetUrl);
     writeEvidence('seeded-artifact.json', {
       semanticTitle: SEMANTIC_TITLE,
@@ -413,6 +563,12 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
       embeddingDimension: documentVector.length,
       fleetUrl: FLEET_URL,
       closedFleetUrl,
+      lexicalSeed: {
+        transport: 'streamable-http',
+        tool: 'store_document',
+        documentId: lexicalRecord.documentId,
+        response: lexicalStore,
+      },
     });
   }, 120_000);
 
@@ -544,6 +700,8 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
     });
     expect(live.parseFailures).toEqual([]);
     expect(closed.parseFailures).toEqual([]);
+    expect(live.frames.every(isJsonRpcFrame)).toBe(true);
+    expect(closed.frames.every(isJsonRpcFrame)).toBe(true);
     expect(live.result?.isError ?? false).toBe(false);
     expect(livePayload?.searchMethod).toBe('hybrid');
     expect(livePayload?.results).toEqual(
@@ -557,4 +715,62 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
     expect(closedError.message).toContain(closedFleetUrl);
     expect(closedError).toEqual(httpClosedError);
   }, 180_000);
+
+  it('AC-4 negative control: rejects JSON-valid stdout that is not JSON-RPC 2.0', () => {
+    const invalid = parseJsonRpcStdoutFrame('{"jsonrpc":"1.0","id":1,"result":{}}');
+    expect(invalid.ok).toBe(false);
+    if (invalid.ok) throw new Error('JSON-valid non-JSON-RPC stdout was accepted');
+    expect(invalid.error).toContain('not JSON-RPC 2.0');
+    writeEvidence('stdio-parser-negative-control.json', {
+      input: { jsonrpc: '1.0', id: 1, result: {} },
+      accepted: invalid.ok,
+      error: invalid.error,
+    });
+  });
+
+  it('Inspector CLI: discovers hybrid_search and proves live and closed outcomes', async () => {
+    if (!closedFleetUrl) throw new Error('closed fleet URL was not initialized');
+    const list = await runInspector(FLEET_URL, 'tools/list');
+    const live = await runInspector(FLEET_URL, 'tools/call', {
+      query: SEMANTIC_QUERY,
+      limit: 10,
+    });
+    const closed = await runInspector(closedFleetUrl, 'tools/call', {
+      query: SEMANTIC_QUERY,
+      limit: 10,
+    });
+    const listOutput = parseInspectorOutput(list);
+    const liveOutput = parseInspectorOutput(live);
+    const closedOutput = parseInspectorOutput(closed);
+    const listText = JSON.stringify(listOutput);
+    const liveText = JSON.stringify(liveOutput);
+    const closedText = JSON.stringify(closedOutput);
+    expect(list.exitCode).toBe(0);
+    expect(listText).toContain('hybrid_search');
+    expect(live.exitCode).toBe(0);
+    expect(liveText).toContain(SEMANTIC_TITLE);
+    expect(liveText).toContain('"searchMethod":"hybrid"');
+    expect(closed.exitCode).toBe(0);
+    expect(closedText).toContain('ROLE_UNAVAILABLE');
+    expect(closedText).toContain("fleet role 'embed'");
+    expect(closedText).toContain(closedFleetUrl);
+    writeEvidence('inspector-smoke-output.json', {
+      provenance: {
+        transport: 'stdio',
+        server: 'bun services/platform/src/cli/holo.ts mcp:stdio',
+        inspector: '@modelcontextprotocol/inspector --cli',
+        database: {
+          host: '127.0.0.1',
+          name: 'holocron_nonprod',
+          credentials: 'inherited environment; values omitted',
+        },
+        liveFleetUrl: FLEET_URL,
+        closedFleetUrl,
+        credentials: 'inherited environment; values omitted',
+      },
+      toolsList: list,
+      semanticSuccess: live,
+      closedRoleUnavailable: closed,
+    });
+  }, 240_000);
 });
