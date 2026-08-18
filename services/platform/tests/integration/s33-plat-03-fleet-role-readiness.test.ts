@@ -28,6 +28,13 @@ if (!FLEET_URL) {
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const MANIFEST_PATH = resolve(REPO_ROOT, 'services/platform/fleet/manifest.json');
 
+const DISALLOWED_FLEET_ENDPOINTS = [
+  'http://127.0.0.1:4545',
+  'http://localhost:4545',
+  'http://host.docker.internal:4545',
+  'http://holocron.tail011a51.ts.net:4546',
+] as const;
+
 type ManifestJson = {
   roles: Record<string, Record<string, unknown>>;
   [key: string]: unknown;
@@ -167,4 +174,19 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
     expect(body.fleet.ready).toBe(true);
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));
   }, 30_000);
+
+  it.each(DISALLOWED_FLEET_ENDPOINTS)(
+    'provenance negative control: rejects non-approved fleet endpoint %s',
+    async (fleetEndpoint) => {
+      const response = (await runHealthCheck({
+        fleetEndpoint,
+        fleetManifestPath: MANIFEST_PATH,
+        strictReadiness: false,
+      })) as unknown as RoleAwareHealth;
+      expect(response.body.fleet.ready, fleetEndpoint).toBe(false);
+      expect(response.body.failing_dependency, fleetEndpoint).toBe('fleet');
+      expect(response.body.fleet.roles.divergent.present, fleetEndpoint).toBe(false);
+      expect(response.body.fleet.roles.embed.present, fleetEndpoint).toBe(false);
+    },
+  );
 });
