@@ -17,11 +17,11 @@
   "waiver": false,
   "ok": true,
   "failure_codes": [],
-  "checked_at": "2026-08-18T06:54:48Z",
+  "checked_at": "2026-08-18T07:48:54Z",
   "generator": {
     "tool": "verify-tdd-lineage.sh",
     "version": "1.1",
-    "generated_at": "2026-08-18T06:54:48Z",
+    "generated_at": "2026-08-18T07:48:54Z",
     "inputs": [
       {
         "path": "red-output.txt",

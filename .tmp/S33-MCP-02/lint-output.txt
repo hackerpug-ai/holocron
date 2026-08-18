@@ -1,1 +1,4 @@
-Checked 2 files in 58ms. No fixes applied.
+Skipped 1 suggested fixes.
+If you wish to apply the suggested (unsafe) fixes, use the command biome check --write --unsafe
+
+Checked 2 files in 61ms. No fixes applied.
