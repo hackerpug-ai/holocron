@@ -1,0 +1,35 @@
+{
+  "hybrid": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[],\"totalResults\":0,\"searchMethod\":\"postgres-fts\"}"
+        }
+      ],
+      "structuredContent": {
+        "results": [],
+        "totalResults": 0,
+        "searchMethod": "postgres-fts"
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330101
+  },
+  "fts": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[],\"totalResults\":0}"
+        }
+      ],
+      "structuredContent": {
+        "results": [],
+        "totalResults": 0
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330102
+  }
+}
