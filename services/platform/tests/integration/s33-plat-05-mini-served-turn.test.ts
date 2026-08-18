@@ -5,19 +5,20 @@
  * does not replace a provider, database, HTTP transport, or Mastra primitive.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
+import { Hono } from 'hono';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createFleetAgentWithResolved, runAgentCell } from '../../src/compat/cells/agent.ts';
 import { createSql } from '../../src/db/client.ts';
-import { createHonoApp } from '../../src/http/hono-app.ts';
+import { createHonoApp, type HonoAppVariables } from '../../src/http/hono-app.ts';
+import { createScopedKeyMiddleware } from '../../src/http/middleware/scoped-key.ts';
 import {
-  assertModelRequestAccountingSource,
   listInferenceTelemetry,
   type ModelRequestAccountingEvent,
-  type ModelRequestAccountingSnapshot,
 } from '../../src/inference/telemetry.ts';
 import { createStorage } from '../../src/mastra.ts';
 
@@ -55,8 +56,75 @@ type PublicChatRun = {
   events: Array<{ event_type: string; data_json: unknown }>;
 };
 
+type MutatedChatRuns = typeof import('../../src/http/chat-runs.ts');
+
+async function importMutatedChatRuns(
+  root: string,
+  name: string,
+  source: string
+): Promise<MutatedChatRuns> {
+  const sourceRoot = join(root, name, 'services/platform/src');
+  const httpRoot = join(sourceRoot, 'http');
+  await mkdir(httpRoot, { recursive: true });
+  const copyPath = join(httpRoot, 'chat-runs.ts');
+  await writeFile(copyPath, source, 'utf8');
+
+  const actualSourceRoot = join(process.cwd(), 'services/platform/src');
+  for (const directory of ['chat', 'compat', 'db', 'inference', 'mastra']) {
+    await symlink(join(actualSourceRoot, directory), join(sourceRoot, directory), 'dir');
+  }
+  await symlink(
+    join(actualSourceRoot, 'http/chat-stream-gate.ts'),
+    join(httpRoot, 'chat-stream-gate.ts'),
+    'file'
+  );
+  await symlink(join(actualSourceRoot, 'mastra.ts'), join(sourceRoot, 'mastra.ts'), 'file');
+
+  return import(`${pathToFileURL(copyPath).href}?mutation=${name}-${randomUUID()}`);
+}
+
+function createMutatedHonoApp(
+  chatRuns: MutatedChatRuns,
+  databaseUrlForMutation: string
+): Hono<{ Variables: HonoAppVariables }> {
+  const app = new Hono<{ Variables: HonoAppVariables }>();
+  app.use(
+    '*',
+    createScopedKeyMiddleware({
+      rn: scopedRnKey,
+      mcp: '',
+      control: '',
+    })
+  );
+  app.post('/api/chat-runs', async (c) => {
+    try {
+      const result = await chatRuns.createChatRun(await c.req.json(), 'rn', {
+        databaseUrl: databaseUrlForMutation,
+      });
+      return c.json(result, 200);
+    } catch (error) {
+      return Response.json(
+        {
+          error: 'chat_run_error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+        { status: 422 }
+      );
+    }
+  });
+  app.get('/api/chat-runs/:id', async (c) => {
+    const result = await chatRuns.getChatRun(c.req.param('id'), {
+      ownerScope: 'rn',
+      databaseUrl: databaseUrlForMutation,
+    });
+    if (!result) return c.json({ error: 'not_found', message: 'chat run not found' }, 404);
+    return c.json(result, 200);
+  });
+  return app;
+}
+
 async function waitForTerminalRun(
-  app: ReturnType<typeof createHonoApp>,
+  app: { request: (path: string, init?: RequestInit) => Promise<Response> },
   runId: string
 ): Promise<PublicChatRun> {
   const deadline = Date.now() + 300_000;
@@ -209,7 +277,24 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(accountingData.fleetRequests).toBeGreaterThanOrEqual(1);
     expect(accountingData.cloudRequests).toBe(0);
     expect(accountingData.unknownRequests).toBe(0);
+    expect(accountingData.underlyingTransportCalls).toBe(rows.length);
     expect(accountingData.modelRequests).toBe(rows.length);
+    expect(accountingData.telemetryRows).toBe(rows.length);
+    expect(accountingData.instrumentationBoundary).toBe('provider-model');
+    expect(accountingData.responseHeaderApiBases).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/),
+      ])
+    );
+    expect(accountingData.responseHeaderApiBases).toHaveLength(rows.length);
+    expect(
+      (accountingData.responseHeaderApiBases as string[]).every((value) =>
+        /^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/.test(value)
+      )
+    ).toBe(true);
+    expect(accountingData.responseHeaderApiBase).toBe(
+      (accountingData.responseHeaderApiBases as string[])[0]
+    );
     expect(accountingData.modelRequests).toBe(
       Number(accountingData.fleetRequests) +
         Number(accountingData.cloudRequests) +
@@ -266,9 +351,19 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     const data = accounting?.data_json as Record<string, unknown>;
     expect(data.modelRequests).toBe(rows.length);
     expect(data.modelRequests).toBeGreaterThanOrEqual(2);
+    expect(data.underlyingTransportCalls).toBe(rows.length);
+    expect(data.telemetryRows).toBe(rows.length);
     expect(data.fleetRequests).toBeGreaterThanOrEqual(2);
     expect(data.cloudRequests).toBe(0);
     expect(data.unknownRequests).toBe(0);
+    expect(data.instrumentationBoundary).toBe('provider-model');
+    expect(data.responseHeaderApiBases).toHaveLength(rows.length);
+    expect(
+      (data.responseHeaderApiBases as string[]).every((value) =>
+        /^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/.test(value)
+      )
+    ).toBe(true);
+    expect(data.responseHeaderApiBase).toBe((data.responseHeaderApiBases as string[])[0]);
     expect(data.reconciliationComplete).toBe(true);
     console.info(
       'S33-PLAT-05-EVIDENCE',
@@ -283,108 +378,139 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     );
   }, 300_000);
 
-  it('AC-5: the same accounting oracle rejects six real source-copy mutations', async () => {
+  it('AC-5: executable source-copy mutations fail through the real public boundary', async () => {
     const sourcePath = new URL('../../src/http/chat-runs.ts', import.meta.url);
     const source = await readFile(sourcePath, 'utf8');
-    const app = createHonoApp({ keys: { rn: scopedRnKey, mcp: '', control: '' } });
-    const requestId = `s33-plat-05-mutation-${randomUUID()}`;
-    const createResponse = await app.request('/api/chat-runs', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${scopedRnKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        requestId,
-        maxSteps: 1,
-        msg: `S33 accounting mutation baseline ${randomUUID()}: reply with one short sentence.`,
-      }),
-    });
-    expect(createResponse.status).toBe(200);
-    const created = (await createResponse.json()) as { runId: string };
-    const terminal = await waitForTerminalRun(app, created.runId);
-    expect(terminal.status).toBe('completed');
-    const persistedResponse = await app.request(`/api/chat-runs/${created.runId}`, {
-      headers: { authorization: `Bearer ${scopedRnKey}` },
-    });
-    expect(persistedResponse.status).toBe(200);
-    const persisted = (await persistedResponse.json()) as PublicChatRun;
-    const accounting = persisted.events.find((event) => event.event_type === 'model-accounting');
-    expect(accounting, 'real mutation-control baseline accounting event').toBeDefined();
-    if (!accounting) throw new Error('real mutation-control baseline accounting event missing');
-    const event = accounting.data_json as ModelRequestAccountingEvent;
-    const rows = await listInferenceTelemetry({ runId: created.runId, databaseUrl });
-    expect(rows.length, 'real mutation-control baseline telemetry rows').toBeGreaterThanOrEqual(1);
-    expect(event.modelRequests).toBe(rows.length);
-    expect(event.reconciliationComplete).toBe(true);
     const root = await mkdtemp(join(tmpdir(), 's33-plat-05-accounting-'));
-    const base: ModelRequestAccountingSnapshot = {
-      ...event,
-      responseHeaderApiBases: [event.responseHeaderApiBase],
-    };
-    assertModelRequestAccountingSource(source, base);
-    const mutations: Array<{ name: string; mutate: (input: string) => string }> = [
+    const mutations: Array<{
+      name: string;
+      mutate: (input: string) => string;
+      maxSteps: number;
+      message: string;
+    }> = [
       {
         name: 'missing-wrapper',
-        mutate: (input) => input.replace('runWithModelRequestAccounting(', 'withoutAccounting('),
+        mutate: (input) =>
+          input.replace(
+            'await runWithModelRequestAccounting(requestAccounting, () =>',
+            'await (async () =>'
+          ),
+        maxSteps: 1,
+        message: `S33 missing wrapper ${randomUUID()}: reply with one short sentence.`,
       },
       {
         name: 'outer-stream-only',
         mutate: (input) =>
           input.replace(
-            'for await (const chunk of result.fullStream',
-            'for (const chunk of result.fullStream'
+            'await runWithModelRequestAccounting(requestAccounting, async () => {',
+            'await (async () => {'
           ),
+        maxSteps: 2,
+        message:
+          'Planner MUST call create_plan. Perform at least 2 sequential tool calls before answering.',
       },
       {
         name: 'global-fetch-patch',
-        mutate: (input) => `${input}\nconst mutationGlobalFetchPatch = globalThis.fetch;\n`,
+        mutate: (input) => {
+          const withPatch = input.replace(
+            'const result = await runWithModelRequestAccounting(requestAccounting, () =>',
+            `const mutationOriginalFetch = globalThis.fetch;
+          globalThis.fetch = ((...args: Parameters<typeof fetch>) => mutationOriginalFetch(...args)) as typeof fetch;
+          requestAccounting.instrumentationBoundary = 'global-fetch';
+          const result = await runWithModelRequestAccounting(requestAccounting, () =>`
+          );
+          return withPatch.replace(
+            '          await runWithModelRequestAccounting(requestAccounting, async () => {',
+            `          globalThis.fetch = mutationOriginalFetch;
+          await runWithModelRequestAccounting(requestAccounting, async () => {`
+          );
+        },
+        maxSteps: 1,
+        message: `S33 global fetch ${randomUUID()}: reply with one short sentence.`,
       },
       {
         name: 'direct-cloud-api-openai',
         mutate: (input) =>
           input.replace(
-            'resolvedEndpoint: agentBundle.resolved.baseURL,',
-            'resolvedEndpoint: "https://api.openai.com/v1",'
+            'role: specialist.fleetRole,\n          agentId:',
+            'role: specialist.fleetRole,\n          resolveOptions: { endpointOverride: "https://api.openai.com/v1" },\n          agentId:'
           ),
+        maxSteps: 1,
+        message: `S33 direct cloud ${randomUUID()}: reply with one short sentence.`,
       },
       {
         name: 'unknown-transport',
         mutate: (input) =>
           input.replace(
-            'resolvedEndpoint: agentBundle.resolved.baseURL,',
-            'resolvedEndpoint: "https://unknown.invalid/v1",'
+            'role: specialist.fleetRole,\n          agentId:',
+            'role: specialist.fleetRole,\n          resolveOptions: { endpointOverride: "http://unknown.invalid:4545/v1" },\n          agentId:'
           ),
+        maxSteps: 1,
+        message: `S33 unknown transport ${randomUUID()}: reply with one short sentence.`,
       },
       {
         name: 'counter-mismatch',
         mutate: (input) =>
           input.replace(
-            'createModelRequestAccountingEvent(accountingSnapshot)',
-            'createModelRequestAccountingEvent({ ...accountingSnapshot, modelRequests: accountingSnapshot.modelRequests + 1 })'
+            'createModelRequestAccountingEvent(accountingSnapshot, telemetryRows)',
+            'createModelRequestAccountingEvent(accountingSnapshot, telemetryRows + 1)'
           ),
+        maxSteps: 1,
+        message: `S33 counter mismatch ${randomUUID()}: reply with one short sentence.`,
       },
     ];
 
     try {
       for (const mutation of mutations) {
-        const copyPath = join(root, `${mutation.name}.ts`);
         const mutated = mutation.mutate(source);
         expect(mutated, `${mutation.name} must mutate a source copy`).not.toBe(source);
-        await writeFile(copyPath, mutated, 'utf8');
-        const persistedMutation = await readFile(copyPath, 'utf8');
-        expect(persistedMutation).toBe(mutated);
-        expect(() => assertModelRequestAccountingSource(persistedMutation, base)).toThrow(
-          mutation.name
+        const chatRuns = await importMutatedChatRuns(root, mutation.name, mutated);
+        const app = createMutatedHonoApp(chatRuns, databaseUrl);
+        const requestId = `s33-plat-05-mutation-${mutation.name}-${randomUUID()}`;
+        const createResponse = await app.request('/api/chat-runs', {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${scopedRnKey}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestId,
+            maxSteps: mutation.maxSteps,
+            msg: mutation.message,
+          }),
+        });
+        expect(createResponse.status, `${mutation.name} public POST`).toBe(200);
+        const created = (await createResponse.json()) as { runId: string };
+        const terminal = await waitForTerminalRun(app, created.runId);
+        expect(terminal.status, `${mutation.name} must fail closed`).toBe('failed');
+        const persistedResponse = await app.request(`/api/chat-runs/${created.runId}`, {
+          headers: { authorization: `Bearer ${scopedRnKey}` },
+        });
+        expect(persistedResponse.status).toBe(200);
+        const persisted = (await persistedResponse.json()) as PublicChatRun;
+        const accounting = persisted.events.find(
+          (event) => event.event_type === 'model-accounting'
         );
+        expect(
+          accounting,
+          `${mutation.name} must not persist successful accounting`
+        ).toBeUndefined();
+        const rows = await listInferenceTelemetry({ runId: created.runId, databaseUrl });
+        if (mutation.name === 'direct-cloud-api-openai' || mutation.name === 'unknown-transport') {
+          expect(rows, `${mutation.name} must fail before provider request`).toHaveLength(0);
+        }
+        expect(terminal.finalText).toMatch(/accounting|endpoint|boundary|reconcile/i);
       }
       console.info(
         'S33-PLAT-05-EVIDENCE',
         JSON.stringify({
-          ac: 'AC-5-accounting-mutations',
+          ac: 'AC-5-accounting-mutations-executed',
           controls: mutations.map(({ name }) => name),
           allRejected: true,
-          regularTempDirectory: root,
+          executableSourceTopology: root,
+          realPublicHono: true,
+          realPostgres: true,
+          realFleet: true,
         })
       );
     } finally {
