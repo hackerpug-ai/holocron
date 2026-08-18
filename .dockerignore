@@ -6,6 +6,8 @@
 **
 !services/
 !services/platform/
+!services/platform/fleet/
+!services/platform/fleet/manifest.json
 !services/platform/Dockerfile
 !services/platform/package.json
 !services/platform/bun.lock
