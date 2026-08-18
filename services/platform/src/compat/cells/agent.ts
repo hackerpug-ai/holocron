@@ -14,16 +14,29 @@ import { randomUUID } from 'node:crypto';
 import type { ToolsInput } from '@mastra/core/agent';
 import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
-import type { Processor } from '@mastra/core/processors';
+import type { InputProcessor } from '@mastra/core/processors';
 import type { ResolvedModel, ResolveModelOptions } from '../../inference/resolve-model.ts';
-import { createFleetAgentModelBundle, runFleetModelCall } from '../../inference/telemetry.ts';
+import {
+  createFleetAgentModelBundle,
+  type ModelRequestAccountingSnapshot,
+  runFleetModelCall,
+} from '../../inference/telemetry.ts';
 import { assertNoTripwire, TripwireError } from '../../mastra/tripwire.ts';
 import { FLEET_KEY } from '../../mastra.ts';
 
 export interface AgentCellResult {
   ok: boolean;
+  runId: string;
   text?: string;
+  modelRequests: number;
+  underlyingTransportCalls: number;
   cloudRequests: number;
+  fleetRequests: number;
+  unknownRequests: number;
+  resolvedEndpoint: string;
+  responseHeaderApiBase: string | null;
+  terminalized: true;
+  reconciliationComplete: boolean;
   error?: string;
   /** Present when a processor tripwire blocked the generate call. */
   tripwire?: {
@@ -46,8 +59,10 @@ export type CreateFleetAgentOptions = {
   instructions?: string;
   /** Least-privilege tool set resolved from the shared registry. */
   tools?: ToolsInput;
+  /** Persisted public chat run identity for request-scoped model telemetry. */
+  runId?: string;
   /** Mastra 1.x input processors (e.g. chat policy block). */
-  inputProcessors?: Processor[];
+  inputProcessors?: InputProcessor[];
 };
 
 export type FleetAgentBundle = {
@@ -55,18 +70,27 @@ export type FleetAgentBundle = {
   resolved: ResolvedModel;
 };
 
+export function isAllowedFleetRouterEndpoint(endpoint: string): boolean {
+  return /^https?:\/\/(?:host\.docker\.internal|holocron(?:\.tail011a51\.ts\.net)?|localhost|127\.0\.0\.1):4545\/v1$/i.test(
+    endpoint
+  );
+}
+
 /**
  * Network assertion: count outbound requests to known cloud providers.
  * We monkey-patch globalThis.fetch for the duration of the generate() call.
  */
 function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
   result: T;
+  modelRequests: number;
+  underlyingTransportCalls: number;
   cloudRequests: number;
   fleetRequests: number;
+  unknownRequests: number;
+  resolvedEndpoint: string;
 }> {
   const cloudHosts = ['api.openai.com', 'api.anthropic.com', 'api.deepseek.com'];
-  let cloudRequests = 0;
-  let fleetRequests = 0;
+  const requestUrls: string[] = [];
   const origFetch = globalThis.fetch;
 
   globalThis.fetch = (async (
@@ -74,25 +98,54 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
     init?: Parameters<typeof origFetch>[1]
   ) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (cloudHosts.some((h) => url.includes(h))) {
-      cloudRequests++;
-    }
-    if (url.includes('127.0.0.1:4545') || url.includes('localhost:4545')) {
-      fleetRequests++;
-    }
+    requestUrls.push(url);
     return origFetch(input, init);
   }) as typeof globalThis.fetch;
 
   return fn().then(
     (result) => {
       globalThis.fetch = origFetch;
-      return { result, cloudRequests, fleetRequests };
+      const resolvedEndpoint = extractResolvedEndpoint(result);
+      if (!resolvedEndpoint) throw new Error('fleet model result omitted resolved endpoint');
+      const resolvedOrigin = requestOrigin(resolvedEndpoint);
+      const modelRequests = requestUrls.length;
+      const cloudRequests = requestUrls.filter((url) =>
+        cloudHosts.some((host) => url.includes(host))
+      ).length;
+      const fleetRequests = requestUrls.filter(
+        (url) => requestOrigin(url) === resolvedOrigin
+      ).length;
+      return {
+        result,
+        modelRequests,
+        underlyingTransportCalls: modelRequests,
+        cloudRequests,
+        fleetRequests,
+        unknownRequests: modelRequests - cloudRequests - fleetRequests,
+        resolvedEndpoint,
+      };
     },
     (err) => {
       globalThis.fetch = origFetch;
       throw err;
     }
   );
+}
+
+function requestOrigin(endpoint: string): string {
+  const parsed = new URL(endpoint);
+  return parsed.origin;
+}
+
+function extractResolvedEndpoint(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || !('resolved' in value)) return undefined;
+  const resolved = (value as { resolved?: unknown }).resolved;
+  if (!resolved || typeof resolved !== 'object') return undefined;
+  const baseUrl = (resolved as { baseURL?: unknown }).baseURL;
+  const endpoint = (resolved as { endpoint?: unknown }).endpoint;
+  if (typeof baseUrl === 'string' && baseUrl.length > 0) return baseUrl;
+  if (typeof endpoint === 'string' && endpoint.length > 0) return endpoint;
+  return undefined;
 }
 
 /**
@@ -109,7 +162,11 @@ export async function createFleetAgentWithResolved(
     resolveOptions: options.resolveOptions,
     apiKey: options.apiKey ?? FLEET_KEY,
     agentId: options.agentId,
+    runId: options.runId,
   });
+  if (!isAllowedFleetRouterEndpoint(resolved.baseURL)) {
+    throw new Error(`fleet agent refused non-router endpoint: ${resolved.baseURL}`);
+  }
 
   const id = options.agentId ?? 'compat-agent';
   const agent = new Agent({
@@ -142,12 +199,21 @@ export async function createFleetAgent(options: CreateFleetAgentOptions = {}): P
  * so inference_telemetry always records call_site=compat/cells/agent.
  */
 export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
+  const runId = randomUUID();
   try {
-    const { result, cloudRequests } = await withCloudRequestTracking(async () => {
+    const {
+      result,
+      modelRequests,
+      underlyingTransportCalls,
+      cloudRequests,
+      fleetRequests,
+      unknownRequests,
+      resolvedEndpoint,
+    } = await withCloudRequestTracking(async () => {
       const out = await runFleetModelCall({
         role: 'divergent',
         prompt: 'Say "compatibility spike green" and nothing else.',
-        runId: randomUUID(),
+        runId,
         stepId: 'compat/cells/agent',
         callSite: 'compat/cells/agent',
         callKind: 'chat',
@@ -156,8 +222,31 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
         exportToLangfuse: false,
       });
       // Shape a generate-like result for tripwire compatibility.
-      return { text: out.text, tripwire: undefined as undefined, finishReason: 'stop' as const };
+      return {
+        text: out.text,
+        resolved: out.resolved,
+        tripwire: undefined as undefined,
+        finishReason: 'stop' as const,
+      };
     });
+
+    const accounting: ModelRequestAccountingSnapshot = {
+      requestId: `compat-${runId}`,
+      runId,
+      resolvedEndpoint,
+      modelRequests,
+      underlyingTransportCalls,
+      fleetRequests,
+      cloudRequests,
+      unknownRequests,
+      responseHeaderApiBase: null,
+      responseHeaderApiBases: [],
+      terminalized: true,
+      reconciliationComplete:
+        modelRequests === underlyingTransportCalls &&
+        modelRequests === fleetRequests + cloudRequests + unknownRequests,
+      instrumentationBoundary: 'provider-model',
+    };
 
     try {
       assertNoTripwire(result as never);
@@ -165,7 +254,16 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
       if (err instanceof TripwireError) {
         return {
           ok: false,
+          runId,
+          modelRequests,
+          underlyingTransportCalls,
           cloudRequests,
+          fleetRequests,
+          unknownRequests,
+          resolvedEndpoint,
+          responseHeaderApiBase: null,
+          terminalized: true,
+          reconciliationComplete: accounting.reconciliationComplete,
           error: err.message,
           tripwire: {
             reason: err.tripwire.reason,
@@ -179,14 +277,49 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
 
     const text = result.text;
     if (!text || text.trim().length === 0) {
-      return { ok: false, cloudRequests, error: 'agent.text was empty' };
+      return {
+        ok: false,
+        runId,
+        modelRequests,
+        underlyingTransportCalls,
+        cloudRequests,
+        fleetRequests,
+        unknownRequests,
+        resolvedEndpoint,
+        responseHeaderApiBase: null,
+        terminalized: true,
+        reconciliationComplete: accounting.reconciliationComplete,
+        error: 'agent.text was empty',
+      };
     }
 
-    return { ok: true, text, cloudRequests };
+    return {
+      ok: true,
+      runId,
+      text,
+      modelRequests,
+      underlyingTransportCalls,
+      cloudRequests,
+      fleetRequests,
+      unknownRequests,
+      resolvedEndpoint,
+      responseHeaderApiBase: null,
+      terminalized: true,
+      reconciliationComplete: accounting.reconciliationComplete,
+    };
   } catch (err) {
     return {
       ok: false,
+      runId,
+      modelRequests: 0,
+      underlyingTransportCalls: 0,
       cloudRequests: 0,
+      fleetRequests: 0,
+      unknownRequests: 0,
+      resolvedEndpoint: 'unknown',
+      responseHeaderApiBase: null,
+      terminalized: true,
+      reconciliationComplete: false,
       error: err instanceof Error ? err.message : String(err),
     };
   }
