@@ -991,18 +991,15 @@ export async function executePostgresMcpTool(
       case 'get_document': {
         // REDHAT-FIX-RH-S30-02: route content reads via observed data plane.
         const planeRead = await readDocumentFromObservedPlane(String(input.documentId));
-        if (planeRead.source === 'convex' && planeRead.document) {
-          return {
-            documentId: planeRead.document.id,
-            title: planeRead.document.title,
-            content: planeRead.document.content,
-            status: planeRead.document.status ?? null,
-            data_plane: planeRead.data_plane,
-            source: planeRead.source,
-          };
+        if (planeRead.status >= 500) {
+          throw new Error(
+            `DATA_PLANE_READ_FAILED: ${planeRead.error ?? 'postgres_document_read_failed'}`
+          );
         }
-        if (planeRead.source === 'convex' && !planeRead.document) {
-          return null;
+        if (planeRead.source === 'convex') {
+          throw new Error(
+            `RETIRED_DATA_PLANE: ${planeRead.error ?? 'retired_cloud_plane_removed_d08_02'} (data_plane=${planeRead.data_plane ?? 'unknown'})`
+          );
         }
         const rows = await sql`
           SELECT id::text AS "documentId", title, content, status, is_public AS "isPublic",
