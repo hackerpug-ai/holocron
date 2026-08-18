@@ -34,16 +34,20 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 8. Only `HOLO_KEY_RN` may authorize the public Hono chat routes; `HOLO_KEY_MCP` is forbidden for every public request. Auth travels over private SSH stdin into a trap-removed mode-0600 temporary curl config; every URL/header value is quoted and escaped, and no secret value may appear in argv, stdout, stderr, JSON receipts, or retained artifacts. A fail-closed positive grammar allows literal names in prose/lists plus exactly two expansion-bearing standalone command forms: `test "${HOLO_KEY_RN+x}" = x` and the target's exact private-stdin verifier invocation. Every other shell expansion rejects independently of wrappers, prefixes, absolute paths, curl options, or positional argv; private non-secret stdin/config path arguments remain valid.
 9. In-container telemetry/trace reads use `/app/src/cli/holo.ts` and privately bootstrap `DATABASE_URL` from `/run/secrets/database_url` without disclosing it.
 10. A contractually executable `post-chat-invalid-stream` control must first complete a real public 2xx POST, capture its non-empty run ID and real SSE stream, truncate only a private copy of the first SSE JSON payload, and invoke the target verifier's production response parser. That target path must exit nonzero with `CHAT_STREAM_PARSE_FAILED`, `chat_request_issued:true`, real-stream and target-verifier receipt provenance, `synthetic:false`, zero secret exposure, and zero network mutation; a hand-authored receipt cannot pass.
-11. Network Continuity remains absolute: only bounded public HTTP plus read-only SSH/Docker reads are allowed; no service, Tailscale, Wi-Fi, interface, route, DNS, or other network mutation and no literal disconnect claim is permitted.
+11. The target adds a real credential-canary integration gate: a unique synthetic value generated only in test memory traverses actual verifier stdin, an actual mode-0600 curl config, actual observed verifier/curl processes, real filesystem cleanup, and the real public Hono HTTP boundary. It must be absent from argv/environment/output/receipt/evidence/retained files, the temp config must be removed, direct and indirect retrieval subprocesses must fail `CREDENTIAL_CANARY_EXPOSURE_DETECTED`, unavailable process observation must fail rather than skip, and no live credential value may be loaded or printed. Static-only, mocked, stubbed, or recorded proof is invalid.
+12. The static repair oracle pins and recomputes the complete canonical target file's SHA-256 before any semantic inspection. Every target byte mutation or injection therefore rejects even when a dynamic retrieval expression evades the semantic grammar; the semantic mutation suite remains independently exercised with the hash precondition disabled only inside that local test oracle.
+13. Network Continuity remains absolute: only bounded public HTTP plus read-only SSH/Docker reads are allowed; no service, Tailscale, Wi-Fi, interface, route, DNS, or other network mutation and no literal disconnect claim is permitted.
 
 ## Acceptance Criteria
 
 ### AC-1 — The repaired target is canonical, executable, and rejects false multi-call proofs
 
 - **GIVEN** the target task and this planning-only repair
-- **WHEN** the static verifier uniquely extracts both canonical requirement contracts, syntax-checks every shell verifier, validates every scenario, checks human/JSON parity, evaluates a synthetic two-call serving receipt with the target's actual `jq` predicate, and applies structured receipt and contract mutations
+- **WHEN** the static verifier first recomputes the complete canonical target file's pinned SHA-256, then uniquely extracts both requirement contracts, syntax-checks every shell verifier, validates every scenario, checks human/JSON parity, evaluates a synthetic two-call serving receipt with the target's actual `jq` predicate, and applies structured receipt, semantic-contract, and whole-file hash mutations
 - **THEN** the two-call baseline passes and distinct mutations for two serving minis, zero calls, serving/model/fleet/telemetry-row/transport/plural-header mismatches, missing or mismatched top-level and telemetry singular headers, laptop attribution, unknown traffic, or non-provider-model instrumentation all fail
 - **AND** the target AC-10/TC-13 command is identical in human and JSON forms, syntax-valid, invokes the target verifier's real post-POST invalid-stream mode, requires a nonzero verifier exit, and the credential grammar accepts only its 2 canonical expansion-bearing lines while rejecting every wrapper/prefix/absolute-path/argv/inline-assignment variant plus all prior post-chat, MCP-auth, secret-exposure, unquoted/temp-leak, and network-mutation mutants
+- **AND** target AC-11/TC-14 are identical in human and JSON forms and require a real synthetic-canary integration gate over actual verifier/curl processes, platform argv/environment observation, real filesystem/temp cleanup, and the real public Hono HTTP boundary, with live credentials unloaded and direct/indirect retrieval controls failing closed
+- **AND** indirect name/length expansion for both credential names, `printenv` command substitution, inline substitution assignment, Python `getenv`, arbitrary credential-line injection, and a one-byte edit all fail at the content-hash precondition before any semantic check; the pre-existing semantic mutants remain independently rejected with hash enforcement disabled only for that semantic-oracle pass
 - **AND** the only changed paths are the target task and this new repair artifact, based on exact main `146b6e64472461219b52f820894138678b8c0371`
 - **Verify:** `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'`
 - **Scenario:** topology `single-node` · evidence `file_artifact` · negative control: real temporary-file and receipt mutations
@@ -52,7 +56,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | Both contracts parse uniquely, all shell verifiers pass `bash -n`, all scenarios validate, positive plus post-POST parity holds, the two-call receipt passes, 2 exact credential-expansion forms pass, and direct plus command/timeout/random-wrapper `-H`/`-d`/`-u`, positional, inline, and parameter-variant candidates reject. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
+| TC-1 | The full target-file SHA-256 matches before semantic inspection; both contracts parse uniquely; all shell verifiers and scenarios validate; positive, post-POST, and canary human/JSON commands match; semantic mutants reject independently; and indirect RN/MCP expansion, command substitution, Python getenv, arbitrary injection, and byte-edit controls reject at the hash precondition. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
 
 ## Static verifier and mutation oracle
 
@@ -62,6 +66,7 @@ The verifier uses only local Git reads, contract parsing, `bash -n`, the canonic
 ```python
 from copy import deepcopy
 from pathlib import Path
+import hashlib
 import json
 import re
 import subprocess
@@ -73,17 +78,20 @@ target_path = repair_path.with_name(
     "S33-PLAT-05-prove-a-deployed-chat-turn-is-generated-on-a-mac-mini-two-no.md"
 )
 base_sha = "146b6e64472461219b52f820894138678b8c0371"
+canonical_target_sha256 = "4ebd1f9f1e5172613edfa27be70238e5e4bc5233b68a230cfd043beb18f5303a"
 target_rel = ".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/S33-PLAT-05-prove-a-deployed-chat-turn-is-generated-on-a-mac-mini-two-no.md"
 repair_rel = ".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"
 marker = "<!-- REQUIREMENT-" + "CONTRACT v1 -->"
 contract_pattern = re.compile(
     re.escape(marker) + r"\s*<!--\s*(\{.*\})\s*-->", re.S
 )
-target_text = target_path.read_text()
+target_bytes = target_path.read_bytes()
+target_text = target_bytes.decode("utf-8")
 repair_text = repair_path.read_text()
 
 assert target_path.is_file() and not target_path.is_symlink()
 assert repair_path.is_file() and not repair_path.is_symlink()
+assert hashlib.sha256(target_bytes).hexdigest() == canonical_target_sha256
 assert target_text.count(marker) == 1
 assert repair_text.count(marker) == 1
 target_match = contract_pattern.search(target_text)
@@ -133,8 +141,8 @@ assert subprocess.run(
 target_by_id = {item["id"]: item for item in target_contract["requirements"]}
 repair_by_id = {item["id"]: item for item in repair_contract["requirements"]}
 expected_target_ids = {
-    *(f"AC-{index}" for index in range(1, 11)),
-    *(f"TC-{index}" for index in range(1, 14)),
+    *(f"AC-{index}" for index in range(1, 12)),
+    *(f"TC-{index}" for index in range(1, 15)),
 }
 assert set(target_by_id) == expected_target_ids
 assert set(repair_by_id) == {"AC-1", "TC-1"}
@@ -186,6 +194,9 @@ execution_sentinels = [
     "every later failure receipt preserves `chat_request_issued:true`",
     "Exactly one serving mini has count `N >= 1`, the other count is zero",
     "NETWORK CONTINUITY: the verifier may make bounded public HTTP requests and read-only SSH/Docker reads only.",
+    "RUNTIME CREDENTIAL CANARY: static source scanning is defense in depth, not proof of secret-safe execution.",
+    "If argv/environment observation is unavailable, the gate fails closed rather than skipping.",
+    "Direct or indirect parameter, command-substitution, runtime-environment, or dynamically constructed-name retrieval controls must execute as real subprocesses and fail `CREDENTIAL_CANARY_EXPOSURE_DETECTED`",
 ]
 assert all(sentinel in target_text for sentinel in execution_sentinels)
 assert target_text.splitlines().count(canonical_presence_line) == 1
@@ -233,6 +244,30 @@ required_post_chat_fragments = [
 assert all(fragment in post_chat_verify for fragment in required_post_chat_fragments)
 assert "jq -n" not in post_chat_verify
 
+canary_ids = ["AC-11", "TC-14"]
+canary_verify = "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts --testNamePattern='credential canary transport safety'"
+assert all(target_by_id[item_id]["verify"] == canary_verify for item_id in canary_ids)
+for item_id in canary_ids:
+    if item_id.startswith("AC-"):
+        human = re.search(
+            rf"### {item_id} .*?- \*\*Verify:\*\* `(.*?)`", target_text, re.S
+        )
+    else:
+        human = re.search(rf"^\| {item_id} \|.*\| `(.*)` \|$", target_text, re.M)
+    assert human and human.group(1) == target_by_id[item_id]["verify"]
+
+required_canary_fragments = [
+    "unique synthetic canary generated only in integration-test memory",
+    "actual verifier receives it over private stdin",
+    "actual child processes",
+    "real quoted mode-0600 curl config",
+    "public Hono HTTP request",
+    "platform observer inspects owned-process argv/environment",
+    "CREDENTIAL_CANARY_EXPOSURE_DETECTED",
+    "without mocks, stubs, skips, or static-only proof",
+]
+assert all(fragment in target_by_id["AC-11"]["description"] for fragment in required_canary_fragments)
+
 for contract in [target_contract, repair_contract]:
     for item in contract["requirements"]:
         result = subprocess.run(
@@ -244,7 +279,7 @@ for contract in [target_contract, repair_contract]:
 
 validator = Path("/Users/justinrich/Projects/brain/tools/validate-scenario/validate_scenario.py")
 assert validator.is_file()
-for contract, expected_count in [(target_contract, 10), (repair_contract, 1)]:
+for contract, expected_count in [(target_contract, 11), (repair_contract, 1)]:
     result = subprocess.run(
         [sys.executable, str(validator)],
         input=json.dumps(contract),
@@ -394,7 +429,13 @@ def human_verify(candidate: str, item_id: str):
         match = re.search(rf"^\| {item_id} \|.*\| `(.*)` \|$", candidate, re.M)
     return match.group(1) if match else None
 
-def static_target_passes(candidate: str) -> bool:
+semantic_checks_run = 0
+
+def static_target_passes(candidate: str, *, enforce_content_hash: bool = True) -> bool:
+    if enforce_content_hash and hashlib.sha256(candidate.encode("utf-8")).hexdigest() != canonical_target_sha256:
+        return False
+    global semantic_checks_run
+    semantic_checks_run += 1
     try:
         if candidate.count(marker) != 1:
             return False
@@ -407,13 +448,17 @@ def static_target_passes(candidate: str) -> bool:
             return False
         positive = by_id["AC-1"]["verify"]
         post_chat = by_id["AC-10"]["verify"]
+        canary = by_id["AC-11"]["verify"]
         return (
             all(sentinel in candidate for sentinel in execution_sentinels)
             and all(fragment in positive for fragment in required_positive_fragments)
             and all(fragment in post_chat for fragment in required_post_chat_fragments)
             and all(by_id[item_id]["verify"] == positive for item_id in positive_ids)
             and all(by_id[item_id]["verify"] == post_chat for item_id in post_chat_ids)
-            and all(human_verify(candidate, item_id) == by_id[item_id]["verify"] for item_id in positive_ids + post_chat_ids)
+            and all(by_id[item_id]["verify"] == canary for item_id in canary_ids)
+            and canary == canary_verify
+            and all(fragment in by_id["AC-11"]["description"] for fragment in required_canary_fragments)
+            and all(human_verify(candidate, item_id) == by_id[item_id]["verify"] for item_id in positive_ids + post_chat_ids + canary_ids)
             and candidate.splitlines().count(canonical_presence_line) == 1
             and candidate.splitlines().count(canonical_private_stdin_line) == 1
             and credential_expansion_grammar_passes(candidate)
@@ -443,14 +488,40 @@ def contract_verify_candidate(replacements: list[tuple[str, str]]) -> str:
     return target_text[:start] + json.dumps(contract, indent=2) + target_text[end:]
 
 assert static_target_passes(target_text)
-safe_credential_candidates = {
+safe_credential_controls = {
     "canonical-two-form-target": target_text,
-    "literal-names-and-private-paths": target_text + '\nHOLO_KEY_RN HOLO_KEY_MCP\nssh inference1 private-reader < "$S33_PRIVATE_STDIN_PATH"; curl --config "$S33_PRIVATE_CURL_CONFIG"\n',
+    "literal-names-and-private-paths": 'HOLO_KEY_RN HOLO_KEY_MCP\nssh inference1 private-reader < "$S33_PRIVATE_STDIN_PATH"; curl --config "$S33_PRIVATE_CURL_CONFIG"\n',
 }
-assert all(static_target_passes(candidate) for candidate in safe_credential_candidates.values())
+assert credential_expansion_grammar_passes(safe_credential_controls["canonical-two-form-target"])
+assert credential_expansion_grammar_passes(safe_credential_controls["literal-names-and-private-paths"])
 contract_mutations = {}
 with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_dir:
     root = Path(temp_dir)
+
+    content_hash_mutations = {
+        "indirect-rn-name-expansion": target_text + '\nprintf "%s\\n" "${!HOLO_KEY_RN}"\n',
+        "indirect-rn-length-expansion": target_text + '\nprintf "%s\\n" "${#HOLO_KEY_RN}"\n',
+        "direct-mcp-expansion": target_text + '\nprintf "%s\\n" "${HOLO_KEY_MCP}"\n',
+        "indirect-mcp-name-expansion": target_text + '\nprintf "%s\\n" "${!HOLO_KEY_MCP}"\n',
+        "indirect-mcp-length-expansion": target_text + '\nprintf "%s\\n" "${#HOLO_KEY_MCP}"\n',
+        "printenv-rn-command-substitution": target_text + '\nprintf "%s\\n" "$(printenv HOLO_KEY_RN)"\n',
+        "printenv-mcp-command-substitution": target_text + '\nprintf "%s\\n" "$(printenv HOLO_KEY_MCP)"\n',
+        "inline-command-substitution-assignment": target_text + '\nHOLO_KEY_RN="$(printenv HOLO_KEY_RN)" command curl https://example.invalid\n',
+        "python-getenv-rn": target_text + "\npython3 -c 'import os; os.getenv(\"HOLO_KEY_RN\")'\n",
+        "python-getenv-mcp": target_text + "\npython3 -c 'import os; os.getenv(\"HOLO_KEY_MCP\")'\n",
+        "arbitrary-credential-line-injection": target_text + "\ncredential source is dynamically resolved by an unreviewed helper\n",
+        "one-byte-text-edit": target_text.replace("> Status: Backlog", "> Status: Backlogs", 1),
+    }
+    assert credential_expansion_grammar_passes(content_hash_mutations["arbitrary-credential-line-injection"])
+    semantic_checks_before_hash_mutations = semantic_checks_run
+    for index, (name, candidate) in enumerate(content_hash_mutations.items()):
+        mutation_path = root / f"target-content-hash-mutation-{index}-{name}.md"
+        mutation_path.write_text(candidate)
+        assert mutation_path.is_file() and not mutation_path.is_symlink()
+        assert hashlib.sha256(mutation_path.read_bytes()).hexdigest() != canonical_target_sha256
+        assert not static_target_passes(mutation_path.read_text())
+    assert semantic_checks_run == semantic_checks_before_hash_mutations
+
     for index, sentinel in enumerate(execution_sentinels):
         candidate = target_text.replace(sentinel, f"BROKEN-{index}")
         contract_mutations[f"missing-sentinel-{index}"] = candidate
@@ -460,6 +531,9 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
     )
     contract_mutations["missing-canonical-private-stdin-form"] = target_text.replace(
         canonical_private_stdin_line, "run-target-verifier-with-private-input"
+    )
+    contract_mutations["static-only-canary-command"] = target_text.replace(
+        canary_verify, "rg -n 'credential canary transport safety' scripts services"
     )
 
     post_chat_replacements = {
@@ -520,20 +594,22 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
         mutation_path = root / f"target-mutation-{index}-{name}.md"
         mutation_path.write_text(candidate)
         assert mutation_path.is_file() and not mutation_path.is_symlink()
-        assert not static_target_passes(mutation_path.read_text())
+        assert not static_target_passes(mutation_path.read_text(), enforce_content_hash=False)
 
 print(json.dumps({
     "ok": True,
     "target_requirements": len(target_by_id),
     "repair_requirements": len(repair_by_id),
-    "target_scenarios": 10,
+    "target_scenarios": 11,
     "repair_scenarios": 1,
     "shell_verifiers": len(target_by_id) + len(repair_by_id),
-    "human_json_parity": len(positive_ids) + len(post_chat_ids),
+    "human_json_parity": len(positive_ids) + len(post_chat_ids) + len(canary_ids),
     "receipt_mutations_rejected": len(mutations),
     "singular_header_mutations_rejected": 4,
-    "safe_credential_controls_accepted": len(safe_credential_candidates),
-    "post_chat_and_credential_contract_mutations_rejected": len(contract_mutations),
+    "safe_credential_controls_accepted": len(safe_credential_controls),
+    "target_content_sha256": canonical_target_sha256,
+    "content_hash_mutations_rejected_before_semantics": len(content_hash_mutations),
+    "semantic_contract_mutations_rejected": len(contract_mutations),
     "scope": [target_rel, repair_rel],
 }, sort_keys=True))
 ```
@@ -542,7 +618,7 @@ print(json.dumps({
 
 | Gate | Command | Expected |
 |---|---|---|
-| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; 23 target plus 2 repair shell verifiers; 10 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls plus 54 post-chat/credential contract mutations rejected; 2 exact safe credential controls accepted |
+| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; full target SHA-256 equals `4ebd1f9f1e5172613edfa27be70238e5e4bc5233b68a230cfd043beb18f5303a`; 25 target plus 2 repair shell verifiers; 11 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls, 58 semantic contract mutations, and 12 whole-file hash mutations rejected before semantics; 2 exact safe credential controls accepted |
 | planning consistency | `pnpm prd:consistency` | Exit 0 |
 | diff scope | canonical verifier local Git checks | Exactly target M plus this repair A relative to `146b6e64472461219b52f820894138678b8c0371` |
 | hooks | normal commit, no bypass | Exit 0 |
@@ -567,8 +643,10 @@ print(json.dumps({
         "only the target task and this repair artifact may differ",
         "the two-call synthetic baseline mirrors the observed provider-model accounting shape without substituting for live governed proof",
         "AC-10 and TC-13 contract a real public POST followed by the target verifier parser rejecting a truncated private copy of the real SSE stream; the static oracle validates the executable contract but performs no network request",
+        "AC-11 and TC-14 contract a real synthetic-canary integration gate using the actual verifier/curl processes, platform argv/environment observation, real filesystem cleanup, and the real public Hono HTTP boundary with live credential values unloaded",
         "public Hono auth is HOLO_KEY_RN only; HOLO_KEY_MCP, credential argv/print/log/receipt/artifact exposure, unquoted curl config, and leaked temp config are rejection mutants",
-        "the positive grammar accepts exactly the canonical names-only presence line and exact target-verifier private-stdin line; direct, command-wrapped, timeout-wrapped, randomly prefixed absolute-path, parameter-variant, curl-option, positional argv, and inline-assignment expansions are adversarial candidates"
+        "the positive grammar accepts exactly the canonical names-only presence line and exact target-verifier private-stdin line; direct, command-wrapped, timeout-wrapped, randomly prefixed absolute-path, parameter-variant, curl-option, positional argv, and inline-assignment expansions are adversarial candidates",
+        "the complete target file is pinned to SHA-256 4ebd1f9f1e5172613edfa27be70238e5e4bc5233b68a230cfd043beb18f5303a and recomputed before semantic checks; indirect RN/MCP expansions, printenv substitution, inline substitution assignment, Python getenv, arbitrary injection, and a byte edit reject at that precondition"
       ]
     }
   },
@@ -577,7 +655,7 @@ print(json.dumps({
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN the target and repair WHEN the local static verifier extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive plus post-POST parity, runs the target jq predicate on a two-call baseline, and applies a positive grammar to every credential expansion THEN the baseline and exactly two canonical expansion forms pass while all other direct/wrapped/prefixed/absolute-path/argv/parameter variants plus false serving, cardinality, provenance, post-chat, CLI-path, and Network Continuity contracts reject.",
+      "description": "GIVEN the target and repair WHEN the local static verifier first recomputes the pinned complete-target SHA-256, then extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive/post-POST/canary parity, runs the target jq predicate on a two-call baseline, and independently runs semantic mutations with hash enforcement disabled only for that suite THEN the exact target and two canonical credential forms pass while every whole-file mutation rejects before semantics and all false serving, cardinality, provenance, post-chat, canary, CLI-path, secret, and Network Continuity contracts reject.",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'",
       "scenario": {
         "id": "SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING/AC-1",
@@ -586,7 +664,7 @@ print(json.dumps({
         "verification_service": "local-filesystem-git-jq",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": ["static", "stub", "mock", "two_serving_minis", "count_mismatch", "singular_header_mismatch", "laptop", "unknown", "false_post_chat_issuance", "hand_authored_receipt", "mcp_public_auth", "secret_exposure"]
+          "would_fail_if": ["static", "stub", "mock", "target_hash_mismatch", "arbitrary_injection", "dynamic_secret_retrieval", "canary_contract_missing", "observer_skip", "two_serving_minis", "count_mismatch", "singular_header_mismatch", "laptop", "unknown", "false_post_chat_issuance", "hand_authored_receipt", "mcp_public_auth", "secret_exposure"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -598,21 +676,24 @@ print(json.dumps({
             "action": {
               "actor": "mastra-planner",
               "steps": [
-                "Extract both canonical requirement contracts and validate shell syntax, scenarios, positive plus post-POST human/JSON parity, and exact two-file Git scope.",
+                "Recompute the complete target-file SHA-256 before semantic inspection, then extract both canonical requirement contracts and validate shell syntax, scenarios, positive plus post-POST plus canary human/JSON parity, and exact two-file Git scope.",
                 "Run the target AC-1 jq predicate against a synthetic provider-model receipt with one serving mini count two, the other zero, and every accounting/header count equal two.",
                 "Mutate dual-serving, zero, serving/model/fleet/telemetry-row/transport/plural-header, each top-level/telemetry singular-header missing or mismatch case, laptop, unknown, and instrumentation-boundary facts one at a time.",
                 "Mutate the AC-10/TC-13 contract for false issuance, no real POST, synthetic stream, hand-authored receipt, target-verifier bypass, MCP public auth, unquoted or leaked temp config, each argv/stdout/stderr/receipt/artifact exposure flag, curl -H/-d/-u separated/clustered/attached/equals variants, long/positional argv, inline assignment, explicit credential print/logging, and Network Continuity.",
                 "Add command and timeout wrappers around each -H/-d/-u bypass, one random-prefix absolute-path curl bypass, a parameter-expansion variant, and a prefixed canonical-lookalike; require rejection without adding those wrapper names to a blacklist.",
-                "Use the canonical target containing exactly one names-only presence form and one target-verifier private-stdin form; add only literal credential names and private non-secret stdin/config paths in the second safe candidate, and require both candidates to remain accepted."
+                "Use the canonical target containing exactly one names-only presence form and one target-verifier private-stdin form; add only literal credential names and private non-secret stdin/config paths in the second safe control, and require both controls to remain accepted.",
+                "Mutate indirect RN/MCP name and length expansions, direct MCP expansion, printenv command substitution, inline substitution assignment, Python getenv, an arbitrary semantically allowed credential line, and one byte; require every candidate to fail the content hash without incrementing the semantic-check counter.",
+                "Require AC-11/TC-14 to specify a unique in-memory synthetic canary, actual verifier/curl processes, platform argv/environment observation, real filesystem and temp cleanup, real public Hono HTTP, no live credential values, and real direct/indirect failure controls."
               ]
             },
             "end_state": {
               "must_observe": [
                 "baseline matching_completion_count === 2 and telemetry.modelRequests === 2 passes jq -e",
                 "exactly 16 receipt mutations including 4 distinct singular-header controls are rejected",
-                "exactly 54 post-chat and credential contract mutations are rejected",
+                "target_content_sha256 === 4ebd1f9f1e5172613edfa27be70238e5e4bc5233b68a230cfd043beb18f5303a and exactly 12 whole-file mutations reject before semantic_checks_run changes",
+                "exactly 58 semantic contract mutations are rejected with the hash precondition disabled only for that semantic suite",
                 "exactly 2 canonical safe credential controls are accepted",
-                "all 11 scenarios validate with zero violations and 25 shell verifiers pass bash -n",
+                "all 12 scenarios validate with zero violations and 27 shell verifiers pass bash -n",
                 "Git scope contains exactly 2 paths and network_mutation_performed === false and literal_disconnect_claimed === false"
               ],
               "must_not_observe": [
@@ -622,6 +703,7 @@ print(json.dumps({
                 "HOLO_KEY_MCP used for the public route",
                 "a secret in argv, stdout, stderr, JSON receipt, or retained artifact",
                 "any noncanonical credential expansion, including command/timeout/random-wrapper curl or a parameter variant",
+                "an indirect RN/MCP retrieval, printenv substitution, Python getenv, arbitrary target injection, target hash mismatch, or static-only canary gate",
                 "a false chat_request_issued value after POST, a hand-authored failure receipt, or a target-verifier bypass",
                 "a service or network mutation"
               ]
@@ -633,7 +715,7 @@ print(json.dumps({
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "Both contracts parse uniquely, every shell verifier passes bash-n, all scenarios validate, positive and post-POST human/JSON commands match, a two-call receipt plus two exact credential forms pass, and four singular-header plus 54 target-verifier/credential mutations including absent canonical forms and command/timeout/random wrappers reject.",
+      "description": "The complete target SHA-256 matches before semantic inspection; both contracts parse uniquely; 27 shell verifiers and 12 scenarios validate; positive, post-POST, and canary human/JSON commands match; the two-call receipt plus two safe credential controls pass; four singular-header plus 58 semantic mutations reject independently; and 12 indirect/dynamic/arbitrary/byte-edit whole-file mutations reject before semantics.",
       "maps_to_ac": "AC-1",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'"
     }
