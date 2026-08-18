@@ -214,12 +214,12 @@ read_router_snapshot() {
   printf '%s\n' "$config_text" >"$CONFIG_FILE"
   parsed=$(ruby -ryaml -rjson -e '
     doc = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: true)
-    rows = Array(doc.fetch("model_list")).filter_map do |entry|
+    rows = Array(doc.fetch("model_list")).map do |entry|
       next unless entry.is_a?(Hash) && entry["model_name"] == "implementer"
       params = entry["litellm_params"]
       next unless params.is_a?(Hash)
       {"model_name" => entry["model_name"], "model" => params["model"], "api_base" => params["api_base"]}
-    end
+    end.compact
     print JSON.generate(rows)
   ' "$CONFIG_FILE" 2>/dev/null) || json_error "ROUTER_CONFIG_PARSE_FAILED" "effective router config could not be parsed"
   jq -e --arg model "$IMPLEMENTER_MODEL" --arg one "$MINI_ONE_BASE" --arg two "$MINI_TWO_BASE" '
