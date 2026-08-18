@@ -15,13 +15,13 @@
 
 Remove the last documentation drift (a fictional fleet hostname) from the deploy contract and provide a deterministic, inspectable, live-reconfirmed guarantee that the fleet-serving path has zero laptop dependency, so the sprint's human testing gate has nothing left to trip on from this lane.
 
-**Success state:** production.env.example contains exactly `FLEET_URL=http://host.docker.internal:4545` and no reference to the fictional `inference-fleet` hostname; the real Docker Compose CLI renders the production contract with every required example-only secret variable supplied; config inspection finds zero laptop hostname or laptop-only IP references; and bounded direct curls to inference1:8003, inference2:8003, and holocron:4545 validate the exact nonempty model IDs while the two inference response bodies are proven non-byte-identical.
+**Success state:** production.env.example contains exactly one total `FLEET_URL=` assignment, that sole assignment is exactly `FLEET_URL=http://host.docker.internal:4545`, no `/v1` suffix or fictional `inference-fleet` hostname remains, and the real Docker Compose CLI renders the production contract with every required example-only secret variable supplied; config inspection finds zero laptop hostname or laptop-only IP references; and bounded direct curls to inference1:8003, inference2:8003, and holocron:4545 validate the exact nonempty model IDs while the two inference response bodies are proven non-byte-identical.
 
 ## Critical Constraints
 
 **MUST**
 
-- Replace the fictional `FLEET_URL=http://inference-fleet:4545/v1` placeholder in production.env.example with exactly `FLEET_URL=http://host.docker.internal:4545`, matching `services/platform/config/secrets.example.yaml` and intentionally omitting `/v1`.
+- Replace the fictional `FLEET_URL=http://inference-fleet:4545/v1` placeholder in production.env.example so the file has exactly one total `FLEET_URL=` assignment and that sole assignment is exactly `FLEET_URL=http://host.docker.internal:4545`, matching `services/platform/config/secrets.example.yaml` and explicitly rejecting `/v1`.
 - Prove — by config inspection AND live network calls from a real device other than holocron — that nothing in the fleet-serving path (router.compose.yaml, compose.yaml scheduler/mastra fleet vars) references the laptop's hostname, IP, or a loopback address that would only resolve on the laptop.
 - Coordinate the corrected FLEET_URL value with S33-PLAT-01's services/platform/config/secrets.example.yaml so the two example files state the same value — different files, no edit collision, but they must agree.
 
@@ -34,9 +34,9 @@ Remove the last documentation drift (a fictional fleet hostname) from the deploy
 ### AC-1 — production.env.example no longer names a fictional host
 
 - **GIVEN** production.env.example line 6 currently reads FLEET_URL=http://inference-fleet:4545/v1, a hostname that resolves nowhere on the real tailnet.
-- **WHEN** The line is corrected to the exact deployed-host default and the production Compose contract is rendered with non-secret example values for every required Compose secret input.
-- **THEN** the fictional hostname search exits exactly 1, the corrected line occurs exactly once, and the actual `docker compose ... config --quiet` command exits 0.
-- **Verify:** `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet`
+- **WHEN** the file is corrected to exactly one total FLEET_URL assignment whose sole value is the exact deployed-host default, `/v1` is explicitly checked absent, and the production Compose contract is rendered with non-secret example values for every required Compose secret input.
+- **THEN** the fictional-host and `/v1` searches each exit exactly 1, the total FLEET_URL assignment count is 1, the exact canonical assignment count is 1, and the actual `docker compose ... config --quiet` command exits 0.
+- **Verify:** `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && fleet_env=services/platform/deploy/compose/production.env.example && total_assignments=$(grep -c '^FLEET_URL=' "$fleet_env") && test "$total_assignments" -eq 1 && canonical_assignments=$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' "$fleet_env") && test "$canonical_assignments" -eq 1 && { if grep -nE '^FLEET_URL=.*/v1(/|$)' "$fleet_env"; then false; else test "$?" -eq 1; fi; } && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file "$fleet_env" -f services/platform/deploy/compose/compose.yaml config --quiet`
 - **Tier:** integration · **Service:** docker compose config render (real CLI, real files) · **Flow:** UC-PLAT-05
 - **Scenario:** topology `single-node` · evidence `stdout` · negative control: static
 
@@ -53,7 +53,7 @@ Remove the last documentation drift (a fictional fleet hostname) from the deploy
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | no fictional hostname remains, the exact FLEET_URL occurs once, and real Compose renders with all required example inputs | AC-1 | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet` |
+| TC-1 | no fictional hostname remains, there is exactly one total FLEET_URL assignment, it is the exact canonical value without `/v1`, and real Compose renders with all required example inputs | AC-1 | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && fleet_env=services/platform/deploy/compose/production.env.example && total_assignments=$(grep -c '^FLEET_URL=' "$fleet_env") && test "$total_assignments" -eq 1 && canonical_assignments=$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' "$fleet_env") && test "$canonical_assignments" -eq 1 && { if grep -nE '^FLEET_URL=.*/v1(/|$)' "$fleet_env"; then false; else test "$?" -eq 1; fi; } && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file "$fleet_env" -f services/platform/deploy/compose/compose.yaml config --quiet` |
 | TC-2 | fleet config has zero laptop references and all three direct model endpoints return the exact independent real model sets | AC-2 | `{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference1.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference2.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o "$probe_dir/holocron.json" && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit"]' "$probe_dir/inference1.json" >/dev/null && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit","Qwen3.8-27B-8bit"]' "$probe_dir/inference2.json" >/dev/null && jq -e '[.data[].id] == ["reviewer","implementer","qwen3-embedding"]' "$probe_dir/holocron.json" >/dev/null && { cmp -s "$probe_dir/inference1.json" "$probe_dir/inference2.json"; cmp_status=$?; test "$cmp_status" -eq 1; } && printf '%s\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL` |
 
 ## Fixtures
@@ -94,7 +94,7 @@ _Source:_ `services/platform/deploy/compose/README.md`
 
 | Gate | Command | Expected |
 |---|---|---|
-| corrected example renders | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet` | exit 0; no fictional host; exact value once; real Compose render succeeds |
+| corrected example renders | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && fleet_env=services/platform/deploy/compose/production.env.example && total_assignments=$(grep -c '^FLEET_URL=' "$fleet_env") && test "$total_assignments" -eq 1 && canonical_assignments=$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' "$fleet_env") && test "$canonical_assignments" -eq 1 && { if grep -nE '^FLEET_URL=.*/v1(/|$)' "$fleet_env"; then false; else test "$?" -eq 1; fi; } && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file "$fleet_env" -f services/platform/deploy/compose/compose.yaml config --quiet` | exit 0; no fictional host; exactly one total assignment; exact canonical value once; `/v1` absent; real Compose render succeeds |
 | direct fleet endpoints are real and independent | `{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference1.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference2.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o "$probe_dir/holocron.json" && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit"]' "$probe_dir/inference1.json" >/dev/null && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit","Qwen3.8-27B-8bit"]' "$probe_dir/inference2.json" >/dev/null && jq -e '[.data[].id] == ["reviewer","implementer","qwen3-embedding"]' "$probe_dir/holocron.json" >/dev/null && { cmp -s "$probe_dir/inference1.json" "$probe_dir/inference2.json"; cmp_status=$?; test "$cmp_status" -eq 1; } && printf '%s\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL` | exit 0; five exact sentinel lines; direct bounded responses; inference bodies differ with `cmp` status exactly 1 |
 
 ## Agent Assignment
@@ -131,8 +131,8 @@ _Source:_ `services/platform/deploy/compose/README.md`
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN a fictional FLEET_URL placeholder WHEN it is corrected to the exact deployed-host default THEN the absence check exits exactly 1, the corrected value occurs once, and real Docker Compose renders with every required example input.",
-      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && test \"$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)\" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet",
+      "description": "GIVEN a fictional FLEET_URL placeholder WHEN it is corrected to the exact deployed-host default THEN the absence checks exit exactly 1, there is exactly one total FLEET_URL assignment, the sole assignment is the exact canonical value without /v1, and real Docker Compose renders with every required example input.",
+      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && fleet_env=services/platform/deploy/compose/production.env.example && total_assignments=$(grep -c '^FLEET_URL=' \"$fleet_env\") && test \"$total_assignments\" -eq 1 && canonical_assignments=$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' \"$fleet_env\") && test \"$canonical_assignments\" -eq 1 && { if grep -nE '^FLEET_URL=.*/v1(/|$)' \"$fleet_env\"; then false; else test \"$?\" -eq 1; fi; } && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file \"$fleet_env\" -f services/platform/deploy/compose/compose.yaml config --quiet",
       "maps_to_ac": null,
       "scenario": {
         "id": "AC-1",
@@ -156,19 +156,22 @@ _Source:_ `services/platform/deploy/compose/README.md`
             "action": {
               "actor": "devops-engineer",
               "steps": [
-                "edit production.env.example to the exact FLEET_URL=http://host.docker.internal:4545 line",
-                "run the fail-closed fictional-host grep and real Docker Compose render with all required example inputs"
+                "edit production.env.example to exactly one total FLEET_URL assignment whose sole value is FLEET_URL=http://host.docker.internal:4545",
+                "run the fail-closed fictional-host and /v1 greps, both assignment-count checks, and real Docker Compose render with all required example inputs"
               ]
             },
             "end_state": {
               "must_observe": [
                 "the fictional-host grep exits exactly 1 (no matches)",
-                "production.env.example contains exactly one FLEET_URL=http://host.docker.internal:4545 line",
+                "FLEET_URL total assignment count=1",
+                "exact FLEET_URL=http://host.docker.internal:4545 assignment count=1",
+                "the /v1 grep exits exactly 1 (no matches)",
                 "docker compose config --quiet exits 0 with POSTGRES_PASSWORD, DATABASE_URL, MASTRA_API_KEY, FLEET_KEY, and ZERO_ADMIN_PASSWORD supplied as example-only values"
               ],
               "must_not_observe": [
                 "'inference-fleet' string present anywhere under services/platform/deploy/",
-                "zero corrected FLEET_URL lines or an empty FLEET_URL value",
+                "zero or multiple total FLEET_URL assignments, including a canonical assignment plus a stale duplicate",
+                "zero exact canonical FLEET_URL lines or an empty FLEET_URL value",
                 "the negative grep exits with an error but is accepted as absence",
                 "the corrected FLEET_URL contains /v1",
                 "Compose is rendered without all five required example-only secret inputs"
@@ -238,9 +241,9 @@ _Source:_ `services/platform/deploy/compose/README.md`
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "no fictional hostname remains, the exact FLEET_URL occurs once, and real Compose renders with all required example inputs",
+      "description": "no fictional hostname remains, exactly one total FLEET_URL assignment exists, it is the exact canonical value without /v1, and real Compose renders with all required example inputs",
       "maps_to_ac": "AC-1",
-      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && test \"$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)\" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet"
+      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && fleet_env=services/platform/deploy/compose/production.env.example && total_assignments=$(grep -c '^FLEET_URL=' \"$fleet_env\") && test \"$total_assignments\" -eq 1 && canonical_assignments=$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' \"$fleet_env\") && test \"$canonical_assignments\" -eq 1 && { if grep -nE '^FLEET_URL=.*/v1(/|$)' \"$fleet_env\"; then false; else test \"$?\" -eq 1; fi; } && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file \"$fleet_env\" -f services/platform/deploy/compose/compose.yaml config --quiet"
     },
     {
       "id": "TC-2",
