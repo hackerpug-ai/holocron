@@ -1,9 +1,11 @@
 # S33-OPS-03: Wire the scheduler compose service to FLEET_URL + FLEET_KEY so background missions are no longer model-less
 
-> Status: 🔵 In Review
+> Status: 🔴 Needs Fixes
 > Cycle: 1
 > Commit: 0892b96a4632cf41d15f19f8c60f4ad28f30c76b
-> Updated: 2026-08-17T22:55:55Z
+> Reviewer: product-manager
+> Fix: S33-OPS-03-EVIDENCE-REMEDIATION
+> Updated: 2026-08-18T00:04:47Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
@@ -52,6 +54,11 @@ Give the scheduler process the same FLEET_URL/FLEET_KEY visibility mastra alread
 | TC-1 | bounded SSH to holocron@holocron proves remote scheduler FLEET_URL nonempty, PID-1 FLEET_KEY nonempty, and FLEET_KEY literally unset in a separate remote docker exec child | AC-1 | `ssh -o BatchMode=yes -o ConnectTimeout=10 holocron@holocron "set -eu; /usr/local/bin/docker exec holocron-production-scheduler-1 sh -ceu 'test -n \"\${FLEET_URL:-}\"; grep -zq \"^FLEET_KEY=.\" /proc/1/environ; test -z \"\${FLEET_KEY+x}\"; printf \"%s\\n\" FLEET_URL_PRESENT FLEET_KEY_PID1_PRESENT FLEET_KEY_CHILD_ABSENT'"` |
 | TC-2 | bounded SSH to holocron@holocron proves remote scheduler health is exactly healthy after the recreate | AC-1 | `ssh -o BatchMode=yes -o ConnectTimeout=10 holocron@holocron "set -eu; test \"\$(/usr/local/bin/docker inspect --format='{{.State.Health.Status}}' holocron-production-scheduler-1)\" = healthy"` |
 
+
+## Remediation Trail
+| Cycle | FIX | Failed Reqs | Reviewer | At |
+|-------|-----|-------------|----------|----|
+| 1 | S33-OPS-03-EVIDENCE-REMEDIATION | — | product-manager | 2026-08-18T00:04:47Z |
 ## Fixtures
 
 **`live-scheduler-container`** — Real running container on holocron, confirmed 2026-08-16. _(seed: cli)_
