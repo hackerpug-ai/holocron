@@ -1,0 +1,21 @@
+{
+  "hybrid": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[],\"totalResults\":0,\"searchMethod\":\"postgres-fts\"}"
+        }
+      ],
+      "structuredContent": {
+        "results": [],
+        "totalResults": 0,
+        "searchMethod": "postgres-fts"
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330201
+  },
+  "error": {},
+  "closedFleetUrl": "http://127.0.0.1:54976"
+}

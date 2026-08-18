@@ -1,0 +1,37 @@
+{
+  "result": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"_id\":\"01a013a2-2677-72db-a181-06cc22002887\",\"title\":\"S33-MCP-02 Lexical Anchor\",\"content\":\"zylophonequux is the distinctive lexical anchor token for S33-MCP-02\",\"score\":0.2431708425283432}],\"totalResults\":1}"
+        }
+      ],
+      "structuredContent": {
+        "results": [
+          {
+            "_id": "01a013a2-2677-72db-a181-06cc22002887",
+            "title": "S33-MCP-02 Lexical Anchor",
+            "content": "zylophonequux is the distinctive lexical anchor token for S33-MCP-02",
+            "score": 0.2431708425283432
+          }
+        ],
+        "totalResults": 1
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330301
+  },
+  "payload": {
+    "results": [
+      {
+        "_id": "01a013a2-2677-72db-a181-06cc22002887",
+        "title": "S33-MCP-02 Lexical Anchor",
+        "content": "zylophonequux is the distinctive lexical anchor token for S33-MCP-02",
+        "score": 0.2431708425283432
+      }
+    ],
+    "totalResults": 1
+  },
+  "closedFleetUrl": "http://127.0.0.1:53994"
+}

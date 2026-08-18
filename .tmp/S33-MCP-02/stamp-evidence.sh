@@ -25,11 +25,16 @@ blob_sha() { git -C "$ROOT" cat-file blob "$1:$2" | shasum -a 256 | awk '{print 
 require_file() { [[ -f "$DIR/$1" && ! -L "$DIR/$1" && -s "$DIR/$1" ]] || die "required artifact missing or empty: $1"; }
 require_file "red-output.txt"
 require_file "green-output.txt"
-require_file "seeded-artifact.json"
-require_file "red-ac-1-http.json"
-require_file "red-ac-2-http-closed-fleet.json"
-require_file "red-ac-3-http-fts-closed-fleet.json"
-require_file "red-ac-4-stdio.json"
+require_file "seeded-artifact-red.json"
+require_file "seeded-artifact-green.json"
+require_file "red-ac-1-http-red.json"
+require_file "red-ac-2-http-closed-fleet-red.json"
+require_file "red-ac-3-http-fts-closed-fleet-red.json"
+require_file "red-ac-4-stdio-red.json"
+require_file "green-ac-1-http.json"
+require_file "green-ac-2-http-closed-fleet.json"
+require_file "green-ac-3-http-fts-closed-fleet.json"
+require_file "green-ac-4-stdio.json"
 require_file "manifest-output.txt"
 require_file "inspector-smoke-output.txt"
 require_file "test-source-snapshot.ts"
@@ -57,10 +62,10 @@ grep -Fq '23 passed' "$DIR/manifest-output.txt" || die "manifest gate result mis
 grep -Fq 'EXIT_CODE:0' "$DIR/manifest-output.txt" || die "manifest gate marker missing"
 grep -Fq 'EXIT_CODE:0' "$DIR/inspector-smoke-output.txt" || die "Inspector marker missing"
 grep -Fq 'hybrid' "$DIR/inspector-smoke-output.txt" || die "Inspector hybrid result missing"
-jq -e '.embeddingDimension == 1024 and .semanticTitle == "S33-MCP-02 Fleet Retrieval Proof" and (.closedFleetUrl|startswith("http://127.0.0.1:"))' "$DIR/seeded-artifact.json" >/dev/null || die "seeded artifact invariants missing"
-jq -e '.parseFailures == [] and .live.result.isError != true and .closed.result.isError == true and .closedError.code == "ROLE_UNAVAILABLE"' "$DIR/red-ac-4-stdio.json" >/dev/null || die "stdio parity/parse evidence invalid"
-CLOSED_URL="$(jq -r '.closedFleetUrl' "$DIR/red-ac-2-http-closed-fleet.json")"
-jq -e --arg closed "$CLOSED_URL" '.error.code == "ROLE_UNAVAILABLE" and (.error.message|contains("fleet role '\''embed'\''")) and (.error.message|contains($closed))' "$DIR/red-ac-2-http-closed-fleet.json" >/dev/null || die "closed fleet role evidence invalid"
+jq -e '.embeddingDimension == 1024 and .semanticTitle == "S33-MCP-02 Fleet Retrieval Proof" and (.closedFleetUrl|startswith("http://127.0.0.1:"))' "$DIR/seeded-artifact-green.json" >/dev/null || die "seeded artifact invariants missing"
+jq -e '.parseFailures == [] and .live.result.isError != true and .closed.result.isError == true and .closedError.code == "ROLE_UNAVAILABLE"' "$DIR/green-ac-4-stdio.json" >/dev/null || die "stdio parity/parse evidence invalid"
+CLOSED_URL="$(jq -r '.closedFleetUrl' "$DIR/green-ac-2-http-closed-fleet.json")"
+jq -e --arg closed "$CLOSED_URL" '.error.code == "ROLE_UNAVAILABLE" and (.error.message|contains("fleet role '\''embed'\''")) and (.error.message|contains($closed))' "$DIR/green-ac-2-http-closed-fleet.json" >/dev/null || die "closed fleet role evidence invalid"
 
 validate_lineage() {
   local red="$1" green="$2"
@@ -86,7 +91,7 @@ RECIPE_SHA="$(sha256_file "$DIR/stamp-evidence.sh")"
 INPUTS_TMP="$(mktemp "$DIR/.evidence-inputs.XXXXXX")"
 SUMMARY_TMP="$(mktemp "$DIR/.verification-summary.XXXXXX")"
 trap 'rm -f "$INPUTS_TMP" "$SUMMARY_TMP"; rm -rf "$TMP_NEG"' EXIT
-for file in red-output.txt green-output.txt seeded-artifact.json red-ac-1-http.json red-ac-2-http-closed-fleet.json red-ac-3-http-fts-closed-fleet.json red-ac-4-stdio.json manifest-output.txt inspector-smoke-output.txt test-source-snapshot.ts verify-manifest.json stamp-evidence.sh; do
+for file in red-output.txt green-output.txt seeded-artifact-red.json seeded-artifact-green.json red-ac-1-http-red.json red-ac-2-http-closed-fleet-red.json red-ac-3-http-fts-closed-fleet-red.json red-ac-4-stdio-red.json green-ac-1-http.json green-ac-2-http-closed-fleet.json green-ac-3-http-fts-closed-fleet.json green-ac-4-stdio.json manifest-output.txt inspector-smoke-output.txt test-source-snapshot.ts verify-manifest.json stamp-evidence.sh; do
   jq -nc --arg path "$file" --arg sha "$(sha256_file "$DIR/$file")" '{path:$path,sha256:$sha}' >> "$INPUTS_TMP"
 done
 jq -nc --arg path "services/platform/$TEST" --arg sha "$(sha256_file "$ROOT/$TEST")" '{path:$path,sha256:$sha}' >> "$INPUTS_TMP"

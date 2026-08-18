@@ -7,8 +7,10 @@ import {
 } from '../cutover/post-export-write-audit.ts';
 import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
-import { createSql, toSqlJsonValue } from '../db/client.ts';
+import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import { RoleUnavailableError } from '../inference/resolve-model.ts';
+import { rrfHybridSearch } from '../search/rrf.ts';
 
 function resolveJinaApiKey(): string | undefined {
   return getSecretValue('JINA_API_KEY');
@@ -851,8 +853,7 @@ export async function executePostgresMcpTool(
           errors: [],
         };
       }
-      case 'search_fts':
-      case 'hybrid_search': {
+      case 'search_fts': {
         const query = String(input.query);
         const limit = Math.min(Number(input.limit ?? 20), 100);
         const rows = await sql`
@@ -866,8 +867,29 @@ export async function executePostgresMcpTool(
         return {
           results: rows,
           totalResults: rows.length,
-          ...(id === 'hybrid_search' ? { searchMethod: 'postgres-fts' } : {}),
         };
+      }
+      case 'hybrid_search': {
+        const query = String(input.query);
+        const limit = Math.min(Number(input.limit ?? 20), 100);
+        try {
+          const hybrid = await rrfHybridSearch(createDb(sql), sql, { query, limit });
+          return {
+            results: hybrid.results.map(({ _id, title, content, score }) => ({
+              _id,
+              ...(title !== undefined ? { title } : {}),
+              ...(content !== undefined ? { content } : {}),
+              ...(score !== undefined ? { score } : {}),
+            })),
+            totalResults: hybrid.totalResults,
+            searchMethod: 'hybrid',
+          };
+        } catch (error) {
+          if (error instanceof RoleUnavailableError) {
+            throw new Error(`ROLE_UNAVAILABLE: ${error.message}`);
+          }
+          throw error;
+        }
       }
       case 'add_subscription': {
         const sourceType = String(input.sourceType);

@@ -1,0 +1,182 @@
+{
+  "httpLive": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"_id\":\"01a013a2-2691-72cb-b9da-b62c9835cbdc\",\"title\":\"S33-MCP-02 Fleet Retrieval Proof\",\"content\":\"The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.\",\"score\":0.01639344262295082}],\"totalResults\":1,\"searchMethod\":\"hybrid\"}"
+        }
+      ],
+      "structuredContent": {
+        "results": [
+          {
+            "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+            "title": "S33-MCP-02 Fleet Retrieval Proof",
+            "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+            "score": 0.01639344262295082
+          }
+        ],
+        "totalResults": 1,
+        "searchMethod": "hybrid"
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330400
+  },
+  "httpClosed": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"code\":\"ROLE_UNAVAILABLE\",\"message\":\"ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://127.0.0.1:53994 (degradation=fail-closed): health probe failed at http://127.0.0.1:53994/v1/models: Unable to connect. Is the computer able to access the url?\"}"
+        }
+      ],
+      "isError": true
+    },
+    "jsonrpc": "2.0",
+    "id": 330410
+  },
+  "live": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"_id\":\"01a013a2-2691-72cb-b9da-b62c9835cbdc\",\"title\":\"S33-MCP-02 Fleet Retrieval Proof\",\"content\":\"The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.\",\"score\":0.01639344262295082}],\"totalResults\":1,\"searchMethod\":\"hybrid\"}"
+        }
+      ],
+      "structuredContent": {
+        "results": [
+          {
+            "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+            "title": "S33-MCP-02 Fleet Retrieval Proof",
+            "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+            "score": 0.01639344262295082
+          }
+        ],
+        "totalResults": 1,
+        "searchMethod": "hybrid"
+      }
+    },
+    "frames": [
+      {
+        "result": {
+          "protocolVersion": "2025-11-25",
+          "capabilities": {
+            "tools": {
+              "listChanged": true
+            }
+          },
+          "serverInfo": {
+            "name": "holocron-postgres",
+            "version": "1.0.0"
+          }
+        },
+        "jsonrpc": "2.0",
+        "id": 330401
+      },
+      {
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"_id\":\"01a013a2-2691-72cb-b9da-b62c9835cbdc\",\"title\":\"S33-MCP-02 Fleet Retrieval Proof\",\"content\":\"The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.\",\"score\":0.01639344262295082}],\"totalResults\":1,\"searchMethod\":\"hybrid\"}"
+            }
+          ],
+          "structuredContent": {
+            "results": [
+              {
+                "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+                "title": "S33-MCP-02 Fleet Retrieval Proof",
+                "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+                "score": 0.01639344262295082
+              }
+            ],
+            "totalResults": 1,
+            "searchMethod": "hybrid"
+          }
+        },
+        "jsonrpc": "2.0",
+        "id": 330402
+      }
+    ],
+    "parseFailures": [],
+    "stderr": ""
+  },
+  "closed": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"code\":\"ROLE_UNAVAILABLE\",\"message\":\"ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://127.0.0.1:53994 (degradation=fail-closed): health probe failed at http://127.0.0.1:53994/v1/models: Unable to connect. Is the computer able to access the url?\"}"
+        }
+      ],
+      "isError": true
+    },
+    "frames": [
+      {
+        "result": {
+          "protocolVersion": "2025-11-25",
+          "capabilities": {
+            "tools": {
+              "listChanged": true
+            }
+          },
+          "serverInfo": {
+            "name": "holocron-postgres",
+            "version": "1.0.0"
+          }
+        },
+        "jsonrpc": "2.0",
+        "id": 330411
+      },
+      {
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"code\":\"ROLE_UNAVAILABLE\",\"message\":\"ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://127.0.0.1:53994 (degradation=fail-closed): health probe failed at http://127.0.0.1:53994/v1/models: Unable to connect. Is the computer able to access the url?\"}"
+            }
+          ],
+          "isError": true
+        },
+        "jsonrpc": "2.0",
+        "id": 330412
+      }
+    ],
+    "parseFailures": [],
+    "stderr": ""
+  },
+  "livePayload": {
+    "results": [
+      {
+        "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+        "title": "S33-MCP-02 Fleet Retrieval Proof",
+        "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+        "score": 0.01639344262295082
+      }
+    ],
+    "totalResults": 1,
+    "searchMethod": "hybrid"
+  },
+  "httpLivePayload": {
+    "results": [
+      {
+        "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+        "title": "S33-MCP-02 Fleet Retrieval Proof",
+        "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+        "score": 0.01639344262295082
+      }
+    ],
+    "totalResults": 1,
+    "searchMethod": "hybrid"
+  },
+  "httpClosedError": {
+    "code": "ROLE_UNAVAILABLE",
+    "message": "ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://127.0.0.1:53994 (degradation=fail-closed): health probe failed at http://127.0.0.1:53994/v1/models: Unable to connect. Is the computer able to access the url?"
+  },
+  "closedError": {
+    "code": "ROLE_UNAVAILABLE",
+    "message": "ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://127.0.0.1:53994 (degradation=fail-closed): health probe failed at http://127.0.0.1:53994/v1/models: Unable to connect. Is the computer able to access the url?"
+  },
+  "closedFleetUrl": "http://127.0.0.1:53994"
+}
