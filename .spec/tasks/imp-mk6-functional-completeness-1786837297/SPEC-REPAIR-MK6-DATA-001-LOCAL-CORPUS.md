@@ -1,7 +1,7 @@
 # SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS: Bind the retained composite corpus
 
 > Status: 🔵 In Review
-> Cycle: 4
+> Cycle: 5
 > Updated: 2026-08-18T00:00:00Z
 > Assignee: mastra-planner
 > Reviewer: mastra-reviewer
@@ -35,12 +35,12 @@ Everything else, including source, tests, scripts, `.tmp`, databases, exports, b
 
 ## Static oracle
 
-The extractable shell block validates the unique target contract. The SHA-256 values are over canonical JSON (`sort_keys=True`, separators `,` and `:`) for the entire `data_plane_contract` and `real_composite_corpus` fixture objects, so any execution-critical field drift fails. Specific in-memory mutants prove the oracle rejects the reviewed loopholes; one additional mutant removes each required negative control.
+The extractable shell block validates the unique target contract and the extractability of both planning contracts. Each file must contain exactly two literal HTML-comment terminators: the requirement marker terminator and its enclosing JSON comment terminator. The canonical generic non-greedy extractor is constructed from string pieces so its own source never adds an inner terminator, and its captured bytes must pass `JSON.parse`/`json.loads`. The SHA-256 values are over canonical JSON (`sort_keys=True`, separators `,` and `:`) for the entire `data_plane_contract` and `real_composite_corpus` fixture objects, so any execution-critical field drift fails. Specific in-memory mutants prove the oracle rejects the reviewed loopholes; one additional mutant removes each required negative control.
 
-<!-- STATIC-ORACLE-BEGIN -->
+STATIC-ORACLE-BEGIN
 ```bash
 set -euo pipefail
-python3 - "$1" <<'PY'
+python3 - "$1" "$2" <<'PY'
 import copy
 import hashlib
 import json
@@ -49,15 +49,30 @@ import sys
 from pathlib import Path
 
 target = Path(sys.argv[1])
-text = target.read_text(encoding="utf-8")
-matches = re.findall(
-    r"<!-- REQUIREMENT-CONTRACT v1 -->\s*<!--\s*(\{.*?\})\s*-->",
-    text,
-    re.DOTALL,
-)
-if len(matches) != 1:
-    raise SystemExit(f"expected one REQUIREMENT-CONTRACT v1, found {len(matches)}")
-contract = json.loads(matches[0])
+repair = Path(sys.argv[2])
+
+def extract_generic_contract(path):
+    text = path.read_text(encoding="utf-8")
+    comment_end = "--" + ">"
+    if text.count(comment_end) != 2:
+        raise SystemExit(
+            f"{path}: expected exactly two literal comment terminators, found {text.count(comment_end)}"
+        )
+    # Exact canonical generic extractor, split only so this source does not contain its terminator.
+    pattern = r"<!-- REQUIREMENT-CONTRACT v1 --" + r">\s*<!--\s*([\s\S]*?)\s*--" + r">"
+    matches = re.findall(pattern, text)
+    if len(matches) != 1:
+        raise SystemExit(f"{path}: expected one generic REQUIREMENT-CONTRACT capture, found {len(matches)}")
+    try:
+        parsed = json.loads(matches[0])
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"{path}: generic REQUIREMENT-CONTRACT JSON parse failed: {error}") from error
+    return parsed
+
+contract = extract_generic_contract(target)
+repair_contract = extract_generic_contract(repair)
+if repair_contract.get("task_id") != "SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS":
+    raise SystemExit("repair contract task_id mismatch")
 
 expected_contract_sha256 = "019f0e97980ccf8d26ae855e851099c4be08b134b16ce765791681edbfcb2c79"
 expected_fixture_sha256 = "ec6fd565b0a3de4c005017feb40e1a619de1b983232cce73c89ef16fdb852361"
@@ -349,23 +364,25 @@ print(json.dumps({
     "writeAllowedCount": len(expected_writes),
     "requirementCount": len(expected_requirement_ids),
     "mutantsRejected": len(mutants),
+    "literalTerminatorCountPerFile": 2,
+    "canonicalGenericJsonParseCount": 2,
 }, sort_keys=True))
 PY
 ```
-<!-- STATIC-ORACLE-END -->
+STATIC-ORACLE-END
 
 Run it from the worktree with:
 
 ```bash
 TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md
 REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md
-awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' "$REPAIR" | bash -s -- "$TARGET"
+awk '/^STATIC-ORACLE-BEGIN$/{on=1;next}/^STATIC-ORACLE-END$/{on=0}on && !/^```/{print}' "$REPAIR" | bash -s -- "$TARGET" "$REPAIR"
 ```
 
 ## Acceptance Criteria
 
-- [ ] AC-1: The extractable oracle exits zero and reports three sources, 37 negative controls, nine future write paths, 47 stable requirements, and 70 rejected in-memory mutants.
-- [ ] AC-2: Both files contain exactly one parseable `REQUIREMENT-CONTRACT v1`; the scenario validator reports zero critical issues for both.
+- [ ] AC-1: The extractable oracle exits zero and reports three sources, 37 negative controls, nine future write paths, 47 stable requirements, 70 rejected in-memory mutants, exactly two literal terminators per planning file, and two canonical generic JSON parses.
+- [ ] AC-2: Both files contain exactly two literal comment terminators and exactly one contract captured and parsed by the canonical generic non-greedy extractor; the scenario validator reports zero critical issues for both.
 - [ ] AC-3: `git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD` after the repair commit contains exactly the two planning files listed under WRITE-ALLOWED.
 - [ ] AC-4: The target preserves every prior ID, adds AC-8, AC-9, and TC-22 through TC-38, and explicitly does not require the MCP branch to land.
 
@@ -373,9 +390,9 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
 
 | ID | Binary statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | The oracle pins the full execution contract and fixture hashes and rejects all 70 specific/control-removal mutants. | AC-1 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' "$REPAIR" \| bash -s -- "$TARGET"` |
-| TC-2 | The target requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S); assert len(m)==1; print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
-| TC-3 | The repair requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S); assert len(m)==1; print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
+| TC-1 | The oracle pins the full execution contract and fixture hashes and rejects all 70 specific/control-removal mutants. | AC-1 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^STATIC-ORACLE-BEGIN$/{on=1;next}/^STATIC-ORACLE-END$/{on=0}on && !/^```/{print}' "$REPAIR" \| bash -s -- "$TARGET" "$REPAIR"` |
+| TC-2 | The target requirement contract has exactly two terminators, parses through the canonical generic extractor, and is scenario-valid. | AC-2 | `python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); e="--"+">"; p=r"<!-- REQUIREMENT-CONTRACT v1 --"+r">\\s*<!--\\s*([\\s\\S]*?)\\s*--"+r">"; m=re.findall(p,s); assert s.count(e)==2; assert len(m)==1; json.loads(m[0]); print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
+| TC-3 | The repair requirement contract has exactly two terminators, parses through the canonical generic extractor, and is scenario-valid. | AC-2 | `python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); e="--"+">"; p=r"<!-- REQUIREMENT-CONTRACT v1 --"+r">\\s*<!--\\s*([\\s\\S]*?)\\s*--"+r">"; m=re.findall(p,s); assert s.count(e)==2; assert len(m)==1; json.loads(m[0]); print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
 | TC-4 | The committed diff is limited to the two authorized planning files. | AC-3 | `test "$(git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD \| sort)" = "$(printf '%s\n' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| sort)"` |
 | TC-5 | All stable target IDs and the no-MCP-landing decision remain explicit. | AC-4 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 AC-6 AC-7 AC-8 AC-9 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9 TC-10 TC-11 TC-12 TC-13 TC-14 TC-15 TC-16 TC-17 TC-18 TC-19 TC-20 TC-21 TC-22 TC-23 TC-24 TC-25 TC-26 TC-27 TC-28 TC-29 TC-30 TC-31 TC-32 TC-33 TC-34 TC-35 TC-36 TC-37 TC-38; do rg -q "\"id\": \"$id\"" "$TARGET"; done && rg -q 'does \*\*not\*\* require the local-only MCP branch to land first' "$TARGET"` |
 
@@ -409,8 +426,8 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "The static oracle pins the complete target extension and real fixture descriptor and rejects 70 explicit or per-control mutants",
-      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\"",
+      "description": "The static oracle pins the complete target extension and real fixture descriptor, rejects 70 explicit or per-control mutants, and fail-closes on non-generic contract extraction",
+      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^STATIC-ORACLE-BEGIN$/{on=1;next}/^STATIC-ORACLE-END$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\" \"$REPAIR\"",
       "maps_to_ac": null,
       "scenario": {
         "id": "static-contract-oracle-v2",
@@ -441,7 +458,9 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
                 "negativeControlCount: 37",
                 "writeAllowedCount: 9",
                 "requirementCount: 47",
-                "mutantsRejected: 70"
+                "mutantsRejected: 70",
+                "literalTerminatorCountPerFile: 2",
+                "canonicalGenericJsonParseCount: 2"
               ],
               "must_not_observe": [
                 "empty extension accepted",
@@ -457,8 +476,8 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
     {
       "id": "AC-2",
       "type": "acceptance_criterion",
-      "description": "Both planning files contain exactly one parseable and scenario-valid requirement contract",
-      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S); assert len(m)==1; print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
+      "description": "Both planning files contain exactly two literal comment terminators and one scenario-valid JSON contract parsed by the canonical generic non-greedy extractor",
+      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); e=\"--\"+\">\"; p=r\"<!-- REQUIREMENT-CONTRACT v1 --\"+r\">\\s*<!--\\s*([\\s\\S]*?)\\s*--\"+r\">\"; m=re.findall(p,s); assert s.count(e)==2; assert len(m)==1; json.loads(m[0]); print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
       "maps_to_ac": null,
       "scenario": {
         "id": "unique-scenario-contract-validation",
@@ -467,7 +486,7 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
         "verification_service": "scenario-validator",
         "negative_control": {
           "would_fail_if": [
-            "a JSON block is absent, duplicated, malformed, or empty, a behavioral criterion lacks a scenario, or any scenario oracle is weak"
+            "a file has other than two literal terminators, the generic extractor truncates at an inner terminator, JSON parsing fails, a block is absent/duplicated/empty, a behavioral criterion lacks a scenario, or any scenario oracle is weak"
           ]
         },
         "evidence": {
@@ -480,12 +499,14 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
             "action": {
               "actor": "cli_user",
               "steps": [
-                "extract exactly one contract from each planning file, parse it, and run the shared scenario validator"
+                "require exactly two literal terminators per file, run the canonical generic non-greedy extractor, parse the captured JSON, and run the shared scenario validator"
               ]
             },
             "end_state": {
               "must_observe": [
                 "validatedContractCount: 2",
+                "literalTerminatorCountPerFile: 2",
+                "canonicalGenericJsonParseCount: 2",
                 "duplicateContractCount: 0",
                 "criticalIssueCount: 0"
               ],
@@ -591,15 +612,15 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "The static oracle accepts the exact target and rejects all 70 mutants",
-      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\"",
+      "description": "The static oracle accepts both generic contract captures and the exact target while rejecting all 70 mutants",
+      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^STATIC-ORACLE-BEGIN$/{on=1;next}/^STATIC-ORACLE-END$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\" \"$REPAIR\"",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "Both unique requirement contracts are scenario-valid",
-      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S); assert len(m)==1; print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
+      "description": "Both exactly bounded requirement contracts parse with the canonical generic extractor and are scenario-valid",
+      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); e=\"--\"+\">\"; p=r\"<!-- REQUIREMENT-CONTRACT v1 --\"+r\">\\s*<!--\\s*([\\s\\S]*?)\\s*--\"+r\">\"; m=re.findall(p,s); assert s.count(e)==2; assert len(m)==1; json.loads(m[0]); print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
       "maps_to_ac": "AC-2"
     },
     {
