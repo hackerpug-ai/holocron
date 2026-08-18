@@ -40,7 +40,7 @@ if (['localhost', '127.0.0.1', '::1'].includes(fleetOrigin.hostname)) {
 if (!databaseUrl) {
   throw new Error('S33-PLAT-05 requires DATABASE_URL for real Postgres readback');
 }
-const scopedRnKey = process.env.HOLO_KEY_RN?.trim();
+const scopedRnKey: string = process.env.HOLO_KEY_RN?.trim() ?? '';
 if (!scopedRnKey) {
   throw new Error('S33-PLAT-05 requires HOLO_KEY_RN for the real scoped Hono route');
 }
@@ -130,7 +130,7 @@ function createMutatedHonoApp(
 }
 
 async function waitForTerminalRun(
-  app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+  app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> },
   runId: string
 ): Promise<PublicChatRun> {
   const deadline = Date.now() + 300_000;
