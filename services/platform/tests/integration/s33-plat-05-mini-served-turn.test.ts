@@ -5,12 +5,19 @@
  * does not replace a provider, database, HTTP transport, or Mastra primitive.
  */
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Mastra } from '@mastra/core/mastra';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createFleetAgentWithResolved, runAgentCell } from '../../src/compat/cells/agent.ts';
 import { createSql } from '../../src/db/client.ts';
 import { createHonoApp } from '../../src/http/hono-app.ts';
-import { listInferenceTelemetry } from '../../src/inference/telemetry.ts';
+import {
+  assertModelRequestAccountingSnapshot,
+  listInferenceTelemetry,
+  type ModelRequestAccountingSnapshot,
+} from '../../src/inference/telemetry.ts';
 import { createStorage } from '../../src/mastra.ts';
 
 const platformIt = process.env.PLATFORM_IT === '1';
@@ -194,7 +201,22 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
       fleetRequests: expect.any(Number),
       cloudRequests: 0,
       unknownRequests: 0,
+      reconciliationComplete: true,
     });
+    const accountingData = accounting?.data_json as Record<string, unknown>;
+    expect(accountingData.modelRequests).toBeGreaterThanOrEqual(1);
+    expect(accountingData.fleetRequests).toBeGreaterThanOrEqual(1);
+    expect(accountingData.cloudRequests).toBe(0);
+    expect(accountingData.unknownRequests).toBe(0);
+    expect(accountingData.modelRequests).toBe(rows.length);
+    expect(accountingData.modelRequests).toBe(
+      Number(accountingData.fleetRequests) +
+        Number(accountingData.cloudRequests) +
+        Number(accountingData.unknownRequests)
+    );
+    expect(accountingData.responseHeaderApiBase).toMatch(
+      /^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/
+    );
     console.info(
       'S33-PLAT-05-EVIDENCE',
       JSON.stringify({
@@ -207,5 +229,145 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         accounting: accounting?.data_json,
       })
     );
+  }, 300_000);
+
+  it('AC-5: a real public tool loop records at least two underlying model calls', async () => {
+    const app = createHonoApp({ keys: { rn: scopedRnKey, mcp: '', control: '' } });
+    const requestId = `s33-plat-05-tool-loop-${randomUUID()}`;
+    const createResponse = await app.request('/api/chat-runs', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${scopedRnKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        requestId,
+        maxSteps: 2,
+        msg: 'Planner MUST call create_plan. Perform at least 2 sequential tool calls before answering.',
+      }),
+    });
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { runId: string };
+    const terminal = await waitForTerminalRun(app, created.runId);
+    expect(terminal.status).toBe('completed');
+
+    const rows = await listInferenceTelemetry({ runId: created.runId, databaseUrl });
+    expect(rows.length, 'real tool-loop model telemetry').toBeGreaterThanOrEqual(2);
+    expect(rows.every((row) => row.provider === 'fleet')).toBe(true);
+    expect(rows.every((row) => row.endpoint === `${fleetOrigin.origin}/v1`)).toBe(true);
+    const persistedResponse = await app.request(`/api/chat-runs/${created.runId}`, {
+      headers: { authorization: `Bearer ${scopedRnKey}` },
+    });
+    expect(persistedResponse.status).toBe(200);
+    const persisted = (await persistedResponse.json()) as PublicChatRun;
+    const accounting = persisted.events.find((event) => event.event_type === 'model-accounting');
+    expect(accounting).toBeDefined();
+    const data = accounting?.data_json as Record<string, unknown>;
+    expect(data.modelRequests).toBe(rows.length);
+    expect(data.modelRequests).toBeGreaterThanOrEqual(2);
+    expect(data.fleetRequests).toBeGreaterThanOrEqual(2);
+    expect(data.cloudRequests).toBe(0);
+    expect(data.unknownRequests).toBe(0);
+    expect(data.reconciliationComplete).toBe(true);
+    console.info(
+      'S33-PLAT-05-EVIDENCE',
+      JSON.stringify({
+        ac: 'AC-5-public-tool-loop',
+        requestId,
+        runId: created.runId,
+        status: terminal.status,
+        telemetryRows: rows.length,
+        accounting: data,
+      })
+    );
+  }, 300_000);
+
+  it('AC-5: the same accounting oracle rejects six real source-copy mutations', async () => {
+    const sourcePath = new URL('../../src/http/chat-runs.ts', import.meta.url);
+    const source = await readFile(sourcePath, 'utf8');
+    const root = await mkdtemp(join(tmpdir(), 's33-plat-05-accounting-'));
+    const base: ModelRequestAccountingSnapshot = {
+      requestId: 'mutation-request',
+      runId: randomUUID(),
+      resolvedEndpoint: fleetUrl,
+      modelRequests: 2,
+      underlyingTransportCalls: 2,
+      fleetRequests: 2,
+      cloudRequests: 0,
+      unknownRequests: 0,
+      responseHeaderApiBase: 'http://inference1.tail011a51.ts.net:8003/v1',
+      responseHeaderApiBases: ['http://inference1.tail011a51.ts.net:8003/v1'],
+      terminalized: true,
+      reconciliationComplete: true,
+      instrumentationBoundary: 'provider-model',
+    };
+    const mutations: Array<{
+      name: string;
+      mutate: (input: string) => string;
+      snapshot: ModelRequestAccountingSnapshot;
+    }> = [
+      {
+        name: 'missing-wrapper',
+        mutate: (input) => input.replace('runWithModelRequestAccounting(', 'withoutAccounting('),
+        snapshot: { ...base, modelRequests: 0, underlyingTransportCalls: 0 },
+      },
+      {
+        name: 'outer-stream-only',
+        mutate: (input) =>
+          input.replace(
+            'runWithModelRequestAccounting(requestAccounting, async () => {',
+            'async () => {'
+          ),
+        snapshot: { ...base, modelRequests: 1, underlyingTransportCalls: 0 },
+      },
+      {
+        name: 'global-fetch-patch',
+        mutate: (input) => `${input}\nconst mutationGlobalFetchPatch = globalThis.fetch;\n`,
+        snapshot: { ...base, instrumentationBoundary: 'global-fetch' },
+      },
+      {
+        name: 'direct-cloud-api-openai',
+        mutate: (input) =>
+          input.replace('accountingSnapshot.resolvedEndpoint', '"https://api.openai.com/v1"'),
+        snapshot: { ...base, fleetRequests: 0, cloudRequests: 2 },
+      },
+      {
+        name: 'unknown-transport',
+        mutate: (input) =>
+          input.replace('accountingSnapshot.unknownRequests', 'accountingSnapshot.modelRequests'),
+        snapshot: { ...base, fleetRequests: 0, unknownRequests: 2 },
+      },
+      {
+        name: 'counter-mismatch',
+        mutate: (input) =>
+          input.replace('accountingSnapshot.modelRequests', 'accountingSnapshot.modelRequests + 1'),
+        snapshot: { ...base, modelRequests: 3 },
+      },
+    ];
+
+    try {
+      for (const mutation of mutations) {
+        const copyPath = join(root, `${mutation.name}.ts`);
+        const mutated = mutation.mutate(source);
+        expect(mutated, `${mutation.name} must mutate a source copy`).not.toBe(source);
+        await writeFile(copyPath, mutated, 'utf8');
+        const persistedMutation = await readFile(copyPath, 'utf8');
+        expect(persistedMutation).toBe(mutated);
+        expect(() =>
+          assertModelRequestAccountingSnapshot({ ...mutation.snapshot, requestId: mutation.name })
+        ).toThrow(mutation.name);
+      }
+      console.info(
+        'S33-PLAT-05-EVIDENCE',
+        JSON.stringify({
+          ac: 'AC-5-accounting-mutations',
+          controls: mutations.map(({ name }) => name),
+          allRejected: true,
+          regularTempDirectory: root,
+        })
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   }, 300_000);
 });
