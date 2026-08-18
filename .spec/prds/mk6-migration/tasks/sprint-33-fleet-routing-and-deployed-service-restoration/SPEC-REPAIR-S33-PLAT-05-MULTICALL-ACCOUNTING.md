@@ -31,9 +31,9 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 5. `telemetry.instrumentationBoundary === "provider-model"`, terminalization and reconciliation are true, and cloud/unknown counts are zero.
 6. The top-level response header, accounting's singular response header, and every entry in `responseHeaderApiBases` equal `http://<serving-device-id>:8003/v1`.
 7. Two positive minis, zero positive minis, any count mismatch, any header mismatch, a laptop/Holocron serving identity, an unknown request, or a non-provider-model boundary fails closed.
-8. The public route uses `HOLO_KEY_RN`. Curl-config URL and header values stay quoted while credential values remain absent from argv, logs, receipts, and evidence.
+8. Only `HOLO_KEY_RN` may authorize the public Hono chat routes; `HOLO_KEY_MCP` is forbidden for every public request. Auth travels over private SSH stdin into a trap-removed mode-0600 temporary curl config; every URL/header value is quoted and escaped, and no secret value may appear in argv, stdout, stderr, JSON receipts, or retained artifacts.
 9. In-container telemetry/trace reads use `/app/src/cli/holo.ts` and privately bootstrap `DATABASE_URL` from `/run/secrets/database_url` without disclosing it.
-10. After the public POST is attempted, every subsequent error receipt truthfully retains `chat_request_issued:true`; only pre-POST failures may report false.
+10. A contractually executable `post-chat-invalid-stream` control must first complete a real public 2xx POST, capture its non-empty run ID and real SSE stream, truncate only a private copy of the first SSE JSON payload, and invoke the target verifier's production response parser. That target path must exit nonzero with `CHAT_STREAM_PARSE_FAILED`, `chat_request_issued:true`, real-stream and target-verifier receipt provenance, `synthetic:false`, zero secret exposure, and zero network mutation; a hand-authored receipt cannot pass.
 11. Network Continuity remains absolute: only bounded public HTTP plus read-only SSH/Docker reads are allowed; no service, Tailscale, Wi-Fi, interface, route, DNS, or other network mutation and no literal disconnect claim is permitted.
 
 ## Acceptance Criteria
@@ -42,7 +42,8 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 
 - **GIVEN** the target task and this planning-only repair
 - **WHEN** the static verifier uniquely extracts both canonical requirement contracts, syntax-checks every shell verifier, validates every scenario, checks human/JSON parity, evaluates a synthetic two-call serving receipt with the target's actual `jq` predicate, and applies structured receipt and contract mutations
-- **THEN** the two-call baseline passes and mutations for two serving minis, zero calls, serving/model/fleet/telemetry-row/transport/header mismatches, laptop attribution, unknown traffic, non-provider-model instrumentation, or false post-chat issuance all fail
+- **THEN** the two-call baseline passes and distinct mutations for two serving minis, zero calls, serving/model/fleet/telemetry-row/transport/plural-header mismatches, missing or mismatched top-level and telemetry singular headers, laptop attribution, unknown traffic, or non-provider-model instrumentation all fail
+- **AND** the target AC-10/TC-13 command is identical in human and JSON forms, syntax-valid, invokes the target verifier's real post-POST invalid-stream mode, requires a nonzero verifier exit, and rejects false issuance, pre-POST, synthetic-stream, hand-authored-receipt, MCP-auth, secret-exposure, unquoted/temp-leak, and network-mutation contract mutants
 - **AND** the only changed paths are the target task and this new repair artifact, based on exact main `146b6e64472461219b52f820894138678b8c0371`
 - **Verify:** `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'`
 - **Scenario:** topology `single-node` · evidence `file_artifact` · negative control: real temporary-file and receipt mutations
@@ -51,7 +52,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | Both contracts parse uniquely, all shell verifiers pass `bash -n`, all scenarios validate, positive human/JSON commands match, the two-call receipt passes, and every false cardinality/provenance/issuance mutation is rejected. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
+| TC-1 | Both contracts parse uniquely, all shell verifiers pass `bash -n`, all scenarios validate, positive plus post-POST human/JSON commands match, the two-call receipt passes, four distinct singular-header mutations reject, and every false post-POST/credential/provenance contract mutation rejects. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
 
 ## Static verifier and mutation oracle
 
@@ -132,8 +133,8 @@ assert subprocess.run(
 target_by_id = {item["id"]: item for item in target_contract["requirements"]}
 repair_by_id = {item["id"]: item for item in repair_contract["requirements"]}
 expected_target_ids = {
-    *(f"AC-{index}" for index in range(1, 10)),
-    *(f"TC-{index}" for index in range(1, 13)),
+    *(f"AC-{index}" for index in range(1, 11)),
+    *(f"TC-{index}" for index in range(1, 14)),
 }
 assert set(target_by_id) == expected_target_ids
 assert set(repair_by_id) == {"AC-1", "TC-1"}
@@ -158,6 +159,8 @@ required_positive_fragments = [
     ".telemetry.fleetRequests == .telemetry.modelRequests",
     ".telemetry.telemetryRows == .telemetry.modelRequests",
     ".telemetry.underlyingTransportCalls == .telemetry.modelRequests",
+    ".response_header_api_base == (\"http://\" + $served + \":8003/v1\")",
+    ".telemetry.responseHeaderApiBase == (\"http://\" + $served + \":8003/v1\")",
     ".telemetry.responseHeaderApiBases | type == \"array\"",
     "(.telemetry.responseHeaderApiBases | length) == .telemetry.modelRequests",
     "all(.telemetry.responseHeaderApiBases[]; . == (\"http://\" + $served + \":8003/v1\"))",
@@ -172,14 +175,57 @@ assert ".matching_completion_count == 0 or .matching_completion_count == 1" not 
 assert "select(.matching_completion_count == 1)" not in positive_verify
 
 execution_sentinels = [
-    "Authorization Bearer HOLO_KEY_RN, supplied over SSH stdin and rendered as quoted curl-config URL/header values without credential argv/log/evidence exposure",
+    "PUBLIC AUTH AND SECRET HYGIENE: only `HOLO_KEY_RN` may authorize the public Hono chat POST/GET routes; `HOLO_KEY_MCP` is forbidden for every public request.",
+    "private mode-0600 temporary curl config",
+    "Secret values are forbidden in process argv, stdout, stderr, JSON receipts, and retained artifacts.",
     "`bun /app/src/cli/holo.ts ...` inside the Mastra container after privately bootstrapping `DATABASE_URL` from `/run/secrets/database_url`",
     "every later failure receipt preserves `chat_request_issued:true`",
     "Exactly one serving mini has count `N >= 1`, the other count is zero",
     "NETWORK CONTINUITY: the verifier may make bounded public HTTP requests and read-only SSH/Docker reads only.",
 ]
 assert all(sentinel in target_text for sentinel in execution_sentinels)
-assert "Authorization Bearer HOLO_KEY_MCP" not in target_text
+
+post_chat_ids = ["AC-10", "TC-13"]
+post_chat_verify = target_by_id["AC-10"]["verify"]
+assert all(target_by_id[item_id]["verify"] == post_chat_verify for item_id in post_chat_ids)
+for item_id in post_chat_ids:
+    if item_id.startswith("AC-"):
+        human = re.search(
+            rf"### {item_id} .*?- \*\*Verify:\*\* `(.*?)`", target_text, re.S
+        )
+    else:
+        human = re.search(rf"^\| {item_id} \|.*\| `(.*)` \|$", target_text, re.M)
+    assert human and human.group(1) == target_by_id[item_id]["verify"]
+
+required_post_chat_fragments = [
+    "bash scripts/verify-s33-mini-served-turn.sh --mode post-chat-invalid-stream --json",
+    "if PLATFORM_IT=1",
+    ".error_code == \"CHAT_STREAM_PARSE_FAILED\"",
+    ".chat_request_issued == true",
+    ".public_post_succeeded == true",
+    ".public_post_http_status >= 200",
+    ".chat_run_id | type == \"string\" and length > 0",
+    ".failure_stage == \"stream-response-parse\"",
+    ".stream_capture_source == \"real-public-stream\"",
+    ".response_mutation == \"truncate-first-sse-json-in-private-copy\"",
+    ".receipt_source == \"scripts/verify-s33-mini-served-turn.sh\"",
+    ".verifier_mode == \"post-chat-invalid-stream\"",
+    ".synthetic == false",
+    ".credential_contract.public_key_name == \"HOLO_KEY_RN\"",
+    ".credential_contract.mcp_key_used_for_public_request == false",
+    ".credential_contract.curl_config_values_quoted == true",
+    ".credential_contract.secret_transport == \"ssh-stdin-private-0600-temp-curl-config\"",
+    ".credential_contract.private_temp_config_removed == true",
+    ".credential_contract.secret_in_argv == false",
+    ".credential_contract.secret_in_stdout == false",
+    ".credential_contract.secret_in_stderr == false",
+    ".credential_contract.secret_in_receipt == false",
+    ".credential_contract.secret_in_artifact == false",
+    ".network_mutation_performed == false",
+    ".literal_disconnect_claimed == false",
+]
+assert all(fragment in post_chat_verify for fragment in required_post_chat_fragments)
+assert "jq -n" not in post_chat_verify
 
 for contract in [target_contract, repair_contract]:
     for item in contract["requirements"]:
@@ -192,7 +238,7 @@ for contract in [target_contract, repair_contract]:
 
 validator = Path("/Users/justinrich/Projects/brain/tools/validate-scenario/validate_scenario.py")
 assert validator.is_file()
-for contract, expected_count in [(target_contract, 9), (repair_contract, 1)]:
+for contract, expected_count in [(target_contract, 10), (repair_contract, 1)]:
     result = subprocess.run(
         [sys.executable, str(validator)],
         input=json.dumps(contract),
@@ -301,6 +347,10 @@ for field in ["modelRequests", "fleetRequests", "telemetryRows", "underlyingTran
 mutated("serving-count-mismatch")["mini_results"][0]["matching_completion_count"] = 1
 mutated("header-count-mismatch")["telemetry"]["responseHeaderApiBases"] = [serving_url]
 mutated("header-node-mismatch")["telemetry"]["responseHeaderApiBases"][1] = "http://inference2.tail011a51.ts.net:8003/v1"
+mutated("top-level-singular-header-mismatch")["response_header_api_base"] = "http://inference2.tail011a51.ts.net:8003/v1"
+mutated("top-level-singular-header-missing").pop("response_header_api_base")
+mutated("telemetry-singular-header-mismatch")["telemetry"]["responseHeaderApiBase"] = "http://inference2.tail011a51.ts.net:8003/v1"
+mutated("telemetry-singular-header-missing")["telemetry"].pop("responseHeaderApiBase")
 laptop = mutated("laptop-serving")
 laptop["serving_device_id"] = "holocron.tail011a51.ts.net"
 laptop["response_header_api_base"] = "http://holocron.tail011a51.ts.net:8003/v1"
@@ -308,26 +358,111 @@ mutated("unknown-request")["telemetry"]["unknownRequests"] = 1
 mutated("wrong-boundary")["telemetry"]["instrumentationBoundary"] = "global-fetch"
 assert all(not receipt_passes(value) for value in mutations.values())
 
-def post_chat_error_passes(value: dict) -> bool:
-    return not value["post_attempted"] or value["chat_request_issued"] is True
+forbidden_credential_patterns = [
+    re.compile(r"Authorization\s*:?\s*Bearer\s+\$?\{?HOLO_KEY_MCP\}?"),
+    re.compile(r"PUBLIC_REQUEST_AUTH\s*=\s*HOLO_KEY_MCP"),
+    re.compile(r"--(?:header|token|authorization|api-key)\s+[^\n]*HOLO_KEY_(?:RN|MCP)"),
+    re.compile(r"(?:printf|echo)\b[^\n]*HOLO_KEY_(?:RN|MCP)"),
+    re.compile(r"(?:logger|tee)\b[^\n]*HOLO_KEY_(?:RN|MCP)"),
+    re.compile(r"\"secret(?:_value)?\"\s*:\s*\"\$?\{?HOLO_KEY_(?:RN|MCP)"),
+]
 
-assert post_chat_error_passes({"post_attempted": True, "chat_request_issued": True})
-assert not post_chat_error_passes({"post_attempted": True, "chat_request_issued": False})
+def human_verify(candidate: str, item_id: str):
+    if item_id.startswith("AC-"):
+        match = re.search(
+            rf"### {item_id} .*?- \*\*Verify:\*\* `(.*?)`", candidate, re.S
+        )
+    else:
+        match = re.search(rf"^\| {item_id} \|.*\| `(.*)` \|$", candidate, re.M)
+    return match.group(1) if match else None
 
 def static_target_passes(candidate: str) -> bool:
-    return (
-        candidate.count(marker) == 1
-        and all(sentinel in candidate for sentinel in execution_sentinels)
-        and "Authorization Bearer HOLO_KEY_MCP" not in candidate
-        and ".matching_completion_count == 0 or .matching_completion_count == 1" not in candidate
-    )
+    try:
+        if candidate.count(marker) != 1:
+            return False
+        match = contract_pattern.search(candidate)
+        if not match:
+            return False
+        contract = json.loads(match.group(1))
+        by_id = {item["id"]: item for item in contract["requirements"]}
+        if set(by_id) != expected_target_ids:
+            return False
+        positive = by_id["AC-1"]["verify"]
+        post_chat = by_id["AC-10"]["verify"]
+        return (
+            all(sentinel in candidate for sentinel in execution_sentinels)
+            and all(fragment in positive for fragment in required_positive_fragments)
+            and all(fragment in post_chat for fragment in required_post_chat_fragments)
+            and all(by_id[item_id]["verify"] == positive for item_id in positive_ids)
+            and all(by_id[item_id]["verify"] == post_chat for item_id in post_chat_ids)
+            and all(human_verify(candidate, item_id) == by_id[item_id]["verify"] for item_id in positive_ids + post_chat_ids)
+            and not any(pattern.search(candidate) for pattern in forbidden_credential_patterns)
+            and ".matching_completion_count == 0 or .matching_completion_count == 1" not in candidate
+            and "select(.matching_completion_count == 1)" not in candidate
+            and ".credential_contract.mcp_key_used_for_public_request == true" not in post_chat
+            and not re.search(r"\.credential_contract\.secret_in_(?:argv|stdout|stderr|receipt|artifact) == true", post_chat)
+            and ".credential_contract.curl_config_values_quoted == false" not in post_chat
+            and ".credential_contract.private_temp_config_removed == false" not in post_chat
+            and ".network_mutation_performed == true" not in post_chat
+            and "jq -n" not in post_chat
+        )
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+def contract_verify_candidate(replacements: list[tuple[str, str]]) -> str:
+    contract = deepcopy(target_contract)
+    by_id = {item["id"]: item for item in contract["requirements"]}
+    for item_id in post_chat_ids:
+        verify = by_id[item_id]["verify"]
+        for old, new in replacements:
+            assert old in verify
+            verify = verify.replace(old, new)
+        by_id[item_id]["verify"] = verify
+    start, end = target_match.span(1)
+    return target_text[:start] + json.dumps(contract, indent=2) + target_text[end:]
 
 assert static_target_passes(target_text)
+contract_mutations = {}
 with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_dir:
     root = Path(temp_dir)
     for index, sentinel in enumerate(execution_sentinels):
         candidate = target_text.replace(sentinel, f"BROKEN-{index}")
-        mutation_path = root / f"target-mutation-{index}.md"
+        contract_mutations[f"missing-sentinel-{index}"] = candidate
+
+    post_chat_replacements = {
+        "false-post-chat-issuance": [(".chat_request_issued == true", ".chat_request_issued == false")],
+        "no-real-public-post": [(".public_post_succeeded == true", ".public_post_succeeded == false")],
+        "pre-post-status": [(".public_post_http_status >= 200", ".public_post_http_status == 0")],
+        "synthetic-stream": [(".stream_capture_source == \"real-public-stream\"", ".stream_capture_source == \"synthetic\"")],
+        "hand-authored-receipt": [(".receipt_source == \"scripts/verify-s33-mini-served-turn.sh\"", ".receipt_source == \"hand-authored\"")],
+        "bypass-target-verifier": [("bash scripts/verify-s33-mini-served-turn.sh --mode post-chat-invalid-stream --json", "jq -n --argjson ok false '{ok:$ok}'")],
+        "mcp-public-auth": [(".credential_contract.mcp_key_used_for_public_request == false", ".credential_contract.mcp_key_used_for_public_request == true")],
+        "unquoted-curl-config": [(".credential_contract.curl_config_values_quoted == true", ".credential_contract.curl_config_values_quoted == false")],
+        "argv-secret-transport": [(".credential_contract.secret_transport == \"ssh-stdin-private-0600-temp-curl-config\"", ".credential_contract.secret_transport == \"argv\"")],
+        "temp-config-leak": [(".credential_contract.private_temp_config_removed == true", ".credential_contract.private_temp_config_removed == false")],
+        "secret-in-argv": [(".credential_contract.secret_in_argv == false", ".credential_contract.secret_in_argv == true")],
+        "secret-in-stdout": [(".credential_contract.secret_in_stdout == false", ".credential_contract.secret_in_stdout == true")],
+        "secret-in-stderr": [(".credential_contract.secret_in_stderr == false", ".credential_contract.secret_in_stderr == true")],
+        "secret-in-receipt": [(".credential_contract.secret_in_receipt == false", ".credential_contract.secret_in_receipt == true")],
+        "secret-in-artifact": [(".credential_contract.secret_in_artifact == false", ".credential_contract.secret_in_artifact == true")],
+        "network-mutation": [(".network_mutation_performed == false", ".network_mutation_performed == true")],
+    }
+    for name, replacements in post_chat_replacements.items():
+        contract_mutations[name] = contract_verify_candidate(replacements)
+
+    credential_text_mutations = {
+        "contradictory-mcp-use": "\nPUBLIC_REQUEST_AUTH=HOLO_KEY_MCP\n",
+        "credential-in-header-argv": '\ncurl --header "Authorization: Bearer ${HOLO_KEY_RN}" https://example.invalid\n',
+        "credential-print-stdout": '\nprintf "%s\\n" "$HOLO_KEY_RN"\n',
+        "credential-print-stderr": '\necho "$HOLO_KEY_RN" >&2\n',
+        "credential-logger": '\nlogger "$HOLO_KEY_RN"\n',
+        "credential-in-receipt": '\n{"secret":"${HOLO_KEY_RN}"}\n',
+    }
+    for name, suffix in credential_text_mutations.items():
+        contract_mutations[name] = target_text + suffix
+
+    for index, (name, candidate) in enumerate(contract_mutations.items()):
+        mutation_path = root / f"target-mutation-{index}-{name}.md"
         mutation_path.write_text(candidate)
         assert mutation_path.is_file() and not mutation_path.is_symlink()
         assert not static_target_passes(mutation_path.read_text())
@@ -336,13 +471,13 @@ print(json.dumps({
     "ok": True,
     "target_requirements": len(target_by_id),
     "repair_requirements": len(repair_by_id),
-    "target_scenarios": 9,
+    "target_scenarios": 10,
     "repair_scenarios": 1,
     "shell_verifiers": len(target_by_id) + len(repair_by_id),
-    "positive_human_json_parity": len(positive_ids),
+    "human_json_parity": len(positive_ids) + len(post_chat_ids),
     "receipt_mutations_rejected": len(mutations),
-    "post_chat_issuance_mutation_rejected": True,
-    "contract_mutations_rejected": len(execution_sentinels),
+    "singular_header_mutations_rejected": 4,
+    "post_chat_and_credential_contract_mutations_rejected": len(contract_mutations),
     "scope": [target_rel, repair_rel],
 }, sort_keys=True))
 ```
@@ -351,7 +486,7 @@ print(json.dumps({
 
 | Gate | Command | Expected |
 |---|---|---|
-| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; 21 target plus 2 repair shell verifiers; 9 target plus 1 repair scenarios; two-call baseline accepted; all receipt, issuance, and contract mutations rejected |
+| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; 23 target plus 2 repair shell verifiers; 10 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls plus 29 post-chat/credential contract mutations rejected |
 | planning consistency | `pnpm prd:consistency` | Exit 0 |
 | diff scope | canonical verifier local Git checks | Exactly target M plus this repair A relative to `146b6e64472461219b52f820894138678b8c0371` |
 | hooks | normal commit, no bypass | Exit 0 |
@@ -374,7 +509,9 @@ print(json.dumps({
       "records": [
         "exact base main is 146b6e64472461219b52f820894138678b8c0371",
         "only the target task and this repair artifact may differ",
-        "the two-call synthetic baseline mirrors the observed provider-model accounting shape without substituting for live governed proof"
+        "the two-call synthetic baseline mirrors the observed provider-model accounting shape without substituting for live governed proof",
+        "AC-10 and TC-13 contract a real public POST followed by the target verifier parser rejecting a truncated private copy of the real SSE stream; the static oracle validates the executable contract but performs no network request",
+        "public Hono auth is HOLO_KEY_RN only; HOLO_KEY_MCP, credential argv/print/log/receipt/artifact exposure, unquoted curl config, and leaked temp config are rejection mutants"
       ]
     }
   },
@@ -383,7 +520,7 @@ print(json.dumps({
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN the target and repair WHEN the local static verifier extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks parity, runs the target jq predicate on a two-call baseline, and mutates receipt and contract facts THEN the baseline passes while false serving, cardinality, provenance, issuance, secret-handling, CLI-path, and Network Continuity contracts are rejected.",
+      "description": "GIVEN the target and repair WHEN the local static verifier extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive plus post-POST parity, runs the target jq predicate on a two-call baseline, and mutates receipt and contract facts THEN the baseline passes while false serving, cardinality including both singular headers, provenance, real post-POST target-parser, RN-only secret-handling, CLI-path, and Network Continuity contracts are rejected.",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'",
       "scenario": {
         "id": "SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING/AC-1",
@@ -392,7 +529,7 @@ print(json.dumps({
         "verification_service": "local-filesystem-git-jq",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": ["static", "stub", "mock", "two_serving_minis", "count_mismatch", "header_mismatch", "laptop", "unknown", "false_post_chat_issuance"]
+          "would_fail_if": ["static", "stub", "mock", "two_serving_minis", "count_mismatch", "singular_header_mismatch", "laptop", "unknown", "false_post_chat_issuance", "hand_authored_receipt", "mcp_public_auth", "secret_exposure"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -404,16 +541,18 @@ print(json.dumps({
             "action": {
               "actor": "mastra-planner",
               "steps": [
-                "Extract both canonical requirement contracts and validate shell syntax, scenarios, parity, and exact two-file Git scope.",
+                "Extract both canonical requirement contracts and validate shell syntax, scenarios, positive plus post-POST human/JSON parity, and exact two-file Git scope.",
                 "Run the target AC-1 jq predicate against a synthetic provider-model receipt with one serving mini count two, the other zero, and every accounting/header count equal two.",
-                "Mutate dual-serving, zero, serving/model/fleet/telemetry-row/transport/header, laptop, unknown, instrumentation-boundary, post-chat issuance, credential, CLI-path, and Network Continuity facts one at a time."
+                "Mutate dual-serving, zero, serving/model/fleet/telemetry-row/transport/plural-header, each top-level/telemetry singular-header missing or mismatch case, laptop, unknown, and instrumentation-boundary facts one at a time.",
+                "Mutate the AC-10/TC-13 contract for false issuance, no real POST, synthetic stream, hand-authored receipt, target-verifier bypass, MCP public auth, unquoted or leaked temp config, each argv/stdout/stderr/receipt/artifact exposure flag, explicit credential argv/print/logging snippets, and Network Continuity."
               ]
             },
             "end_state": {
               "must_observe": [
                 "baseline matching_completion_count === 2 and telemetry.modelRequests === 2 passes jq -e",
-                "exactly 12 receipt mutations plus 1 post-chat issuance mutation and 5 contract mutations are rejected",
-                "all 10 scenarios validate with zero violations",
+                "exactly 16 receipt mutations including 4 distinct singular-header controls are rejected",
+                "exactly 29 post-chat and credential contract mutations are rejected",
+                "all 11 scenarios validate with zero violations and 25 shell verifiers pass bash -n",
                 "Git scope contains exactly 2 paths and network_mutation_performed === false and literal_disconnect_claimed === false"
               ],
               "must_not_observe": [
@@ -421,8 +560,8 @@ print(json.dumps({
                 "a second serving mini",
                 "a count or header mismatch",
                 "HOLO_KEY_MCP used for the public route",
-                "a secret in argv, logs, receipts, or evidence",
-                "a false chat_request_issued value after POST",
+                "a secret in argv, stdout, stderr, JSON receipt, or retained artifact",
+                "a false chat_request_issued value after POST, a hand-authored failure receipt, or a target-verifier bypass",
                 "a service or network mutation"
               ]
             }
@@ -433,7 +572,7 @@ print(json.dumps({
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "Both contracts parse uniquely, every shell verifier passes bash-n, all scenarios validate, positive human and JSON commands match, a two-call one-serving-mini receipt passes, and all false cardinality, provenance, issuance, and execution-contract mutations are rejected.",
+      "description": "Both contracts parse uniquely, every shell verifier passes bash-n, all scenarios validate, positive and post-POST human/JSON commands match, a two-call one-serving-mini receipt passes, four singular-header controls reject, and all false target-verifier, issuance, credential, provenance, and execution-contract mutations are rejected.",
       "maps_to_ac": "AC-1",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'"
     }
