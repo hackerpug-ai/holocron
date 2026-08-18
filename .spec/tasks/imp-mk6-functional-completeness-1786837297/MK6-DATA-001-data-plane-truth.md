@@ -1,7 +1,7 @@
 # MK6-DATA-001: Restore Postgres data-plane truth
 
 > Status: 🟡 In Progress
-> Cycle: 4
+> Cycle: 6
 > Updated: 2026-08-18T00:00:00Z
 > Assignee: mastra-implementer
 > Reviewer: mastra-reviewer
@@ -28,7 +28,7 @@ The verifier admits one composite corpus rooted at a single canonical directory.
 |---|---|---|
 | Convex cutover export | `exports/convex-dev-cutover-2026-08-09` | Full real table/storage tree; derive every table count and digest from the admitted snapshot. |
 | Local SQLite database | `holocron.db` | Real SQLite backup with `PRAGMA quick_check=ok`; derive every materialized/provenance count from the same snapshot. |
-| Local blob store | `blobs` | Real `file_objects`-derived referenced-byte inventory; derive inventory and missing/hash results from the snapshot. |
+| Local blob store | `blobs` | Complete recursively discovered blob-root inventory; join `file_objects` only after discovery and derive every disposition plus missing/hash result from the snapshot. |
 
 Admission resolves the root and each path with `realpath`, requires the supplied spelling to equal its absolute canonical path, and rejects a symlink in any path component. The admitted root must be a durable operator-selected corpus root, not the repository, a worktree, the run root, project `.tmp`, system temporary storage, `fixtures`, `testdata`, or a generated/copy directory. While the recovered default exists, an alternate root is equivalent only when all three preflight semantic identities equal those independently derived from the default; a byte-identical explicitly admitted alternate is equivalent, while an unproven or modified clone is arbitrary and rejected. The verifier records hashes of the canonical root and paths, but no secret-bearing path value. Arbitrary per-source overrides and symlink indirection fail before snapshotting.
 
@@ -39,9 +39,9 @@ The unmounted `/Volumes/Archives/...` location is not an input. A fixture, gener
 The operator admits the canonical root and deliberately invokes the verifier. Every source must satisfy semantic equality at `source-pre`, `snapshot-copy`, and `source-post`; a one-sided copy hash is insufficient.
 
 1. Create a cryptographically unique `RUN_ID` and a new `.tmp/MK6-DATA-001/${RUN_ID}/` with exclusive-create semantics. Reject an existing or symlinked run root.
-2. **Export:** compute a canonical digest over sorted relative path, byte length, and SHA-256 for every export file; copy the complete tree; recompute the snapshot digest; after all Postgres and Hono probes recompute the canonical source digest. Require `export-source-pre == export-snapshot-copy == export-source-post`. Never add a sidecar to the retained export.
+2. **Export:** recursively `lstat` every direct-root entry and descendant without following links. Reject symlink or special-node entries; for every directory or regular file derive its relative-path identity, node type, deterministic logical size, and content-or-tree SHA-256. Compute the canonical digest over the sorted complete entry records, copy the complete tree, recompute the snapshot entry records/digest, and after all Postgres and Hono probes recompute the source records/digest. Require `export-source-pre == export-snapshot-copy == export-source-post`. This includes discovered root metadata files and never adds a sidecar to the retained export.
 3. **SQLite:** use SQLite backup semantics for the initial immutable snapshot; raw database/WAL/SHM copying is forbidden. Run `PRAGMA quick_check=ok`. Derive a canonical semantic digest over schema/version plus ordered mapped-table rows, `import_batches`, `import_row_provenance`, and `file_objects`. After all probes, take a second SQLite backup from the live source and derive the same digest. Require `sqlite-source-backup-pre == sqlite-snapshot-copy == sqlite-source-backup-post`; SQLite file-layout equality is not a substitute for table/provenance semantic equality.
-4. **Blobs:** derive the referenced set only from snapshot `file_objects`; reject traversal and symlinks; compute a sorted relative-path/byte-length/SHA-256 digest from source bytes; copy the complete blob inventory; recompute the referenced-byte digest from the snapshot and again from the original source after all probes. Require `blob-source-pre == blob-snapshot-copy == blob-source-post`. Preserve every snapshot-derived unreferenced file as explicit inventory, never as an invented materialized row.
+4. **Blobs:** recursively discover the complete blob-root file inventory before consulting `file_objects`; reject traversal, symlinks, and special nodes; compute a sorted relative-path identity/type/byte-length/SHA-256 digest over every file, referenced or not; copy the complete inventory; recompute the complete digest from the snapshot and again from the original source after all probes. Require `blob-source-pre == blob-snapshot-copy == blob-source-post`. Join snapshot `file_objects` identities to this complete inventory afterward and preserve every unreferenced file with an explicit immutable nonmaterialized disposition, never as an invented row or an exclusion from drift detection.
 5. Write `manifest.json` last with schema `holocron.mk6.composite-corpus.v2`, code SHA, canonical source-path hashes, all three semantic checkpoints per source, SQLite backup methods and quick checks, derived provenance/accounting digests, per-table identities/counts/content digests, blob inventory/reference digests, external process/target identity, and witness identities. It contains identifiers, counts, and hashes only—never document bodies, connection URLs, credentials, or secret values.
 6. Independently rederive every manifest fact from the immutable snapshots before success. The verifier accepts no free-form real-source claim, success value, expected count, expected hash, local-origin claim, or witness ID.
 
@@ -49,23 +49,24 @@ Per-source mutation controls operate only on disposable derivatives after a heal
 
 ## Full source inventory and lossless disposition
 
-Before loading, derive a complete inventory from the immutable snapshots. Never use a catalog count, a hand-maintained allowlist, or only the tables the loader already understands as the inventory boundary. `manifest.json` contains the following sorted arrays and a canonical SHA-256 for each array and their union:
+Before loading, derive a complete inventory from the immutable snapshots. Never use a catalog count, a hand-maintained allowlist, only selected root names, or only the tables the loader already understands as the inventory boundary. `manifest.json` contains the following sorted arrays and a canonical SHA-256 for each array and their union:
 
-1. `convex.tables`: parse every name in `_tables/documents.jsonl`; require exact set equality with every non-underscore top-level table directory. For each table record its name, relative `documents.jsonl` and `generated_schema.jsonl` identities, schema digest, ordered row count/identity/content digest, observed-field digest, catalog-entry digest, disposition, target/formula, and mapped/archived identity digest. Missing, extra, duplicate, malformed, or uncatalogued table entries fail.
-2. `convex.systemEntries`: recursively inventory every underscore-prefixed root entry, including `_tables`, `_storage`, and `_components`, by relative path, type, byte length, and SHA-256. Every entry must have exactly one versioned system disposition; an unlisted system entry or an entry omitted from the manifest fails.
-3. `convex.storageMetadata` and `convex.storageObjects`: parse every `_storage/documents.jsonl` metadata identity and every non-metadata object file. Require a bijection between metadata identity and object file, with exact byte length/SHA-256/content type, then bind each object to exactly one catalog storage reference/disposition/target and every source row reference. Missing, duplicate, orphaned, or unmapped metadata/object/reference entries fail, including objects approved for archive/drop.
-4. `sqlite.physicalTables`: derive every `main` schema table from snapshot `PRAGMA table_list` except the SQLite pseudo-table `sqlite_schema`. Record name, SQLite type (`table`, `virtual`, or `shadow`), `sqlite_master.sql` digest, ordered column/PK digest, ordered row count/content digest, class, disposition, target/formula, and mapping digest. Table classes are application data, `etl_misc` envelope, provenance (`import_batches`, `import_row_provenance`), blob catalog (`file_objects`), schema metadata (`schema_migrations`), FTS virtual, and FTS shadow. Each physical table belongs to exactly one class; omission or an unknown/unmapped class fails.
-5. `sqlite.logicalRows`: inventory application tables by their real primary-key identity and split every `etl_misc` row by its `table_name` plus `id`, after strict JSON parsing of `payload`. Each logical source table/class has a catalog-backed materialize/merge/archive/regenerate disposition and a lossless identity/content digest. Provenance and schema rows remain evidence; FTS virtual/shadow tables are explicitly derived/rebuilt and verified from their owning application tables. A nonmaterialized nonempty class requires an existing versioned approval plus lossless manifest accounting; no row disappears merely because it is not loaded as a standalone target row.
-6. `sqlite.referencedBlobs` and `sqlite.blobFiles`: inventory every snapshot `file_objects` identity (`storage_id`, declared SHA-256/bytes/content type, hashed relative-path identity), every referring logical row/field, and every snapshot blob file. Recompute bytes and require one referenced identity to one object, while separately retaining unreferenced file inventory. Missing, replaced, duplicate, traversal, omitted, orphaned, or unmapped referenced blobs fail.
+1. `convex.filesystemEntries`: recursively inventory every direct-root entry and descendant with `lstat`, without following links or skipping dotfiles. Every source entry has exactly one manifest record containing canonical relative path, path-identity SHA-256, node type, deterministic logical size, content-or-tree SHA-256, root-owner class, disposition, target/formula, and mapped/archived identity digest. Regular-file size and digest come from exact bytes; directory size is the sum of descendant regular-file bytes and its tree digest covers the sorted immediate-child identity/type/size/digest tuples. The root-owner classes are cataloged table subtree, underscore system subtree, and root metadata. Root metadata is every discovered direct-root regular file not owned by the table or system classes; it is derived from the snapshot surface, never a filename allowlist, and each item is preserved as immutable nonmaterialized export metadata. Symlink and special-node types fail closed. Require a one-to-one source-entry-to-manifest-entry-to-snapshot-entry bijection, exact class partition, and exact pre/copy/post entry-set and digest equality.
+2. `convex.tables`: discover the full snapshot set first by parsing every name in `_tables/documents.jsonl` and requiring exact equality with every non-underscore top-level table directory; only then reconcile it to catalog tables plus non-underscore catalog exclusions. For each table record its name, referenced `convex.filesystemEntries` identities, relative `documents.jsonl` and `generated_schema.jsonl` identities, schema digest, ordered row count/identity/content digest, observed-field digest, catalog-entry or derived-disposition digest, disposition, target/formula, and mapped/archived identity digest. A discovered table absent from the catalog, including `migrationFenceAudit`, may receive the versioned `source-backed-catalog-drift-archive` disposition only when every export identity/content digest is also losslessly accounted for in SQLite logical rows and provenance; preserve both source chains and never materialize deleted or synthetic bytes. Otherwise catalog drift is unmapped and fails. Catalog scalar expected counts never define or authorize the discovered set. Missing, extra, duplicate, malformed, omitted, or unmapped entries fail.
+3. `convex.systemEntries`: reference every `convex.filesystemEntries` identity under an underscore-prefixed root entry, including `_tables`, `_storage`, and `_components`. Every entry must have exactly one versioned system disposition; an unlisted system entry, mismatched type/size/digest, or entry omitted from either manifest array fails.
+4. `convex.storageMetadata` and `convex.storageObjects`: parse every `_storage/documents.jsonl` metadata identity and reference every non-metadata object in `convex.filesystemEntries`. Require a bijection between metadata identity and object file, with exact byte length/SHA-256/content type. Independently discover zero or more source-row field references to each storage identity and reconcile every discovered reference to a catalog storage-field disposition. Referenced objects retain all source refs; zero-reference metadata/object pairs receive the versioned source-derived `unreferenced-storage-evidence` disposition and preserve metadata plus exact bytes without inventing a catalog reference or product row. Missing, duplicate, orphaned, forged-reference, undispositioned, or unmapped metadata/object/reference entries fail, including objects approved for archive/drop.
+5. `sqlite.physicalTables`: derive every `main` schema table from snapshot `PRAGMA table_list` except the SQLite pseudo-table `sqlite_schema`. Record name, SQLite type (`table`, `virtual`, or `shadow`), `sqlite_master.sql` digest, ordered column/PK digest, ordered row count/content digest, class, disposition, target/formula, and mapping digest. Table classes are application data, `etl_misc` envelope, provenance (`import_batches`, `import_row_provenance`), blob catalog (`file_objects`), schema metadata (`schema_migrations`), FTS virtual, and FTS shadow. Each physical table belongs to exactly one class; omission or an unknown/unmapped class fails.
+6. `sqlite.logicalRows`: inventory application tables by their real primary-key identity and split every `etl_misc` row by its `table_name` plus `id`, after strict JSON parsing of `payload`. Each logical source table/class has a catalog-backed materialize/merge/archive/regenerate disposition and a lossless identity/content digest. Provenance and schema rows remain evidence; FTS virtual/shadow tables are explicitly derived/rebuilt and verified from their owning application tables. A nonmaterialized nonempty class requires an existing versioned approval plus lossless manifest accounting; no row disappears merely because it is not loaded as a standalone target row.
+7. `sqlite.referencedBlobs` and `sqlite.blobFiles`: inventory every snapshot `file_objects` identity (`storage_id`, declared SHA-256/bytes/content type, hashed relative-path identity), every referring logical row/field, and every recursively discovered snapshot blob file. Each unique `storage_id` must map totally to exactly one CAS key `(canonical relative path, recomputed SHA-256, byte length)`, but multiple storage identities may map to one CAS object only in an explicitly proven dedup group whose members have the same declared path/hash/bytes/content type, recomputed exact bytes, and complete source references. A storage identity mapping to multiple CAS keys, different bytes sharing one claimed CAS key/path, or an alias lacking complete proof is an invalid collision. Every discovered unreferenced file receives a lossless immutable nonmaterialized disposition and remains in pre/copy/post drift hashes. Missing, replaced, invalid-alias, collision, traversal, omitted, orphaned, or unmapped identities/files fail.
 
-For each source class, require `source identities = materialized identities + explicitly nonmaterialized identities`, disjointly and without omissions; every materialized identity must have one target mapping and every nonmaterialized identity must retain its source digest and approved disposition. Global `unmappedSourceItemCount`, `omittedSourceItemCount`, `duplicateSourceIdentityCount`, and `ambiguousDispositionCount` must all be zero. This inventory accounting is conjunctive with row/content/FK/blob reconciliation; counts alone never authorize success.
+For each source class, require `source identities = materialized identities + explicitly nonmaterialized identities`, disjointly and without omissions; every materialized identity must have one target mapping and every nonmaterialized identity must retain its source digest and approved disposition. The complete export filesystem additionally requires `source lstat entry identities = convex.filesystemEntries identities = snapshot lstat entry identities`, with an exact three-class root-owner partition. Global unmapped, omitted, unclassified, duplicate, ambiguous-disposition, type-mismatch, size-mismatch, and digest-mismatch counts must all be zero. This inventory accounting is conjunctive with row/content/FK/blob reconciliation; counts alone never authorize success.
 
 ## Two-way local provenance accounting
 
 The verifier first full-outer-joins materialized identities and provenance identities for every mapped table, classifies every identity exactly once as materialized-only, both, or provenance-only, and rejects any unclassified identity or unexplained materialized-only imported row. The local-document policy refines the full-outer join on `(table_name='documents', row_id)`:
 
 - `materialized-local`: a local document and its local provenance row both exist.
-- `provenance-only-tombstone`: the local provenance identity exists but the materialized document does not. Preserve its identifiers, batch identity, timestamps, import count, and row digest in the manifest; do not invent a document row.
+- `provenance-only-tombstone`: the local provenance identity exists but the materialized document does not. Preserve its identifiers and a `canonical-provenance-record-v1` SHA-256 over the RFC 8785 canonical JSON object containing exactly `table_name`, `row_id`, `import_batch_id`, `source_origin`, `first_imported_at`, `last_imported_at`, and `import_count`. This attests only to available normalized provenance fields; it is never described as a deleted source-row or document-content digest, and no document row or bytes are invented.
 - `materialized-local-missing-provenance`: a local document exists without its required provenance. This is an error, never an inferred success.
 
 Require both equations:
@@ -79,7 +80,7 @@ P >= N
 
 Here `N` is the snapshot-derived materialized local-document count, `M` is the snapshot-derived classified provenance-only tombstone count, and `P` is the snapshot-derived local-document provenance count. `materializedLocalMissingProvenance` and `unclassifiedLocalProvenance` must be zero. No prior observed cardinality can authorize success or be compared as an expected count.
 
-The `local-writes` batch is valid only when the snapshot row itself has `id='local-writes'`, `source='local'`, `deployment IS NULL`, `cutover_date='ongoing'`, positive `started_at`, `finished_at IS NULL`, `export_path IS NULL`, `stats_json IS NULL`, and `note='Post-cutover local writes'`. Each materialized local document must carry `source_origin='local'` and `import_batch_id='local-writes'`; its provenance row must have the same origin/batch, positive timestamps with `first_imported_at <= last_imported_at`, and `import_count >= 1`. A manifest declaration cannot replace these semantic source facts.
+The `local-writes` batch is valid only when the snapshot row itself has `id='local-writes'`, `source='local'`, `deployment IS NULL`, `cutover_date='ongoing'`, positive `started_at`, `finished_at IS NULL`, `export_path IS NULL`, `stats_json IS NULL`, and `note='Post-cutover local writes'`. Each materialized local document must carry `source_origin='local'` and `import_batch_id='local-writes'`; its provenance row must have the same origin/batch, positive finite timestamps with `first_imported_at <= last_imported_at`, and `import_count >= 1`. Each tombstone digest is recomputed independently from the same seven typed SQLite fields and must identify exactly one `(table_name,row_id)` provenance record; omitted fields, alternate normalization, a hand-authored digest, or one digest ambiguously assigned to multiple records fails. A manifest declaration cannot replace these semantic source facts.
 
 For every mapped table, expected identities are the lossless union of export materialized identities, SQLite-only materialized identities, and classified provenance-only identities. Common materialized identities must agree on canonical content bytes. The loader imports materialized rows only, uses production transforms and `convex_id_map` lineage, and reconciles missing and extra target identities while retaining tombstone accounting in the manifest.
 
@@ -113,17 +114,17 @@ The only external witness API is authenticated `GET /api/documents/{id}`, where 
 
 For each origin, persist one chain record satisfying `sourceId -> mappedPostgresId -> response.document.id`, `response.document.id == mappedPostgresId`, source-snapshot origin equals the chain origin, and `sha256(UTF8(response.document.content)) == directPostgresContentSha256 == sourceSnapshotContentSha256`. UTF-8 content is hashed exactly with no trimming, normalization, replacement decoding, or reserialization. The response `source` field denotes the serving data plane and must never be inferred as corpus origin; origin comes only from the independently verified source/provenance identity. Evidence may contain IDs, origin, content length, hashes, and `identityKey`, but no content bytes. No fixed ID, title, body fragment, fixture record, arbitrary route result, or hand-authored expected hash may influence selection.
 
-The product-surface proof must use an operator-provided Hono base URL that was already listening before the verifier started. The verifier must not launch its positive-path Hono server. The operator independently provides `MK6_DATA_RELEASE_LOCK_PATH`, an immutable release lock containing the exact expected `sourceRevision`, `imageDigest`, `composeGeneration`, `composeSha256`, host, and runtime tuple. The lock cannot be derived from `/health`, the server under test, or the verifier's current checkout. Existing `verifyExternalDeploymentIdentity` from `services/platform/src/http/deployment-identity.ts` must validate this tuple without expanding implementation scope.
+The product-surface proof must use an operator-provided Hono base URL that was already listening before the verifier started, and the verifier must run in the same host and socket/container observation namespace as that listener. The verifier must not launch its positive-path Hono server. The operator independently provides `MK6_DATA_RELEASE_LOCK_PATH`, an immutable release lock containing the exact expected `sourceRevision`, `imageDigest`, `composeGeneration`, `composeSha256`, host, runtime tuple, and canonical deployed compose-release artifact identity. The lock cannot be derived from `/health`, the server under test, the running container, or the verifier's current checkout. Existing `verifyExternalDeploymentIdentity` from `services/platform/src/http/deployment-identity.ts` validates the HTTP tuple, while independent read-only kernel/process/container observation binds that tuple to the actual listener.
 
 Before loading and again after external witness reads, the verifier fetches real `/health` and requires:
 
-- HTTP readiness plus a positive PID unequal to the verifier PID; the reported PID equals the operating-system owner of the listening socket, the PID and deployment identity remain stable, uptime advances, and the OS process start precedes verifier start.
+- HTTP readiness plus a positive PID unequal to the verifier PID; canonical read-only kernel socket observation (`lsof`/`ss` for the exact effective address/port) yields one owner PID, and process-table/cgroup observation proves that PID started before the verifier and owns the running Hono container/process. `/health` PID is corroboration only and must equal this independently observed owner; it cannot establish ownership itself.
 - `database_target.fingerprint` equals the credential-free `database-target-v1` fingerprint independently derived from the direct isolated Postgres connection before loading and after probes.
 - Direct pre/post fingerprints agree, health pre/post fingerprints agree, and all four identify the same host/effective-port/database tuple without printing the connection URL.
-- `/health.deployment.identity` matches every field in the independently supplied release lock before and after; the release-lock SHA-256, not its path or secret-adjacent content, is captured in evidence.
+- The PID-owned container/process is inspected read-only through the canonical host runtime: its immutable running image/executable digest, source-revision attestation, compose generation/labels, and realpath/no-symlink deployed compose-release artifact SHA-256 must match the independent release lock. `/health.deployment.identity` must match the same fields before and after, but copied health values cannot substitute for the OS/container/artifact observations. Only sanitized hashes/identifiers and the release-lock SHA-256 are captured.
 - Both external witness reads use the pinned document-read API on that same pre-existing process and satisfy the unique source-to-mapping-to-external identity/origin/content-hash chain.
 
-A wrong-target Hono process, a verifier-created listener returning self-minted health/content JSON, and a pre-started correct-target impostor serving copied witness bytes under the wrong code identity must fail even when their response shapes and content hashes appear valid.
+A wrong-target Hono process, a verifier-created listener returning self-minted health/content JSON, a pre-started correct-target impostor under the wrong code identity, and a pre-existing correct-database impostor that copies every `/health` identity value must fail when the independently observed PID-owned image/executable or compose release artifact differs from the lock—even when response shapes, copied identities, and witness hashes appear valid.
 
 External witness requests require one operator-loaded RN-scoped bearer token under the names-only inputs `HOLO_KEY_RN` (preferred) or `MK6_DATA_EXTERNAL_BEARER_TOKEN` (an explicitly supplied RN-authorized verifier token). The operator loads it from the local `.env`, `services/platform/config/secrets.yaml`, or an explicitly selected `HOLOCRON_SECRETS_PATH`/`HOLO_SECRETS_PATH`; the verifier does not read or copy secret stores into evidence. It sends exactly `Authorization: Bearer <token>` on each witness request. It must fail as `WITNESS_AUTH_MISSING` before issuing a witness request when no token is available, reject HTTP 401 or 403 as `WITNESS_AUTH_REJECTED` without an unauthenticated retry, and never print the token, header, or credential-bearing source value.
 
@@ -131,12 +132,12 @@ External witness requests require one operator-loaded RN-scoped bearer token und
 
 - [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --case composite-positive --json` admits only the canonical composite source, proves symmetric semantic pre/copy/post equality for export/SQLite/blobs, derives lossless two-way provenance, loads the materialized union into isolated real Postgres, and proves non-empty source/content/FK/blob parity plus two selected witnesses through the exact pre-existing Hono process bound to that Postgres target.
 - [ ] AC-2: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control count-equal-content-corrupt --json` succeeds only when a byte mutation in isolated Postgres preserves row counts but is rejected as `CONTENT_DIGEST_MISMATCH`.
-- [ ] AC-3: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control provenance-matrix --json` succeeds only when missing local delta, forged general provenance, missing materialized-local provenance, dropped provenance-only tombstone, and forged local-batch semantics are rejected with their specified failure classes.
-- [ ] AC-4: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control snapshot-blob-matrix --json` succeeds only when independent export, SQLite, and blob-source post-snapshot drift plus missing and replaced snapshot blobs are rejected with their specified failure classes.
+- [ ] AC-3: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control provenance-matrix --json` succeeds only when missing local delta, forged general provenance, missing materialized-local provenance, dropped provenance-only tombstone, forged local-batch semantics, and forged or ambiguous canonical provenance-record digests are rejected with their specified failure classes.
+- [ ] AC-4: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control snapshot-blob-matrix --json` succeeds only when independent export, SQLite, and complete blob-inventory post-snapshot drift plus missing/replaced referenced blobs and mutated/omitted/unmapped unreferenced blob files are rejected with their specified failure classes.
 - [ ] AC-5: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control identity-source-matrix --json` succeeds only when nonexistent selected document, fixture path, arbitrary source clone, and symlink source indirection are rejected with their specified failure classes.
-- [ ] AC-6: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json` succeeds only when a pre-existing Hono bound to the wrong Postgres target, a verifier-created/self-minted listener, and a pre-started correct-target impostor with the wrong release identity are rejected as `DATABASE_TARGET_MISMATCH`, `SELF_MINTED_LISTENER_REJECTED`, and `IDENTITY_MISMATCH`.
+- [ ] AC-6: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json` succeeds only when a pre-existing Hono bound to the wrong Postgres target, a verifier-created listener, a wrong-code process, and a correct-database impostor copying `/health` identity are rejected by direct target plus independent OS/container/release-artifact observation.
 - [ ] AC-7: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control witness-auth-matrix --json` succeeds only when absent witness credentials fail before any witness request as `WITNESS_AUTH_MISSING` and real HTTP 401/403 responses fail as `WITNESS_AUTH_REJECTED` without credential/header disclosure or unauthenticated retry.
-- [ ] AC-8: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control full-inventory-matrix --json` succeeds only when the full Convex table/system/storage, SQLite physical/logical/class, and referenced-blob inventories are losslessly dispositioned and every omitted or unmapped table/class/object/blob mutant is rejected.
+- [ ] AC-8: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control full-inventory-matrix --json` succeeds only when every recursively discovered Convex entry, snapshot-first catalog drift, zero-ref storage pair, SQLite class, storage-identity-to-CAS mapping, and referenced/unreferenced blob file is losslessly dispositioned and every named mutant is rejected.
 - [ ] AC-9: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-witness-contract-matrix --json` succeeds only when arbitrary content-probe, wrong route/method, missing/wrong/ambiguous mappings, wrong external ID/origin/digest, and invalid UTF-8/response schema are rejected.
 
 Each negative-control invocation must first pass the unmodified real baseline, mutate only a disposable derivative or isolated target, observe the exact named rejection, and then exit zero. It exits non-zero if the mutant is accepted, the baseline is unhealthy, the expected class is absent, or retained sources are touched.
@@ -183,18 +184,35 @@ Each negative-control invocation must first pass the unmodified real baseline, m
 | TC-36 | Duplicate or conflicting forward/reverse document mappings are rejected. | AC-9 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control ambiguous-document-mapping --json` |
 | TC-37 | A document-read success body outside the pinned response schema is rejected. | AC-9 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control invalid-witness-response-schema --json` |
 | TC-38 | Invalid or replacement-decoded UTF-8 witness bytes are rejected. | AC-9 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control invalid-witness-utf8 --json` |
+| TC-39 | Omitting the deterministic discovered root-metadata entry from a disposable export snapshot is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-convex-root-metadata --json` |
+| TC-40 | Retyping the deterministic discovered root-metadata entry in its manifest is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control retyped-convex-root-metadata --json` |
+| TC-41 | Same-size replacement bytes for the deterministic discovered root-metadata file are rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control replaced-convex-root-metadata --json` |
+| TC-42 | Omitting a snapshot-discovered catalog-drift table from lossless accounting is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-convex-catalog-drift-entry --json` |
+| TC-43 | Leaving a snapshot-discovered catalog-drift table without its proven source-backed disposition is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-convex-catalog-drift-entry --json` |
+| TC-44 | A local blob alias without identical declared and recomputed CAS evidence is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control invalid-local-blob-alias --json` |
+| TC-45 | One local storage identity mapping to multiple CAS objects or conflicting bytes sharing a CAS key is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control local-blob-cas-collision --json` |
+| TC-46 | A declared local CAS alias whose exact bytes disagree with its group is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control local-blob-byte-mismatch --json` |
+| TC-47 | Omitting a zero-reference Convex storage metadata/object pair is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-unreferenced-convex-storage-object --json` |
+| TC-48 | Leaving a zero-reference Convex storage pair without its source-derived disposition is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-unreferenced-convex-storage-object --json` |
+| TC-49 | Inventing a source-row or catalog reference for an unreferenced Convex storage pair is rejected. | AC-8 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-convex-storage-reference --json` |
+| TC-50 | Post-snapshot drift in a discovered unreferenced local blob file is rejected. | AC-4 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unreferenced-blob-source-mutated-after-snapshot --json` |
+| TC-51 | Omitting a discovered unreferenced local blob file is rejected. | AC-4 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-unreferenced-blob-file --json` |
+| TC-52 | Leaving a discovered unreferenced local blob file without a lossless disposition is rejected. | AC-4 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-unreferenced-blob-file --json` |
+| TC-53 | A correct-database impostor copying all `/health` identity fields fails independent OS/container/artifact observation. | AC-6 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control copied-health-identity-impostor --json` |
+| TC-54 | A hand-authored or stale provenance-record digest for a tombstone is rejected. | AC-3 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-tombstone-provenance-digest --json` |
+| TC-55 | A tombstone digest omitting fields or ambiguously identifying multiple provenance records is rejected. | AC-3 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control ambiguous-tombstone-provenance-digest --json` |
 
-Static seed corpora, fixture archives, arbitrary clones, symlinked sources, loader-known-only inventories, catalog-count inventories, omitted or unmapped source classes/objects, authorizing historical counts, row-count-only checks, one-sided source hashes, raw live-SQLite copies, existence-only blob checks, successful empty reads, health-derived expected release identity, `/api/content-probe`, ambiguous ID mapping, lossy/nonfatal UTF-8 decoding, unauthenticated witness requests, self-started positive-path Hono, and tests that pass with Postgres or Hono stopped are non-oracles.
+Static seed corpora, fixture archives, arbitrary clones, symlinked sources, loader-known-only inventories, catalog-count inventories, table/system-only export inventories, root-filename allowlists, omitted or unmapped source classes/objects/metadata, authorizing historical counts, row-count-only checks, one-sided source hashes, raw live-SQLite copies, existence-only blob checks, successful empty reads, health-derived expected release identity, `/api/content-probe`, ambiguous ID mapping, lossy/nonfatal UTF-8 decoding, unauthenticated witness requests, self-started positive-path Hono, and tests that pass with Postgres or Hono stopped are non-oracles.
 
 ## Implementation boundary and MCP branch decision
 
-MK6-DATA-001 does **not** require the local-only MCP branch to land first. The platform task consumes the already-materialized SQLite format through new `services/platform/src/etl/composite-corpus.ts` code and does not import source from the MCP worktree. The read-only schema reference is branch `mcp-sqlite-local` at `85c49b0abc8bf103c20c82e980eb55154ea2311c`. Existing `services/platform/src/db/connection.ts` and `services/platform/src/http/health.ts` already expose the credential-free database-target fingerprint and serving PID needed here and remain read-only dependencies.
+MK6-DATA-001 does **not** require the local-only MCP branch to land first. The platform task consumes the already-materialized SQLite format through new `services/platform/src/etl/composite-corpus.ts` code and does not import source from the MCP worktree. The read-only schema reference is branch `mcp-sqlite-local` at `85c49b0abc8bf103c20c82e980eb55154ea2311c`. Existing `services/platform/src/db/connection.ts` and `services/platform/src/http/health.ts` remain read-only dependencies. Existing `scopeExportForEtl` is not a completeness boundary because it drops uncataloged tables and storage; the composite loader discovers and accounts for the immutable raw snapshot first and derives the source-backed catalog-drift/unreferenced dispositions inside the already-allowed composite ETL/reconcile paths.
 
 Implementation may modify only the eight listed source/test/script paths. Generated writes are limited to a newly created `.tmp/MK6-DATA-001/${RUN_ID}/**`, the operator-authorized isolated Postgres target, and loopback impostor listeners used only as rejection mutants. The retained export, live SQLite database/WAL/SHM, local blob store, release lock, operator secret stores, operator non-target databases, pre-existing Hono process, MCP worktree, and repository fixtures are read-only. No package or schema migration is implied; discovery of a required additional path or dependency triggers another spec repair before implementation.
 
 ## Human verification
 
-The operator must accept the recovered `$HOME/.holocron` default or explicitly name one equivalent canonical root, provide the already-listening Hono base URL, isolated direct Postgres connection, independent release-lock path, and one named bearer-token environment variable, and authorize only run-scoped snapshots plus writes to that isolated target. The operator reviews full inventory/set digests, every disposition class, snapshot-derived equations, witness mapping chains, identifiers/counts/hashes, server PID/uptime class, database-target and release-lock fingerprints, and manifest hash. No historical count authorizes success; no research body, connection URL, token, or authorization header may be printed.
+The operator must accept the recovered `$HOME/.holocron` default or explicitly name one equivalent canonical root, invoke the verifier in the already-listening Hono process's host/runtime observation namespace, provide the Hono base URL, isolated direct Postgres connection, independent release-lock path, and one named bearer-token environment variable, and authorize only run-scoped snapshots plus writes to that isolated target. The operator reviews complete export/blob inventory digests, every disposition and CAS alias group, snapshot-derived equations, provenance-record digests, witness mapping chains, identifiers/counts/hashes, kernel-observed listener/process identity, running image/executable and deployed compose artifact hashes, database-target and release-lock fingerprints, and manifest hash. No historical count authorizes success; no research body, connection URL, token, authorization header, or secret-bearing process metadata may be printed.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -240,7 +258,8 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     "snapshot_semantics": {
       "convex-export": {
         "copy": "run-scoped-complete-tree-copy",
-        "semantic_digest": "sorted-relative-path+byte-length+sha256",
+        "semantic_digest": "sorted-recursive-lstat-relative-path-identity+node-type+deterministic-logical-size+content-or-tree-sha256",
+        "entry_policy": "every-direct-root-entry-and-descendant-no-follow-no-skip-dotfiles-reject-symlink-or-special-node",
         "required_equal_checkpoints": [
           "export-source-pre",
           "export-snapshot-copy",
@@ -259,20 +278,22 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       },
       "sqlite-blob-store": {
         "copy": "run-scoped-complete-inventory-copy",
-        "verification": "referenced-byte-sha256-never-existence-only",
-        "semantic_digest": "sorted-referenced-relative-path+byte-length+sha256",
+        "verification": "complete-discovered-inventory-byte-sha256-never-referenced-only-or-existence-only",
+        "semantic_digest": "sorted-every-discovered-relative-path-identity+node-type+byte-length+sha256",
+        "discovery": "recursive-lstat-every-blob-root-entry-before-file_objects-join-no-follow",
         "required_equal_checkpoints": [
           "blob-source-pre",
           "blob-snapshot-copy",
           "blob-source-post"
         ],
-        "unreferenced_files": "lossless-inventory-not-materialized-row"
+        "unreferenced_files": "explicit-immutable-nonmaterialized-disposition-and-included-in-pre-copy-post-digest"
       }
     },
     "full_inventory": {
       "schema": "holocron.mk6.full-source-inventory.v1",
       "boundary": "derive-complete-snapshot-surface-never-loader-known-set-or-catalog-count",
       "manifest_arrays": [
+        "convex.filesystemEntries",
         "convex.tables",
         "convex.systemEntries",
         "convex.storageMetadata",
@@ -282,15 +303,40 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "sqlite.referencedBlobs",
         "sqlite.blobFiles"
       ],
+      "convex_filesystem_entries": {
+        "discovery": "recursive-lstat-every-direct-root-entry-and-descendant-without-following-links-or-skipping-dotfiles",
+        "allowed_node_types": [
+          "directory",
+          "regular-file"
+        ],
+        "unsupported_node_policy": "symlink-or-special-node-fails-closed-after-discovery-never-followed",
+        "per_item_fields": "canonical-relative-path+path-identity-sha256+node-type+deterministic-logical-size-bytes+content-or-tree-sha256+root-owner-class+disposition+target-or-formula+mapped-or-archived-identity-sha256",
+        "size_policy": "regular-file=exact-byte-length;directory=sum-descendant-regular-file-byte-lengths",
+        "digest_policy": "regular-file=sha256-exact-bytes;directory=sha256-sorted-immediate-child-relative-path-identity+type+size+digest-tuples",
+        "root_owner_classes": [
+          "cataloged-table-subtree",
+          "underscore-system-subtree",
+          "root-metadata"
+        ],
+        "root_metadata_discovery": "every-discovered-direct-root-regular-file-not-owned-by-table-or-underscore-system-class-never-filename-allowlist",
+        "root_metadata_disposition": "preserve-as-immutable-nonmaterialized-export-metadata-with-source-digest-and-mapped-or-archived-identity",
+        "negative_control_selection": "lexicographically-smallest-path-identity-sha256-among-discovered-root-metadata-regular-files-with-nonempty-bytes",
+        "required_bijection": "source-lstat-entry-identities=manifest-filesystem-entry-identities=snapshot-lstat-entry-identities-one-to-one",
+        "required_partition": "every-filesystem-entry-owned-by-exactly-one-root-owner-class"
+      },
       "convex_tables": {
-        "discovery": "parse-every-name-from-_tables/documents.jsonl-and-equal-nonunderscore-top-level-table-directories",
+        "discovery": "snapshot-first-parse-every-name-from-_tables/documents.jsonl-and-equal-nonunderscore-top-level-table-directories-before-catalog-reconcile",
         "required_files": [
           "documents.jsonl",
           "generated_schema.jsonl"
         ],
-        "per_item_fields": "name+relative-file-identities+schema-sha256+row-count+row-identity-sha256+row-content-sha256+observed-field-sha256+catalog-entry-sha256+disposition+target-or-formula+mapped-or-archived-identity-sha256",
+        "per_item_fields": "name+filesystem-entry-identities+relative-file-identities+schema-sha256+row-count+row-identity-sha256+row-content-sha256+observed-field-sha256+catalog-entry-or-derived-disposition-sha256+disposition+target-or-formula+mapped-or-archived-identity-sha256",
         "mapping_authority": ".spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
-        "set_equation": "_tables-names=nonunderscore-table-directories=manifest-convex-table-names"
+        "set_equation": "_tables-names=nonunderscore-table-directories=manifest-convex-table-names=cataloged-identities+source-backed-catalog-drift-identities",
+        "catalog_reconciliation": "discovered-set-first-then-catalog-tables-plus-nonunderscore-exclusions-never-catalog-count-first",
+        "catalog_drift_disposition": "source-backed-catalog-drift-archive-only-if-every-export-identity-and-content-digest-is-losslessly-accounted-in-sqlite-logical-rows-and-provenance",
+        "required_catalog_drift_member": "migrationFenceAudit-without-hardcoded-row-count",
+        "catalog_scalar_expected_counts_authorize_success": false
       },
       "convex_system_entries": {
         "discovery": "recursive-every-underscore-prefixed-root-entry",
@@ -305,8 +351,12 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "metadata_source": "every-row-of-_storage/documents.jsonl",
         "object_source": "every-nonmetadata-file-under-_storage",
         "bijection": "one-metadata-identity-to-one-object-file",
-        "per_item_fields": "storage-id+internal-id-hash+relative-file-identity+bytes+sha256+content-type+all-source-row-refs+catalog-ref+disposition+target",
-        "include_nonmaterialized": true
+        "reference_discovery": "zero-or-more-source-row-field-references-per-storage-identity-derived-before-catalog-reconcile",
+        "referenced_policy": "all-discovered-source-refs-reconciled-to-catalog-storage-field-dispositions",
+        "unreferenced_policy": "zero-ref-metadata-object-pair-gets-versioned-source-derived-unreferenced-storage-evidence-disposition-without-invented-ref-or-product-row",
+        "per_item_fields": "storage-id+internal-id-hash+filesystem-entry-identity+bytes+sha256+content-type+all-discovered-source-row-refs+catalog-ref-or-unreferenced-authority+disposition+target-or-archive-identity",
+        "include_nonmaterialized": true,
+        "exactly_one_catalog_ref_required": false
       },
       "sqlite_tables": {
         "discovery": "snapshot-PRAGMA-table_list-main-schema-excluding-sqlite_schema",
@@ -337,8 +387,12 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "sqlite_blobs": {
         "reference_source": "every-file_objects-row-plus-every-logical-row-field-reference",
         "identity": "storage_id+declared-sha256+declared-bytes+content-type+hashed-relative-path",
-        "bijection": "one-referenced-storage-identity-to-one-byte-object",
-        "unreferenced_policy": "lossless-file-inventory-never-invent-materialized-row"
+        "identity_to_cas_mapping": "total-function-every-unique-storage_id-to-exactly-one-canonical-relative-path+recomputed-sha256+byte-length-CAS-key",
+        "many_to_one_cas_allowed": "only-explicit-dedup-groups-with-identical-declared-path-hash-bytes-content-type+recomputed-exact-bytes+complete-source-refs",
+        "collision_policy": "reject-one-storage-id-to-multiple-CAS-keys-or-conflicting-bytes-sharing-claimed-key-or-path",
+        "per_dedup_group_fields": "cas-key+canonical-relative-path+recomputed-sha256+byte-length+content-type+sorted-storage-ids+sorted-source-row-refs+group-proof-sha256",
+        "blob_file_discovery": "recursive-complete-snapshot-blob-files-before-reference-join",
+        "unreferenced_policy": "lossless-immutable-nonmaterialized-file-disposition-included-in-pre-copy-post-digest-never-invent-materialized-row"
       },
       "source_item_equation": "source-identities=materialized-identities+explicitly-nonmaterialized-identities-disjoint",
       "required_zero_counts": [
@@ -346,11 +400,29 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "omittedSourceItemCount",
         "duplicateSourceIdentityCount",
         "ambiguousDispositionCount",
+        "convexFilesystemEntryOmittedCount",
+        "convexFilesystemEntryUnclassifiedCount",
+        "convexFilesystemEntryDuplicateCount",
+        "convexFilesystemEntryAmbiguousDispositionCount",
+        "convexFilesystemEntryTypeMismatchCount",
+        "convexFilesystemEntrySizeMismatchCount",
+        "convexFilesystemEntryDigestMismatchCount",
+        "convexRootEntryClassMismatchCount",
+        "convexRootMetadataOmittedCount",
+        "convexCatalogDriftOmittedCount",
+        "convexCatalogDriftUnmappedCount",
         "convexTableSetMismatchCount",
         "convexStorageBijectionMismatchCount",
+        "convexStorageUnreferencedUndispositionedCount",
+        "convexStorageForgedReferenceCount",
         "sqliteUnclassifiedPhysicalTableCount",
         "sqliteUnclassifiedLogicalTableCount",
-        "referencedBlobBijectionMismatchCount"
+        "sqliteBlobIdentityUnmappedCount",
+        "sqliteBlobInvalidAliasCount",
+        "sqliteBlobCasCollisionCount",
+        "sqliteBlobByteMismatchCount",
+        "sqliteBlobFileOmittedCount",
+        "sqliteBlobFileUndispositionedCount"
       ],
       "canonical_array_hashes_required": true
     },
@@ -415,7 +487,23 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "timestamps": "positive-and-ordered",
         "import_count": ">=1"
       },
-      "provenance_only_policy": "preserve-identity-batch-timestamps-import-count-and-row-digest-never-materialize",
+      "tombstone_digest": {
+        "schema": "canonical-provenance-record-v1",
+        "algorithm": "sha256-RFC8785-canonical-JSON-UTF8",
+        "exact_fields": [
+          "table_name",
+          "row_id",
+          "import_batch_id",
+          "source_origin",
+          "first_imported_at",
+          "last_imported_at",
+          "import_count"
+        ],
+        "semantic_scope": "available-normalized-import_row_provenance-fields-only-never-deleted-source-row-or-document-content-bytes",
+        "required_mapping": "one-recomputed-digest-to-exactly-one-table_name+row_id-record-with-all-seven-fields",
+        "forbid_hand_authored_or_ambiguous_digest": true
+      },
+      "provenance_only_policy": "preserve-identity-and-canonical-provenance-record-digest-never-claim-deleted-content-never-materialize",
       "historical_corpus_counts_authorize_success": false
     },
     "witness_selection": {
@@ -494,6 +582,8 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "external_base_url_env": "MK6_DATA_EXTERNAL_BASE_URL",
       "health_path": "/health",
       "server_requirement": "pre-existing-before-verifier-start-never-positive-path-self-start",
+      "observation_namespace": "verifier-runs-on-listener-host-with-read-only-kernel-process-container-and-deployed-artifact-access",
+      "health_identity_role": "corroboration-only-never-ownership-or-release-authority",
       "pid_checks": [
         "positive-integer",
         "not-verifier-pid",
@@ -502,6 +592,10 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "os-process-start-before-verifier-start",
         "uptime-advances"
       ],
+      "independent_listener_observation": "kernel-socket-table-lsof-or-ss-exact-effective-address-and-port-yields-one-owner-pid",
+      "independent_process_observation": "process-table-and-cgroup-bind-owner-pid-start-time-executable-and-container-id",
+      "independent_runtime_observation": "read-only-host-container-inspect-binds-pid-owned-running-image-digest-source-revision-attestation-and-compose-generation-labels",
+      "independent_compose_observation": "realpath-no-symlink-sha256-of-canonical-deployed-compose-release-artifact-named-by-release-lock",
       "database_target_fingerprint": "database-target-v1(host,effective_port,database)",
       "required_equal_checkpoints": [
         "direct-postgres-pre",
@@ -519,6 +613,13 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "composeGeneration",
         "composeSha256"
       ],
+      "required_observed_equalities": [
+        "health.pid=kernel-listener-owner-pid=pid-owned-container-process",
+        "observed-sourceRevision=release-lock-sourceRevision=health-sourceRevision",
+        "observed-running-imageDigest=release-lock-imageDigest=health-imageDigest",
+        "observed-composeGeneration=release-lock-composeGeneration=health-composeGeneration",
+        "observed-deployed-compose-artifact-sha256=release-lock-composeSha256=health-composeSha256"
+      ],
       "deployment_identity_verifier": "verifyExternalDeploymentIdentity from services/platform/src/http/deployment-identity.ts",
       "deployment_identity_checkpoints": [
         "release-lock-expected",
@@ -530,7 +631,8 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "wrong-postgres-target",
         "verifier-started-positive-hono",
         "self-minted-health-or-content-json",
-        "correct-target-wrong-code-identity"
+        "correct-target-wrong-code-identity",
+        "correct-database-copied-health-identity-with-observed-runtime-mismatch"
       ]
     },
     "witness_auth": {
@@ -564,7 +666,10 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "witness-mapping-chain",
         "credential-free-target-fingerprint",
         "release-lock-sha256",
-        "pid-and-uptime-class"
+        "pid-and-uptime-class",
+        "sanitized-kernel-listener-owner-identity",
+        "observed-running-image-or-executable-sha256",
+        "observed-deployed-compose-artifact-sha256"
       ],
       "forbidden_evidence": [
         "research-document-body",
@@ -597,16 +702,33 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "dropped-provenance-tombstone",
       "forged-local-batch-fields",
       "wrong-code-identity",
+      "copied-health-identity-impostor",
       "missing-witness-auth",
       "witness-auth-rejected",
+      "omitted-convex-root-metadata",
+      "retyped-convex-root-metadata",
+      "replaced-convex-root-metadata",
+      "omitted-convex-catalog-drift-entry",
+      "unmapped-convex-catalog-drift-entry",
       "omitted-convex-table",
       "unmapped-convex-table",
       "omitted-convex-storage-object",
       "unmapped-convex-storage-object",
+      "omitted-unreferenced-convex-storage-object",
+      "unmapped-unreferenced-convex-storage-object",
+      "forged-convex-storage-reference",
       "omitted-sqlite-table-or-class",
       "unmapped-sqlite-table-or-class",
       "omitted-referenced-blob",
       "unmapped-referenced-blob",
+      "invalid-local-blob-alias",
+      "local-blob-cas-collision",
+      "local-blob-byte-mismatch",
+      "unreferenced-blob-source-mutated-after-snapshot",
+      "omitted-unreferenced-blob-file",
+      "unmapped-unreferenced-blob-file",
+      "forged-tombstone-provenance-digest",
+      "ambiguous-tombstone-provenance-digest",
       "arbitrary-content-probe",
       "wrong-document-route",
       "missing-document-mapping",
@@ -636,16 +758,23 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
   "fixtures": {
     "real_composite_corpus": {
       "seed_method": "recorded_external",
-      "description": "canonically admitted retained Convex export, SQLite backup, and SQLite-derived blob inventory; real identifiers, counts, and hashes only",
+      "description": "canonically admitted retained Convex export, SQLite backup, and recursively discovered local blob inventory reconciled to SQLite; real identifiers, snapshot-derived counts, and hashes only",
       "records": [
         "canonicalRootDefault: $HOME/.holocron",
         "corpusCardinalities: snapshot-derived-never-authorizing",
         "localAccounting: N-plus-M-equals-P-with-N-positive-and-P-at-least-N",
         "fullInventorySchema: holocron.mk6.full-source-inventory.v1",
         "inventoryBoundary: complete-snapshot-surface-never-loader-known-set-or-catalog-count",
+        "convexFilesystemInventory: recursive-every-root-entry-and-descendant-with-root-metadata-no-filename-allowlist",
+        "convexCatalogReconciliation: snapshot-first-with-lossless-source-backed-catalog-drift-disposition",
+        "convexStorageReferences: zero-or-more-with-source-derived-unreferenced-evidence-disposition",
+        "localBlobMapping: total-storage-identity-to-CAS-with-explicit-proven-dedup-groups",
+        "localBlobInventory: recursive-complete-root-before-reference-join-with-unreferenced-disposition",
+        "tombstoneDigest: canonical-seven-field-provenance-record-never-deleted-content",
         "documentReadRoute: authenticated-GET-/api/documents/:id-with-mapped-Postgres-id",
         "witnessChain: source-id-to-unique-mapped-Postgres-id-to-external-id-origin-content-sha256",
         "releaseLockInputName: MK6_DATA_RELEASE_LOCK_PATH",
+        "runtimeIdentity: kernel-listener-plus-pid-owned-container-and-deployed-compose-observation",
         "witnessAuthInputNames: HOLO_KEY_RN-or-MK6_DATA_EXTERNAL_BEARER_TOKEN",
         "secretSourceNamesOnly: operator-local-env-or-secrets-path"
       ]
@@ -679,20 +808,24 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "admit the canonical root, capture all symmetric semantic checkpoints, classify local provenance, load isolated Postgres, bind pre-existing Hono health to that target, and fetch both source-derived witnesses"
+                "admit the canonical root, inventory every export/blob entry before catalog or reference joins, capture all symmetric checkpoints, classify catalog drift, CAS aliases, unreferenced objects, and tombstone provenance, load isolated Postgres, independently bind the listener runtime to the release lock, and fetch both witnesses"
               ]
             },
             "end_state": {
               "must_observe": [
                 "manifestSchema: holocron.mk6.composite-corpus.v2",
                 "manifestInventorySchema: holocron.mk6.full-source-inventory.v1",
-                "manifestInventoryArrayCount: 8",
+                "manifestInventoryArrayCount: 9",
                 "canonicalSourceCount: 3",
                 "sourceSymlinkCount: 0",
                 "semanticCheckpointMismatchCount: 0",
+                "convexFilesystemEntryMismatchCount: 0",
+                "convexRootMetadataDiscoveryMode: snapshot-derived",
+                "convexCatalogDriftUnmappedCount: 0",
                 "sqliteQuickCheck: ok",
                 "localMaterializedMissingProvenanceCount: 0",
                 "unclassifiedLocalProvenanceCount: 0",
+                "tombstoneDigestSchema: canonical-provenance-record-v1",
                 "provenanceAccountingEquationValid: true",
                 "sourceSetMissingCount: 0",
                 "sourceSetExtraCount: 0",
@@ -700,10 +833,16 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
                 "foreignKeyOrphanCount: 0",
                 "missingReferencedBlobCount: 0",
                 "blobHashMismatchCount: 0",
+                "completeBlobInventoryCheckpointMismatchCount: 0",
+                "sqliteBlobInvalidAliasCount: 0",
+                "sqliteBlobCasCollisionCount: 0",
+                "undispositionedUnreferencedBlobFileCount: 0",
                 "witnessCount: 2",
                 "witnessOrigins: convex,local",
                 "honoProcessPreExisting: true",
                 "honoPidStable: true",
+                "kernelListenerOwnerMismatchCount: 0",
+                "observedRuntimeIdentityMismatchCount: 0",
                 "databaseTargetFingerprintMismatchCount: 0",
                 "deploymentIdentityMismatchCount: 0",
                 "releaseLockSource: operator-independent",
@@ -718,12 +857,15 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
                 "canonicalSourceCount: 0",
                 "sqliteSnapshotMethod: raw-copy",
                 "blobVerificationMode: existence-only",
+                "blobVerificationMode: referenced-only",
                 "inventoryBoundary: loader-known-only",
+                "catalogCoverageSource: table_count_expected",
                 "localMaterializedMissingProvenanceCount > 0",
                 "externalProbeMode: stub",
                 "externalWitnessRoute: GET /api/content-probe",
                 "honoPidEqualsVerifierPid: true",
                 "releaseIdentitySource: health-under-test",
+                "runtimeObservationSource: health-under-test",
                 "witnessAuthorizationHeaderPrinted: true"
               ]
             }
@@ -778,7 +920,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     {
       "id": "AC-3",
       "type": "acceptance_criterion",
-      "description": "The verifier rejects incomplete or forged local materialization, provenance, tombstone accounting, and local-batch semantics",
+      "description": "The verifier rejects incomplete or forged local materialization, provenance, tombstone accounting, local-batch semantics, and canonical provenance-record digests",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control provenance-matrix --json",
       "maps_to_ac": null,
       "scenario": {
@@ -788,7 +930,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "verification_service": "sqlite-postgres-reconcile",
         "negative_control": {
           "would_fail_if": [
-            "an empty local set passes, materialized or provenance-only identities are dropped, a declared origin is trusted, or batch semantics are not rederived"
+            "an empty local set passes, materialized or provenance-only identities are dropped, a declared origin is trusted, batch semantics are not rederived, or a tombstone claims unavailable deleted-content bytes"
           ]
         },
         "evidence": {
@@ -801,18 +943,19 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "pass the baseline and independently omit the local delta, forge provenance, remove materialized-row provenance, drop the provenance-only tombstone, and alter local-writes batch fields"
+                "pass the baseline and independently omit the local delta, forge provenance, remove materialized-row provenance, drop the provenance-only tombstone, alter local-writes batch fields, forge its canonical provenance-record digest, and make a digest ambiguous"
               ]
             },
             "end_state": {
               "must_observe": [
                 "baselineStatus: passed",
-                "failureClasses: SOURCE_SET_INCOMPLETE,PROVENANCE_DERIVATION_MISMATCH,LOCAL_PROVENANCE_ACCOUNTING_MISMATCH,PROVENANCE_TOMBSTONE_DROPPED,LOCAL_BATCH_SEMANTICS_MISMATCH",
-                "mutantsRejected: 5"
+                "failureClasses: SOURCE_SET_INCOMPLETE,PROVENANCE_DERIVATION_MISMATCH,LOCAL_PROVENANCE_ACCOUNTING_MISMATCH,PROVENANCE_TOMBSTONE_DROPPED,LOCAL_BATCH_SEMANTICS_MISMATCH,TOMBSTONE_PROVENANCE_DIGEST_MISMATCH,TOMBSTONE_PROVENANCE_DIGEST_AMBIGUOUS",
+                "mutantsRejected: 7"
               ],
               "must_not_observe": [
                 "empty local provenance accepted",
                 "unclassifiedLocalProvenanceCount > 0 with verificationStatus: passed",
+                "tombstoneContentSha256: deleted-document-bytes",
                 "mutantsAccepted: 1"
               ]
             }
@@ -823,7 +966,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     {
       "id": "AC-4",
       "type": "acceptance_criterion",
-      "description": "The verifier rejects independent export, SQLite, and blob source drift plus missing and replaced referenced snapshot blobs",
+      "description": "The verifier rejects independent export, SQLite, and complete blob-inventory drift plus missing or replaced referenced and unreferenced snapshot blobs",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control snapshot-blob-matrix --json",
       "maps_to_ac": null,
       "scenario": {
@@ -833,7 +976,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "verification_service": "filesystem-sqlite-semantic-reconcile",
         "negative_control": {
           "would_fail_if": [
-            "a post checkpoint is absent, an empty semantic digest passes, raw SQLite bytes replace table/provenance digests, or blob existence replaces byte hashing"
+            "a post checkpoint is absent, an empty semantic digest passes, raw SQLite bytes replace table/provenance digests, or referenced-only/existence-only blob checks omit unreferenced bytes"
           ]
         },
         "evidence": {
@@ -846,19 +989,20 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "pass the baseline, mutate disposable export, SQLite, and blob-source derivatives after snapshot, then remove and replace referenced snapshot blobs"
+                "pass the baseline, mutate disposable export, SQLite, referenced-blob, and unreferenced-blob source derivatives after snapshot, remove and replace referenced blobs, then omit and undisposition an unreferenced blob file"
               ]
             },
             "end_state": {
               "must_observe": [
                 "baselineStatus: passed",
-                "failureClasses: EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT,SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT,BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT,BLOB_MISSING,BLOB_HASH_MISMATCH",
-                "mutantsRejected: 5",
+                "failureClasses: EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT,SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT,BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT,UNREFERENCED_BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT,BLOB_MISSING,BLOB_HASH_MISMATCH,UNREFERENCED_BLOB_FILE_OMITTED,UNREFERENCED_BLOB_FILE_UNMAPPED",
+                "mutantsRejected: 8",
                 "retainedSourceMutationCount: 0"
               ],
               "must_not_observe": [
                 "empty semantic checkpoint accepted",
                 "blobVerificationMode: existence-only",
+                "blobVerificationMode: referenced-only",
                 "mutantsAccepted: 1"
               ]
             }
@@ -914,7 +1058,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     {
       "id": "AC-6",
       "type": "acceptance_criterion",
-      "description": "The external product proof rejects Hono bound to the wrong Postgres target, a verifier-created listener, and a pre-started correct-target server with the wrong release identity",
+      "description": "The external product proof rejects wrong-target, self-minted, wrong-release, and copied-health-identity Hono processes using independent OS/container/artifact observation",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json",
       "maps_to_ac": null,
       "scenario": {
@@ -924,7 +1068,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "verification_service": "preexisting-hono-health-postgres",
         "negative_control": {
           "would_fail_if": [
-            "health database_target or deployment identity is empty, a wrong database or release fingerprint passes, PID identity is ignored, or self-minted HTTP replaces a pre-existing server"
+            "health database_target or deployment identity is empty, copied health values establish authority, a wrong database or observed runtime passes, PID ownership is not kernel-grounded, or self-minted HTTP replaces a pre-existing server"
           ]
         },
         "evidence": {
@@ -937,18 +1081,19 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "pass the baseline, probe a pre-existing Hono bound to another isolated database, probe a verifier-created listener serving copied JSON, then probe a pre-started correct-target impostor whose release identity differs from the operator lock"
+                "pass the baseline, probe a pre-existing Hono bound to another database, a verifier-created listener, a pre-started wrong-code process, and a pre-existing correct-database impostor copying all health identity fields while its observed image or compose artifact differs from the lock"
               ]
             },
             "end_state": {
               "must_observe": [
                 "baselineStatus: passed",
-                "failureClasses: DATABASE_TARGET_MISMATCH,SELF_MINTED_LISTENER_REJECTED,IDENTITY_MISMATCH",
-                "mutantsRejected: 3"
+                "failureClasses: DATABASE_TARGET_MISMATCH,SELF_MINTED_LISTENER_REJECTED,IDENTITY_MISMATCH,OBSERVED_DEPLOYMENT_IDENTITY_MISMATCH",
+                "mutantsRejected: 4"
               ],
               "must_not_observe": [
                 "empty database_target accepted",
                 "empty deployment identity accepted",
+                "copied health identity accepted without OS/container observation",
                 "honoPidEqualsVerifierPid: true with verificationStatus: passed",
                 "mutantsAccepted: 1"
               ]
@@ -1008,7 +1153,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     {
       "id": "AC-8",
       "type": "acceptance_criterion",
-      "description": "The verifier derives and losslessly dispositions the complete Convex table/system/storage, SQLite physical/logical/class, and referenced-blob inventory and rejects every omission or unmapped item",
+      "description": "The verifier dispositions every discovered export entry, catalog drift, storage pair, SQLite class, CAS identity, and referenced or unreferenced blob file and rejects every lossless-accounting violation",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control full-inventory-matrix --json",
       "maps_to_ac": null,
       "scenario": {
@@ -1018,7 +1163,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "verification_service": "immutable-snapshot-inventory-reconcile",
         "negative_control": {
           "would_fail_if": [
-            "inventory starts from loader-known tables or catalog counts, any source table/class/object/blob is absent, or a source identity lacks exactly one lossless disposition"
+            "an empty recursive inventory passes, inventory starts from loader-known tables or catalog counts, root metadata or catalog drift is skipped, CAS aliases are forced one-to-one, zero-ref storage is forced into a fake catalog ref, or any source identity lacks lossless disposition"
           ]
         },
         "evidence": {
@@ -1031,25 +1176,32 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "pass the complete snapshot-derived inventory baseline, then independently omit and unmap a Convex table, Convex storage object, SQLite physical/logical class, and referenced SQLite blob"
+                "pass the complete snapshot-first baseline, then run table/storage/SQLite/blob omission and mapping mutants plus root-metadata omission/type/bytes, catalog drift, local CAS alias/collision/bytes, zero-ref Convex storage, and unreferenced local blob disposition mutants"
               ]
             },
             "end_state": {
               "must_observe": [
                 "baselineStatus: passed",
                 "manifestInventorySchema: holocron.mk6.full-source-inventory.v1",
-                "manifestInventoryArrayCount: 8",
+                "manifestInventoryArrayCount: 9",
                 "unmappedSourceItemCount: 0",
                 "omittedSourceItemCount: 0",
                 "duplicateSourceIdentityCount: 0",
                 "ambiguousDispositionCount: 0",
-                "failureClasses: CONVEX_TABLE_OMITTED,CONVEX_TABLE_UNMAPPED,CONVEX_STORAGE_OBJECT_OMITTED,CONVEX_STORAGE_OBJECT_UNMAPPED,SQLITE_TABLE_OR_CLASS_OMITTED,SQLITE_TABLE_OR_CLASS_UNMAPPED,REFERENCED_BLOB_OMITTED,REFERENCED_BLOB_UNMAPPED",
-                "mutantsRejected: 8"
+                "convexFilesystemEntryUnclassifiedCount: 0",
+                "convexCatalogDriftUnmappedCount: 0",
+                "sqliteBlobInvalidAliasCount: 0",
+                "sqliteBlobCasCollisionCount: 0",
+                "failureClasses: CONVEX_TABLE_OMITTED,CONVEX_TABLE_UNMAPPED,CONVEX_STORAGE_OBJECT_OMITTED,CONVEX_STORAGE_OBJECT_UNMAPPED,SQLITE_TABLE_OR_CLASS_OMITTED,SQLITE_TABLE_OR_CLASS_UNMAPPED,REFERENCED_BLOB_OMITTED,REFERENCED_BLOB_UNMAPPED,CONVEX_ROOT_METADATA_OMITTED,CONVEX_ROOT_METADATA_TYPE_MISMATCH,CONVEX_ROOT_METADATA_DIGEST_MISMATCH,CONVEX_CATALOG_DRIFT_OMITTED,CONVEX_CATALOG_DRIFT_UNMAPPED,LOCAL_BLOB_ALIAS_INVALID,LOCAL_BLOB_CAS_COLLISION,LOCAL_BLOB_BYTE_MISMATCH,UNREFERENCED_CONVEX_STORAGE_OMITTED,UNREFERENCED_CONVEX_STORAGE_UNMAPPED,CONVEX_STORAGE_REFERENCE_FORGED,UNREFERENCED_BLOB_FILE_OMITTED,UNREFERENCED_BLOB_FILE_UNMAPPED",
+                "mutantsRejected: 21"
               ],
               "must_not_observe": [
                 "empty inventory accepted",
                 "inventoryBoundary: loader-known-only",
                 "inventoryBoundary: catalog-count",
+                "rootMetadataAllowlistOnly: true",
+                "sqliteBlobIdentityObjectBijectionRequired: true",
+                "convexStorageExactlyOneCatalogRefRequired: true",
                 "source item omitted with verificationStatus: passed",
                 "mutantsAccepted: 1"
               ]
@@ -1374,6 +1526,125 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "description": "Invalid or replacement-decoded UTF-8 witness bytes are rejected",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control invalid-witness-utf8 --json",
       "maps_to_ac": "AC-9"
+    },
+    {
+      "id": "TC-39",
+      "type": "test_criterion",
+      "description": "Omitting the deterministic discovered root-metadata entry from a disposable export snapshot is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-convex-root-metadata --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-40",
+      "type": "test_criterion",
+      "description": "Retyping the deterministic discovered root-metadata entry in its manifest is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control retyped-convex-root-metadata --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-41",
+      "type": "test_criterion",
+      "description": "Same-size replacement bytes for the deterministic discovered root-metadata file are rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control replaced-convex-root-metadata --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-42",
+      "type": "test_criterion",
+      "description": "Omitting a snapshot-discovered catalog-drift table from lossless accounting is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-convex-catalog-drift-entry --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-43",
+      "type": "test_criterion",
+      "description": "Leaving a snapshot-discovered catalog-drift table without its proven source-backed disposition is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-convex-catalog-drift-entry --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-44",
+      "type": "test_criterion",
+      "description": "A local blob alias without identical declared and recomputed CAS evidence is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control invalid-local-blob-alias --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-45",
+      "type": "test_criterion",
+      "description": "One local storage identity mapping to multiple CAS objects or conflicting bytes sharing a CAS key is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control local-blob-cas-collision --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-46",
+      "type": "test_criterion",
+      "description": "A declared local CAS alias whose exact bytes disagree with its group is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control local-blob-byte-mismatch --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-47",
+      "type": "test_criterion",
+      "description": "Omitting a zero-reference Convex storage metadata/object pair is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-unreferenced-convex-storage-object --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-48",
+      "type": "test_criterion",
+      "description": "Leaving a zero-reference Convex storage pair without its source-derived disposition is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-unreferenced-convex-storage-object --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-49",
+      "type": "test_criterion",
+      "description": "Inventing a source-row or catalog reference for an unreferenced Convex storage pair is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-convex-storage-reference --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-50",
+      "type": "test_criterion",
+      "description": "Post-snapshot drift in a discovered unreferenced local blob file is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unreferenced-blob-source-mutated-after-snapshot --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-51",
+      "type": "test_criterion",
+      "description": "Omitting a discovered unreferenced local blob file is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control omitted-unreferenced-blob-file --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-52",
+      "type": "test_criterion",
+      "description": "Leaving a discovered unreferenced local blob file without a lossless disposition is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control unmapped-unreferenced-blob-file --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-53",
+      "type": "test_criterion",
+      "description": "A correct-database impostor copying all health identity fields fails independent OS/container/artifact observation",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control copied-health-identity-impostor --json",
+      "maps_to_ac": "AC-6"
+    },
+    {
+      "id": "TC-54",
+      "type": "test_criterion",
+      "description": "A hand-authored or stale provenance-record digest for a tombstone is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-tombstone-provenance-digest --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-55",
+      "type": "test_criterion",
+      "description": "A tombstone digest omitting fields or ambiguously identifying multiple provenance records is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control ambiguous-tombstone-provenance-digest --json",
+      "maps_to_ac": "AC-3"
     }
   ]
 }
