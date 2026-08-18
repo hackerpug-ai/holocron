@@ -9,7 +9,7 @@ import { Mastra } from '@mastra/core/mastra';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createFleetAgentWithResolved, runAgentCell } from '../../src/compat/cells/agent.ts';
 import { createSql } from '../../src/db/client.ts';
-import { createChatRun, getChatRun } from '../../src/http/chat-runs.ts';
+import { createHonoApp } from '../../src/http/hono-app.ts';
 import { listInferenceTelemetry } from '../../src/inference/telemetry.ts';
 import { createStorage } from '../../src/mastra.ts';
 
@@ -30,6 +30,10 @@ if (['localhost', '127.0.0.1', '::1'].includes(fleetOrigin.hostname)) {
 if (!databaseUrl) {
   throw new Error('S33-PLAT-05 requires DATABASE_URL for real Postgres readback');
 }
+const scopedRnKey = process.env.HOLO_KEY_RN?.trim();
+if (!scopedRnKey) {
+  throw new Error('S33-PLAT-05 requires HOLO_KEY_RN for the real scoped Hono route');
+}
 
 const sql = createSql(databaseUrl);
 
@@ -37,11 +41,23 @@ afterAll(async () => {
   await sql.end({ timeout: 5 });
 });
 
-async function waitForTerminalRun(runId: string): Promise<Awaited<ReturnType<typeof getChatRun>>> {
+type PublicChatRun = {
+  status: string;
+  finalText?: string;
+  events: Array<{ event_type: string; data_json: unknown }>;
+};
+
+async function waitForTerminalRun(
+  app: ReturnType<typeof createHonoApp>,
+  runId: string
+): Promise<PublicChatRun> {
   const deadline = Date.now() + 300_000;
   while (Date.now() < deadline) {
-    const result = await getChatRun(runId, { databaseUrl });
-    if (!result) throw new Error(`chat run ${runId} disappeared`);
+    const response = await app.request(`/api/chat-runs/${runId}`, {
+      headers: { authorization: `Bearer ${scopedRnKey}` },
+    });
+    if (!response.ok) throw new Error(`public GET chat run ${runId} returned ${response.status}`);
+    const result = (await response.json()) as PublicChatRun;
     if (['completed', 'blocked', 'failed'].includes(result.status)) return result;
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
@@ -134,16 +150,23 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
   }, 300_000);
 
   it('AC-5: a real public chat run creates before its fleet stream is observed', async () => {
+    const app = createHonoApp({ keys: { rn: scopedRnKey, mcp: '', control: '' } });
     const requestId = `s33-plat-05-${randomUUID()}`;
-    const created = await createChatRun(
-      {
+    const createResponse = await app.request('/api/chat-runs', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${scopedRnKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
         requestId,
         msg: `S33 nonce ${randomUUID()}: reply with one short sentence.`,
-      },
-      'mcp',
-      { databaseUrl }
-    );
-    const terminal = await waitForTerminalRun(created.runId);
+      }),
+    });
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { runId: string };
+    expect(created.runId).toMatch(/^[0-9a-f-]{36}$/i);
+    const terminal = await waitForTerminalRun(app, created.runId);
 
     expect(terminal).not.toBeNull();
     if (!terminal) throw new Error(`chat run ${created.runId} did not return a terminal row`);
@@ -156,8 +179,12 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(rows.every((row) => row.provider === 'fleet')).toBe(true);
     expect(rows.every((row) => row.endpoint === `${fleetOrigin.origin}/v1`)).toBe(true);
 
-    const persisted = await getChatRun(created.runId, { databaseUrl });
-    const accounting = persisted?.events.find((event) => event.event_type === 'model-accounting');
+    const persistedResponse = await app.request(`/api/chat-runs/${created.runId}`, {
+      headers: { authorization: `Bearer ${scopedRnKey}` },
+    });
+    expect(persistedResponse.status).toBe(200);
+    const persisted = (await persistedResponse.json()) as PublicChatRun;
+    const accounting = persisted.events.find((event) => event.event_type === 'model-accounting');
     expect(accounting, 'request-scoped terminal accounting event').toBeDefined();
     expect(accounting?.data_json).toMatchObject({
       requestId,
