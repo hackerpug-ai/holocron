@@ -440,7 +440,7 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
     }
     for (const directory of temporaryDirectories)
       rmSync(directory, { recursive: true, force: true });
-  });
+  }, 60_000);
 
   itLive(
     'AC-1: returns seeded Postgres content and literal null for an absent UUID over Streamable HTTP',
