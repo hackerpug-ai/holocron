@@ -1,7 +1,7 @@
 # MK6-DATA-001: Restore Postgres data-plane truth
 
 > Status: 🟡 In Progress
-> Cycle: 2
+> Cycle: 3
 > Updated: 2026-08-18T00:00:00Z
 > Assignee: mastra-implementer
 > Reviewer: mastra-reviewer
@@ -24,11 +24,11 @@ Workflow-only. Source admission, snapshotting, provenance derivation, loading, r
 
 The verifier admits one composite corpus rooted at a single canonical directory. Its default is the recovered `$HOME/.holocron`; an operator may instead set `MK6_DATA_CANONICAL_ROOT` to an explicitly equivalent durable root. The three source locations are derived from that root and cannot be independently redirected:
 
-| Source | Required relative path | Observed retained evidence (2026-08-18) |
+| Source | Required relative path | Admission requirement |
 |---|---|---|
-| Convex cutover export | `exports/convex-dev-cutover-2026-08-09` | Full table/storage export; `documents/documents.jsonl` is 39,433,251 bytes. |
-| Local SQLite database | `holocron.db` | 1,641 documents: 1,623 Convex-origin and 18 materialized local; 127 deep-research sessions; 259 iterations; `PRAGMA quick_check=ok`. |
-| Local blob store | `blobs` | 1,191 `file_objects` rows, 1,155 distinct referenced paths, zero missing referenced paths, and 1,161 files observed. |
+| Convex cutover export | `exports/convex-dev-cutover-2026-08-09` | Full real table/storage tree; derive every table count and digest from the admitted snapshot. |
+| Local SQLite database | `holocron.db` | Real SQLite backup with `PRAGMA quick_check=ok`; derive every materialized/provenance count from the same snapshot. |
+| Local blob store | `blobs` | Real `file_objects`-derived referenced-byte inventory; derive inventory and missing/hash results from the snapshot. |
 
 Admission resolves the root and each path with `realpath`, requires the supplied spelling to equal its absolute canonical path, and rejects a symlink in any path component. The admitted root must be a durable operator-selected corpus root, not the repository, a worktree, the run root, project `.tmp`, system temporary storage, `fixtures`, `testdata`, or a generated/copy directory. While the recovered default exists, an alternate root is equivalent only when all three preflight semantic identities equal those independently derived from the default; a byte-identical explicitly admitted alternate is equivalent, while an unproven or modified clone is arbitrary and rejected. The verifier records hashes of the canonical root and paths, but no secret-bearing path value. Arbitrary per-source overrides and symlink indirection fail before snapshotting.
 
@@ -41,7 +41,7 @@ The operator admits the canonical root and deliberately invokes the verifier. Ev
 1. Create a cryptographically unique `RUN_ID` and a new `.tmp/MK6-DATA-001/${RUN_ID}/` with exclusive-create semantics. Reject an existing or symlinked run root.
 2. **Export:** compute a canonical digest over sorted relative path, byte length, and SHA-256 for every export file; copy the complete tree; recompute the snapshot digest; after all Postgres and Hono probes recompute the canonical source digest. Require `export-source-pre == export-snapshot-copy == export-source-post`. Never add a sidecar to the retained export.
 3. **SQLite:** use SQLite backup semantics for the initial immutable snapshot; raw database/WAL/SHM copying is forbidden. Run `PRAGMA quick_check=ok`. Derive a canonical semantic digest over schema/version plus ordered mapped-table rows, `import_batches`, `import_row_provenance`, and `file_objects`. After all probes, take a second SQLite backup from the live source and derive the same digest. Require `sqlite-source-backup-pre == sqlite-snapshot-copy == sqlite-source-backup-post`; SQLite file-layout equality is not a substitute for table/provenance semantic equality.
-4. **Blobs:** derive the referenced set only from snapshot `file_objects`; reject traversal and symlinks; compute a sorted relative-path/byte-length/SHA-256 digest from source bytes; copy the complete blob inventory; recompute the referenced-byte digest from the snapshot and again from the original source after all probes. Require `blob-source-pre == blob-snapshot-copy == blob-source-post`. Preserve the six currently observed unreferenced files as explicit inventory, never as invented materialized rows.
+4. **Blobs:** derive the referenced set only from snapshot `file_objects`; reject traversal and symlinks; compute a sorted relative-path/byte-length/SHA-256 digest from source bytes; copy the complete blob inventory; recompute the referenced-byte digest from the snapshot and again from the original source after all probes. Require `blob-source-pre == blob-snapshot-copy == blob-source-post`. Preserve every snapshot-derived unreferenced file as explicit inventory, never as an invented materialized row.
 5. Write `manifest.json` last with schema `holocron.mk6.composite-corpus.v2`, code SHA, canonical source-path hashes, all three semantic checkpoints per source, SQLite backup methods and quick checks, derived provenance/accounting digests, per-table identities/counts/content digests, blob inventory/reference digests, external process/target identity, and witness identities. It contains identifiers, counts, and hashes only—never document bodies, connection URLs, credentials, or secret values.
 6. Independently rederive every manifest fact from the immutable snapshots before success. The verifier accepts no free-form real-source claim, success value, expected count, expected hash, local-origin claim, or witness ID.
 
@@ -49,7 +49,7 @@ Per-source mutation controls operate only on disposable derivatives after a heal
 
 ## Two-way local provenance accounting
 
-The verifier first full-outer-joins materialized identities and provenance identities for every mapped table, classifies every identity exactly once as materialized-only, both, or provenance-only, and rejects any unclassified identity or unexplained materialized-only imported row. The live source currently has 19 local `documents` provenance rows but 18 materialized local documents. This is not a count mismatch to erase or paper over. The local-document policy refines the full-outer join on `(table_name='documents', row_id)`:
+The verifier first full-outer-joins materialized identities and provenance identities for every mapped table, classifies every identity exactly once as materialized-only, both, or provenance-only, and rejects any unclassified identity or unexplained materialized-only imported row. The local-document policy refines the full-outer join on `(table_name='documents', row_id)`:
 
 - `materialized-local`: a local document and its local provenance row both exist.
 - `provenance-only-tombstone`: the local provenance identity exists but the materialized document does not. Preserve its identifiers, batch identity, timestamps, import count, and row digest in the manifest; do not invent a document row.
@@ -58,17 +58,19 @@ The verifier first full-outer-joins materialized identities and provenance ident
 Require both equations:
 
 ```text
-localMaterializedDocuments = materializedLocalWithProvenance + materializedLocalMissingProvenance
-localDocumentProvenanceRows = materializedLocalWithProvenance + provenanceOnlyTombstones
+N = materializedLocalWithProvenance + materializedLocalMissingProvenance
+P = materializedLocalWithProvenance + M
+N > 0
+P >= N
 ```
 
-`materializedLocalMissingProvenance` and `unclassifiedLocalProvenance` must be zero. The currently observed `18 materialized + 1 provenance-only = 19 provenance` is recorded evidence to rederive, not a hand-authored pass constant.
+Here `N` is the snapshot-derived materialized local-document count, `M` is the snapshot-derived classified provenance-only tombstone count, and `P` is the snapshot-derived local-document provenance count. `materializedLocalMissingProvenance` and `unclassifiedLocalProvenance` must be zero. No prior observed cardinality can authorize success or be compared as an expected count.
 
 The `local-writes` batch is valid only when the snapshot row itself has `id='local-writes'`, `source='local'`, `deployment IS NULL`, `cutover_date='ongoing'`, positive `started_at`, `finished_at IS NULL`, `export_path IS NULL`, `stats_json IS NULL`, and `note='Post-cutover local writes'`. Each materialized local document must carry `source_origin='local'` and `import_batch_id='local-writes'`; its provenance row must have the same origin/batch, positive timestamps with `first_imported_at <= last_imported_at`, and `import_count >= 1`. A manifest declaration cannot replace these semantic source facts.
 
 For every mapped table, expected identities are the lossless union of export materialized identities, SQLite-only materialized identities, and classified provenance-only identities. Common materialized identities must agree on canonical content bytes. The loader imports materialized rows only, uses production transforms and `convex_id_map` lineage, and reconciles missing and extra target identities while retaining tombstone accounting in the manifest.
 
-## Witness and exact Postgres/Hono binding
+## Witness, release identity, authentication, and exact Postgres/Hono binding
 
 Select one real, non-empty document witness per source origin (`convex`, `local`). For each candidate:
 
@@ -79,14 +81,19 @@ identityKey = sha256(sourceOrigin + NUL + "documents" + NUL + sourceId + NUL + c
 
 Choose the lexicographically smallest `identityKey` per origin. Evidence may contain source ID, mapped Postgres ID, origin, content length, `contentSha256`, and `identityKey`, but no content bytes. No fixed ID, title, body fragment, fixture record, or hand-authored expected hash may influence selection.
 
-The product-surface proof must use an operator-provided Hono base URL that was already listening before the verifier started. The verifier must not launch its positive-path Hono server. Before loading and again after external witness reads, it fetches real `/health` and requires:
+The product-surface proof must use an operator-provided Hono base URL that was already listening before the verifier started. The verifier must not launch its positive-path Hono server. The operator independently provides `MK6_DATA_RELEASE_LOCK_PATH`, an immutable release lock containing the exact expected `sourceRevision`, `imageDigest`, `composeGeneration`, `composeSha256`, host, and runtime tuple. The lock cannot be derived from `/health`, the server under test, or the verifier's current checkout. Existing `verifyExternalDeploymentIdentity` from `services/platform/src/http/deployment-identity.ts` must validate this tuple without expanding implementation scope.
+
+Before loading and again after external witness reads, the verifier fetches real `/health` and requires:
 
 - HTTP readiness plus a positive PID unequal to the verifier PID; the reported PID equals the operating-system owner of the listening socket, the PID and deployment identity remain stable, uptime advances, and the OS process start precedes verifier start.
 - `database_target.fingerprint` equals the credential-free `database-target-v1` fingerprint independently derived from the direct isolated Postgres connection before loading and after probes.
 - Direct pre/post fingerprints agree, health pre/post fingerprints agree, and all four identify the same host/effective-port/database tuple without printing the connection URL.
+- `/health.deployment.identity` matches every field in the independently supplied release lock before and after; the release-lock SHA-256, not its path or secret-adjacent content, is captured in evidence.
 - Both external witness reads use that same pre-existing process and equal the source snapshot and direct Postgres byte hashes.
 
-A wrong-target Hono process and a verifier-created listener returning self-minted health/content JSON must fail even when their payload shapes and witness bytes appear valid.
+A wrong-target Hono process, a verifier-created listener returning self-minted health/content JSON, and a pre-started correct-target impostor serving copied witness bytes under the wrong code identity must fail even when their response shapes and content hashes appear valid.
+
+External witness requests require one operator-loaded bearer token under the names-only inputs `HOLO_KEY_RN` (preferred) or `MK6_DATA_EXTERNAL_BEARER_TOKEN`. The operator loads it from the local `.env`, `services/platform/config/secrets.yaml`, or an explicitly selected `HOLOCRON_SECRETS_PATH`/`HOLO_SECRETS_PATH`; the verifier does not read or copy secret stores into evidence. It sends exactly `Authorization: Bearer <token>` on each witness request. It must fail as `WITNESS_AUTH_MISSING` before issuing a witness request when no token is available, reject HTTP 401 or 403 as `WITNESS_AUTH_REJECTED` without an unauthenticated retry, and never print the token, header, or credential-bearing source value.
 
 ## Acceptance Criteria
 
@@ -95,7 +102,8 @@ A wrong-target Hono process and a verifier-created listener returning self-minte
 - [ ] AC-3: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control provenance-matrix --json` succeeds only when missing local delta, forged general provenance, missing materialized-local provenance, dropped provenance-only tombstone, and forged local-batch semantics are rejected with their specified failure classes.
 - [ ] AC-4: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control snapshot-blob-matrix --json` succeeds only when independent export, SQLite, and blob-source post-snapshot drift plus missing and replaced snapshot blobs are rejected with their specified failure classes.
 - [ ] AC-5: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control identity-source-matrix --json` succeeds only when nonexistent selected document, fixture path, arbitrary source clone, and symlink source indirection are rejected with their specified failure classes.
-- [ ] AC-6: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json` succeeds only when a pre-existing Hono bound to the wrong Postgres target and a verifier-created/self-minted listener are rejected as `DATABASE_TARGET_MISMATCH` and `SELF_MINTED_LISTENER_REJECTED`.
+- [ ] AC-6: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json` succeeds only when a pre-existing Hono bound to the wrong Postgres target, a verifier-created/self-minted listener, and a pre-started correct-target impostor with the wrong release identity are rejected as `DATABASE_TARGET_MISMATCH`, `SELF_MINTED_LISTENER_REJECTED`, and `IDENTITY_MISMATCH`.
+- [ ] AC-7: `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control witness-auth-matrix --json` succeeds only when absent witness credentials fail before any witness request as `WITNESS_AUTH_MISSING` and real HTTP 401/403 responses fail as `WITNESS_AUTH_REJECTED` without credential/header disclosure or unauthenticated retry.
 
 Each negative-control invocation must first pass the unmodified real baseline, mutate only a disposable derivative or isolated target, observe the exact named rejection, and then exit zero. It exits non-zero if the mutant is accepted, the baseline is unhealthy, the expected class is absent, or retained sources are touched.
 
@@ -121,18 +129,21 @@ Each negative-control invocation must first pass the unmodified real baseline, m
 | TC-16 | A materialized local document without local provenance is rejected. | AC-3 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control missing-materialized-local-provenance --json` |
 | TC-17 | Dropping a provenance-only tombstone identity from accounting is rejected. | AC-3 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control dropped-provenance-tombstone --json` |
 | TC-18 | Forging any semantic field of the local-writes batch or row lineage is rejected. | AC-3 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-local-batch-fields --json` |
+| TC-19 | A pre-started correct-target server with copied bytes but wrong release identity is rejected. | AC-6 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control wrong-code-identity --json` |
+| TC-20 | Missing witness credentials fail before the first witness request. | AC-7 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control missing-witness-auth --json` |
+| TC-21 | A real witness HTTP 401 or 403 is rejected without unauthenticated retry. | AC-7 | `PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control witness-auth-rejected --json` |
 
-Static seed corpora, fixture archives, arbitrary clones, symlinked sources, row-count-only checks, one-sided source hashes, raw live-SQLite copies, existence-only blob checks, successful empty reads, self-started positive-path Hono, and tests that pass with Postgres or Hono stopped are non-oracles.
+Static seed corpora, fixture archives, arbitrary clones, symlinked sources, authorizing historical counts, row-count-only checks, one-sided source hashes, raw live-SQLite copies, existence-only blob checks, successful empty reads, health-derived expected release identity, unauthenticated witness requests, self-started positive-path Hono, and tests that pass with Postgres or Hono stopped are non-oracles.
 
 ## Implementation boundary and MCP branch decision
 
 MK6-DATA-001 does **not** require the local-only MCP branch to land first. The platform task consumes the already-materialized SQLite format through new `services/platform/src/etl/composite-corpus.ts` code and does not import source from the MCP worktree. The read-only schema reference is branch `mcp-sqlite-local` at `85c49b0abc8bf103c20c82e980eb55154ea2311c`. Existing `services/platform/src/db/connection.ts` and `services/platform/src/http/health.ts` already expose the credential-free database-target fingerprint and serving PID needed here and remain read-only dependencies.
 
-Implementation may modify only the eight listed source/test/script paths. Generated writes are limited to a newly created `.tmp/MK6-DATA-001/${RUN_ID}/**`, the operator-authorized isolated Postgres target, and a loopback self-minted listener used only as a rejection mutant. The retained export, live SQLite database/WAL/SHM, local blob store, operator non-target databases, pre-existing Hono process, MCP worktree, and repository fixtures are read-only. No package or schema migration is implied; discovery of a required additional path or dependency triggers another spec repair before implementation.
+Implementation may modify only the eight listed source/test/script paths. Generated writes are limited to a newly created `.tmp/MK6-DATA-001/${RUN_ID}/**`, the operator-authorized isolated Postgres target, and loopback impostor listeners used only as rejection mutants. The retained export, live SQLite database/WAL/SHM, local blob store, release lock, operator secret stores, operator non-target databases, pre-existing Hono process, MCP worktree, and repository fixtures are read-only. No package or schema migration is implied; discovery of a required additional path or dependency triggers another spec repair before implementation.
 
 ## Human verification
 
-The operator must accept the recovered `$HOME/.holocron` default or explicitly name one equivalent canonical root, provide the already-listening Hono base URL and isolated direct Postgres connection, and authorize only run-scoped snapshots plus writes to that isolated target. The operator reviews identifiers/counts/hashes, the 18/19-derived classification, server PID/uptime class, database-target fingerprint, and manifest hash. No research body, connection URL, or secret value may be printed.
+The operator must accept the recovered `$HOME/.holocron` default or explicitly name one equivalent canonical root, provide the already-listening Hono base URL, isolated direct Postgres connection, independent release-lock path, and one named bearer-token environment variable, and authorize only run-scoped snapshots plus writes to that isolated target. The operator reviews snapshot-derived equations, identifiers/counts/hashes, server PID/uptime class, database-target and release-lock fingerprints, and manifest hash. No historical count authorizes success; no research body, connection URL, token, or authorization header may be printed.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -217,6 +228,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "sqlite-file_objects"
       ],
       "allow_handwritten_expected_hash": false,
+      "allow_handwritten_expected_count": false,
       "forbidden_assertions": [
         "source=real",
         "hand-authored-success",
@@ -238,8 +250,13 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "materialized-local-missing-provenance"
       ],
       "required_equations": [
-        "localMaterializedDocuments=materializedLocalWithProvenance+materializedLocalMissingProvenance",
-        "localDocumentProvenanceRows=materializedLocalWithProvenance+provenanceOnlyTombstones"
+        "N=materializedLocalWithProvenance+materializedLocalMissingProvenance",
+        "P=materializedLocalWithProvenance+M"
+      ],
+      "required_inequalities": [
+        "N>0",
+        "P>=N",
+        "M>=0"
       ],
       "required_zero_counts": [
         "materializedLocalMissingProvenance",
@@ -263,7 +280,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "import_count": ">=1"
       },
       "provenance_only_policy": "preserve-identity-batch-timestamps-import-count-and-row-digest-never-materialize",
-      "observed_rederive_not_constant": "18-materialized+1-provenance-only=19-local-document-provenance"
+      "historical_corpus_counts_authorize_success": false
     },
     "witness_selection": {
       "origins": [
@@ -299,12 +316,51 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "direct-postgres-post",
         "health-database-target-post"
       ],
+      "release_lock_env": "MK6_DATA_RELEASE_LOCK_PATH",
+      "release_lock_independence": "operator-provided-never-derived-from-health-server-or-current-checkout",
+      "expected_deployment_identity_fields": [
+        "host",
+        "runtime",
+        "sourceRevision",
+        "imageDigest",
+        "composeGeneration",
+        "composeSha256"
+      ],
+      "deployment_identity_verifier": "verifyExternalDeploymentIdentity from services/platform/src/http/deployment-identity.ts",
+      "deployment_identity_checkpoints": [
+        "release-lock-expected",
+        "health-deployment-identity-pre",
+        "health-deployment-identity-post"
+      ],
       "content_probe": "selected-document-bytes-through-same-pre-existing-hono",
       "forbidden": [
         "wrong-postgres-target",
         "verifier-started-positive-hono",
-        "self-minted-health-or-content-json"
+        "self-minted-health-or-content-json",
+        "correct-target-wrong-code-identity"
       ]
+    },
+    "witness_auth": {
+      "accepted_environment_names": [
+        "HOLO_KEY_RN",
+        "MK6_DATA_EXTERNAL_BEARER_TOKEN"
+      ],
+      "selection": "prefer-HOLO_KEY_RN-else-explicit-verifier-token",
+      "operator_local_source_names": [
+        ".env",
+        "services/platform/config/secrets.yaml",
+        "HOLOCRON_SECRETS_PATH",
+        "HOLO_SECRETS_PATH"
+      ],
+      "request_header": "Authorization: Bearer <token>",
+      "required_before_witness_request": true,
+      "missing_failure": "WITNESS_AUTH_MISSING-before-request",
+      "rejected_http_statuses": [
+        401,
+        403
+      ],
+      "rejected_failure": "WITNESS_AUTH_REJECTED-no-unauthenticated-retry",
+      "evidence_policy": "never-print-token-header-or-secret-source-value"
     },
     "privacy": {
       "allowed_evidence": [
@@ -312,11 +368,14 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "counts",
         "hashes",
         "credential-free-target-fingerprint",
+        "release-lock-sha256",
         "pid-and-uptime-class"
       ],
       "forbidden_evidence": [
         "research-document-body",
         "connection-url",
+        "bearer-token",
+        "authorization-header",
         "secret-value"
       ]
     },
@@ -341,7 +400,10 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "self-minted-listener",
       "missing-materialized-local-provenance",
       "dropped-provenance-tombstone",
-      "forged-local-batch-fields"
+      "forged-local-batch-fields",
+      "wrong-code-identity",
+      "missing-witness-auth",
+      "witness-auth-rejected"
     ],
     "write_allowed": [
       "services/platform/src/etl/composite-corpus.ts",
@@ -365,17 +427,11 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "description": "canonically admitted retained Convex export, SQLite backup, and SQLite-derived blob inventory; real identifiers, counts, and hashes only",
       "records": [
         "canonicalRootDefault: $HOME/.holocron",
-        "convexExportDocumentsBytesObserved: 39433251",
-        "sqliteDocumentCountObserved: 1641",
-        "sqliteConvexDocumentCountObserved: 1623",
-        "sqliteLocalMaterializedDocumentCountObserved: 18",
-        "sqliteLocalDocumentProvenanceCountObserved: 19",
-        "sqliteLocalProvenanceOnlyTombstoneCountObserved: 1",
-        "deepResearchSessionCountObserved: 127",
-        "deepResearchIterationCountObserved: 259",
-        "fileObjectRowCountObserved: 1191",
-        "distinctReferencedBlobPathCountObserved: 1155",
-        "missingReferencedBlobPathCountObserved: 0"
+        "corpusCardinalities: snapshot-derived-never-authorizing",
+        "localAccounting: N-plus-M-equals-P-with-N-positive-and-P-at-least-N",
+        "releaseLockInputName: MK6_DATA_RELEASE_LOCK_PATH",
+        "witnessAuthInputNames: HOLO_KEY_RN-or-MK6_DATA_EXTERNAL_BEARER_TOKEN",
+        "secretSourceNamesOnly: operator-local-env-or-secrets-path"
       ]
     }
   },
@@ -431,6 +487,10 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
                 "honoProcessPreExisting: true",
                 "honoPidStable: true",
                 "databaseTargetFingerprintMismatchCount: 0",
+                "deploymentIdentityMismatchCount: 0",
+                "releaseLockSource: operator-independent",
+                "witnessAuthHeaderName: Authorization",
+                "witnessAuthScheme: Bearer",
                 "snapshotPostgresExternalHashMismatchCount: 0"
               ],
               "must_not_observe": [
@@ -439,7 +499,9 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
                 "blobVerificationMode: existence-only",
                 "localMaterializedMissingProvenanceCount > 0",
                 "externalProbeMode: stub",
-                "honoPidEqualsVerifierPid: true"
+                "honoPidEqualsVerifierPid: true",
+                "releaseIdentitySource: health-under-test",
+                "witnessAuthorizationHeaderPrinted: true"
               ]
             }
           }
@@ -629,7 +691,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
     {
       "id": "AC-6",
       "type": "acceptance_criterion",
-      "description": "The external product proof rejects Hono bound to the wrong Postgres target and a verifier-created listener with self-minted identity",
+      "description": "The external product proof rejects Hono bound to the wrong Postgres target, a verifier-created listener, and a pre-started correct-target server with the wrong release identity",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control external-binding-matrix --json",
       "maps_to_ac": null,
       "scenario": {
@@ -639,7 +701,7 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
         "verification_service": "preexisting-hono-health-postgres",
         "negative_control": {
           "would_fail_if": [
-            "health database_target is empty, a wrong database fingerprint passes, PID identity is ignored, or self-minted HTTP replaces a pre-existing server"
+            "health database_target or deployment identity is empty, a wrong database or release fingerprint passes, PID identity is ignored, or self-minted HTTP replaces a pre-existing server"
           ]
         },
         "evidence": {
@@ -652,18 +714,67 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
             "action": {
               "actor": "cli_user",
               "steps": [
-                "pass the baseline, probe a pre-existing Hono bound to another isolated database, then probe a verifier-created listener serving copied health and witness JSON"
+                "pass the baseline, probe a pre-existing Hono bound to another isolated database, probe a verifier-created listener serving copied JSON, then probe a pre-started correct-target impostor whose release identity differs from the operator lock"
               ]
             },
             "end_state": {
               "must_observe": [
                 "baselineStatus: passed",
-                "failureClasses: DATABASE_TARGET_MISMATCH,SELF_MINTED_LISTENER_REJECTED",
-                "mutantsRejected: 2"
+                "failureClasses: DATABASE_TARGET_MISMATCH,SELF_MINTED_LISTENER_REJECTED,IDENTITY_MISMATCH",
+                "mutantsRejected: 3"
               ],
               "must_not_observe": [
                 "empty database_target accepted",
+                "empty deployment identity accepted",
                 "honoPidEqualsVerifierPid: true with verificationStatus: passed",
+                "mutantsAccepted: 1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-7",
+      "type": "acceptance_criterion",
+      "description": "Witness requests require a names-only operator-loaded bearer credential and reject missing credentials plus real HTTP 401 or 403 without disclosure or unauthenticated retry",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control witness-auth-matrix --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "external-witness-auth-matrix",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "authenticated-preexisting-hono",
+        "negative_control": {
+          "would_fail_if": [
+            "an empty token issues a request, Authorization is omitted or logged, HTTP 401 or 403 passes, or an unauthenticated retry follows rejection"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "real_composite_corpus",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "pass the authenticated baseline, remove both named credential inputs before request construction, then use a rejected bearer token against the real pre-existing witness endpoint"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "baselineStatus: passed",
+                "failureClasses: WITNESS_AUTH_MISSING,WITNESS_AUTH_REJECTED",
+                "missingCredentialWitnessRequestCount: 0",
+                "unauthenticatedRetryCount: 0",
+                "mutantsRejected: 2"
+              ],
+              "must_not_observe": [
+                "empty bearer token accepted",
+                "authorizationHeaderPrinted: true",
+                "httpStatus: 401 with verificationStatus: passed",
                 "mutantsAccepted: 1"
               ]
             }
@@ -796,6 +907,27 @@ The operator must accept the recovered `$HOME/.holocron` default or explicitly n
       "description": "Forged semantic fields in local-writes lineage are rejected",
       "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control forged-local-batch-fields --json",
       "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-19",
+      "type": "test_criterion",
+      "description": "A pre-started correct-target server with copied bytes but wrong release identity is rejected",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control wrong-code-identity --json",
+      "maps_to_ac": "AC-6"
+    },
+    {
+      "id": "TC-20",
+      "type": "test_criterion",
+      "description": "Missing witness credentials fail before any witness request",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control missing-witness-auth --json",
+      "maps_to_ac": "AC-7"
+    },
+    {
+      "id": "TC-21",
+      "type": "test_criterion",
+      "description": "A real witness HTTP 401 or 403 is rejected without unauthenticated retry",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-data-plane-truth.sh --negative-control witness-auth-rejected --json",
+      "maps_to_ac": "AC-7"
     }
   ]
 }
