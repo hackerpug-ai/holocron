@@ -56,7 +56,10 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(result.text?.trim().length ?? 0).toBeGreaterThanOrEqual(1);
     expect(result.cloudRequests).toBe(0);
     expect(typeof result.runId, 'run-scoped fleet accounting run id').toBe('string');
-    expect(result.fleetRequests, 'resolved non-loopback fleet request count').toBeGreaterThanOrEqual(1);
+    expect(
+      result.fleetRequests,
+      'resolved non-loopback fleet request count'
+    ).toBeGreaterThanOrEqual(1);
 
     const rows = await sql<
       { endpoint: string; provider: string; role: string; step_id: string | null }[]
@@ -93,7 +96,10 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
 
     expect(text.trim().length).toBeGreaterThanOrEqual(1);
     const rows = await listInferenceTelemetry({ runId, databaseUrl });
-    expect(rows.length, 'one durable row per underlying public model invocation').toBeGreaterThanOrEqual(1);
+    expect(
+      rows.length,
+      'one durable row per underlying public model invocation'
+    ).toBeGreaterThanOrEqual(1);
     expect(rows.every((row) => row.runId === runId)).toBe(true);
     expect(rows.every((row) => row.provider === 'fleet')).toBe(true);
     expect(rows.every((row) => row.endpoint === `${fleetOrigin.origin}/v1`)).toBe(true);
