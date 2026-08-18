@@ -319,6 +319,50 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export type ParsedChatRunSseEvent = {
+  event: string;
+  id?: string;
+  data: unknown;
+};
+
+/**
+ * Parse the public chat-run SSE wire format at the production boundary.
+ *
+ * Consumers must reject a partial JSON data frame instead of silently
+ * accepting the preceding tokens as a complete response. This parser is also
+ * used by the deployed-verifier invalid-stream control, which feeds it a
+ * private truncated copy of a real public response.
+ */
+export function parseChatRunSse(input: string): ParsedChatRunSseEvent[] {
+  const events: ParsedChatRunSseEvent[] = [];
+  for (const block of input.split(/\r?\n\r?\n/)) {
+    const lines = block.split(/\r?\n/);
+    const dataLines = lines
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice('data:'.length).replace(/^ /, ''));
+    if (dataLines.length === 0) continue;
+    const dataText = dataLines.join('\n');
+    let data: unknown;
+    try {
+      data = JSON.parse(dataText);
+    } catch (error) {
+      throw new Error(
+        `CHAT_STREAM_PARSE_FAILED: invalid SSE JSON data (${error instanceof Error ? error.message : String(error)})`
+      );
+    }
+    const eventLine = lines.find((line) => line.startsWith('event:'));
+    const idLine = lines.find((line) => line.startsWith('id:'));
+    events.push({
+      event: eventLine?.slice('event:'.length).trim() || 'message',
+      ...(idLine ? { id: idLine.slice('id:'.length).trim() } : {}),
+      data,
+    });
+  }
+  if (events.length === 0)
+    throw new Error('CHAT_STREAM_PARSE_FAILED: SSE stream contained no data frames');
+  return events;
+}
+
 export async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<void> {
   const sql = createSql(databaseUrl);
   const controller = new AbortController();

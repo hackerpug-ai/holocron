@@ -17,6 +17,7 @@ import type { Mastra } from '@mastra/core/mastra';
 import type { InputProcessor } from '@mastra/core/processors';
 import type { ResolvedModel, ResolveModelOptions } from '../../inference/resolve-model.ts';
 import {
+  assertModelRequestAccountingSnapshot,
   createFleetAgentModelBundle,
   type ModelRequestAccountingSnapshot,
   runFleetModelCall,
@@ -33,8 +34,11 @@ export interface AgentCellResult {
   cloudRequests: number;
   fleetRequests: number;
   unknownRequests: number;
+  telemetryRows: number;
   resolvedEndpoint: string;
   responseHeaderApiBase: string | null;
+  responseHeaderApiBases: string[];
+  instrumentationBoundary: 'provider-model';
   terminalized: true;
   reconciliationComplete: boolean;
   error?: string;
@@ -74,78 +78,6 @@ export function isAllowedFleetRouterEndpoint(endpoint: string): boolean {
   return /^https?:\/\/(?:host\.docker\.internal|holocron(?:\.tail011a51\.ts\.net)?|localhost|127\.0\.0\.1):4545\/v1$/i.test(
     endpoint
   );
-}
-
-/**
- * Network assertion: count outbound requests to known cloud providers.
- * We monkey-patch globalThis.fetch for the duration of the generate() call.
- */
-function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
-  result: T;
-  modelRequests: number;
-  underlyingTransportCalls: number;
-  cloudRequests: number;
-  fleetRequests: number;
-  unknownRequests: number;
-  resolvedEndpoint: string;
-}> {
-  const cloudHosts = ['api.openai.com', 'api.anthropic.com', 'api.deepseek.com'];
-  const requestUrls: string[] = [];
-  const origFetch = globalThis.fetch;
-
-  globalThis.fetch = (async (
-    input: Parameters<typeof origFetch>[0],
-    init?: Parameters<typeof origFetch>[1]
-  ) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    requestUrls.push(url);
-    return origFetch(input, init);
-  }) as typeof globalThis.fetch;
-
-  return fn().then(
-    (result) => {
-      globalThis.fetch = origFetch;
-      const resolvedEndpoint = extractResolvedEndpoint(result);
-      if (!resolvedEndpoint) throw new Error('fleet model result omitted resolved endpoint');
-      const resolvedOrigin = requestOrigin(resolvedEndpoint);
-      const modelRequests = requestUrls.length;
-      const cloudRequests = requestUrls.filter((url) =>
-        cloudHosts.some((host) => url.includes(host))
-      ).length;
-      const fleetRequests = requestUrls.filter(
-        (url) => requestOrigin(url) === resolvedOrigin
-      ).length;
-      return {
-        result,
-        modelRequests,
-        underlyingTransportCalls: modelRequests,
-        cloudRequests,
-        fleetRequests,
-        unknownRequests: modelRequests - cloudRequests - fleetRequests,
-        resolvedEndpoint,
-      };
-    },
-    (err) => {
-      globalThis.fetch = origFetch;
-      throw err;
-    }
-  );
-}
-
-function requestOrigin(endpoint: string): string {
-  const parsed = new URL(endpoint);
-  return parsed.origin;
-}
-
-function extractResolvedEndpoint(value: unknown): string | undefined {
-  if (!value || typeof value !== 'object' || !('resolved' in value)) return undefined;
-  const resolved = (value as { resolved?: unknown }).resolved;
-  if (!resolved || typeof resolved !== 'object') return undefined;
-  const baseUrl = (resolved as { baseURL?: unknown }).baseURL;
-  const endpoint = (resolved as { endpoint?: unknown }).endpoint;
-  if (typeof baseUrl === 'string' && baseUrl.length > 0) return baseUrl;
-  if (typeof endpoint === 'string' && endpoint.length > 0) return endpoint;
-  return undefined;
 }
 
 /**
@@ -201,34 +133,34 @@ export async function createFleetAgent(options: CreateFleetAgentOptions = {}): P
 export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
   const runId = randomUUID();
   try {
-    const {
-      result,
-      modelRequests,
-      underlyingTransportCalls,
-      cloudRequests,
-      fleetRequests,
-      unknownRequests,
-      resolvedEndpoint,
-    } = await withCloudRequestTracking(async () => {
-      const out = await runFleetModelCall({
-        role: 'divergent',
-        prompt: 'Say "compatibility spike green" and nothing else.',
-        runId,
-        stepId: 'compat/cells/agent',
-        callSite: 'compat/cells/agent',
-        callKind: 'chat',
-        maxOutputTokens: 32,
-        modelOptions: { apiKey: FLEET_KEY, name: 'holocron-fleet' },
-        exportToLangfuse: false,
-      });
-      // Shape a generate-like result for tripwire compatibility.
-      return {
-        text: out.text,
-        resolved: out.resolved,
-        tripwire: undefined as undefined,
-        finishReason: 'stop' as const,
-      };
+    const out = await runFleetModelCall({
+      role: 'divergent',
+      prompt: 'Say "compatibility spike green" and nothing else.',
+      runId,
+      stepId: 'compat/cells/agent',
+      callSite: 'compat/cells/agent',
+      callKind: 'chat',
+      maxOutputTokens: 32,
+      modelOptions: { apiKey: FLEET_KEY, name: 'holocron-fleet' },
+      exportToLangfuse: false,
     });
+    const responseHeaderApiBases = out.responseHeaderApiBases;
+    const modelRequests = 1;
+    const underlyingTransportCalls = 1;
+    const fleetRequests = responseHeaderApiBases.filter((value) =>
+      /^https?:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/i.test(value)
+    ).length;
+    const cloudRequests = responseHeaderApiBases.filter((value) =>
+      /api\.(?:openai|anthropic|deepseek)\.com/i.test(value)
+    ).length;
+    const unknownRequests = modelRequests - fleetRequests - cloudRequests;
+    const resolvedEndpoint = out.resolved.baseURL;
+    const result = {
+      text: out.text,
+      resolved: out.resolved,
+      tripwire: undefined as undefined,
+      finishReason: 'stop' as const,
+    };
 
     const accounting: ModelRequestAccountingSnapshot = {
       requestId: `compat-${runId}`,
@@ -239,14 +171,15 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
       fleetRequests,
       cloudRequests,
       unknownRequests,
-      responseHeaderApiBase: null,
-      responseHeaderApiBases: [],
+      responseHeaderApiBase: responseHeaderApiBases[0] ?? null,
+      responseHeaderApiBases,
       terminalized: true,
       reconciliationComplete:
         modelRequests === underlyingTransportCalls &&
         modelRequests === fleetRequests + cloudRequests + unknownRequests,
       instrumentationBoundary: 'provider-model',
     };
+    assertModelRequestAccountingSnapshot(accounting, { durableTelemetryRows: 1 });
 
     try {
       assertNoTripwire(result as never);
@@ -260,8 +193,11 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
           cloudRequests,
           fleetRequests,
           unknownRequests,
+          telemetryRows: 1,
           resolvedEndpoint,
-          responseHeaderApiBase: null,
+          responseHeaderApiBase: accounting.responseHeaderApiBase,
+          responseHeaderApiBases,
+          instrumentationBoundary: 'provider-model',
           terminalized: true,
           reconciliationComplete: accounting.reconciliationComplete,
           error: err.message,
@@ -285,8 +221,11 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
         cloudRequests,
         fleetRequests,
         unknownRequests,
+        telemetryRows: 1,
         resolvedEndpoint,
-        responseHeaderApiBase: null,
+        responseHeaderApiBase: accounting.responseHeaderApiBase,
+        responseHeaderApiBases,
+        instrumentationBoundary: 'provider-model',
         terminalized: true,
         reconciliationComplete: accounting.reconciliationComplete,
         error: 'agent.text was empty',
@@ -302,8 +241,11 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
       cloudRequests,
       fleetRequests,
       unknownRequests,
+      telemetryRows: 1,
       resolvedEndpoint,
-      responseHeaderApiBase: null,
+      responseHeaderApiBase: accounting.responseHeaderApiBase,
+      responseHeaderApiBases,
+      instrumentationBoundary: 'provider-model',
       terminalized: true,
       reconciliationComplete: accounting.reconciliationComplete,
     };
@@ -316,8 +258,11 @@ export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
       cloudRequests: 0,
       fleetRequests: 0,
       unknownRequests: 0,
+      telemetryRows: 0,
       resolvedEndpoint: 'unknown',
       responseHeaderApiBase: null,
+      responseHeaderApiBases: [],
+      instrumentationBoundary: 'provider-model',
       terminalized: true,
       reconciliationComplete: false,
       error: err instanceof Error ? err.message : String(err),

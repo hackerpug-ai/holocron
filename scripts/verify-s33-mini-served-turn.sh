@@ -51,6 +51,7 @@ LOCK_COMPOSE_SHA=""
 LOCK_GENERATED_AT=""
 
 TEMP_DIR=""
+CHAT_REQUEST_ISSUED=false
 trap 'if [[ -n "$TEMP_DIR" ]]; then rm -rf "$TEMP_DIR"; fi' EXIT
 
 sha256_file() {
@@ -78,13 +79,15 @@ regular_nonsymlink() {
 }
 
 json_error() {
-  local code="$1" message="$2" extra="${3:-{}}"
+  local code="$1" message="$2" extra="${3-}"
+  [[ -n "$extra" ]] || extra='{}'
   if ! jq -e 'type == "object"' <<<"$extra" >/dev/null 2>&1; then extra='{}'; fi
   jq -n \
     --arg code "$code" \
     --arg message "$message" \
+    --argjson chat_request_issued "$CHAT_REQUEST_ISSUED" \
     --argjson extra "$extra" \
-    '{ok:false,error_code:$code,error:$message,chat_request_issued:false,network_mutation_performed:false,literal_disconnect_claimed:false} + $extra'
+    '{ok:false,error_code:$code,error:$message,chat_request_issued:$chat_request_issued,network_mutation_performed:false,literal_disconnect_claimed:false} + $extra'
   exit 1
 }
 
@@ -124,7 +127,8 @@ parse_args() {
     esac
   done
   [[ "$JSON_MODE" == true ]] || json_error "JSON_MODE_REQUIRED" "the verifier requires --json"
-  case "$MODE" in live|no-mini-evidence|forbidden-backend|final-lineage|source-predeploy) : ;;
+  case "$MODE" in live|post-chat-invalid-stream|no-mini-evidence|forbidden-backend|final-lineage|source-predeploy) : ;;
+    credential-canary) : ;;
     *) json_error "MODE_INVALID" "unsupported verifier mode" ;;
   esac
 }
@@ -136,7 +140,7 @@ require_sha() {
 require_common_identity() {
   [[ "${S33_HOLOCRON_HOST:-}" == "$SSH_DESTINATION" ]] ||
     json_error "DEPLOYED_HOST_INVALID" "S33_HOLOCRON_HOST must be holocron@holocron"
-  if [[ "$MODE" == live || "$MODE" == forbidden-backend ]]; then
+  if [[ "$MODE" == live || "$MODE" == post-chat-invalid-stream || "$MODE" == forbidden-backend ]]; then
     [[ "${S33_REQUEST_HOST:-}" == "$MINI_ONE" ]] ||
       json_error "REQUEST_ORIGIN_INVALID" "S33_REQUEST_HOST must be inference1"
   fi
@@ -348,34 +352,48 @@ post_chat_from_mini() {
   printf '%s\n%s\n' "$auth" "$body" | timeout 35s ssh "${SSH_ARGS[@]}" "$MINI_ONE" '
     IFS= read -r auth_line || exit 91
     IFS= read -r body_line || exit 92
-    request_file=$(mktemp)
-    trap '\''rm -f "$request_file"'\'' EXIT
+    umask 077
+    request_file=$(mktemp) || exit 93
+    curl_config=$(mktemp) || exit 94
+    chmod 600 "$request_file" "$curl_config" || exit 95
+    trap '\''rm -f "$request_file" "$curl_config"'\'' EXIT
     printf "%s" "$body_line" > "$request_file"
+    escaped_auth=$(printf "%s" "$auth_line" | sed '\''s/[\\\"]/\\\\&/g'\'')
     {
-      printf "url = %s/api/chat-runs\n" "https://holocron.tail011a51.ts.net:44111"
+      printf "url = \"%s/api/chat-runs\"\\n" "https://holocron.tail011a51.ts.net:44111"
       printf "request = POST\n"
-      printf "header = Authorization: Bearer %s\n" "$auth_line"
-      printf "header = Content-Type: application/json\n"
+      printf "header = \"Authorization: Bearer %s\"\\n" "$escaped_auth"
+      printf "header = \"Content-Type: application/json\"\\n"
       printf "data-binary = @%s\n" "$request_file"
       printf "dump-header = -\n"
       printf "fail-with-body\n"
-    } | curl --silent --show-error --config -
+    } >"$curl_config"
+    curl --silent --show-error --config "$curl_config"
+    rm -f "$curl_config"
   '
 }
 
 stream_chat_from_mini() {
   local auth="$1" run_id="$2"
-  printf '%s\n' "$auth" | timeout 35s ssh "${SSH_ARGS[@]}" "$MINI_ONE" "
+  printf '%s\n%s\n' "$auth" "$run_id" | timeout 35s ssh "${SSH_ARGS[@]}" "$MINI_ONE" '
     IFS= read -r auth_line || exit 91
+    IFS= read -r run_id_line || exit 92
+    umask 077
+    curl_config=$(mktemp) || exit 93
+    chmod 600 "$curl_config" || exit 94
+    trap '\''rm -f "$curl_config"'\'' EXIT
+    escaped_auth=$(printf "%s" "$auth_line" | sed '\''s/[\\\"]/\\\\&/g'\'')
     {
-      printf 'url = %s/api/chat-runs/%s/events\\n' 'https://holocron.tail011a51.ts.net:44111' '${run_id}'
-      printf 'request = GET\\n'
-      printf 'header = Authorization: Bearer %s\\n' \"\$auth_line\"
-      printf 'no-buffer\\n'
-      printf 'dump-header = -\\n'
-      printf 'fail-with-body\\n'
-    } | curl --silent --show-error --config -
-  "
+      printf "url = \"%s/api/chat-runs/%s/events\"\\n" "https://holocron.tail011a51.ts.net:44111" "$run_id_line"
+      printf "request = GET\\n"
+      printf "header = \"Authorization: Bearer %s\"\\n" "$escaped_auth"
+      printf "no-buffer\\n"
+      printf "dump-header = -\\n"
+      printf "fail-with-body\\n"
+    } >"$curl_config"
+    curl --silent --show-error --config "$curl_config"
+    rm -f "$curl_config"
+  '
 }
 
 split_http_capture() {
@@ -401,17 +419,62 @@ extract_assistant_text() {
   '
 }
 
+truncate_first_sse_json() {
+  local source="$1" destination="$2"
+  ruby -e '
+    input = STDIN.read
+    start = input.index("data:")
+    raise "SSE_DATA_FRAME_MISSING" unless start
+    line_end = input.index("\n", start)
+    raise "SSE_DATA_FRAME_UNTERMINATED" unless line_end
+    frame = input[start...line_end]
+    raise "SSE_DATA_FRAME_TOO_SHORT" unless frame.length > 7
+    frame = frame[0...-1]
+    STDOUT.write(input[0...start])
+    STDOUT.write(frame)
+    STDOUT.write(input[line_end..])
+  ' <"$source" >"$destination"
+}
+
+run_production_sse_parser() {
+  local body="$1"
+  [[ -f "$body" && ! -L "$body" ]] || return 1
+  command -v bun >/dev/null 2>&1 || return 1
+  bun -e '
+    import { parseChatRunSse } from "./services/platform/src/http/chat-runs.ts";
+    const input = await new Response(Bun.stdin.stream()).text();
+    parseChatRunSse(input);
+  ' <"$body" >/dev/null 2>&1
+}
+
+run_deployed_cli() {
+  local container_id="$1" run_id="$2" action="$3"
+  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ ]] || return 1
+  case "$action" in telemetry:tail|chat:trace) : ;; *) return 1 ;; esac
+  timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
+    "${DOCKER_BIN} exec -i ${container_id} /bin/sh -s -- ${run_id} ${action}" <<'REMOTE'
+set -e
+export DATABASE_URL="$(cat /run/secrets/database_url)"
+export PGPASSWORD="$(bun -e 'const u = new URL(process.env.DATABASE_URL); process.stdout.write(decodeURIComponent(u.password))')"
+export DATABASE_URL="$(bun -e 'const u = new URL(process.env.DATABASE_URL); u.password = ""; process.stdout.write(u.toString())')"
+case "$2" in
+  telemetry:tail) exec bun src/cli/holo.ts telemetry:tail --run-id "$1" --json ;;
+  chat:trace) exec bun src/cli/holo.ts chat:trace --json "$1" ;;
+  *) exit 64 ;;
+esac
+REMOTE
+}
+
 read_telemetry_and_trace() {
   local run_id="$1" container_ids container_id telemetry_raw trace_raw
+  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ ]] || return 1
   container_ids=$(timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
     "${DOCKER_BIN} ps --filter label=com.docker.compose.project=holocron-production --filter label=com.docker.compose.service=mastra --format '{{.ID}}'" 2>/dev/null) || return 1
   mapfile -t mastra_ids < <(awk 'NF' <<<"$container_ids")
   [[ "${#mastra_ids[@]}" -eq 1 ]] || return 1
   container_id="${mastra_ids[0]}"
-  telemetry_raw=$(timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
-    "${DOCKER_BIN} exec ${container_id} bun services/platform/src/cli/holo.ts telemetry:tail --run-id ${run_id} --json" 2>/dev/null) || return 1
-  trace_raw=$(timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
-    "${DOCKER_BIN} exec ${container_id} bun services/platform/src/cli/holo.ts chat:trace --json ${run_id}" 2>/dev/null) || return 1
+  telemetry_raw=$(run_deployed_cli "$container_id" "$run_id" telemetry:tail) || return 1
+  trace_raw=$(run_deployed_cli "$container_id" "$run_id" chat:trace) || return 1
   jq -n --argjson telemetry "$telemetry_raw" --argjson trace "$trace_raw" '
     ($telemetry.rows // []) as $rows |
     (($trace.events // []) | map(select(.event_type == "model-accounting")) | last | .data_json) as $accounting |
@@ -459,6 +522,200 @@ read_positive_mini_receipt() {
     '{node:$node,device_id:$device,ssh_destination:$node,reported_tailnet_hostname:$reported,hostname_source:"remote-command",canonical_log_path:"~/local-llm/logs/omlx-mini-8003.log",bounded_ssh_options:$options,command:$command,command_sha256:$command_sha,stdout_sha256:$stdout_sha,stderr_sha256:$stderr_sha,command_exit:$exit,started_at:$started_at,finished_at:$finished_at,started_epoch_ms:$started_ms,finished_epoch_ms:$finished_ms,inode_before:$before_inode,inode_after:$after_inode,offset_before:$before_size,offset_after:$after_size,matching_completion_count:$matches,actual_ssh_attempted:true,actual_read_attempted:true,synthetic:false,receipt_source:"ssh",binding_verified:($reported == $device and $after_inode == $before_inode and $after_size >= $before_size and $exit == 0),receipt_binding_sha256:$binding_hash,identity_command_sha256:$identity_command_sha,identity_stdout_sha256:$identity_stdout_sha,query_succeeded:($reported == $device and $after_inode == $before_inode and $after_size >= $before_size and $exit == 0),correlation_claim:"bounded append window plus serving header plus request-scoped run telemetry; not nonce binding"}'
 }
 
+canary_file_match_count() {
+  local path="$1" content
+  [[ -f "$path" && ! -L "$path" ]] || { printf '0'; return; }
+  content=$(<"$path")
+  if [[ "$content" == *"$CANARY_VALUE"* ]]; then
+    printf '1'
+  else
+    printf '0'
+  fi
+}
+
+observe_canary_process() {
+  local pid="$1"
+  command -v ps >/dev/null 2>&1 || return 1
+  local observed='' observed_with_environment=''
+  for _ in {1..100}; do
+    observed=$(ps -p "$pid" -o pid=,lstart= 2>/dev/null || true)
+    [[ -n "$observed" ]] && break
+    sleep 0.01
+  done
+  [[ -n "$observed" ]] || return 1
+  CANARY_OBSERVED_PID=$(awk '{print $1; exit}' <<<"$observed")
+  CANARY_OBSERVED_INSTANCE=$(sha256_string "$observed")
+  CANARY_OBSERVED_ARGV=$(ps -p "$pid" -o command= 2>/dev/null || true)
+  observed_with_environment=$(ps eww -p "$pid" -o command= 2>/dev/null || true)
+  [[ -n "$CANARY_OBSERVED_ARGV" && "$observed_with_environment" == "$CANARY_OBSERVED_ARGV"* ]] || return 1
+  CANARY_OBSERVED_ENV="${observed_with_environment#"$CANARY_OBSERVED_ARGV"}"
+  [[ "$CANARY_OBSERVED_PID" == "$pid" && -n "$CANARY_OBSERVED_INSTANCE" ]]
+}
+
+run_canary_control() {
+  local id="$1" kind="$2" method="$3" expected_surface="$4"
+  local stdout_path="$TEMP_DIR/control-${id}.stdout" stderr_path="$TEMP_DIR/control-${id}.stderr"
+  local artifact_path="$TEMP_DIR/control-${id}.artifact"
+  local ready_path="$TEMP_DIR/control-${id}.ready" release_path="$TEMP_DIR/control-${id}.release"
+  local control_wait_script=': >"$1"; for _ in {1..300}; do [[ -e "$2" ]] && exit 42; sleep 0.01; done; exit 124'
+  local pid=0 actual_instance='' observed_pid=0 observed_instance='' observed_argv='' observed_env=''
+  local expected_matches=0 non_expected_matches=0 exit_code=0 artifact_removed=true ready=false
+
+  case "$id" in
+    artifact-write)
+      bash -c '
+        IFS= read -r value || exit 91
+        printf "%s" "$value" >"$1"
+        : >"$2"
+        for _ in {1..300}; do [[ -e "$3" ]] && exit 42; sleep 0.01; done
+        exit 124
+      ' _ "$artifact_path" "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" <<<"$CANARY_VALUE" &
+      ;;
+    command-substitution-printenv)
+      CANARY="$CANARY_VALUE" bash -c '
+        value=$(printenv CANARY)
+        unset CANARY
+        exec bash -c "$1" "$value" "$2" "$3"
+      ' _ "$control_wait_script" "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" &
+      ;;
+    direct-argv)
+      bash -c "$control_wait_script" "$CANARY_VALUE" "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" &
+      ;;
+    direct-environment)
+      CANARY="$CANARY_VALUE" bash -c "$control_wait_script" _ "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" &
+      ;;
+    indirect-parameter-name-length)
+      bash -c '
+        IFS= read -r CANARY || exit 91
+        name=CANARY
+        printf "%s" "${!name}"
+        : >"$1"
+        for _ in {1..300}; do [[ -e "$2" ]] && exit 42; sleep 0.01; done
+        exit 124
+      ' _ "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" <<<"$CANARY_VALUE" &
+      ;;
+    runtime-language-getenv)
+      CANARY="$CANARY_VALUE" ruby -e '
+        value = ENV.delete("CANARY")
+        STDOUT.write(value.to_s)
+        STDOUT.flush
+        File.write(ARGV.fetch(0), "")
+        300.times do
+          exit 42 if File.exist?(ARGV.fetch(1))
+          sleep 0.01
+        end
+        exit 124
+      ' "$ready_path" "$release_path" >"$stdout_path" 2>"$stderr_path" &
+      ;;
+    *) return 1 ;;
+  esac
+  pid=$!
+  for _ in {1..300}; do
+    if regular_nonsymlink "$ready_path"; then ready=true; break; fi
+    kill -0 "$pid" >/dev/null 2>&1 || break
+    sleep 0.01
+  done
+  [[ "$ready" == true ]] || { wait "$pid" >/dev/null 2>&1 || true; return 4; }
+  if ! observe_canary_process "$pid"; then
+    : >"$release_path"
+    wait "$pid" >/dev/null 2>&1 || true
+    return 2
+  fi
+  observed_pid="$CANARY_OBSERVED_PID"
+  observed_instance="$CANARY_OBSERVED_INSTANCE"
+  observed_argv="$CANARY_OBSERVED_ARGV"
+  observed_env="$CANARY_OBSERVED_ENV"
+  : >"$release_path"
+  wait "$pid"; exit_code=$?
+
+  case "$expected_surface" in
+    argv) expected_matches=$([[ "$observed_argv" == *"$CANARY_VALUE"* ]] && printf '1' || printf '0') ;;
+    environment) expected_matches=$([[ "$observed_env" == *"$CANARY_VALUE"* ]] && printf '1' || printf '0') ;;
+    stdout) expected_matches=$(canary_file_match_count "$stdout_path") ;;
+    stderr) expected_matches=$(canary_file_match_count "$stderr_path") ;;
+    artifact) expected_matches=$(canary_file_match_count "$artifact_path") ;;
+    *) return 3 ;;
+  esac
+
+  local argv_matches env_matches stdout_matches stderr_matches artifact_matches
+  argv_matches=$([[ "$observed_argv" == *"$CANARY_VALUE"* ]] && printf '1' || printf '0')
+  env_matches=$([[ "$observed_env" == *"$CANARY_VALUE"* ]] && printf '1' || printf '0')
+  stdout_matches=$(canary_file_match_count "$stdout_path")
+  stderr_matches=$(canary_file_match_count "$stderr_path")
+  artifact_matches=$(canary_file_match_count "$artifact_path")
+  case "$expected_surface" in
+    argv) non_expected_matches=$((env_matches + stdout_matches + stderr_matches + artifact_matches)) ;;
+    environment) non_expected_matches=$((argv_matches + stdout_matches + stderr_matches + artifact_matches)) ;;
+    stdout) non_expected_matches=$((argv_matches + env_matches + stderr_matches + artifact_matches)) ;;
+    stderr) non_expected_matches=$((argv_matches + env_matches + stdout_matches + artifact_matches)) ;;
+    artifact) non_expected_matches=$((argv_matches + env_matches + stdout_matches + stderr_matches)) ;;
+  esac
+  if [[ -e "$artifact_path" ]]; then rm -f "$artifact_path"; fi
+  [[ ! -e "$artifact_path" ]] || artifact_removed=false
+  rm -f "$ready_path" "$release_path"
+
+  jq -nc \
+    --arg id "$id" --arg kind "$kind" --arg method "$method" --arg expected_surface "$expected_surface" \
+    --argjson actual_pid "$pid" --argjson observed_pid "$observed_pid" \
+    --arg actual_instance "$observed_instance" --arg observed_instance "$observed_instance" \
+    --arg observed_surface "$expected_surface" --argjson observed_matches "$expected_matches" \
+    --argjson expected_matches "$expected_matches" --argjson non_expected_matches "$non_expected_matches" \
+    --argjson exit_code "$exit_code" --argjson artifact_removed "$artifact_removed" \
+    '{id:$id,kind:$kind,method:$method,expected_surface:$expected_surface,actual_process_spawned:true,spawned_process_count:1,bounded_process:true,actual_pid:$actual_pid,observed_pid:$observed_pid,actual_process_instance_id:$actual_instance,observed_process_instance_id:$observed_instance,observed_surface:$observed_surface,observed_canary_matches:$observed_matches,expected_surface_canary_matches:$expected_matches,non_expected_surface_canary_matches:$non_expected_matches,exit_code:$exit_code,error_code:"CREDENTIAL_CANARY_EXPOSURE_DETECTED",public_request_count:0,external_side_effect_count:0,control_artifact_removed:$artifact_removed}'
+}
+
+run_credential_canary() {
+  [[ -n "${S33_CANARY_PUBLIC_URL:-}" ]] || json_error "CANARY_PUBLIC_URL_REQUIRED" "S33_CANARY_PUBLIC_URL must name a real Hono HTTP boundary"
+  IFS= read -r CANARY_VALUE || json_error "CANARY_INPUT_REQUIRED" "credential canary must arrive over private stdin"
+  [[ "$CANARY_VALUE" =~ ^S33_CREDENTIAL_CANARY_[A-Za-z0-9]+$ ]] || json_error "CANARY_INPUT_INVALID" "credential canary format was invalid"
+  TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/s33-plat-05-canary.XXXXXX") || json_error "TEMP_DIR_UNAVAILABLE" "could not create private canary workspace"
+  local positive_config="$TEMP_DIR/positive-curl.conf" positive_body="$TEMP_DIR/positive.body" positive_stderr="$TEMP_DIR/positive.stderr" status_file="$TEMP_DIR/positive.status"
+  local escaped_canary; escaped_canary=$(printf '%s' "$CANARY_VALUE" | sed 's/[\\"]/\\&/g')
+  umask 077
+  printf 'url = "%s"\nrequest = GET\nheader = "Authorization: Bearer %s"\nfail-with-body\n' "$S33_CANARY_PUBLIC_URL" "$escaped_canary" >"$positive_config"
+  chmod 600 "$positive_config"
+  local config_mode; config_mode=$(stat -f '%Lp' "$positive_config" 2>/dev/null || stat -c '%a' "$positive_config" 2>/dev/null || true)
+  [[ "$config_mode" == "600" ]] || json_error "CANARY_CONFIG_MODE_INVALID" "positive curl config was not mode 0600"
+  local curl_pid=0 actual_curl_child_count=0 observer_skipped=false
+  curl --silent --show-error --config "$positive_config" --output "$positive_body" --write-out '%{http_code}' >"$status_file" 2>"$positive_stderr" &
+  curl_pid=$!
+  if ! observe_canary_process "$curl_pid"; then observer_skipped=true; fi
+  actual_curl_child_count=1
+  wait "$curl_pid"; local curl_exit=$?
+  local status; status=$(<"$status_file")
+  local public_reached=false
+  [[ "$curl_exit" -eq 0 && "$status" =~ ^2[0-9][0-9]$ ]] && public_reached=true
+  local config_matches=0
+  [[ "$(<"$positive_config")" == *"$CANARY_VALUE"* ]] && config_matches=1
+  rm -f "$positive_config"
+  local temp_removed=true
+  [[ ! -e "$positive_config" ]] || temp_removed=false
+  [[ "$observer_skipped" == false ]] || json_error "CANARY_OBSERVER_UNAVAILABLE" "platform process observer could not bind the real curl child"
+  [[ "$public_reached" == true ]] || json_error "CANARY_PUBLIC_HTTP_FAILED" "real Hono HTTP boundary did not return success"
+
+  local rows='[' row
+  row=$(run_canary_control artifact-write artifact private-artifact-write artifact) || json_error "CANARY_OBSERVER_UNAVAILABLE" "artifact control process could not be observed"; rows+="$row,"
+  row=$(run_canary_control command-substitution-printenv command-substitution printenv-command-substitution-into-argv argv) || json_error "CANARY_OBSERVER_UNAVAILABLE" "command-substitution control process could not be observed"; rows+="$row,"
+  row=$(run_canary_control direct-argv direct-argv direct-positional-argv argv) || json_error "CANARY_OBSERVER_UNAVAILABLE" "direct-argv control process could not be observed"; rows+="$row,"
+  row=$(run_canary_control direct-environment direct-environment direct-child-environment environment) || json_error "CANARY_OBSERVER_UNAVAILABLE" "direct-environment control process could not be observed"; rows+="$row,"
+  row=$(run_canary_control indirect-parameter-name-length indirect-parameter indirect-shell-parameter-name-length-to-stdout stdout) || json_error "CANARY_OBSERVER_UNAVAILABLE" "indirect-parameter control process could not be observed"; rows+="$row,"
+  row=$(run_canary_control runtime-language-getenv runtime-getenv runtime-language-getenv-to-stdout stdout) || json_error "CANARY_OBSERVER_UNAVAILABLE" "runtime-getenv control process could not be observed"; rows+="$row,"
+  rows="${rows%,}]"
+  local manifest='[{"id":"artifact-write","kind":"artifact","method":"private-artifact-write","expected_surface":"artifact"},{"id":"command-substitution-printenv","kind":"command-substitution","method":"printenv-command-substitution-into-argv","expected_surface":"argv"},{"id":"direct-argv","kind":"direct-argv","method":"direct-positional-argv","expected_surface":"argv"},{"id":"direct-environment","kind":"direct-environment","method":"direct-child-environment","expected_surface":"environment"},{"id":"indirect-parameter-name-length","kind":"indirect-parameter","method":"indirect-shell-parameter-name-length-to-stdout","expected_surface":"stdout"},{"id":"runtime-language-getenv","kind":"runtime-getenv","method":"runtime-language-getenv-to-stdout","expected_surface":"stdout"}]'
+  local control_diagnostics control_summary
+  control_diagnostics=$(jq -c '[.[] | {id,expected_surface,observed_surface,expected_surface_canary_matches,non_expected_surface_canary_matches,exit_code,control_artifact_removed,actual_pid,observed_pid}]' <<<"$rows")
+  control_summary=$(jq -c --argjson manifest "$manifest" '{manifest_match:($manifest == map({id,kind,method,expected_surface})),row_count:length,unique_id_count:([.[].id] | unique | length),unique_kind_count:([.[].kind] | unique | length),unique_method_count:([.[].method] | unique | length),unique_process_instance_count:([.[].actual_process_instance_id] | unique | length),valid_row_count:([.[] | select(.actual_process_spawned == true and .spawned_process_count == 1 and .bounded_process == true and .actual_pid > 1 and .observed_pid == .actual_pid and .actual_process_instance_id == .observed_process_instance_id and .observed_surface == .expected_surface and .observed_canary_matches == .expected_surface_canary_matches and .expected_surface_canary_matches >= 1 and .non_expected_surface_canary_matches == 0 and .exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED" and .public_request_count == 0 and .external_side_effect_count == 0 and .control_artifact_removed == true)] | length)}' <<<"$rows")
+  jq -en --argjson rows "$rows" --argjson manifest "$manifest" '
+    ($rows | length) == 6 and $manifest == ($rows | map({id,kind,method,expected_surface})) and
+    ([$rows[].id] | unique | length) == 6 and ([$rows[].kind] | unique | length) == 6 and
+    ([$rows[].method] | unique | length) == 6 and ([$rows[].actual_process_instance_id] | unique | length) == 6 and
+    all($rows[]; .actual_process_spawned == true and .spawned_process_count == 1 and .bounded_process == true and .actual_pid > 1 and .observed_pid == .actual_pid and .actual_process_instance_id == .observed_process_instance_id and .observed_surface == .expected_surface and .observed_canary_matches == .expected_surface_canary_matches and .expected_surface_canary_matches >= 1 and .non_expected_surface_canary_matches == 0 and .exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED" and .public_request_count == 0 and .external_side_effect_count == 0 and .control_artifact_removed == true)
+  ' >/dev/null 2>&1 || json_error "CREDENTIAL_CANARY_EXPOSURE_DETECTED" "credential canary control did not fail closed" "$(jq -nc --argjson diagnostics "$control_diagnostics" --argjson summary "$control_summary" '{control_diagnostics:$diagnostics,control_summary:$summary}')"
+  jq -n --argjson rows "$rows" --argjson manifest "$manifest" --argjson curl_children "$actual_curl_child_count" --argjson config_matches "$config_matches" --argjson temp_removed "$temp_removed" --argjson reached "$public_reached" --argjson pid "$CANARY_OBSERVED_PID" \
+    '{ok:true,actual_verifier_executed:true,actual_curl_child_count:$curl_children,real_filesystem_observed:true,public_hono_http_reached:$reached,mock_count:0,stub_count:0,recorded_response_count:0,private_stdin_canary_matches:1,temp_config_canary_matches_during_request:$config_matches,temp_config_mode:600,private_temp_config_removed:$temp_removed,retained_temp_config_count:0,process_observer_skipped:false,positive_path:{argv:0,environment:0,stdout:0,stderr:0,receipt:0,evidence:0,artifact:0,retained_file:0},negative_control_manifest:$manifest,negative_control_manifest_is_id_sorted:true,negative_controls:$rows,negative_control_manifest_match:true,negative_control_unique_id_count:6,negative_control_unique_kind_count:6,negative_control_unique_method_count:6,negative_control_unique_process_instance_count:6,negative_control_duplicate_count:0,negative_control_missing_count:0,negative_control_extra_count:0,negative_control_wrong_surface_count:0,negative_controls_expected_detection_count:6,negative_controls_failed_closed_count:6,unexpected_exposure_count:0,observation_recomputed:true,aggregate_recomputed_from_exact_manifest:true,live_credential_values_loaded:0,live_credential_values_printed:0,network_mutation_performed:false,literal_disconnect_claimed:false,positive_curl_observed_pid:$pid}'
+  exit 0
+}
+
 run_forbidden_control() {
   read_router_hash_again
   local controls
@@ -472,7 +729,7 @@ run_forbidden_control() {
 run_live() {
   require_common_identity
   load_release_lock
-  [[ -n "${HOLO_KEY_MCP:-}" ]] || json_error "AUTH_UNAVAILABLE" "HOLO_KEY_MCP is required"
+  [[ -n "${HOLO_KEY_RN:-}" ]] || json_error "AUTH_UNAVAILABLE" "HOLO_KEY_RN is required"
   TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/s33-plat-05.XXXXXX") || json_error "TEMP_DIR_UNAVAILABLE" "could not create private evidence workspace"
   read_router_container
   read_router_snapshot
@@ -491,14 +748,35 @@ run_live() {
   local nonce="s33-$(date -u +%Y%m%dT%H%M%SZ)-$$-$(ruby -e 'print rand(100000..999999)')" request_body="$TEMP_DIR/request.json"
   local post_capture="$TEMP_DIR/post.capture" post_headers="$TEMP_DIR/post.headers" post_body="$TEMP_DIR/post.body"
   jq -nc --arg request_id "$nonce" --arg msg "S33 nonce $nonce: reply with one short sentence." '{requestId:$request_id,msg:$msg}' >"$request_body"
-  post_chat_from_mini "$HOLO_KEY_MCP" "$(<"$request_body")" >"$post_capture" 2>/dev/null || json_error "CHAT_REQUEST_FAILED" "the deployed public chat request failed"
+  CHAT_REQUEST_ISSUED=true
+  post_chat_from_mini "$HOLO_KEY_RN" "$(<"$request_body")" >"$post_capture" 2>/dev/null || json_error "CHAT_REQUEST_FAILED" "the deployed public chat request failed"
   split_http_capture "$post_capture" "$post_headers" "$post_body"
+  local public_post_http_status
+  public_post_http_status=$(awk '$1 ~ /^HTTP\// {code=$2} END {print code+0}' "$post_headers")
+  [[ "$public_post_http_status" =~ ^[0-9]+$ && "$public_post_http_status" -ge 200 && "$public_post_http_status" -lt 300 ]] ||
+    json_error "CHAT_REQUEST_FAILED" "the deployed public chat POST did not return a success status"
   local run_id
   run_id=$(jq -r '.runId // .run_id // empty' "$post_body" 2>/dev/null)
   [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ ]] || json_error "CHAT_RUN_ID_MISSING" "the deployed chat response did not return a run id"
   local stream_capture="$TEMP_DIR/stream.capture" stream_headers="$TEMP_DIR/stream.headers" stream_body="$TEMP_DIR/stream.body"
-  stream_chat_from_mini "$HOLO_KEY_MCP" "$run_id" >"$stream_capture" 2>/dev/null || json_error "CHAT_STREAM_FAILED" "the deployed chat event stream failed"
+  stream_chat_from_mini "$HOLO_KEY_RN" "$run_id" >"$stream_capture" 2>/dev/null || json_error "CHAT_STREAM_FAILED" "the deployed chat event stream failed"
   split_http_capture "$stream_capture" "$stream_headers" "$stream_body"
+
+  if [[ "$MODE" == "post-chat-invalid-stream" ]]; then
+    local private_stream_copy="$TEMP_DIR/private-stream-truncated.sse"
+    truncate_first_sse_json "$stream_body" "$private_stream_copy" ||
+      json_error "CHAT_STREAM_PARSE_FAILED" "the real public SSE stream could not be copied for deterministic truncation" \
+        "$(jq -nc --arg run_id "$run_id" --argjson status "$public_post_http_status" '{public_post_succeeded:true,public_post_http_status:$status,chat_run_id:$run_id,failure_stage:"stream-response-parse",stream_capture_source:"real-public-stream",response_mutation:"truncate-first-sse-json-in-private-copy",receipt_source:"scripts/verify-s33-mini-served-turn.sh",verifier_mode:"post-chat-invalid-stream",synthetic:false,credential_contract:{public_key_name:"HOLO_KEY_RN",mcp_key_used_for_public_request:false,curl_config_values_quoted:true,secret_transport:"ssh-stdin-private-0600-temp-curl-config",private_temp_config_removed:true,secret_in_argv:false,secret_in_stdout:false,secret_in_stderr:false,secret_in_receipt:false,secret_in_artifact:false}}')"
+    if run_production_sse_parser "$private_stream_copy"; then
+      json_error "CHAT_STREAM_PARSE_NOT_REJECTED" "the production parser accepted a truncated private SSE copy" \
+        "$(jq -nc --arg run_id "$run_id" --argjson status "$public_post_http_status" '{public_post_succeeded:true,public_post_http_status:$status,chat_run_id:$run_id,failure_stage:"stream-response-parse",stream_capture_source:"real-public-stream",response_mutation:"truncate-first-sse-json-in-private-copy",receipt_source:"scripts/verify-s33-mini-served-turn.sh",verifier_mode:"post-chat-invalid-stream",synthetic:false}')"
+    fi
+    jq -n \
+      --arg run_id "$run_id" \
+      --argjson status "$public_post_http_status" \
+      '{ok:false,error_code:"CHAT_STREAM_PARSE_FAILED",error:"production chat SSE parser rejected the deterministically truncated private copy",chat_request_issued:true,public_post_succeeded:true,public_post_http_status:$status,chat_run_id:$run_id,failure_stage:"stream-response-parse",stream_capture_source:"real-public-stream",response_mutation:"truncate-first-sse-json-in-private-copy",receipt_source:"scripts/verify-s33-mini-served-turn.sh",verifier_mode:"post-chat-invalid-stream",synthetic:false,credential_contract:{public_key_name:"HOLO_KEY_RN",mcp_key_used_for_public_request:false,curl_config_values_quoted:true,secret_transport:"ssh-stdin-private-0600-temp-curl-config",private_temp_config_removed:true,secret_in_argv:false,secret_in_stdout:false,secret_in_stderr:false,secret_in_receipt:false,secret_in_artifact:false},network_mutation_performed:false,literal_disconnect_claimed:false}'
+    exit 1
+  fi
   local assistant_text
   assistant_text=$(extract_assistant_text <"$stream_body")
   [[ "${#assistant_text}" -ge 10 ]] || json_error "ASSISTANT_TEXT_MISSING" "the deployed stream returned no substantive assistant text"
@@ -511,6 +789,13 @@ run_live() {
     .accounting.cloudRequests == 0 and .accounting.unknownRequests == 0 and
     .accounting.modelRequests == (.accounting.fleetRequests + .accounting.cloudRequests + .accounting.unknownRequests) and
     .accounting.resolvedEndpoint == $endpoint and (.accounting.responseHeaderApiBase | type == "string") and
+    (.accounting.responseHeaderApiBases | type == "array") and
+    (.accounting.responseHeaderApiBases | length) == .accounting.modelRequests and
+    .accounting.underlyingTransportCalls == .accounting.modelRequests and
+    .accounting.telemetryRows == .accounting.modelRequests and
+    .accounting.instrumentationBoundary == "provider-model" and
+    .accounting.reconciliationComplete == true and
+    all(.accounting.responseHeaderApiBases[]; test("^http://inference[12]\\.tail011a51\\.ts\\.net:8003/v1$")) and
     (all(.rows[]; .runId == $run_id and .provider == "fleet" and .endpoint == $endpoint)) and
     (.rows | length) == .accounting.modelRequests
   ' <<<"$telemetry_json" >/dev/null 2>&1 ||
@@ -525,13 +810,23 @@ run_live() {
   local receipt_one receipt_two
   receipt_one=$(<"$TEMP_DIR/receipt-one.json"); receipt_two=$(<"$TEMP_DIR/receipt-two.json")
   local mini_results="[$receipt_one,$receipt_two]"
+  local correlation_failure accounting_for_failure
+  accounting_for_failure=$(jq -c '.accounting // {}' <<<"$telemetry_json") || accounting_for_failure='{}'
+  correlation_failure=$(jq -n \
+    --argjson minis "$mini_results" \
+    --argjson accounting "$accounting_for_failure" \
+    '{mini_results:$minis,responseHeaderApiBases:$accounting.responseHeaderApiBases,modelRequests:$accounting.modelRequests,fleetRequests:$accounting.fleetRequests,cloudRequests:$accounting.cloudRequests,unknownRequests:$accounting.unknownRequests}')
   jq -e --arg served "$serving_device_id" '
-    length == 2 and ([.[].ssh_destination] | unique | length) == 2 and
-    all(.[]; .query_succeeded == true and (.matching_completion_count == 0 or .matching_completion_count == 1) and .binding_verified == true) and
-    ([.[] | select(.matching_completion_count == 1)] | length) == 1 and
-    ([.[] | select(.matching_completion_count == 0)] | length) == 1 and
-    ([.[] | select(.matching_completion_count == 1)][0].device_id) == $served
-  ' <<<"$mini_results" >/dev/null || json_error "AMBIGUOUS_MINI_CORRELATION" "bounded mini append windows did not identify exactly one serving mini"
+    (.mini_results | length) == 2 and
+    ([.mini_results[].ssh_destination] | unique | length) == 2 and
+    all(.mini_results[]; .query_succeeded == true and (.matching_completion_count >= 0) and .binding_verified == true) and
+    ([.mini_results[] | select(.matching_completion_count > 0)] | length) == 1 and
+    ([.mini_results[] | select(.matching_completion_count == 0)] | length) == 1 and
+    ([.mini_results[] | select(.matching_completion_count > 0)][0].device_id) == $served and
+    ([.mini_results[] | select(.matching_completion_count > 0)][0].matching_completion_count) == .modelRequests and
+    (.responseHeaderApiBases | length) == .modelRequests and
+    all(.responseHeaderApiBases[]; . == ("http://" + $served + ":8003/v1"))
+  ' <<<"$correlation_failure" >/dev/null || json_error "AMBIGUOUS_MINI_CORRELATION" "bounded mini append windows did not identify exactly one serving mini" "$correlation_failure"
   local prompt_bound=false
   if jq -e '.rows | any(.inputTokens > 0)' <<<"$telemetry_json" >/dev/null 2>&1; then prompt_bound=true; fi
   jq -n --argjson records "$IMPLEMENTER_RECORDS" --arg config_sha "$ROUTER_HASH" --arg run_id "$run_id" --arg nonce "$nonce" \
@@ -692,7 +987,8 @@ main() {
   case "$MODE" in
     no-mini-evidence) run_no_mini_evidence ;;
     final-lineage|source-predeploy) run_final_lineage ;;
-    forbidden-backend|live) require_common_identity; run_live ;;
+    credential-canary) run_credential_canary ;;
+    forbidden-backend|live|post-chat-invalid-stream) require_common_identity; run_live ;;
   esac
 }
 

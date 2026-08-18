@@ -818,6 +818,8 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
   text: string;
   object?: unknown;
   embedding?: number[];
+  /** Provider response provenance for each underlying transport call. */
+  responseHeaderApiBases: string[];
   telemetry: InferenceTelemetryRecord;
   resolved: ResolvedModel;
   callKind: FleetCallKind;
@@ -888,6 +890,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
     let inputTokens = 0;
     let outputTokens = 0;
     let totalTokens = 0;
+    const responseHeaderApiBases: string[] = [];
 
     if (callKind === 'embedding') {
       const mode = opts.embedMode ?? 'document';
@@ -912,6 +915,8 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       // Prefer model.doEmbed — ai.embed() rejects openai-compatible v4 models on some
       // AI SDK version mixes while doEmbed is the stable provider surface.
       const result = await embModel.doEmbed({ values: [prefixed] });
+      const embeddingHeader = responseHeaderApiBase(result.response?.headers);
+      if (embeddingHeader) responseHeaderApiBases.push(embeddingHeader);
       embedding = (result.embeddings?.[0] ?? []) as number[];
       if (!Array.isArray(embedding) || embedding.length === 0) {
         throw new Error(`embed() returned empty/null embedding for mode=${mode}`);
@@ -962,6 +967,8 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
             }
           : {}),
       });
+      const objectHeader = responseHeaderApiBase(result.response?.headers);
+      if (objectHeader) responseHeaderApiBases.push(objectHeader);
       object = result.object;
       text = JSON.stringify(result.object);
       inputTokens = nonNegInt(result.usage?.inputTokens);
@@ -975,6 +982,8 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
         maxOutputTokens: opts.maxOutputTokens ?? 32,
         abortSignal: opts.abortSignal,
       });
+      const chatHeader = responseHeaderApiBase(result.response?.headers);
+      if (chatHeader) responseHeaderApiBases.push(chatHeader);
       inputTokens = nonNegInt(result.usage?.inputTokens);
       outputTokens = nonNegInt(result.usage?.outputTokens);
       totalTokens = nonNegInt(result.usage?.totalTokens) || inputTokens + outputTokens;
@@ -1017,7 +1026,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       status: 'success',
     });
 
-    return { text, object, embedding, telemetry, resolved, callKind };
+    return { text, object, embedding, responseHeaderApiBases, telemetry, resolved, callKind };
   } catch (err) {
     const wallMs = Math.max(1, Date.now() - startedMs);
     const telemetry = await recordInferenceTelemetry({
@@ -1278,6 +1287,7 @@ export async function createFleetAgentModelBundle(options: {
   const role = options.role ?? 'divergent';
   const resolved = await resolveModel(role, {
     allowEscape: false,
+    runId: options.runId,
     ...options.resolveOptions,
   });
   if (resolved.provider !== 'fleet') {

@@ -4,8 +4,11 @@
  * This suite intentionally reaches the real fleet router and Postgres. It
  * does not replace a provider, database, HTTP transport, or Mastra primitive.
  */
+
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { access, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -46,6 +49,117 @@ if (!scopedRnKey) {
 }
 
 const sql = createSql(databaseUrl);
+const VERIFIER_OUTPUT_LIMIT = 10 * 1024 * 1024;
+
+const CREDENTIAL_ENV_NAMES = [
+  'ANTHROPIC_API_KEY',
+  'BACKUP_R2_ACCESS_KEY_ID',
+  'BACKUP_R2_SECRET_ACCESS_API_TOKEN',
+  'BACKUP_R2_SECRET_ACCESS_KEY',
+  'CLOUDFLARE_API_TOKEN',
+  'DATABASE_URL',
+  'DATABASE_URL_OWNER',
+  'DEEPGRAM_API_KEY',
+  'DEEPSEEK_API_KEY',
+  'ELEVENLABS_API_KEY',
+  'EXPO_PUBLIC_RN_API_KEY',
+  'EXPO_TOKEN',
+  'FLEET_KEY',
+  'HOLO_KEY_CONTROL',
+  'HOLO_KEY_MCP',
+  'HOLO_KEY_RN',
+  'MASTRA_API_KEY',
+  'OPENROUTER_API_KEY',
+  'PGPASSWORD',
+  'R2_ACCESS_KEY_ID',
+  'R2_RESTORE_ACCESS_KEY_ID',
+  'R2_RESTORE_SECRET_ACCESS_KEY',
+  'R2_RESTORE_SESSION_TOKEN',
+  'R2_SECRET_ACCESS_KEY',
+  'RESTIC_PASSWORD',
+  'TAILSCALE_AUTH_KEY',
+  'YOUTUBE_API_KEY',
+  'ZAI_API_KEY',
+  'ZERO_ADMIN_PASSWORD',
+] as const;
+
+async function runVerifierWithPrivateStdin(options: {
+  env: NodeJS.ProcessEnv;
+  input: string;
+}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolveProcess, rejectProcess) => {
+    const child = spawn(
+      '/opt/homebrew/bin/bash',
+      ['scripts/verify-s33-mini-served-turn.sh', '--mode', 'credential-canary', '--json'],
+      {
+        cwd: process.cwd(),
+        env: options.env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }
+    );
+    let stdout = '';
+    let stderr = '';
+    let outputBytes = 0;
+    let rejected = false;
+    const append = (target: 'stdout' | 'stderr', chunk: Buffer) => {
+      outputBytes += chunk.byteLength;
+      if (outputBytes > VERIFIER_OUTPUT_LIMIT) {
+        rejected = true;
+        child.kill('SIGTERM');
+        rejectProcess(new Error('credential canary verifier exceeded the output limit'));
+        return;
+      }
+      if (target === 'stdout') stdout += chunk.toString('utf8');
+      else stderr += chunk.toString('utf8');
+    };
+    child.stdout.on('data', (chunk: Buffer) => append('stdout', chunk));
+    child.stderr.on('data', (chunk: Buffer) => append('stderr', chunk));
+    child.once('error', rejectProcess);
+    child.once('close', (code) => {
+      if (!rejected) resolveProcess({ stdout, stderr, exitCode: code ?? -1 });
+    });
+    child.stdin.end(options.input);
+  });
+}
+
+async function startCanaryHonoServer(): Promise<{ url: string; close: () => Promise<void> }> {
+  const canaryApp = new Hono();
+  canaryApp.get('/canary', async (context) => {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+    return context.json({
+      ok: context.req.header('authorization')?.startsWith('Bearer ') === true,
+    });
+  });
+  const server = createServer(async (request, response) => {
+    const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(request.headers)) {
+      if (typeof value === 'string') headers.set(key, value);
+      else if (Array.isArray(value)) headers.set(key, value.join(', '));
+    }
+    const honoResponse = await canaryApp.fetch(
+      new Request(requestUrl.toString(), { method: request.method, headers })
+    );
+    response.writeHead(honoResponse.status, Object.fromEntries(honoResponse.headers));
+    response.end(await honoResponse.text());
+  });
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once('error', rejectListen);
+    server.listen(0, '127.0.0.1', () => resolveListen());
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+    throw new Error('canary Hono server did not expose a TCP address');
+  }
+  return {
+    url: `http://127.0.0.1:${address.port}/canary`,
+    close: () =>
+      new Promise<void>((resolveClose, rejectClose) =>
+        server.close((error) => (error ? rejectClose(error) : resolveClose()))
+      ),
+  };
+}
 
 afterAll(async () => {
   await sql.end({ timeout: 5 });
@@ -254,7 +368,7 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         msg: `S33 nonce ${randomUUID()}: reply with one short sentence.`,
       }),
     });
-    expect(createResponse.status).toBe(200);
+    expect(createResponse.status, await createResponse.clone().text()).toBe(200);
     const created = (await createResponse.json()) as { runId: string };
     expect(created.runId).toMatch(/^[0-9a-f-]{36}$/i);
     const terminal = await waitForTerminalRun(app, created.runId);
@@ -347,7 +461,7 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         msg: 'Planner MUST call create_plan. Perform at least 2 sequential tool calls before answering.',
       }),
     });
-    expect(createResponse.status).toBe(200);
+    expect(createResponse.status, await createResponse.clone().text()).toBe(200);
     const created = (await createResponse.json()) as { runId: string };
     const terminal = await waitForTerminalRun(app, created.runId);
     expect(terminal.status).toBe('completed');
@@ -494,7 +608,10 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
             msg: mutation.message,
           }),
         });
-        expect(createResponse.status, `${mutation.name} public POST`).toBe(200);
+        expect(
+          createResponse.status,
+          `${mutation.name} public POST: ${await createResponse.clone().text()}`
+        ).toBe(200);
         const created = (await createResponse.json()) as { runId: string };
         const terminal = await waitForTerminalRun(app, created.runId);
         expect(terminal.status, `${mutation.name} must fail closed`).toBe('failed');
@@ -546,5 +663,134 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
       await rm(root, { recursive: true, force: true });
       await expect(access(root)).rejects.toThrow();
     }
+  }, 300_000);
+
+  it('AC-11: credential canary transport safety', async () => {
+    const canary = `S33_CREDENTIAL_CANARY_${randomUUID().replaceAll('-', '')}`;
+    const canaryServer = await startCanaryHonoServer();
+    const env = { ...process.env };
+    for (const credentialName of CREDENTIAL_ENV_NAMES) delete env[credentialName];
+    env.S33_CANARY_PUBLIC_URL = canaryServer.url;
+
+    let output: { stdout: string; stderr: string; exitCode: number };
+    try {
+      output = await runVerifierWithPrivateStdin({ env, input: `${canary}\n` });
+    } finally {
+      await canaryServer.close();
+    }
+
+    expect(output.stdout).not.toContain(canary);
+    expect(output.stderr).not.toContain(canary);
+    const receipt = JSON.parse(output.stdout) as {
+      ok?: boolean;
+      error_code?: string;
+      error?: string;
+      control_diagnostics?: Array<Record<string, unknown>>;
+      control_summary?: Record<string, unknown>;
+      actual_verifier_executed?: boolean;
+      actual_curl_child_count?: number;
+      public_hono_http_reached?: boolean;
+      process_observer_skipped?: boolean;
+      private_stdin_canary_matches?: number;
+      temp_config_canary_matches_during_request?: number;
+      positive_path?: Record<string, number>;
+      private_temp_config_removed?: boolean;
+      negative_control_manifest?: Array<Record<string, string>>;
+      negative_controls?: Array<Record<string, unknown>>;
+      negative_controls_expected_detection_count?: number;
+      negative_controls_failed_closed_count?: number;
+      unexpected_exposure_count?: number;
+      observation_recomputed?: boolean;
+      aggregate_recomputed_from_exact_manifest?: boolean;
+      live_credential_values_loaded?: number;
+      live_credential_values_printed?: number;
+      network_mutation_performed?: boolean;
+    };
+    const safeFailure = JSON.stringify({
+      error_code: receipt.error_code,
+      error: receipt.error,
+      control_diagnostics: receipt.control_diagnostics,
+      control_summary: receipt.control_summary,
+    });
+    expect(output.stderr, safeFailure).toBe('');
+    expect(output.exitCode, safeFailure).toBe(0);
+    expect(receipt).toMatchObject({
+      ok: true,
+      actual_verifier_executed: true,
+      public_hono_http_reached: true,
+      process_observer_skipped: false,
+      private_stdin_canary_matches: 1,
+      temp_config_canary_matches_during_request: 1,
+      private_temp_config_removed: true,
+      negative_controls_expected_detection_count: 6,
+      negative_controls_failed_closed_count: 6,
+      unexpected_exposure_count: 0,
+      observation_recomputed: true,
+      aggregate_recomputed_from_exact_manifest: true,
+      live_credential_values_loaded: 0,
+      live_credential_values_printed: 0,
+      network_mutation_performed: false,
+    });
+    expect(receipt.actual_curl_child_count).toBeGreaterThanOrEqual(1);
+    expect(receipt.positive_path).toEqual({
+      argv: 0,
+      environment: 0,
+      stdout: 0,
+      stderr: 0,
+      receipt: 0,
+      evidence: 0,
+      artifact: 0,
+      retained_file: 0,
+    });
+    expect(receipt.negative_control_manifest).toEqual([
+      {
+        id: 'artifact-write',
+        kind: 'artifact',
+        method: 'private-artifact-write',
+        expected_surface: 'artifact',
+      },
+      {
+        id: 'command-substitution-printenv',
+        kind: 'command-substitution',
+        method: 'printenv-command-substitution-into-argv',
+        expected_surface: 'argv',
+      },
+      {
+        id: 'direct-argv',
+        kind: 'direct-argv',
+        method: 'direct-positional-argv',
+        expected_surface: 'argv',
+      },
+      {
+        id: 'direct-environment',
+        kind: 'direct-environment',
+        method: 'direct-child-environment',
+        expected_surface: 'environment',
+      },
+      {
+        id: 'indirect-parameter-name-length',
+        kind: 'indirect-parameter',
+        method: 'indirect-shell-parameter-name-length-to-stdout',
+        expected_surface: 'stdout',
+      },
+      {
+        id: 'runtime-language-getenv',
+        kind: 'runtime-getenv',
+        method: 'runtime-language-getenv-to-stdout',
+        expected_surface: 'stdout',
+      },
+    ]);
+    expect(receipt.negative_controls).toHaveLength(6);
+    expect(receipt.negative_controls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          expected_surface_canary_matches: expect.any(Number),
+          non_expected_surface_canary_matches: 0,
+          public_request_count: 0,
+          external_side_effect_count: 0,
+          error_code: 'CREDENTIAL_CANARY_EXPOSURE_DETECTED',
+        }),
+      ])
+    );
   }, 300_000);
 });
