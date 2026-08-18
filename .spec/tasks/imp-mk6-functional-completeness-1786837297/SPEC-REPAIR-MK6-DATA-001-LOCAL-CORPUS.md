@@ -1,7 +1,7 @@
 # SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS: Bind the retained composite corpus
 
 > Status: 🔵 In Review
-> Cycle: 1
+> Cycle: 2
 > Updated: 2026-08-18T00:00:00Z
 > Assignee: mastra-planner
 > Reviewer: mastra-reviewer
@@ -13,17 +13,23 @@
 
 ## Outcome
 
-MK6-DATA-001 is executable against the retained real Convex cutover export and the post-cutover local SQLite corpus. Its static contract rejects the former fixed-witness and asserted-provenance loopholes, preserves every existing conjunctive requirement that remains truthful, and pins the exact future implementation and runtime-write surface.
+MK6-DATA-001 is executable only against the canonically admitted retained Convex/SQLite/blob corpus and an exact pre-existing Hono/Postgres pair. Its contract pins symmetric source semantics, two-way provenance/tombstone accounting, external process/target identity, all required mutations, and the exact implementation scope.
 
-## Contradiction repaired
+## Contradictions and loopholes repaired
 
-The former contract required a sidecar that does not exist in the retained export and a synthetic witness ID absent from both the export and SQLite. It also treated the export as the sole source, which would discard local research written after cutover. Those clauses were contract-invalid for the recovered corpus and are explicitly replaced by derived composite provenance plus deterministic, byte-derived per-origin witnesses.
+Cycle 1 removed the nonexistent sidecar and synthetic witness assumptions. Cycle 2 closes five further gaps:
 
-The retained count-equal/content-corrupt control remains AC-2. New criteria add local-delta, forged-provenance, snapshot-drift, blob, selected-document, and fixture-source controls. No implementation, import, migration, database/export/blob mutation, service start, deployment, merge, push, or worktree lifecycle action is part of this repair.
+1. Source paths derive from a realpath/no-symlink canonical `$HOME/.holocron` root or one explicitly equivalent durable root; arbitrary clones, fixtures, per-source overrides, temporary roots, and symlink indirection cannot satisfy the positive path.
+2. Export, SQLite, and blob sources each have semantic `source-pre == snapshot-copy == source-post` proofs. SQLite uses two safe backups plus ordered table/provenance semantics; blobs use referenced-byte inventory hashes rather than existence.
+3. External bytes come from a pre-existing non-self Hono PID that matches the operating-system listener owner and whose `/health.database_target` fingerprint equals the direct isolated Postgres fingerprint before and after probing. Wrong-target and self-minted listeners fail.
+4. Local documents and provenance are reconciled in both directions. The live `19 provenance / 18 materialized` observation derives one losslessly preserved provenance-only tombstone; local-writes batch semantics come from SQLite fields, never a free origin claim.
+5. The static oracle hashes the complete execution-critical extension and real fixture descriptor, then mutation-tests every required negative plus explicit source, snapshot, blob, Postgres/external, handwritten-hash, and fixture downgrades.
+
+The retained AC-1/AC-2 and TC-1 through TC-9 remain conjunctive. AC-6 and TC-10 through TC-18 extend the contract without renumbering earlier IDs. No implementation, import, migration, data mutation, service start, deployment, merge, push, or worktree lifecycle action is part of this repair.
 
 ## WRITE-ALLOWED for this repair
 
-Only these two planning artifacts may change:
+Only these planning artifacts may change:
 
 1. `.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md`
 2. `.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md`
@@ -32,13 +38,14 @@ Everything else, including source, tests, scripts, `.tmp`, databases, exports, b
 
 ## Static oracle
 
-The following block is deliberately extractable and shell-valid. It validates the target's machine-readable extension and mutation-tests the oracle entirely in memory. It prints only counts and status; it does not open source corpora or print research bodies.
+The extractable shell block validates the unique target contract. The SHA-256 values are over canonical JSON (`sort_keys=True`, separators `,` and `:`) for the entire `data_plane_contract` and `real_composite_corpus` fixture objects, so any execution-critical field drift fails. Specific in-memory mutants prove the oracle rejects the reviewed loopholes; one additional mutant removes each required negative control.
 
 <!-- STATIC-ORACLE-BEGIN -->
 ```bash
 set -euo pipefail
 python3 - "$1" <<'PY'
 import copy
+import hashlib
 import json
 import re
 import sys
@@ -46,36 +53,40 @@ from pathlib import Path
 
 target = Path(sys.argv[1])
 text = target.read_text(encoding="utf-8")
-match = re.search(
+matches = re.findall(
     r"<!-- REQUIREMENT-CONTRACT v1 -->\s*<!--\s*(\{.*?\})\s*-->",
     text,
     re.DOTALL,
 )
-if match is None:
-    raise SystemExit("missing REQUIREMENT-CONTRACT v1")
-contract = json.loads(match.group(1))
+if len(matches) != 1:
+    raise SystemExit(f"expected one REQUIREMENT-CONTRACT v1, found {len(matches)}")
+contract = json.loads(matches[0])
 
-expected_sources = [
-    "MK6_DATA_CONVEX_EXPORT_DIR",
-    "MK6_DATA_SQLITE_PATH",
-    "MK6_DATA_SQLITE_BLOBS_DIR",
-]
-expected_facts = [
-    "convex-export-source-bytes",
-    "sqlite-import_batches",
-    "sqlite-import_row_provenance",
-    "sqlite-source-rows",
-    "sqlite-file_objects",
+expected_contract_sha256 = "55b553923d63c7f310a0ce35c2288c267fa2adc05de147719c4b3e9db4a67e32"
+expected_fixture_sha256 = "748a43551b04c60f57024b253ebad8b8ade0d6fa991759745ed4e143e2ddb6bb"
+expected_requirement_ids = [
+    "AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6",
+    "TC-1", "TC-2", "TC-3", "TC-4", "TC-5", "TC-6", "TC-7", "TC-8", "TC-9",
+    "TC-10", "TC-11", "TC-12", "TC-13", "TC-14", "TC-15", "TC-16", "TC-17", "TC-18",
 ]
 expected_controls = [
     "count-equal-content-corrupt",
     "missing-local-delta",
     "forged-provenance",
-    "source-mutated-after-snapshot",
+    "export-mutated-after-snapshot",
+    "sqlite-mutated-after-snapshot",
+    "blob-source-mutated-after-snapshot",
     "missing-blob",
     "replaced-blob",
     "nonexistent-selected-document",
     "fixture-path",
+    "arbitrary-source-clone",
+    "symlink-source-indirection",
+    "wrong-postgres-target",
+    "self-minted-listener",
+    "missing-materialized-local-provenance",
+    "dropped-provenance-tombstone",
+    "forged-local-batch-fields",
 ]
 expected_writes = [
     "services/platform/src/etl/composite-corpus.ts",
@@ -88,51 +99,35 @@ expected_writes = [
     "scripts/verify-mk6-data-plane-truth.sh",
     ".tmp/MK6-DATA-001/${RUN_ID}/**",
 ]
-expected_formula = (
-    "sha256(sourceOrigin+NUL+documents+NUL+sourceId+NUL+"
-    "sha256(exactUtf8ContentBytes))"
-)
+
+def canonical_sha256(value):
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 def errors(candidate):
     found = []
     extension = candidate.get("data_plane_contract", {})
-    snapshot = extension.get("snapshot_semantics", {})
-    provenance = extension.get("provenance", {})
-    witness = extension.get("witness_selection", {})
-    if extension.get("schema") != "holocron.mk6.composite-corpus.v1":
-        found.append("schema")
-    if extension.get("sources") != expected_sources:
-        found.append("sources")
-    if snapshot.get("convex") != "run-scoped-copy-with-pre-post-source-sha256":
-        found.append("convex-snapshot")
-    if snapshot.get("sqlite") != "sqlite-backup-api-never-raw-copy":
-        found.append("sqlite-snapshot")
-    if provenance.get("mode") != "operator-invoked-derived-attestation":
-        found.append("provenance-mode")
-    if provenance.get("facts_from") != expected_facts:
-        found.append("provenance-facts")
-    if "source=real" not in provenance.get("forbidden_assertions", []):
-        found.append("forged-provenance-rejection")
-    if witness.get("origins") != ["convex", "local"]:
-        found.append("witness-origins")
-    if witness.get("requires_nonempty_source_bytes") is not True:
-        found.append("nonempty-source-bytes")
-    if witness.get("formula") != expected_formula:
-        found.append("witness-formula")
-    if witness.get("selection") != "lexicographically-smallest-identityKey-per-origin":
-        found.append("witness-selection")
+    fixture = candidate.get("fixtures", {}).get("real_composite_corpus", {})
+    if canonical_sha256(extension) != expected_contract_sha256:
+        found.append("execution-contract-drift")
+    if canonical_sha256(fixture) != expected_fixture_sha256:
+        found.append("real-fixture-descriptor-drift")
+    if [item.get("id") for item in candidate.get("requirements", [])] != expected_requirement_ids:
+        found.append("requirement-id-drift")
     if extension.get("negative_controls") != expected_controls:
-        found.append("negative-controls")
+        found.append("negative-control-drift")
     if extension.get("write_allowed") != expected_writes:
-        found.append("write-scope")
+        found.append("write-scope-drift")
     positive_surface = json.dumps({
-        "fixtures": candidate.get("fixtures"),
-        "requirements": candidate.get("requirements", [])[:1],
-    })
+        "fixture": fixture,
+        "primary": candidate.get("requirements", [])[:1],
+    }).lower()
     if "mk6-data-sentinel-1" in positive_surface:
         found.append("fixed-sentinel")
     if "_export_provenance.json" in positive_surface:
         found.append("mandatory-legacy-sidecar")
+    if "synthetic" in fixture.get("description", "").lower():
+        found.append("synthetic-fixture")
     return found
 
 base_errors = errors(contract)
@@ -140,39 +135,74 @@ if base_errors:
     raise SystemExit("target rejected: " + ",".join(base_errors))
 
 mutants = []
+
 fixed_witness = copy.deepcopy(contract)
-fixed_witness["data_plane_contract"]["witness_selection"]["formula"] = (
-    "mk6-data-sentinel-1"
-)
-mutants.append(fixed_witness)
+fixed_witness["data_plane_contract"]["witness_selection"]["formula"] = "mk6-data-sentinel-1"
+mutants.append(("fixed-witness", fixed_witness))
 
 asserted_provenance = copy.deepcopy(contract)
-asserted_provenance["data_plane_contract"]["provenance"] = {
-    "mode": "declared-real",
-    "facts_from": ["source=real"],
-    "forbidden_assertions": [],
-}
-mutants.append(asserted_provenance)
+asserted_provenance["data_plane_contract"]["provenance"]["mode"] = "declared-real"
+asserted_provenance["data_plane_contract"]["provenance"]["facts_from"] = ["source=real"]
+mutants.append(("asserted-provenance", asserted_provenance))
 
 missing_local_source = copy.deepcopy(contract)
-missing_local_source["data_plane_contract"]["sources"] = [
-    "MK6_DATA_CONVEX_EXPORT_DIR"
-]
-mutants.append(missing_local_source)
+missing_local_source["data_plane_contract"]["sources"] = ["convex-export"]
+mutants.append(("missing-local-source", missing_local_source))
 
 widened_scope = copy.deepcopy(contract)
 widened_scope["data_plane_contract"]["write_allowed"] = ["services/**"]
-mutants.append(widened_scope)
+mutants.append(("widened-scope", widened_scope))
 
-for index, mutant in enumerate(mutants, start=1):
+downgraded_blob = copy.deepcopy(contract)
+downgraded_blob["data_plane_contract"]["snapshot_semantics"]["sqlite-blob-store"]["verification"] = "existence-only"
+mutants.append(("downgraded-blob-semantics", downgraded_blob))
+
+removed_postgres_boundary = copy.deepcopy(contract)
+removed_postgres_boundary["data_plane_contract"]["witness_selection"]["boundaries"].remove("direct-postgres")
+mutants.append(("removed-postgres-boundary", removed_postgres_boundary))
+
+removed_external_boundary = copy.deepcopy(contract)
+removed_external_boundary["data_plane_contract"]["witness_selection"]["boundaries"].remove("external-product-surface")
+mutants.append(("removed-external-boundary", removed_external_boundary))
+
+handwritten_hash = copy.deepcopy(contract)
+handwritten_hash["data_plane_contract"]["provenance"]["allow_handwritten_expected_hash"] = True
+mutants.append(("handwritten-hash-permission", handwritten_hash))
+
+synthetic_fixture = copy.deepcopy(contract)
+synthetic_fixture["fixtures"]["real_composite_corpus"]["description"] = "synthetic generated fixture"
+mutants.append(("synthetic-fixture-description", synthetic_fixture))
+
+arbitrary_clone = copy.deepcopy(contract)
+arbitrary_clone["data_plane_contract"]["source_admission"]["arbitrary_per_source_override_allowed"] = True
+mutants.append(("arbitrary-clone-admission", arbitrary_clone))
+
+symlink_allowed = copy.deepcopy(contract)
+symlink_allowed["data_plane_contract"]["source_admission"]["reject_symlink_in_any_component"] = False
+mutants.append(("symlink-admission", symlink_allowed))
+
+sqlite_raw_copy = copy.deepcopy(contract)
+sqlite_raw_copy["data_plane_contract"]["snapshot_semantics"]["sqlite-database"]["copy"] = "raw-copy"
+sqlite_raw_copy["data_plane_contract"]["snapshot_semantics"]["sqlite-database"]["required_equal_checkpoints"].pop()
+mutants.append(("sqlite-one-sided-raw-copy", sqlite_raw_copy))
+
+for control in expected_controls:
+    removed_control = copy.deepcopy(contract)
+    removed_control["data_plane_contract"]["negative_controls"].remove(control)
+    mutants.append((f"removed-negative:{control}", removed_control))
+
+for label, mutant in mutants:
     if not errors(mutant):
-        raise SystemExit(f"oracle accepted mutant {index}")
+        raise SystemExit(f"oracle accepted mutant: {label}")
 
 print(json.dumps({
     "contractValid": True,
-    "sourceCount": len(expected_sources),
+    "contractSha256": expected_contract_sha256,
+    "fixtureSha256": expected_fixture_sha256,
+    "sourceCount": len(contract["data_plane_contract"]["sources"]),
     "negativeControlCount": len(expected_controls),
     "writeAllowedCount": len(expected_writes),
+    "requirementCount": len(expected_requirement_ids),
     "mutantsRejected": len(mutants),
 }, sort_keys=True))
 PY
@@ -189,20 +219,20 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
 
 ## Acceptance Criteria
 
-- [ ] AC-1: The extractable static oracle exits zero and reports exactly three sources, eight negative controls, nine future write paths, and four rejected in-memory mutants.
-- [ ] AC-2: Both embedded `REQUIREMENT-CONTRACT v1` blocks parse as JSON and the scenario validator reports zero critical issues for both files.
-- [ ] AC-3: `git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD` after this repair commit contains exactly the two planning files listed under WRITE-ALLOWED.
-- [ ] AC-4: The target contract preserves AC-1 and AC-2 as conjunctive requirements, adds AC-3 through AC-5 and TC-3 through TC-9, and never requires the MCP branch to land before the data task.
+- [ ] AC-1: The extractable oracle exits zero and reports three sources, 17 negative controls, nine future write paths, 24 stable requirements, and 29 rejected in-memory mutants.
+- [ ] AC-2: Both files contain exactly one parseable `REQUIREMENT-CONTRACT v1`; the scenario validator reports zero critical issues for both.
+- [ ] AC-3: `git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD` after the repair commit contains exactly the two planning files listed under WRITE-ALLOWED.
+- [ ] AC-4: The target preserves AC-1/AC-2 and TC-1 through TC-9, adds AC-6 and TC-10 through TC-18, and explicitly does not require the MCP branch to land.
 
 ## Test Criteria
 
 | ID | Binary statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | The oracle accepts the repaired target and rejects fixed witness, asserted provenance, missing-local-source, and widened-scope mutants. | AC-1 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' "$REPAIR" \| bash -s -- "$TARGET"` |
-| TC-2 | The target requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); print(re.search(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S).group(1))' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
-| TC-3 | The repair requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import json,re,sys; s=open(sys.argv[1]).read(); print(re.search(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S).group(1))' .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
-| TC-4 | The committed diff is limited to the two authorized planning files. | AC-3 | `test "$(git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD | sort)" = "$(printf '%s\n' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md | sort)"` |
-| TC-5 | Stable requirement IDs remain present and the MCP landing decision is explicit. | AC-4 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9; do rg -q "\"id\": \"$id\"" "$TARGET"; done && rg -q 'does \*\*not\*\* require the local-only MCP branch to land first' "$TARGET"` |
+| TC-1 | The oracle pins the full execution contract and fixture hashes and rejects all 29 specific/control-removal mutants. | AC-1 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' "$REPAIR" \| bash -s -- "$TARGET"` |
+| TC-2 | The target requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S); assert len(m)==1; print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
+| TC-3 | The repair requirement contract parses and is scenario-valid. | AC-2 | `python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->",s,re.S); assert len(m)==1; print(m[0])' .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| python3 "$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py"` |
+| TC-4 | The committed diff is limited to the two authorized planning files. | AC-3 | `test "$(git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD \| sort)" = "$(printf '%s\n' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md \| sort)"` |
+| TC-5 | All stable target IDs and the no-MCP-landing decision remain explicit. | AC-4 | `TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 AC-6 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9 TC-10 TC-11 TC-12 TC-13 TC-14 TC-15 TC-16 TC-17 TC-18; do rg -q "\"id\": \"$id\"" "$TARGET"; done && rg -q 'does \*\*not\*\* require the local-only MCP branch to land first' "$TARGET"` |
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -218,11 +248,14 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
   "fixtures": {
     "target_task_contract": {
       "seed_method": "migration_fixture",
-      "description": "the repository MK6-DATA-001 planning artifact at the dispatch base, evaluated without opening or mutating either data source",
+      "description": "repository MK6-DATA-001 contract at the dispatch base; evaluated without opening or mutating source corpora or runtime",
       "records": [
         "targetTaskId: MK6-DATA-001",
         "dispatchBase: ca853e8cc8071a9ff505c5d9549bb9f23295413d",
-        "authorizedPlanningFileCount: 2"
+        "authorizedPlanningFileCount: 2",
+        "expectedTargetRequirementCount: 24",
+        "expectedNegativeControlCount: 17",
+        "expectedOracleMutantCount: 29"
       ]
     }
   },
@@ -231,17 +264,17 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "The static oracle validates the composite-corpus extension and rejects four old-loophole or scope mutants in memory",
+      "description": "The static oracle pins the complete target extension and real fixture descriptor and rejects 29 explicit or per-control mutants",
       "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\"",
       "maps_to_ac": null,
       "scenario": {
-        "id": "static-contract-oracle",
+        "id": "static-contract-oracle-v2",
         "test_tier": "integration",
         "tier": "visible",
         "verification_service": "requirement-contract-parser",
         "negative_control": {
           "would_fail_if": [
-            "a fixed witness, declared-real provenance, omitted local source, or widened future write scope is accepted"
+            "an empty extension, source admission downgrade, one-sided snapshot, existence-only blob check, removed Postgres/external boundary, handwritten hash, synthetic fixture, or missing required negative is accepted"
           ]
         },
         "evidence": {
@@ -254,21 +287,22 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
             "action": {
               "actor": "cli_user",
               "steps": [
-                "extract and run the static oracle against the repaired target, including all four in-memory mutations"
+                "extract and run the static oracle against the repaired target, including 12 explicit downgrades and one removal mutant for each of 17 controls"
               ]
             },
             "end_state": {
               "must_observe": [
                 "sourceCount: 3",
-                "negativeControlCount: 8",
+                "negativeControlCount: 17",
                 "writeAllowedCount: 9",
-                "mutantsRejected: 4"
+                "requirementCount: 24",
+                "mutantsRejected: 29"
               ],
               "must_not_observe": [
-                "oracle accepted mutant 1",
-                "empty contract accepted",
-                "target rejected: fixed-sentinel",
-                "writeAllowedCount: 1"
+                "empty extension accepted",
+                "oracle accepted mutant",
+                "negativeControlCount: 8",
+                "mutantsRejected: 4"
               ]
             }
           }
@@ -278,17 +312,17 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
     {
       "id": "AC-2",
       "type": "acceptance_criterion",
-      "description": "Both planning files contain parseable and scenario-valid requirement contracts",
-      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); print(re.search(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S).group(1))' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
+      "description": "Both planning files contain exactly one parseable and scenario-valid requirement contract",
+      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S); assert len(m)==1; print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
       "maps_to_ac": null,
       "scenario": {
-        "id": "scenario-contract-validation",
+        "id": "unique-scenario-contract-validation",
         "test_tier": "integration",
         "tier": "visible",
         "verification_service": "scenario-validator",
         "negative_control": {
           "would_fail_if": [
-            "either JSON block is malformed, any behavioral acceptance criterion lacks a scenario, or a scenario has an empty oracle"
+            "a JSON block is absent, duplicated, malformed, or empty, a behavioral criterion lacks a scenario, or any scenario oracle is weak"
           ]
         },
         "evidence": {
@@ -301,17 +335,18 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
             "action": {
               "actor": "cli_user",
               "steps": [
-                "extract both requirement contracts, parse them, and run the shared scenario validator"
+                "extract exactly one contract from each planning file, parse it, and run the shared scenario validator"
               ]
             },
             "end_state": {
               "must_observe": [
                 "validatedContractCount: 2",
+                "duplicateContractCount: 0",
                 "criticalIssueCount: 0"
               ],
               "must_not_observe": [
+                "empty contract accepted",
                 "JSONDecodeError",
-                "empty scenario oracle accepted",
                 "CRITICAL"
               ]
             }
@@ -326,13 +361,13 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
       "verify": "test \"$(git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD | sort)\" = \"$(printf '%s\\n' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md | sort)\"",
       "maps_to_ac": null,
       "scenario": {
-        "id": "repair-write-scope",
+        "id": "cycle-two-repair-write-scope",
         "test_tier": "integration",
         "tier": "visible",
         "verification_service": "git",
         "negative_control": {
           "would_fail_if": [
-            "a source, test, script, database, export, blob, runtime, or third planning file is changed, or an empty diff is accepted"
+            "a source, test, script, database, export, blob, runtime, state, network setting, or third planning file is changed, or an empty diff is accepted"
           ]
         },
         "evidence": {
@@ -345,7 +380,7 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
             "action": {
               "actor": "cli_user",
               "steps": [
-                "compare the committed repair diff to the dispatch base and sort both path sets"
+                "compare the committed branch diff to dispatch base and require the exact sorted two-path set"
               ]
             },
             "end_state": {
@@ -354,8 +389,8 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
                 "unauthorizedChangedPathCount: 0"
               ],
               "must_not_observe": [
-                "changedDatabaseCount: 1",
                 "empty diff accepted",
+                "changedDatabaseCount: 1",
                 "changedRuntimeFileCount: 1"
               ]
             }
@@ -366,17 +401,17 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
     {
       "id": "AC-4",
       "type": "acceptance_criterion",
-      "description": "The repaired target preserves stable criteria and explicitly allows direct platform consumption of the SQLite format without landing the MCP branch",
-      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9; do rg -q '\"id\": \"'$id'\"' \"$TARGET\"; done && rg -q 'does \\*\\*not\\*\\* require the local-only MCP branch to land first' \"$TARGET\"",
+      "description": "The target preserves stable criteria, adds the reviewed Cycle-2 IDs, and does not require MCP branch landing",
+      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 AC-6 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9 TC-10 TC-11 TC-12 TC-13 TC-14 TC-15 TC-16 TC-17 TC-18; do rg -q '\"id\": \"'$id'\"' \"$TARGET\"; done && rg -q 'does \\*\\*not\\*\\* require the local-only MCP branch to land first' \"$TARGET\"",
       "maps_to_ac": null,
       "scenario": {
-        "id": "stable-requirements-and-dependency",
+        "id": "stable-ids-and-mcp-dependency-v2",
         "test_tier": "integration",
         "tier": "visible",
         "verification_service": "task-contract-parser",
         "negative_control": {
           "would_fail_if": [
-            "the retained count-equal control disappears, an empty requirement-ID set is accepted, stable IDs are renumbered, or the unmerged MCP branch is made an undeclared implementation dependency"
+            "the count-equal criterion disappears, an empty ID set passes, stable IDs are renumbered, Cycle-2 controls lack IDs, or the MCP branch becomes an undeclared dependency"
           ]
         },
         "evidence": {
@@ -389,18 +424,18 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
             "action": {
               "actor": "cli_user",
               "steps": [
-                "inspect the target requirement IDs and its explicit MCP branch decision"
+                "inspect exact target AC/TC IDs and the explicit MCP branch decision"
               ]
             },
             "end_state": {
               "must_observe": [
-                "acceptanceCriterionIds: AC-1,AC-2,AC-3,AC-4,AC-5",
-                "testCriterionIds: TC-1,TC-2,TC-3,TC-4,TC-5,TC-6,TC-7,TC-8,TC-9",
+                "acceptanceCriterionIds: AC-1,AC-2,AC-3,AC-4,AC-5,AC-6",
+                "testCriterionRange: TC-1..TC-18",
                 "mcpBranchLandingRequired: false"
               ],
               "must_not_observe": [
-                "acceptanceCriterionIds: AC-1,AC-3",
                 "empty acceptance-criterion set",
+                "acceptanceCriterionIds: AC-1,AC-3",
                 "mcpBranchLandingRequired: true"
               ]
             }
@@ -411,29 +446,29 @@ awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{o
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "The static oracle accepts the repair and rejects all four mutants",
+      "description": "The static oracle accepts the exact target and rejects all 29 mutants",
       "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md REPAIR=.spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; awk '/^<!-- STATIC-ORACLE-BEGIN -->$/{on=1;next}/^<!-- STATIC-ORACLE-END -->$/{on=0}on && !/^```/{print}' \"$REPAIR\" | bash -s -- \"$TARGET\"",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "Both requirement contracts are scenario-valid",
-      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); print(re.search(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S).group(1))' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
+      "description": "Both unique requirement contracts are scenario-valid",
+      "verify": "for f in .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md; do python3 -c 'import re,sys; s=open(sys.argv[1]).read(); m=re.findall(r\"<!-- REQUIREMENT-CONTRACT v1 -->\\s*<!--\\s*(\\{.*?\\})\\s*-->\",s,re.S); assert len(m)==1; print(m[0])' \"$f\" | python3 \"$HOME/Projects/brain/tools/validate-scenario/validate_scenario.py\"; done",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
-      "description": "The committed diff contains only the authorized files",
+      "description": "The committed branch diff contains only the authorized files",
       "verify": "test \"$(git diff --name-only ca853e8cc8071a9ff505c5d9549bb9f23295413d...HEAD | sort)\" = \"$(printf '%s\\n' .spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md .spec/tasks/imp-mk6-functional-completeness-1786837297/SPEC-REPAIR-MK6-DATA-001-LOCAL-CORPUS.md | sort)\"",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
-      "description": "Stable criteria and the no-MCP-landing dependency decision are explicit",
-      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9; do rg -q '\"id\": \"'$id'\"' \"$TARGET\"; done && rg -q 'does \\*\\*not\\*\\* require the local-only MCP branch to land first' \"$TARGET\"",
+      "description": "Stable and Cycle-2 IDs plus the no-MCP-landing decision are explicit",
+      "verify": "TARGET=.spec/tasks/imp-mk6-functional-completeness-1786837297/MK6-DATA-001-data-plane-truth.md; for id in AC-1 AC-2 AC-3 AC-4 AC-5 AC-6 TC-1 TC-2 TC-3 TC-4 TC-5 TC-6 TC-7 TC-8 TC-9 TC-10 TC-11 TC-12 TC-13 TC-14 TC-15 TC-16 TC-17 TC-18; do rg -q '\"id\": \"'$id'\"' \"$TARGET\"; done && rg -q 'does \\*\\*not\\*\\* require the local-only MCP branch to land first' \"$TARGET\"",
       "maps_to_ac": "AC-4"
     }
   ]
