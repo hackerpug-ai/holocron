@@ -246,7 +246,7 @@ read_deployment_identity() {
     json_error "DEPLOYMENT_IDENTITY_UNAVAILABLE" "could not read deployed health identity"
   jq -e 'type == "object"' <<<"$health" >/dev/null 2>&1 || json_error "DEPLOYMENT_IDENTITY_INVALID" "health identity was not JSON"
   ids=$(timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
-    "${DOCKER_BIN} ps --filter label=com.docker.compose.project=holocron --filter label=com.docker.compose.service=mastra --format '{{.ID}}'" 2>/dev/null) ||
+    "${DOCKER_BIN} ps --filter label=com.docker.compose.project=holocron-production --filter label=com.docker.compose.service=mastra --format '{{.ID}}'" 2>/dev/null) ||
     json_error "DEPLOYMENT_IDENTITY_UNAVAILABLE" "could not locate deployed mastra container"
   mapfile -t service_ids < <(awk 'NF' <<<"$ids")
   [[ "${#service_ids[@]}" -eq 1 ]] || json_error "DEPLOYMENT_IDENTITY_AMBIGUOUS" "expected exactly one deployed mastra container"
@@ -404,7 +404,7 @@ extract_assistant_text() {
 read_telemetry_and_trace() {
   local run_id="$1" container_ids container_id telemetry_raw trace_raw
   container_ids=$(timeout 12s ssh "${SSH_ARGS[@]}" "$SSH_DESTINATION" \
-    "${DOCKER_BIN} ps --filter label=com.docker.compose.project=holocron --filter label=com.docker.compose.service=mastra --format '{{.ID}}'" 2>/dev/null) || return 1
+    "${DOCKER_BIN} ps --filter label=com.docker.compose.project=holocron-production --filter label=com.docker.compose.service=mastra --format '{{.ID}}'" 2>/dev/null) || return 1
   mapfile -t mastra_ids < <(awk 'NF' <<<"$container_ids")
   [[ "${#mastra_ids[@]}" -eq 1 ]] || return 1
   container_id="${mastra_ids[0]}"
