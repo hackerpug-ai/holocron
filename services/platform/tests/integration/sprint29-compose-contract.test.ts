@@ -614,6 +614,12 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     ).toMatch(/"roles"\s*:\s*\{/);
   });
 
+  it('explicitly re-includes the fleet manifest in the effective root Docker context', () => {
+    const dockerignore = readFileSync(ROOT_DOCKERIGNORE, 'utf8');
+    expect(dockerignore).toMatch(/^!services\/platform\/fleet\/$/m);
+    expect(dockerignore).toMatch(/^!services\/platform\/fleet\/manifest\.json$/m);
+  });
+
   it('IMP-AC-6 configurable 50 GiB memory ceiling', () => {
     expect(MAX_MEMORY_LIMIT_SUM_GIB).toBe(50);
     const valid = assertMemoryLimitPlan({
