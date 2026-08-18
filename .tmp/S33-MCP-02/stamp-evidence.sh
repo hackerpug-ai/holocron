@@ -23,6 +23,7 @@ command -v jq >/dev/null || die "jq is required"
 sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
 blob_sha() { git -C "$ROOT" cat-file blob "$1:$2" | shasum -a 256 | awk '{print $1}'; }
 require_file() { [[ -f "$DIR/$1" && ! -L "$DIR/$1" && -s "$DIR/$1" ]] || die "required artifact missing or empty: $1"; }
+require_regular() { [[ -f "$DIR/$1" && ! -L "$DIR/$1" ]] || die "required artifact missing: $1"; }
 require_file "red-output.txt"
 require_file "green-output.txt"
 require_file "seeded-artifact-red.json"
@@ -39,6 +40,10 @@ require_file "manifest-output.txt"
 require_file "inspector-smoke-output.txt"
 require_file "test-source-snapshot.ts"
 require_file "verify-manifest.json"
+require_file "tdd-lineage.json"
+for harvested in typecheck-output.txt lint-output.txt test-output.txt requirement-results.json ac-1-output.txt ac-2-output.txt ac-3-output.txt ac-4-output.txt tc-1-output.txt tc-2-output.txt tc-3-output.txt tc-4-output.txt tc-5-output.txt tc-6-output.txt; do
+  require_regular "$harvested"
+done
 
 [[ "$(git -C "$ROOT" ls-files --error-unmatch ".tmp/$TASK_ID/red-output.txt" 2>/dev/null)" == ".tmp/$TASK_ID/red-output.txt" ]] || die "RED log is not tracked"
 [[ "$(git -C "$ROOT" ls-files --error-unmatch ".tmp/$TASK_ID/green-output.txt" 2>/dev/null)" == ".tmp/$TASK_ID/green-output.txt" ]] || die "GREEN log is not tracked"
@@ -63,7 +68,7 @@ grep -Fq 'EXIT_CODE:0' "$DIR/manifest-output.txt" || die "manifest gate marker m
 grep -Fq 'EXIT_CODE:0' "$DIR/inspector-smoke-output.txt" || die "Inspector marker missing"
 grep -Fq 'hybrid' "$DIR/inspector-smoke-output.txt" || die "Inspector hybrid result missing"
 jq -e '.embeddingDimension == 1024 and .semanticTitle == "S33-MCP-02 Fleet Retrieval Proof" and (.closedFleetUrl|startswith("http://127.0.0.1:"))' "$DIR/seeded-artifact-green.json" >/dev/null || die "seeded artifact invariants missing"
-jq -e '.parseFailures == [] and .live.result.isError != true and .closed.result.isError == true and .closedError.code == "ROLE_UNAVAILABLE"' "$DIR/green-ac-4-stdio.json" >/dev/null || die "stdio parity/parse evidence invalid"
+jq -e '.live.parseFailures == [] and .closed.parseFailures == [] and .live.result.isError != true and .closed.result.isError == true and .closedError.code == "ROLE_UNAVAILABLE"' "$DIR/green-ac-4-stdio.json" >/dev/null || die "stdio parity/parse evidence invalid"
 CLOSED_URL="$(jq -r '.closedFleetUrl' "$DIR/green-ac-2-http-closed-fleet.json")"
 jq -e --arg closed "$CLOSED_URL" '.error.code == "ROLE_UNAVAILABLE" and (.error.message|contains("fleet role '\''embed'\''")) and (.error.message|contains($closed))' "$DIR/green-ac-2-http-closed-fleet.json" >/dev/null || die "closed fleet role evidence invalid"
 
@@ -91,10 +96,9 @@ RECIPE_SHA="$(sha256_file "$DIR/stamp-evidence.sh")"
 INPUTS_TMP="$(mktemp "$DIR/.evidence-inputs.XXXXXX")"
 SUMMARY_TMP="$(mktemp "$DIR/.verification-summary.XXXXXX")"
 trap 'rm -f "$INPUTS_TMP" "$SUMMARY_TMP"; rm -rf "$TMP_NEG"' EXIT
-for file in red-output.txt green-output.txt seeded-artifact-red.json seeded-artifact-green.json red-ac-1-http-red.json red-ac-2-http-closed-fleet-red.json red-ac-3-http-fts-closed-fleet-red.json red-ac-4-stdio-red.json green-ac-1-http.json green-ac-2-http-closed-fleet.json green-ac-3-http-fts-closed-fleet.json green-ac-4-stdio.json manifest-output.txt inspector-smoke-output.txt test-source-snapshot.ts verify-manifest.json stamp-evidence.sh; do
+for file in red-output.txt green-output.txt seeded-artifact-red.json seeded-artifact-green.json red-ac-1-http-red.json red-ac-2-http-closed-fleet-red.json red-ac-3-http-fts-closed-fleet-red.json red-ac-4-stdio-red.json green-ac-1-http.json green-ac-2-http-closed-fleet.json green-ac-3-http-fts-closed-fleet.json green-ac-4-stdio.json manifest-output.txt inspector-smoke-output.txt test-source-snapshot.ts verify-manifest.json tdd-lineage.json typecheck-output.txt lint-output.txt test-output.txt requirement-results.json ac-1-output.txt ac-2-output.txt ac-3-output.txt ac-4-output.txt tc-1-output.txt tc-2-output.txt tc-3-output.txt tc-4-output.txt tc-5-output.txt tc-6-output.txt stamp-evidence.sh; do
   jq -nc --arg path "$file" --arg sha "$(sha256_file "$DIR/$file")" '{path:$path,sha256:$sha}' >> "$INPUTS_TMP"
 done
-jq -nc --arg path "services/platform/$TEST" --arg sha "$(sha256_file "$ROOT/$TEST")" '{path:$path,sha256:$sha}' >> "$INPUTS_TMP"
 INPUTS_JSON="$(jq -s '.' "$INPUTS_TMP")"
 STAMPED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 jq --arg tool "stamp-evidence.sh" --arg version "1.0" --arg ts "$STAMPED_AT" --arg layered "harvest-evidence.sh" --arg recipe_sha "$RECIPE_SHA" --arg red "$RED_SHA" --arg green "$GREEN_SHA" --arg red_blob "$(blob_sha "$RED_SHA" ".tmp/$TASK_ID/red-output.txt")" --arg green_blob "$(blob_sha "$GREEN_SHA" ".tmp/$TASK_ID/green-output.txt")" --arg test_red "$TEST_BLOB_RED" --arg test_green "$TEST_BLOB_GREEN" --argjson inputs "$INPUTS_JSON" '.generator = {tool:$tool,version:$version,generated_at:$ts,layered_from:$layered,recipe_sha256:$recipe_sha,inputs:$inputs,lineage:{red_commit:$red,green_commit:$green,red_artifact_blob:$red_blob,green_artifact_blob:$green_blob,test_source_blob_red:$test_red,test_source_blob_green:$test_green},negative_controls:{artifact_tamper:true,source_tamper:true,null_lineage:true,out_of_order_lineage:true}}' "$SUMMARY" > "$SUMMARY_TMP"

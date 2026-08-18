@@ -1,0 +1,2 @@
+  ✓ stamp: all 32 input hash(es) match on-disk bytes
+EXIT_CODE:0

@@ -1,0 +1,2 @@
+stamp-evidence: layered_from=harvest-evidence.sh inputs=32 recipe_sha256=1d7c0411752680a32fc4da8da0f37615e71c898977c10c70be84c49e9a967690
+EXIT_CODE:0
