@@ -23,6 +23,7 @@ WORKDIR /app
 COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
 COPY --chown=bun:bun services/platform/package.json ./package.json
 COPY --chown=bun:bun services/platform/src ./src
+COPY --chown=bun:bun services/platform/fleet/manifest.json ./fleet/manifest.json
 COPY --chown=bun:bun .spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml ./runtime-contracts/mcp-compatibility-manifest.yaml
 
 # The upstream Bun image supplies the unprivileged `bun` user. Do not run a

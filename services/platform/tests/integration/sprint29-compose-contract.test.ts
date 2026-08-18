@@ -29,6 +29,7 @@ import { cleanupDockerVolumes } from './helpers/docker-lifecycle.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.yaml');
+const DOCKERFILE_PATH = resolve(REPO_ROOT, 'services/platform/Dockerfile');
 const ROOT_DOCKERIGNORE = resolve(REPO_ROOT, '.dockerignore');
 const LOCK_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/image-lock.json');
 const CANDIDATE =
@@ -450,6 +451,36 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     }
   });
 
+  it('passes the candidate image through the child environment for stock Compose rendering', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-compose-contract-'));
+    const lockPath = resolve(root, 'image-lock.json');
+    const commands: string[][] = [];
+    const baseRunner = commandRunner(commands);
+    const composeEnvironments: NodeJS.ProcessEnv[] = [];
+    try {
+      const runner = ((command, args, cwd, env) => {
+        if (command === 'docker' && args[0] === 'compose') {
+          composeEnvironments.push(env ?? {});
+          expect(env?.HOLO_PLATFORM_IMAGE).toBe(CANDIDATE);
+        }
+        return baseRunner(command, args, cwd);
+      }) as ProcessRunner;
+      expect(() =>
+        packageRelease({
+          image: CANDIDATE,
+          previousImage: PREVIOUS,
+          composePath: COMPOSE_PATH,
+          lockPath,
+          runner,
+        })
+      ).not.toThrow();
+      expect(composeEnvironments).toHaveLength(1);
+      expect(composeEnvironments[0]?.HOLO_PLATFORM_IMAGE).toBe(CANDIDATE);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('refuses a revision mismatch before it writes a lock (unit seam)', () => {
     const root = mkdtempSync(resolve(tmpdir(), 'holocron-compose-contract-'));
     const lockPath = resolve(root, 'image-lock.json');
@@ -555,6 +586,38 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       amd64OnlyRejected = true;
     }
     expect(amd64OnlyRejected, "amd64_only_candidate_rejected='true'").toBe(true);
+  });
+
+  it('parses Docker 29 lowercase imagetools inspect manifest and image fields', () => {
+    const platforms = parseImagePlatforms(
+      JSON.stringify({
+        manifest: {
+          manifests: [{ platform: { os: 'linux', architecture: 'amd64' } }],
+        },
+        image: { architecture: 'arm64', os: 'linux' },
+      })
+    );
+    expect(platforms).toEqual([
+      { os: 'linux', architecture: 'amd64' },
+      { os: 'linux', architecture: 'arm64' },
+    ]);
+    expect(() => assertLinuxArm64Platforms(platforms)).not.toThrow();
+  });
+
+  it('requires the committed fleet role manifest at the runtime path in the production image', () => {
+    const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf8');
+    expect(dockerfile).toContain(
+      'COPY --chown=bun:bun services/platform/fleet/manifest.json ./fleet/manifest.json'
+    );
+    expect(
+      readFileSync(resolve(REPO_ROOT, 'services/platform/fleet/manifest.json'), 'utf8')
+    ).toMatch(/"roles"\s*:\s*\{/);
+  });
+
+  it('explicitly re-includes the fleet manifest in the effective root Docker context', () => {
+    const dockerignore = readFileSync(ROOT_DOCKERIGNORE, 'utf8');
+    expect(dockerignore).toMatch(/^!services\/platform\/fleet\/$/m);
+    expect(dockerignore).toMatch(/^!services\/platform\/fleet\/manifest\.json$/m);
   });
 
   it('IMP-AC-6 configurable 50 GiB memory ceiling', () => {

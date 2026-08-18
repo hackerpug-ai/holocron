@@ -75,6 +75,8 @@ export function parseImagePlatforms(inspectStdout: string): ImagePlatform[] {
       pushPlatform(record);
     }
     if (Array.isArray(record.manifests)) walk(record.manifests);
+    if (record.manifest && typeof record.manifest === 'object') walk(record.manifest);
+    if (record.image && typeof record.image === 'object') walk(record.image);
     if (record.Manifest && typeof record.Manifest === 'object') walk(record.Manifest);
     if (Array.isArray((record.Manifest as { Manifests?: unknown })?.Manifests)) {
       walk((record.Manifest as { Manifests: unknown }).Manifests);
@@ -131,7 +133,12 @@ export type ProcessResult = {
   stderr: string;
 };
 
-export type ProcessRunner = (command: string, args: string[], cwd: string) => ProcessResult;
+export type ProcessRunner = (
+  command: string,
+  args: string[],
+  cwd: string,
+  env?: NodeJS.ProcessEnv
+) => ProcessResult;
 
 export type PackageOptions = {
   image: string;
@@ -163,8 +170,8 @@ type ComposeContract = {
   volumes?: Record<string, unknown>;
 };
 
-const defaultRunner: ProcessRunner = (command, args, cwd) => {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
+const defaultRunner: ProcessRunner = (command, args, cwd, env = process.env) => {
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8', env });
   return {
     status: result.status,
     stdout: result.stdout ?? '',
@@ -507,9 +514,10 @@ function runOrFail(
   runner: ProcessRunner,
   cwd: string,
   command: string,
-  args: string[]
+  args: string[],
+  env?: NodeJS.ProcessEnv
 ): ProcessResult {
-  const result = runner(command, args, cwd);
+  const result = runner(command, args, cwd, env);
   if (result.status !== 0) {
     // Never embed child stdout/stderr — they may include env-expanded secrets.
     fail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
@@ -640,16 +648,16 @@ function renderCompose(
   image: string
 ): void {
   const before = process.env.HOLO_PLATFORM_IMAGE;
+  const renderEnv = { ...process.env, HOLO_PLATFORM_IMAGE: image };
   try {
     process.env.HOLO_PLATFORM_IMAGE = image;
-    const rendered = runOrFail(runner, cwd, 'docker', [
-      'compose',
-      '-f',
-      composePath,
-      'config',
-      '--format',
-      'json',
-    ]);
+    const rendered = runOrFail(
+      runner,
+      cwd,
+      'docker',
+      ['compose', '-f', composePath, 'config', '--format', 'json'],
+      renderEnv
+    );
     let contract: unknown;
     try {
       contract = JSON.parse(rendered.stdout);
