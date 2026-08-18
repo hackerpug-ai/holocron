@@ -31,7 +31,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 5. `telemetry.instrumentationBoundary === "provider-model"`, terminalization and reconciliation are true, and cloud/unknown counts are zero.
 6. The top-level response header, accounting's singular response header, and every entry in `responseHeaderApiBases` equal `http://<serving-device-id>:8003/v1`.
 7. Two positive minis, zero positive minis, any count mismatch, any header mismatch, a laptop/Holocron serving identity, an unknown request, or a non-provider-model boundary fails closed.
-8. Only `HOLO_KEY_RN` may authorize the public Hono chat routes; `HOLO_KEY_MCP` is forbidden for every public request. Auth travels over private SSH stdin into a trap-removed mode-0600 temporary curl config; every URL/header value is quoted and escaped, and no secret value may appear in argv, stdout, stderr, JSON receipts, or retained artifacts. The scanner rejects expanded credential values in curl `-H`, `-d`, and `-u` separated/clustered/attached/equals forms, equivalent long or positional argv channels, and inline environment assignments, while allowing names-only presence checks plus private non-secret stdin/config path arguments.
+8. Only `HOLO_KEY_RN` may authorize the public Hono chat routes; `HOLO_KEY_MCP` is forbidden for every public request. Auth travels over private SSH stdin into a trap-removed mode-0600 temporary curl config; every URL/header value is quoted and escaped, and no secret value may appear in argv, stdout, stderr, JSON receipts, or retained artifacts. A fail-closed positive grammar allows literal names in prose/lists plus exactly two expansion-bearing standalone command forms: `test "${HOLO_KEY_RN+x}" = x` and the target's exact private-stdin verifier invocation. Every other shell expansion rejects independently of wrappers, prefixes, absolute paths, curl options, or positional argv; private non-secret stdin/config path arguments remain valid.
 9. In-container telemetry/trace reads use `/app/src/cli/holo.ts` and privately bootstrap `DATABASE_URL` from `/run/secrets/database_url` without disclosing it.
 10. A contractually executable `post-chat-invalid-stream` control must first complete a real public 2xx POST, capture its non-empty run ID and real SSE stream, truncate only a private copy of the first SSE JSON payload, and invoke the target verifier's production response parser. That target path must exit nonzero with `CHAT_STREAM_PARSE_FAILED`, `chat_request_issued:true`, real-stream and target-verifier receipt provenance, `synthetic:false`, zero secret exposure, and zero network mutation; a hand-authored receipt cannot pass.
 11. Network Continuity remains absolute: only bounded public HTTP plus read-only SSH/Docker reads are allowed; no service, Tailscale, Wi-Fi, interface, route, DNS, or other network mutation and no literal disconnect claim is permitted.
@@ -43,7 +43,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 - **GIVEN** the target task and this planning-only repair
 - **WHEN** the static verifier uniquely extracts both canonical requirement contracts, syntax-checks every shell verifier, validates every scenario, checks human/JSON parity, evaluates a synthetic two-call serving receipt with the target's actual `jq` predicate, and applies structured receipt and contract mutations
 - **THEN** the two-call baseline passes and distinct mutations for two serving minis, zero calls, serving/model/fleet/telemetry-row/transport/plural-header mismatches, missing or mismatched top-level and telemetry singular headers, laptop attribution, unknown traffic, or non-provider-model instrumentation all fail
-- **AND** the target AC-10/TC-13 command is identical in human and JSON forms, syntax-valid, invokes the target verifier's real post-POST invalid-stream mode, requires a nonzero verifier exit, and rejects false issuance, pre-POST, synthetic-stream, hand-authored-receipt, MCP-auth, secret-exposure, curl short/long/positional argv, inline-assignment, unquoted/temp-leak, and network-mutation contract mutants while accepting names-only/private-stdin controls
+- **AND** the target AC-10/TC-13 command is identical in human and JSON forms, syntax-valid, invokes the target verifier's real post-POST invalid-stream mode, requires a nonzero verifier exit, and the credential grammar accepts only its 2 canonical expansion-bearing lines while rejecting every wrapper/prefix/absolute-path/argv/inline-assignment variant plus all prior post-chat, MCP-auth, secret-exposure, unquoted/temp-leak, and network-mutation mutants
 - **AND** the only changed paths are the target task and this new repair artifact, based on exact main `146b6e64472461219b52f820894138678b8c0371`
 - **Verify:** `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'`
 - **Scenario:** topology `single-node` · evidence `file_artifact` · negative control: real temporary-file and receipt mutations
@@ -52,7 +52,7 @@ It performs no source, runtime, evidence, state, network, remote, deployment, me
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | Both contracts parse uniquely, all shell verifiers pass `bash -n`, all scenarios validate, positive plus post-POST human/JSON commands match, the two-call receipt passes, four singular-header controls reject, secret-bearing `-H`/`-d`/`-u` and inline-assignment candidates reject, and names-only/private-stdin candidates pass. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
+| TC-1 | Both contracts parse uniquely, all shell verifiers pass `bash -n`, all scenarios validate, positive plus post-POST parity holds, the two-call receipt passes, 2 exact credential-expansion forms pass, and direct plus command/timeout/random-wrapper `-H`/`-d`/`-u`, positional, inline, and parameter-variant candidates reject. | AC-1 | `python3 -c 'import pathlib,re; p=pathlib.Path(".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md"); s=p.read_text(); m=re.search(r"<!-- STATIC-VERIFIER v1 -->\s*```python\n(.*?)\n```",s,re.S); assert m; exec(compile(m.group(1),str(p),"exec"),{"__file__":str(p)})'` |
 
 ## Static verifier and mutation oracle
 
@@ -174,10 +174,13 @@ assert all(fragment in positive_verify for fragment in required_positive_fragmen
 assert ".matching_completion_count == 0 or .matching_completion_count == 1" not in positive_verify
 assert "select(.matching_completion_count == 1)" not in positive_verify
 
+canonical_presence_line = 'test "${HOLO_KEY_RN+x}" = x'
+canonical_private_stdin_line = 'PLATFORM_IT=1 S33_REQUEST_HOST=inference1 S33_HOLOCRON_HOST=holocron@holocron bash scripts/verify-s33-mini-served-turn.sh --mode post-chat-invalid-stream --json <<<"${HOLO_KEY_RN}" >"$receipt"'
+
 execution_sentinels = [
     "PUBLIC AUTH AND SECRET HYGIENE: only `HOLO_KEY_RN` may authorize the public Hono chat POST/GET routes; `HOLO_KEY_MCP` is forbidden for every public request.",
-    "CREDENTIAL EXPANSION BAN: an expanded secret value must never enter curl short options `-H`, `-d`, or `-u` (separated, clustered, attached, or equals forms), any equivalent long option or positional argv channel, or an inline environment assignment preceding curl or another process.",
-    "private mode-0600 temporary curl config",
+    "POSITIVE CREDENTIAL GRAMMAR: literal credential-name references are allowed in prose and credential-name lists, but command-bearing contract text may contain a shell expansion of `HOLO_KEY_RN` only on either of the two exact standalone lines below.",
+    "mode-0600 temporary curl config",
     "Secret values are forbidden in process argv, stdout, stderr, JSON receipts, and retained artifacts.",
     "`bun /app/src/cli/holo.ts ...` inside the Mastra container after privately bootstrapping `DATABASE_URL` from `/run/secrets/database_url`",
     "every later failure receipt preserves `chat_request_issued:true`",
@@ -185,6 +188,8 @@ execution_sentinels = [
     "NETWORK CONTINUITY: the verifier may make bounded public HTTP requests and read-only SSH/Docker reads only.",
 ]
 assert all(sentinel in target_text for sentinel in execution_sentinels)
+assert target_text.splitlines().count(canonical_presence_line) == 1
+assert target_text.splitlines().count(canonical_private_stdin_line) == 1
 
 post_chat_ids = ["AC-10", "TC-13"]
 post_chat_verify = target_by_id["AC-10"]["verify"]
@@ -359,17 +364,25 @@ mutated("unknown-request")["telemetry"]["unknownRequests"] = 1
 mutated("wrong-boundary")["telemetry"]["instrumentationBoundary"] = "global-fetch"
 assert all(not receipt_passes(value) for value in mutations.values())
 
-forbidden_credential_patterns = [
+credential_expansion_pattern = re.compile(
+    r"\$(?:HOLO_KEY_(?:RN|MCP)\b|\{HOLO_KEY_(?:RN|MCP)[^}]*\})"
+)
+
+def credential_expansion_grammar_passes(candidate: str) -> bool:
+    for line in candidate.splitlines():
+        expansions = [match.group(0) for match in credential_expansion_pattern.finditer(line)]
+        if not expansions:
+            continue
+        if line == canonical_presence_line and expansions == ["${HOLO_KEY_RN+x}"]:
+            continue
+        if line == canonical_private_stdin_line and expansions == ["${HOLO_KEY_RN}"]:
+            continue
+        return False
+    return True
+
+semantic_credential_contradictions = [
     re.compile(r"Authorization\s*:?\s*Bearer\s+\$?\{?HOLO_KEY_MCP\}?"),
     re.compile(r"PUBLIC_REQUEST_AUTH\s*=\s*HOLO_KEY_MCP"),
-    re.compile(r"(?m)^\s*(?:(?:[-*]|\d+\.)\s+)?(?:`)?(?:\S*/)?curl\b[^\n]*\s-[A-Za-z]*[Hdu](?:=|\s*)[^\n]*\$(?:HOLO_KEY_(?:RN|MCP)|\{HOLO_KEY_(?:RN|MCP)(?::[^}]*)?\})"),
-    re.compile(r"(?m)^\s*(?:(?:[-*]|\d+\.)\s+)?(?:`)?(?:\S*/)?curl\b[^\n]*--(?:header|data(?:-ascii|-binary|-raw|-urlencode)?|user|oauth2-bearer|url-query|form(?:-string)?)(?:=|\s+)[^\n]*\$(?:HOLO_KEY_(?:RN|MCP)|\{HOLO_KEY_(?:RN|MCP)(?::[^}]*)?\})"),
-    re.compile(r"(?m)^\s*(?:(?:[-*]|\d+\.)\s+)?(?:`)?(?:(?:\S*/)?(?:curl|ssh|bash|sh)|env)\b[^\n]*\$(?:HOLO_KEY_(?:RN|MCP)|\{HOLO_KEY_(?:RN|MCP)(?::[^}]*)?\})"),
-    re.compile(r"(?m)^\s*(?:(?:[-*]|\d+\.)\s+)?(?:`)?(?:env\s+)?HOLO_KEY_(?:RN|MCP)\s*=\s*[^\n]*\$(?:HOLO_KEY_(?:RN|MCP)|\{HOLO_KEY_(?:RN|MCP)(?::[^}]*)?\})[^\n]*\s\S+"),
-    re.compile(r"--(?:header|data(?:-ascii|-binary|-raw|-urlencode)?|user|oauth2-bearer|url-query|form(?:-string)?|token|authorization|api-key)(?:=|\s+)[^\n]*HOLO_KEY_(?:RN|MCP)"),
-    re.compile(r"(?:printf|echo)\b[^\n]*HOLO_KEY_(?:RN|MCP)"),
-    re.compile(r"(?:logger|tee)\b[^\n]*HOLO_KEY_(?:RN|MCP)"),
-    re.compile(r"\"secret(?:_value)?\"\s*:\s*\"\$?\{?HOLO_KEY_(?:RN|MCP)"),
 ]
 
 def human_verify(candidate: str, item_id: str):
@@ -401,7 +414,10 @@ def static_target_passes(candidate: str) -> bool:
             and all(by_id[item_id]["verify"] == positive for item_id in positive_ids)
             and all(by_id[item_id]["verify"] == post_chat for item_id in post_chat_ids)
             and all(human_verify(candidate, item_id) == by_id[item_id]["verify"] for item_id in positive_ids + post_chat_ids)
-            and not any(pattern.search(candidate) for pattern in forbidden_credential_patterns)
+            and candidate.splitlines().count(canonical_presence_line) == 1
+            and candidate.splitlines().count(canonical_private_stdin_line) == 1
+            and credential_expansion_grammar_passes(candidate)
+            and not any(pattern.search(candidate) for pattern in semantic_credential_contradictions)
             and ".matching_completion_count == 0 or .matching_completion_count == 1" not in candidate
             and "select(.matching_completion_count == 1)" not in candidate
             and ".credential_contract.mcp_key_used_for_public_request == true" not in post_chat
@@ -428,8 +444,8 @@ def contract_verify_candidate(replacements: list[tuple[str, str]]) -> str:
 
 assert static_target_passes(target_text)
 safe_credential_candidates = {
-    "names-only-presence-check": target_text + '\n`test "${HOLO_KEY_RN+x}" = x`\n',
-    "private-stdin-and-config-paths": target_text + '\n`ssh inference1 private-reader < "$S33_PRIVATE_STDIN_PATH"; curl --config "$S33_PRIVATE_CURL_CONFIG"`\n',
+    "canonical-two-form-target": target_text,
+    "literal-names-and-private-paths": target_text + '\nHOLO_KEY_RN HOLO_KEY_MCP\nssh inference1 private-reader < "$S33_PRIVATE_STDIN_PATH"; curl --config "$S33_PRIVATE_CURL_CONFIG"\n',
 }
 assert all(static_target_passes(candidate) for candidate in safe_credential_candidates.values())
 contract_mutations = {}
@@ -438,6 +454,13 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
     for index, sentinel in enumerate(execution_sentinels):
         candidate = target_text.replace(sentinel, f"BROKEN-{index}")
         contract_mutations[f"missing-sentinel-{index}"] = candidate
+
+    contract_mutations["missing-canonical-presence-form"] = target_text.replace(
+        canonical_presence_line, "test credential-name-presence"
+    )
+    contract_mutations["missing-canonical-private-stdin-form"] = target_text.replace(
+        canonical_private_stdin_line, "run-target-verifier-with-private-input"
+    )
 
     post_chat_replacements = {
         "false-post-chat-issuance": [(".chat_request_issued == true", ".chat_request_issued == false")],
@@ -476,6 +499,15 @@ with tempfile.TemporaryDirectory(prefix="s33-plat-05-multicall-spec-") as temp_d
         "inline-secret-assignment": '\nHOLO_KEY_RN="$HOLO_KEY_RN" curl https://example.invalid\n',
         "inline-env-secret-assignment": '\nenv HOLO_KEY_RN="${HOLO_KEY_RN}" curl https://example.invalid\n',
         "credential-in-positional-argv": '\ncurl https://example.invalid "$HOLO_KEY_RN"\n',
+        "command-wrapper-short-header": '\ncommand curl -H "Authorization: Bearer ${HOLO_KEY_RN}" https://example.invalid\n',
+        "command-wrapper-short-data": '\ncommand curl -d "${HOLO_KEY_RN}" https://example.invalid\n',
+        "command-wrapper-short-user": '\ncommand curl -u "${HOLO_KEY_RN}" https://example.invalid\n',
+        "timeout-wrapper-short-header": '\ntimeout 1 curl -H "Authorization: Bearer ${HOLO_KEY_RN}" https://example.invalid\n',
+        "timeout-wrapper-short-data": '\ntimeout 1 curl -d "${HOLO_KEY_RN}" https://example.invalid\n',
+        "timeout-wrapper-short-user": '\ntimeout 1 curl -u "${HOLO_KEY_RN}" https://example.invalid\n',
+        "random-prefix-absolute-curl": '\nFOO=bar env LC_ALL=C nice -n 1 /usr/bin/curl -H "Authorization: Bearer ${HOLO_KEY_RN}" https://example.invalid\n',
+        "parameter-expansion-variant": '\nrandom-wrapper curl -H "${HOLO_KEY_RN:-missing}" https://example.invalid\n',
+        "prefixed-canonical-lookalike": "\nrandom-wrapper " + canonical_private_stdin_line + "\n",
         "credential-print-stdout": '\nprintf "%s\\n" "$HOLO_KEY_RN"\n',
         "credential-print-stderr": '\necho "$HOLO_KEY_RN" >&2\n',
         "credential-logger": '\nlogger "$HOLO_KEY_RN"\n',
@@ -510,7 +542,7 @@ print(json.dumps({
 
 | Gate | Command | Expected |
 |---|---|---|
-| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; 23 target plus 2 repair shell verifiers; 10 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls plus 43 post-chat/credential contract mutations rejected; 2 safe credential controls accepted |
+| static contract and mutation oracle | Run AC-1/TC-1 exact verifier | JSON `ok=true`; 23 target plus 2 repair shell verifiers; 10 target plus 1 repair scenarios; two-call baseline accepted; 16 receipt mutations including 4 singular-header controls plus 54 post-chat/credential contract mutations rejected; 2 exact safe credential controls accepted |
 | planning consistency | `pnpm prd:consistency` | Exit 0 |
 | diff scope | canonical verifier local Git checks | Exactly target M plus this repair A relative to `146b6e64472461219b52f820894138678b8c0371` |
 | hooks | normal commit, no bypass | Exit 0 |
@@ -536,7 +568,7 @@ print(json.dumps({
         "the two-call synthetic baseline mirrors the observed provider-model accounting shape without substituting for live governed proof",
         "AC-10 and TC-13 contract a real public POST followed by the target verifier parser rejecting a truncated private copy of the real SSE stream; the static oracle validates the executable contract but performs no network request",
         "public Hono auth is HOLO_KEY_RN only; HOLO_KEY_MCP, credential argv/print/log/receipt/artifact exposure, unquoted curl config, and leaked temp config are rejection mutants",
-        "curl short -H/-d/-u separated/clustered/attached/equals forms, long/positional argv, and inline secret assignment are adversarial candidates; names-only presence and private non-secret stdin/config path candidates remain accepted"
+        "the positive grammar accepts exactly the canonical names-only presence line and exact target-verifier private-stdin line; direct, command-wrapped, timeout-wrapped, randomly prefixed absolute-path, parameter-variant, curl-option, positional argv, and inline-assignment expansions are adversarial candidates"
       ]
     }
   },
@@ -545,7 +577,7 @@ print(json.dumps({
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN the target and repair WHEN the local static verifier extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive plus post-POST parity, runs the target jq predicate on a two-call baseline, and mutates receipt and contract facts THEN the baseline passes while false serving, cardinality including both singular headers, provenance, real post-POST target-parser, RN-only secret handling including short/long/positional/inline argv bypasses, CLI-path, and Network Continuity contracts are rejected without rejecting names-only/private-stdin controls.",
+      "description": "GIVEN the target and repair WHEN the local static verifier extracts canonical JSON, bash-n checks every verifier, validates scenarios, checks positive plus post-POST parity, runs the target jq predicate on a two-call baseline, and applies a positive grammar to every credential expansion THEN the baseline and exactly two canonical expansion forms pass while all other direct/wrapped/prefixed/absolute-path/argv/parameter variants plus false serving, cardinality, provenance, post-chat, CLI-path, and Network Continuity contracts reject.",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'",
       "scenario": {
         "id": "SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING/AC-1",
@@ -570,15 +602,16 @@ print(json.dumps({
                 "Run the target AC-1 jq predicate against a synthetic provider-model receipt with one serving mini count two, the other zero, and every accounting/header count equal two.",
                 "Mutate dual-serving, zero, serving/model/fleet/telemetry-row/transport/plural-header, each top-level/telemetry singular-header missing or mismatch case, laptop, unknown, and instrumentation-boundary facts one at a time.",
                 "Mutate the AC-10/TC-13 contract for false issuance, no real POST, synthetic stream, hand-authored receipt, target-verifier bypass, MCP public auth, unquoted or leaked temp config, each argv/stdout/stderr/receipt/artifact exposure flag, curl -H/-d/-u separated/clustered/attached/equals variants, long/positional argv, inline assignment, explicit credential print/logging, and Network Continuity.",
-                "Append names-only presence and private non-secret stdin/config path controls and require both to remain accepted."
+                "Add command and timeout wrappers around each -H/-d/-u bypass, one random-prefix absolute-path curl bypass, a parameter-expansion variant, and a prefixed canonical-lookalike; require rejection without adding those wrapper names to a blacklist.",
+                "Use the canonical target containing exactly one names-only presence form and one target-verifier private-stdin form; add only literal credential names and private non-secret stdin/config paths in the second safe candidate, and require both candidates to remain accepted."
               ]
             },
             "end_state": {
               "must_observe": [
                 "baseline matching_completion_count === 2 and telemetry.modelRequests === 2 passes jq -e",
                 "exactly 16 receipt mutations including 4 distinct singular-header controls are rejected",
-                "exactly 43 post-chat and credential contract mutations are rejected",
-                "exactly 2 safe credential controls are accepted",
+                "exactly 54 post-chat and credential contract mutations are rejected",
+                "exactly 2 canonical safe credential controls are accepted",
                 "all 11 scenarios validate with zero violations and 25 shell verifiers pass bash -n",
                 "Git scope contains exactly 2 paths and network_mutation_performed === false and literal_disconnect_claimed === false"
               ],
@@ -588,7 +621,7 @@ print(json.dumps({
                 "a count or header mismatch",
                 "HOLO_KEY_MCP used for the public route",
                 "a secret in argv, stdout, stderr, JSON receipt, or retained artifact",
-                "secret expansion through curl short/long/positional argv or inline environment assignment",
+                "any noncanonical credential expansion, including command/timeout/random-wrapper curl or a parameter variant",
                 "a false chat_request_issued value after POST, a hand-authored failure receipt, or a target-verifier bypass",
                 "a service or network mutation"
               ]
@@ -600,7 +633,7 @@ print(json.dumps({
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "Both contracts parse uniquely, every shell verifier passes bash-n, all scenarios validate, positive and post-POST human/JSON commands match, a two-call one-serving-mini receipt passes, four singular-header controls plus 43 target-verifier/credential mutations reject, and two names-only/private-stdin credential controls pass.",
+      "description": "Both contracts parse uniquely, every shell verifier passes bash-n, all scenarios validate, positive and post-POST human/JSON commands match, a two-call receipt plus two exact credential forms pass, and four singular-header plus 54 target-verifier/credential mutations including absent canonical forms and command/timeout/random wrappers reject.",
       "maps_to_ac": "AC-1",
       "verify": "python3 -c 'import pathlib,re; p=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/SPEC-REPAIR-S33-PLAT-05-MULTICALL-ACCOUNTING.md\"); s=p.read_text(); m=re.search(r\"<!-- STATIC-VERIFIER v1 -->\\s*```python\\n(.*?)\\n```\",s,re.S); assert m; exec(compile(m.group(1),str(p),\"exec\"),{\"__file__\":str(p)})'"
     }
