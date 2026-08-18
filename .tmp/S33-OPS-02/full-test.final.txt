@@ -1,0 +1,2618 @@
+
+> holocron@1.0.0 test /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+> vitest run
+
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+
+ ❯ |integration| services/platform/tests/integration/docker-resilience.test.ts (9 tests | 2 failed) 3518ms
+     × IMP-AC-16 documented cold-host bootstrap (ARM64, four services, no client assets, 44111) 2327ms
+     × IMP-AC-17 managed lifecycle: stop/restart, Serve restore, sentinels, zero volume deletions 1041ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts (7 tests | 3 failed) 5643ms
+     × real scripts exist and parse without changing their gate contracts 29ms
+     × routes a credentialed PITR-window probe only through the fixed trusted Bun path 2ms
+     × real no-key provision and fire-drill paths fail closed without prefix ambient state or artifacts 5558ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts (15 tests | 1 failed) 6002ms
+     × reaches real fire-drill FD launcher + credentialed child; races; scans artifacts 16ms
+ ❯ |integration| tests/integration/sprint20-maestro-native-human-gate.test.ts (4 tests | 2 failed) 61ms
+     × passes the native gate adapter static preflight 50ms
+     × binds the real Maestro invocation and explicit native verifier to the plan 2ms
+ ❯ |integration| tests/integration/validate-migration.test.ts (9 tests | 1 failed) 156ms
+     × should have validateMigration function exported 22ms
+ ❯ |integration| services/platform/tests/integration/service/health-readiness.test.ts (7 tests | 1 failed | 1 skipped) 929ms
+     × IMP-AC-20 lifecycle memory and headroom contract (50/54/64/8/10, reject 51) 809ms
+ ❯ |integration| tests/integration/s31-fe-06-contract-freeze.test.ts (6 tests | 1 failed) 8886ms
+     × nine reported call sites resolve to zero 147ms
+ ❯ |integration| tests/integration/voice-create-session.test.ts (7 tests | 7 failed) 417ms
+     × createSession action is exported from convex/voice/actions.ts 21ms
+     × createSessionHandler returns ephemeralKey, expiresAt, sessionId on success 8ms
+     × createSessionHandler auto-ends stale session and proceeds to create new one 48ms
+     × createSessionHandler does not call endSession when no active session exists 36ms
+     × createSessionHandler throws descriptive error when OPENAI_API_KEY is missing 38ms
+     × createSessionHandler throws with status code context on non-200 and does not create session 219ms
+     × internalCreateSession is exported from convex/voice/mutations.ts 44ms
+ ❯ |integration| tests/integration/shop-output.test.ts (17 tests | 17 failed) 320ms
+     × produces '# Shop Results: {query}' heading with Search Date, Budget, Condition, Session 19ms
+     × shows 'No limit' for budget when budget is not provided 49ms
+     × shows em-dash for session when sessionId is not provided 43ms
+     × formats prices from cents to dollars 14ms
+     × maps trustTier 1 to Authorized, 2-3 to Verified Seller, 4-5 to Unverified 21ms
+     × places new listings under 'New Products' and used listings under 'Used/Refurbished' 3ms
+     × omits Used/Refurbished section when there are no used listings 2ms
+     × includes Deal Score column in comparison tables 15ms
+     × includes link column with arrow notation pointing to product URL 15ms
+     × truncates product titles beyond 30 chars in comparison tables 10ms
+     × includes Best Deal, Budget Pick, Best New, Best Used when applicable 7ms
+     × omits Best Used when there are no used listings 11ms
+     × recommendation lines include price, retailer, and score for Best Deal 25ms
+     × includes a Notes section 28ms
+     × includes Trust Legend with Authorized, Verified Seller, Unverified definitions 31ms
+     × includes ephemeral footer note 11ms
+     × returns a header and no-results message when listings is empty 13ms
+ ❯ |integration| tests/integration/conversations.test.ts (22 tests | 22 failed) 633ms
+     × creates a new conversation with default title 14ms
+     × creates a new conversation with custom title 10ms
+     × creates conversation with lastMessagePreview 8ms
+     × lists all conversations 6ms
+     × gets a single conversation by id 6ms
+     × returns count of conversations 2ms
+     × updates conversation title 2ms
+     × updates conversation and marks title as user-set 23ms
+     × deletes conversation 17ms
+     × deletes conversation and cascades to chat messages 43ms
+     × updates conversation updatedAt timestamp 6ms
+     × updates lastMessagePreview when touching 93ms
+     × handles empty title 59ms
+     × preserves conversation data across updates 15ms
+     × exports all queries from index 25ms
+     × exports all mutations from index 19ms
+     × exports setPendingIntent internalMutation 98ms
+     × exports clearPendingIntent internalMutation 61ms
+     × exports isPendingExpired helper 50ms
+     × isPendingExpired returns true for undefined pendingSince 26ms
+     × isPendingExpired returns false for recent pendingSince 8ms
+     × isPendingExpired returns true for pendingSince older than 30 minutes 21ms
+ ❯ |integration| tests/integration/whats-new-summary-storage.test.ts (12 tests | 5 failed) 223ms
+       × should persist findings with summaries in findingsJson field 112ms
+       × should have getLatestFindings query that returns summary field 59ms
+       × should export all necessary queries and mutations 8ms
+       × should have getLatestFindings that filters by category 10ms
+       × should provide complete report metadata with findings 11ms
+ ❯ |integration| services/platform/tests/integration/red-whatsnew.test.ts (1 test | 1 skipped) 13ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa26-gate-fix.test.ts (7 tests | 1 failed) 11876ms
+     × boundary helper discovers checkout-local inputs and refuses provision exit1 soft-pass 38ms
+ ❯ |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts (14 tests | 5 failed | 5 skipped) 603ms
+     × rejects an already-cancelled tool request before database dispatch 48ms
+     × strict predicate classifies each failure class 5ms
+     × cutover gate requires PLATFORM_IT 30ms
+     × executes initialize, list, and a tool call over real stdio 4ms
+     × executes every manifest tool through the real HTTP gateway 101ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa33-configured-positive-failure.test.ts (1 test | 1 failed) 47ms
+     × returns nonzero when configured credentials cannot discover a trusted PITR window 41ms
+ ❯ |integration| tests/integration/s-rewrite-01-chat-cluster-zero.test.ts (24 tests | 1 failed) 61ms
+       × Maestro flows assert AC oracles (3 rows, rename title, >=3 bubbles, send, cancel) 10ms
+ ❯ |integration| services/platform/tests/integration/red-evidence-research.test.ts (1 test | 1 skipped) 80ms
+ ❯ |integration| services/platform/tests/integration/red-business-report.test.ts (1 test | 1 skipped) 7ms
+ ❯ |integration| services/platform/tests/integration/evidence-research-template.test.ts (5 tests | 5 skipped) 9ms
+ ❯ |integration| services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts (5 tests | 5 skipped) 10024ms
+ ❯ |integration| tests/integration/sprint20-expo-dev-client-rebuild.test.ts (5 tests | 5 skipped) 7ms
+ ❯ |integration| tests/integration/sprint20-gate-step5-pass-contract.test.ts (5 tests | 5 skipped) 97ms
+ ❯ |integration| services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts (4 tests | 2 failed) 36ms
+     × declaredIdempotentMutationsLeaveOneRow 8ms
+     × semiIdempotentReturnsExistingRow 1ms
+ ❯ |integration| tests/integration/sprint20-maestro-harness.test.ts (9 tests | 9 skipped) 10ms
+ ❯ |integration| tests/integration/sprint20-maestro-harness-artifacts.test.ts (22 tests | 22 skipped) 54ms
+ ❯ |integration| services/platform/tests/integration/red-no-shells.test.ts (1 test | 1 skipped) 21ms
+ ❯ |integration| tests/integration/fail-closed-harness.test.ts (2 tests | 2 skipped) 8ms
+ ❯ |integration| services/platform/tests/integration/red-sub-workflow-publish.test.ts (1 test | 1 skipped) 9ms
+ ❯ |integration| tests/integration/sprint33-ops-01-fleet-state.test.ts (2 tests | 2 skipped) 25ms
+ ❯ |integration| services/platform/tests/integration/mission-engine-red.test.ts (37 tests | 37 skipped) 18ms
+ ❯ |integration| services/platform/tests/integration/fail-closed-lane.test.ts (2 tests | 2 skipped) 6ms
+ ❯ |integration| tests/integration/sprint20-ci-e2e-provenance.test.ts (10 tests | 10 skipped) 19ms
+ ❯ |integration| services/platform/tests/integration/sprint29-deployment.test.ts (17 tests | 3 failed | 1 skipped) 10074ms
+     × IMP-AC-7 Docker VM and host headroom 828ms
+     × IMP-AC-12 reusable non-mutating host preflight 3780ms
+     × IMP-AC-13 non-secret portable deployment receipt 229ms
+ ❯ |integration| tests/integration/whats-new-summary-generation.test.ts (0 test)
+ ❯ |integration| tests/integration/mcp-replay-contract.test.ts (0 test)
+ ❯ |integration| tests/integration/voice/audio-upload.test.ts (0 test)
+ ❯ |integration| tests/integration/voice/cancel-orphan-safe.test.ts (0 test)
+ ❯ |integration| tests/integration/uploads/idempotency.test.ts (0 test)
+ ❯ |integration| tests/integration/voice/dispatcher-rewire.test.ts (0 test)
+ ❯ |integration| tests/integration/uploads/error-handling.test.ts (0 test)
+ ❯ |integration| tests/integration/uploads/unique-constraint.test.ts (0 test)
+ ❯ |integration| tests/integration/uploads/lifecycle.test.ts (0 test)
+ ❯ |integration| tests/integration/verify-blob/last.test.ts (0 test)
+ ❯ |integration| tests/integration/verify-blob/orphans.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (0 test)
+ ❯ |integration| tests/integration/service/sprint14-upload-lifecycle.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-quiet-drain.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint14-etl-and-blob.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/redhat-fix-s29-r2-c03-export-catalog-bind.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts (6 tests | 2 failed) 30753ms
+     × invokes real provision+fire-drill; failed provision with paths.txt is non-zero (no soft-pass) 42ms
+     × runs real production provision cleanup path twice; zero QA27 namespace residue each time 855ms
+ ❯ |integration| services/platform/tests/integration/sprint29-r3-h02-mission-worker-fence.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-cutover-etl.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-rollback-repoint.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-pinned-fallback-build.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-convex-live-attestation.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-soak-flip.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-ponr-immutability.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-ponr-latch.test.ts (0 test)
+ ❯ |integration| tests/integration/redhat-fix-01-streaming-seed.test.ts (3 tests | 1 failed) 36313ms
+     × AC-1: after seed:e2e --reset, PATH-A Streaming count==1 with messages>=1 (or PATH-B recorded) 36296ms
+ ❯ |integration| services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-rollback-drill.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-cx04-referential-edges.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-verifier-teeth.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-security-review.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint30-rollback-zero-loss.test.ts (0 test)
+ ❯ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts (7 tests | 5 failed) 565ms
+     × AC-1 independently verifies health, both model observers, and reviewer inference2 routing 4ms
+     × AC-2 verifies concurrent implementer distribution and fresh log evidence on both minis 6ms
+     × rejects both modes when the real router dependency is unavailable 1ms
+     × rejects lexical traversal and symlink evidence candidates before any write 1ms
+     × keeps live invalid-observer and invalid-log controls exact when the router is available 1ms
+ ❯ |integration| services/platform/tests/integration/sprint31-fence-kill9.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint31-fence-monotonic.test.ts (0 test)
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa18-gate-fix.test.ts (7 tests | 1 failed) 41829ms
+     × fire-drill (harness) never emits ambient canaries on success path 83ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts (9 tests | 3 failed) 44133ms
+     × fire-drill: same parent AK without writer secret refused before docker 78ms
+     × fire-drill maps session token into child (recorder must execute) 95ms
+     × fire-drill refuses equal secret 30ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts (15 tests | 3 failed) 148148ms
+     × fire-drill race swap=file fails identity; no recorder/report/attestation effects 146ms
+     × fire-drill race swap=parent fails identity; no recorder/report/attestation effects 52ms
+     × requires both consumer success + failure paths and scans raw artifacts 58723ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa13-gate-fix.test.ts (24 tests | 1 failed) 164192ms
+     × aws canaries absent on success/error; recorder+parity clean 8544ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa12-gate-fix.test.ts (17 tests | 1 failed) 180489ms
+     × fire-drill refuses HOLO_QA_PROOF_MUTATE=wrong-tuple 24ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts (26 tests | 8 failed) 180936ms
+     × fire-drill baseline reaches recorder with zero exit 47ms
+     × fire-drill mutate=stale exact fail; no recorder side effects 31ms
+     × fire-drill mutate=future exact fail; no recorder side effects 40ms
+     × fire-drill mutate=wrong-tuple exact fail; no recorder side effects 31ms
+     × fire-drill mutate=wrong-context exact fail; no recorder side effects 37ms
+     × fire-drill mutate=malformed exact fail; no recorder side effects 76ms
+     × fire-drill mutate=wrong-producer exact fail; no recorder side effects 34ms
+     × fire-drill concurrent proof swap yields no recorder side effects 29ms
+ ❯ |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts (28 tests | 7 failed) 184842ms
+     × fire-drill baseline reaches recorder with zero exit 168ms
+     × fire-drill mutate=stale fails at proof validation (no recorder) 26ms
+     × fire-drill mutate=future fails at proof validation (no recorder) 56ms
+     × fire-drill mutate=wrong-tuple fails at proof validation (no recorder) 41ms
+     × fire-drill mutate=malformed fails at proof validation (no recorder) 29ms
+     × fire-drill mutate=wrong-producer fails at proof validation (no recorder) 31ms
+     × fire-drill mutate=wrong-context fails at proof validation (no recorder) 16ms
+ ❯ |live| services/platform/src/cli/__tests__/zero-cache-boot.test.ts (6 tests | 1 failed) 70010ms
+     × stack up starts configured Zero and status reports its real state 69983ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 54 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| tests/integration/fail-closed-harness.test.ts > D02-01 fail-closed harness (root)
+Error: PLATFORM_IT=1 required for fail-closed integration lane — refusing skip-to-green
+ ❯ tests/integration/fail-closed-harness.test.ts:60:13
+     58|   beforeAll(async () => {
+     59|     if (!PLATFORM_IT) {
+     60|       throw new Error(
+       |             ^
+     61|         'PLATFORM_IT=1 required for fail-closed integration lane — ref…
+     62|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/163]⎯
+
+ FAIL  |integration| tests/integration/mcp-replay-contract.test.ts [ tests/integration/mcp-replay-contract.test.ts ]
+Error: Cannot find module '../../holocron-mcp/src/config/validation' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/mcp-replay-contract.test.ts
+ ❯ tests/integration/mcp-replay-contract.test.ts:19:1
+     17| import { parse as parseYaml } from 'yaml';
+     18| import type { z } from 'zod';
+     19| import {
+       | ^
+     20|   AddImprovementSchema,
+     21|   AddSubscriptionSchema,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-ci-e2e-provenance.test.ts > GATE-FIX-G4 — CI e2e probes + provenance
+Error: PLATFORM_IT=1 required for GATE-FIX-G4 CI provenance suite — refusing skip-to-green
+ ❯ tests/integration/sprint20-ci-e2e-provenance.test.ts:126:13
+    124|   beforeAll(() => {
+    125|     if (!PLATFORM_IT) {
+    126|       throw new Error(
+       |             ^
+    127|         'PLATFORM_IT=1 required for GATE-FIX-G4 CI provenance suite — …
+    128|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-expo-dev-client-rebuild.test.ts > Sprint 20 GATE-FIX-G1 Expo dev-client rebuild
+Error: PLATFORM_IT=1 required for GATE-FIX-G1 rebuild honesty — refusing skip-to-green
+ ❯ tests/integration/sprint20-expo-dev-client-rebuild.test.ts:70:13
+     68|   beforeAll(() => {
+     69|     if (!PLATFORM_IT) {
+     70|       throw new Error(
+       |             ^
+     71|         'PLATFORM_IT=1 required for GATE-FIX-G1 rebuild honesty — refu…
+     72|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-gate-step5-pass-contract.test.ts > GATE-FIX-G6 AC-2 — Step-5 PASS requires suite green AND missing-build no-junit
+Error: PLATFORM_IT=1 required for Step-5 dual-evidence contract — refusing skip-to-green
+ ❯ tests/integration/sprint20-gate-step5-pass-contract.test.ts:136:13
+    134|   beforeAll(() => {
+    135|     if (!PLATFORM_IT) {
+    136|       throw new Error(
+       |             ^
+    137|         'PLATFORM_IT=1 required for Step-5 dual-evidence contract — re…
+    138|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-maestro-harness-artifacts.test.ts > D03-03 Maestro harness artifact & defect contract
+Error: PLATFORM_IT=1 required for D03-03 Maestro harness artifact lane — refusing skip-to-green
+ ❯ tests/integration/sprint20-maestro-harness-artifacts.test.ts:172:13
+    170|   beforeAll(() => {
+    171|     if (!PLATFORM_IT) {
+    172|       throw new Error(
+       |             ^
+    173|         'PLATFORM_IT=1 required for D03-03 Maestro harness artifact la…
+    174|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-maestro-harness.test.ts > Sprint 20 Maestro harness
+Error: PLATFORM_IT=1 required for Maestro harness fail-closed lane — refusing skip-to-green
+ ❯ tests/integration/sprint20-maestro-harness.test.ts:45:13
+     43|   beforeAll(() => {
+     44|     if (!PLATFORM_IT) {
+     45|       throw new Error(
+       |             ^
+     46|         'PLATFORM_IT=1 required for Maestro harness fail-closed lane —…
+     47|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-01-fleet-state.test.ts > S33-OPS-01 real fleet state
+Error: PLATFORM_IT=1 is required for the real inference fleet test
+ ❯ tests/integration/sprint33-ops-01-fleet-state.test.ts:70:13
+     68|   beforeAll(() => {
+     69|     if (process.env.PLATFORM_IT !== '1') {
+     70|       throw new Error('PLATFORM_IT=1 is required for the real inferenc…
+       |             ^
+     71|     }
+     72|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-generation.test.ts [ tests/integration/whats-new-summary-generation.test.ts ]
+Error: Cannot find module '/convex/whatsNew/llm' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-generation.test.ts
+ ❯ tests/integration/whats-new-summary-generation.test.ts:21:1
+     19|
+     20| import { generateText } from 'ai';
+     21| import { generateFindingSummary } from '../../convex/whatsNew/llm';
+       | ^
+     22|
+     23| describe('Summary Generation - AC-1: Each finding has summary field', …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/163]⎯
+
+ FAIL  |integration| tests/integration/voice/audio-upload.test.ts [ tests/integration/voice/audio-upload.test.ts ]
+Error: S-UPLOAD-02 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/voice/_helpers.ts:36:11
+     34|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     35|   if (databaseName !== 'holocron_nonprod') {
+     36|     throw new Error(
+       |           ^
+     37|       `S-UPLOAD-02 tests must target holocron_nonprod (got ${databaseN…
+     38|     );
+ ❯ tests/integration/voice/_helpers.ts:27:29
+ ❯ tests/integration/voice/audio-upload.test.ts:15:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/163]⎯
+
+ FAIL  |integration| tests/integration/voice/cancel-orphan-safe.test.ts [ tests/integration/voice/cancel-orphan-safe.test.ts ]
+Error: S-UPLOAD-02 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/voice/_helpers.ts:36:11
+     34|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     35|   if (databaseName !== 'holocron_nonprod') {
+     36|     throw new Error(
+       |           ^
+     37|       `S-UPLOAD-02 tests must target holocron_nonprod (got ${databaseN…
+     38|     );
+ ❯ tests/integration/voice/_helpers.ts:27:29
+ ❯ tests/integration/voice/cancel-orphan-safe.test.ts:21:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/163]⎯
+
+ FAIL  |integration| tests/integration/voice/dispatcher-rewire.test.ts [ tests/integration/voice/dispatcher-rewire.test.ts ]
+Error: S-UPLOAD-02 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/voice/_helpers.ts:36:11
+     34|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     35|   if (databaseName !== 'holocron_nonprod') {
+     36|     throw new Error(
+       |           ^
+     37|       `S-UPLOAD-02 tests must target holocron_nonprod (got ${databaseN…
+     38|     );
+ ❯ tests/integration/voice/_helpers.ts:27:29
+ ❯ tests/integration/voice/dispatcher-rewire.test.ts:14:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/163]⎯
+
+ FAIL  |integration| tests/integration/uploads/error-handling.test.ts [ tests/integration/uploads/error-handling.test.ts ]
+Error: S-UPLOAD-01 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/uploads/_helpers.ts:39:11
+     37|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     38|   if (databaseName !== 'holocron_nonprod') {
+     39|     throw new Error(
+       |           ^
+     40|       `S-UPLOAD-01 tests must target holocron_nonprod (got ${databaseN…
+     41|     );
+ ❯ tests/integration/uploads/_helpers.ts:30:29
+ ❯ tests/integration/uploads/error-handling.test.ts:12:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/163]⎯
+
+ FAIL  |integration| tests/integration/uploads/idempotency.test.ts [ tests/integration/uploads/idempotency.test.ts ]
+Error: S-UPLOAD-01 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/uploads/_helpers.ts:39:11
+     37|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     38|   if (databaseName !== 'holocron_nonprod') {
+     39|     throw new Error(
+       |           ^
+     40|       `S-UPLOAD-01 tests must target holocron_nonprod (got ${databaseN…
+     41|     );
+ ❯ tests/integration/uploads/_helpers.ts:30:29
+ ❯ tests/integration/uploads/idempotency.test.ts:8:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/163]⎯
+
+ FAIL  |integration| tests/integration/uploads/lifecycle.test.ts [ tests/integration/uploads/lifecycle.test.ts ]
+Error: S-UPLOAD-01 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/uploads/_helpers.ts:39:11
+     37|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     38|   if (databaseName !== 'holocron_nonprod') {
+     39|     throw new Error(
+       |           ^
+     40|       `S-UPLOAD-01 tests must target holocron_nonprod (got ${databaseN…
+     41|     );
+ ❯ tests/integration/uploads/_helpers.ts:30:29
+ ❯ tests/integration/uploads/lifecycle.test.ts:11:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/163]⎯
+
+ FAIL  |integration| tests/integration/uploads/unique-constraint.test.ts [ tests/integration/uploads/unique-constraint.test.ts ]
+Error: S-UPLOAD-01 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/uploads/_helpers.ts:39:11
+     37|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     38|   if (databaseName !== 'holocron_nonprod') {
+     39|     throw new Error(
+       |           ^
+     40|       `S-UPLOAD-01 tests must target holocron_nonprod (got ${databaseN…
+     41|     );
+ ❯ tests/integration/uploads/_helpers.ts:30:29
+ ❯ tests/integration/uploads/unique-constraint.test.ts:12:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/163]⎯
+
+ FAIL  |integration| tests/integration/verify-blob/last.test.ts [ tests/integration/verify-blob/last.test.ts ]
+Error: S-UPLOAD-03 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/verify-blob/_helpers.ts:36:11
+     34|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     35|   if (databaseName !== 'holocron_nonprod') {
+     36|     throw new Error(
+       |           ^
+     37|       `S-UPLOAD-03 tests must target holocron_nonprod (got ${databaseN…
+     38|     );
+ ❯ tests/integration/verify-blob/_helpers.ts:27:29
+ ❯ tests/integration/verify-blob/last.test.ts:11:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/163]⎯
+
+ FAIL  |integration| tests/integration/verify-blob/orphans.test.ts [ tests/integration/verify-blob/orphans.test.ts ]
+Error: S-UPLOAD-03 tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/verify-blob/_helpers.ts:36:11
+     34|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     35|   if (databaseName !== 'holocron_nonprod') {
+     36|     throw new Error(
+       |           ^
+     37|       `S-UPLOAD-03 tests must target holocron_nonprod (got ${databaseN…
+     38|     );
+ ❯ tests/integration/verify-blob/_helpers.ts:27:29
+ ❯ tests/integration/verify-blob/orphans.test.ts:11:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/163]⎯
+
+ FAIL  |integration| tests/integration/service/sprint14-upload-lifecycle.test.ts [ tests/integration/service/sprint14-upload-lifecycle.test.ts ]
+Error: Sprint 14 upload lifecycle tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl tests/integration/service/sprint14-upload-lifecycle.test.ts:46:11
+     44|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     45|   if (databaseName !== 'holocron_nonprod') {
+     46|     throw new Error(
+       |           ^
+     47|       `Sprint 14 upload lifecycle tests must target holocron_nonprod (…
+     48|     );
+ ❯ tests/integration/service/sprint14-upload-lifecycle.test.ts:39:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/evidence-research-template.test.ts > pipes-1 GREEN — evidence-research shared template
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/evidence-research-template.test.ts:92:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/fail-closed-lane.test.ts > D02-01 fail-closed lane (platform)
+Error: PLATFORM_IT=1 required for fail-closed integration lane — refusing skip-to-green
+ ❯ services/platform/tests/integration/fail-closed-lane.test.ts:54:13
+     52|   beforeAll(async () => {
+     53|     if (!PLATFORM_IT) {
+     54|       throw new Error(
+       |             ^
+     55|         'PLATFORM_IT=1 required for fail-closed integration lane — ref…
+     56|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:468:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/red-business-report.test.ts > pipes-4 AC-3 RED — business-report one template 4 kinds
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/red-business-report.test.ts:28:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/red-evidence-research.test.ts > pipes-4 AC-1 RED — evidence-research template
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/red-evidence-research.test.ts:36:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/red-no-shells.test.ts > pipes-4 AC-4 RED — no-shells / per-domain modules
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/red-no-shells.test.ts:52:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/red-sub-workflow-publish.test.ts > pipes-4 AC-5 RED — sub-workflow publish document row
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/red-sub-workflow-publish.test.ts:28:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/red-whatsnew.test.ts > pipes-4 AC-2 RED — whatsNew output shape
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/red-whatsnew.test.ts:34:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts [ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts ]
+Error: redhat-fix-02 research iteration writer refuses non-nonprod database 'mortal_context' — expected holocron_nonprod; set HOLO_DANGEROUS_ALLOW_PROD_DB=1 to override (dangerous)
+ ❯ assertHolocronNonprodDatabaseUrl services/platform/src/db/connection.ts:138:9
+    136|   const context = options?.context ?? 'runtime';
+    137|   const qualifier = isProductionLikeDatabaseUrl(url) ? 'production-lik…
+    138|   throw new Error(
+       |         ^
+    139|     `${context} refuses ${qualifier} database '${databaseName || '(emp…
+    140|   );
+ ❯ resolveHolocronNonprodDatabaseUrl services/platform/src/db/connection.ts:171:10
+ ❯ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts:44:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/redhat-fix-s29-r2-c03-export-catalog-bind.test.ts [ services/platform/tests/integration/redhat-fix-s29-r2-c03-export-catalog-bind.test.ts ]
+Error: redhat-fix-s29-r2-c03 requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/redhat-fix-s29-r2-c03-export-catalog-bind.test.ts:21:9
+     19|
+     20| if (!PLATFORM_IT) {
+     21|   throw new Error('redhat-fix-s29-r2-c03 requires PLATFORM_IT=1');
+       |         ^
+     22| }
+     23|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint14-etl-and-blob.test.ts [ services/platform/tests/integration/sprint14-etl-and-blob.test.ts ]
+Error: Sprint 14 ETL tests must target holocron_nonprod (got mortal_context)
+ ❯ requireNonprodDatabaseUrl services/platform/tests/integration/sprint14-etl-and-blob.test.ts:67:11
+     65|   const databaseName = new URL(url).pathname.replace(/^\//, '');
+     66|   if (databaseName !== 'holocron_nonprod') {
+     67|     throw new Error(
+       |           ^
+     68|       `Sprint 14 ETL tests must target holocron_nonprod (got ${databas…
+     69|     );
+ ❯ services/platform/tests/integration/sprint14-etl-and-blob.test.ts:60:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts [ services/platform/tests/integration/sprint29-convex-fence.test.ts ]
+Error: sprint29-convex-fence requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-convex-fence.test.ts:39:9
+     37|
+     38| if (!PLATFORM_IT) {
+     39|   throw new Error('sprint29-convex-fence requires PLATFORM_IT=1');
+       |         ^
+     40| }
+     41|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-cutover-etl.test.ts [ services/platform/tests/integration/sprint29-cutover-etl.test.ts ]
+Error: sprint29-cutover-etl requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-cutover-etl.test.ts:48:9
+     46| const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+     47| if (!PLATFORM_IT) {
+     48|   throw new Error('sprint29-cutover-etl requires PLATFORM_IT=1');
+       |         ^
+     49| }
+     50|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts [ services/platform/tests/integration/sprint29-fence-arm-order.test.ts ]
+Error: sprint29-fence-arm-order requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-fence-arm-order.test.ts:29:9
+     27|
+     28| if (!PLATFORM_IT) {
+     29|   throw new Error('sprint29-fence-arm-order requires PLATFORM_IT=1');
+       |         ^
+     30| }
+     31|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-quiet-drain.test.ts [ services/platform/tests/integration/sprint29-quiet-drain.test.ts ]
+Error: sprint29-quiet-drain requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-quiet-drain.test.ts:41:9
+     39|
+     40| if (!PLATFORM_IT) {
+     41|   throw new Error('sprint29-quiet-drain requires PLATFORM_IT=1');
+       |         ^
+     42| }
+     43|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-r3-h02-mission-worker-fence.test.ts [ services/platform/tests/integration/sprint29-r3-h02-mission-worker-fence.test.ts ]
+Error: sprint29-r3-h02-mission-worker-fence requires PLATFORM_IT=1 (real Postgres)
+ ❯ services/platform/tests/integration/sprint29-r3-h02-mission-worker-fence.test.ts:42:9
+     40|
+     41| if (!PLATFORM_IT) {
+     42|   throw new Error('sprint29-r3-h02-mission-worker-fence requires PLATF…
+       |         ^
+     43| }
+     44|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-rollback-repoint.test.ts [ services/platform/tests/integration/sprint29-rollback-repoint.test.ts ]
+Error: sprint29-rollback-repoint requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-rollback-repoint.test.ts:42:9
+     40|
+     41| if (!PLATFORM_IT) {
+     42|   throw new Error('sprint29-rollback-repoint requires PLATFORM_IT=1');
+       |         ^
+     43| }
+     44|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-soak-flip.test.ts [ services/platform/tests/integration/sprint29-soak-flip.test.ts ]
+Error: sprint29-soak-flip requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint29-soak-flip.test.ts:75:9
+     73|
+     74| if (!PLATFORM_IT) {
+     75|   throw new Error('sprint29-soak-flip requires PLATFORM_IT=1');
+       |         ^
+     76| }
+     77|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts [ services/platform/tests/integration/sprint29-write-fence-red.test.ts ]
+Error: sprint29-write-fence-red requires PLATFORM_IT=1 (real Postgres + live write surfaces)
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:53:9
+     51|
+     52| if (!PLATFORM_IT) {
+     53|   throw new Error(
+       |         ^
+     54|     'sprint29-write-fence-red requires PLATFORM_IT=1 (real Postgres + …
+     55|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-convex-live-attestation.test.ts [ services/platform/tests/integration/sprint30-convex-live-attestation.test.ts ]
+Error: sprint30-convex-live-attestation requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-convex-live-attestation.test.ts:39:9
+     37|
+     38| if (!PLATFORM_IT) {
+     39|   throw new Error('sprint30-convex-live-attestation requires PLATFORM_…
+       |         ^
+     40| }
+     41|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-pinned-fallback-build.test.ts [ services/platform/tests/integration/sprint30-pinned-fallback-build.test.ts ]
+Error: sprint30-pinned-fallback-build requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-pinned-fallback-build.test.ts:26:9
+     24|
+     25| if (!PLATFORM_IT) {
+     26|   throw new Error('sprint30-pinned-fallback-build requires PLATFORM_IT…
+       |         ^
+     27| }
+     28|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-ponr-immutability.test.ts [ services/platform/tests/integration/sprint30-ponr-immutability.test.ts ]
+Error: sprint30-ponr-immutability requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-ponr-immutability.test.ts:37:9
+     35|
+     36| if (!PLATFORM_IT) {
+     37|   throw new Error('sprint30-ponr-immutability requires PLATFORM_IT=1');
+       |         ^
+     38| }
+     39|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-ponr-latch.test.ts [ services/platform/tests/integration/sprint30-ponr-latch.test.ts ]
+Error: sprint30-ponr-latch requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-ponr-latch.test.ts:61:9
+     59|
+     60| if (!PLATFORM_IT) {
+     61|   throw new Error('sprint30-ponr-latch requires PLATFORM_IT=1');
+       |         ^
+     62| }
+     63|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts [ services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts ]
+Error: sprint30-redhat-rh-s30 requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts:52:9
+     50|
+     51| if (!PLATFORM_IT) {
+     52|   throw new Error('sprint30-redhat-rh-s30 requires PLATFORM_IT=1');
+       |         ^
+     53| }
+     54|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-rollback-drill.test.ts [ services/platform/tests/integration/sprint30-rollback-drill.test.ts ]
+Error: sprint30-rollback-drill requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-rollback-drill.test.ts:49:9
+     47|
+     48| if (!PLATFORM_IT) {
+     49|   throw new Error('sprint30-rollback-drill requires PLATFORM_IT=1');
+       |         ^
+     50| }
+     51|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-rollback-zero-loss.test.ts [ services/platform/tests/integration/sprint30-rollback-zero-loss.test.ts ]
+Error: sprint30-rollback-zero-loss requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-rollback-zero-loss.test.ts:48:9
+     46|
+     47| if (!PLATFORM_IT) {
+     48|   throw new Error('sprint30-rollback-zero-loss requires PLATFORM_IT=1'…
+       |         ^
+     49| }
+     50|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-security-review.test.ts [ services/platform/tests/integration/sprint30-security-review.test.ts ]
+Error: sprint30-security-review requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint30-security-review.test.ts:68:9
+     66| const anyApi: any = new Proxy({}, { get: () => anyApi });
+     67| if (!PLATFORM_IT) {
+     68|   throw new Error('sprint30-security-review requires PLATFORM_IT=1');
+       |         ^
+     69| }
+     70|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts [ services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts ]
+Error: sprint31-cx-01-red-reconcile-fk requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts:21:9
+     19| const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+     20| if (!PLATFORM_IT) {
+     21|   throw new Error('sprint31-cx-01-red-reconcile-fk requires PLATFORM_I…
+       |         ^
+     22| }
+     23|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts [ services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts ]
+Error: sprint31-cx-03-content-reconcile requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts:21:9
+     19| const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+     20| if (!PLATFORM_IT) {
+     21|   throw new Error('sprint31-cx-03-content-reconcile requires PLATFORM_…
+       |         ^
+     22| }
+     23|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-cx04-referential-edges.test.ts [ services/platform/tests/integration/sprint31-cx04-referential-edges.test.ts ]
+Error: sprint31-cx04-referential-edges requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint31-cx04-referential-edges.test.ts:26:9
+     24| const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+     25| if (!PLATFORM_IT) {
+     26|   throw new Error('sprint31-cx04-referential-edges requires PLATFORM_I…
+       |         ^
+     27| }
+     28|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-fence-kill9.test.ts [ services/platform/tests/integration/sprint31-fence-kill9.test.ts ]
+Error: sprint31-fence-kill9 requires PLATFORM_IT=1 (real Postgres)
+ ❯ services/platform/tests/integration/sprint31-fence-kill9.test.ts:28:9
+     26|
+     27| if (!PLATFORM_IT) {
+     28|   throw new Error('sprint31-fence-kill9 requires PLATFORM_IT=1 (real P…
+       |         ^
+     29| }
+     30|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-fence-monotonic.test.ts [ services/platform/tests/integration/sprint31-fence-monotonic.test.ts ]
+Error: sprint31-fence-monotonic requires PLATFORM_IT=1 (real Postgres)
+ ❯ services/platform/tests/integration/sprint31-fence-monotonic.test.ts:29:9
+     27|
+     28| if (!PLATFORM_IT) {
+     29|   throw new Error('sprint31-fence-monotonic requires PLATFORM_IT=1 (re…
+       |         ^
+     30| }
+     31|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts [ services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts ]
+Error: sprint31-ops-06-fence-status requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts:33:9
+     31|
+     32| if (!PLATFORM_IT) {
+     33|   throw new Error('sprint31-ops-06-fence-status requires PLATFORM_IT=1…
+       |         ^
+     34| }
+     35|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[52/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts > S31-10 real retrieval for whatsNew / assimilate / shop
+Error: PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green
+ ❯ ensureRedTestEnvironment services/platform/tests/integration/mission-red.helpers.ts:571:11
+    569|   ensureEvidenceDirs();
+    570|   if (!PLATFORM_IT) {
+    571|     throw new Error(
+       |           ^
+    572|       'PLATFORM_IT=1 required for Sprint 15 RED integration suite — re…
+    573|     );
+ ❯ services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts:284:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[53/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts > S31-10 real retrieval for whatsNew / assimilate / shop
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts:296:3
+    294|   }, 60_000);
+    295|
+    296|   afterAll(async () => {
+       |   ^
+    297|     await cleanupSeed();
+    298|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[54/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-verifier-teeth.test.ts [ services/platform/tests/integration/sprint31-verifier-teeth.test.ts ]
+Error: sprint31-verifier-teeth requires PLATFORM_IT=1
+ ❯ services/platform/tests/integration/sprint31-verifier-teeth.test.ts:32:9
+     30| const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+     31| if (!PLATFORM_IT) {
+     32|   throw new Error('sprint31-verifier-teeth requires PLATFORM_IT=1');
+       |         ^
+     33| }
+     34|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[55/163]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 108 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  |live| services/platform/src/cli/__tests__/zero-cache-boot.test.ts > AC-2: zero_cache boot path (supervisor + plist) > stack up starts configured Zero and status reports its real state
+AssertionError: holo stack status
+  postgres:    healthy
+  mastra:      unhealthy
+  scheduler:   running (placeholder=false)
+  zero_cache:  disabled
+  embed:       healthy
+  langfuse:    unhealthy
+  queue:       backend=pg-boss ready=true
+  mode:        launchd
+  elapsed_ms:  68992
+  · PGDATA=/opt/homebrew/var/postgresql@18
+  · LAUNCH_AGENTS_DIR=/Users/justinrich/Library/LaunchAgents
+  · DATABASE_URL=resolved
+  · installed /Users/justinrich/Library/LaunchAgents/holocron-postgres.plist
+  · installed /Users/justinrich/Library/LaunchAgents/holocron-mastra.plist
+  · installed /Users/justinrich/Library/LaunchAgents/holocron-scheduler.plist
+  · installed /Users/justinrich/Library/LaunchAgents/holocron-zerocache.plist
+  · done.
+  · holocron-postgres already running pid=15711
+  · bootstrapped holocron-mastra
+  · bootstrapped holocron-scheduler
+  · scheduler: enabled (placeholder=false); consume loop active
+  · queue: backend=pg-boss ready=false
+  · zero_cache: disabled (set HOLO_ENABLE_ZERO_CACHE=1 + ZERO_ADMIN_PASSWORD to boot; docs/ops/zero-cache-enable.md)
+  · langfuse: docker compose langfuse up failed (status=1): unable to get image 'docker.io/langfuse/langfuse-worker@sha256:61e9f83f5f1e5b6f8745215db193f5d201b4cba9ed543e539104552c1b3dc106': failed to connect to the docker API at unix:///Users/justinrich/.docker/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/justinrich/.docker/run/docker.sock: connect: no such file or directory
+
+  · timeout after 43119ms — postgres=healthy mastra=unhealthy
+  · exceeded 60000ms deadline
+  status: DEGRADED
+
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/src/cli/__tests__/zero-cache-boot.test.ts:98:36
+     96|   it('stack up starts configured Zero and status reports its real stat…
+     97|     const up = runHolo(['stack', 'up']);
+     98|     expect(up.status, up.combined).toBe(0);
+       |                                    ^
+     99|
+    100|     const r = runHolo(['stack', 'status']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[56/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Create > creates a new conversation with default title
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:11:24
+      9| describe('Conversation CRUD - Create', () => {
+     10|   it('creates a new conversation with default title', async () => {
+     11|     const { create } = await import('../../convex/conversations/mutati…
+       |                        ^
+     12|
+     13|     // Verify create mutation exists and has correct signature
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[57/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Create > creates a new conversation with custom title
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:24:24
+     22|
+     23|   it('creates a new conversation with custom title', async () => {
+     24|     const { create } = await import('../../convex/conversations/mutati…
+       |                        ^
+     25|
+     26|     expect(create).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[58/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Create > creates conversation with lastMessagePreview
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:35:24
+     33|
+     34|   it('creates conversation with lastMessagePreview', async () => {
+     35|     const { create } = await import('../../convex/conversations/mutati…
+       |                        ^
+     36|
+     37|     expect(create).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[59/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Read > lists all conversations
+Error: Cannot find module '/convex/conversations/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:49:22
+     47| describe('Conversation CRUD - Read', () => {
+     48|   it('lists all conversations', async () => {
+     49|     const { list } = await import('../../convex/conversations/queries'…
+       |                      ^
+     50|
+     51|     expect(list).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[60/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Read > gets a single conversation by id
+Error: Cannot find module '/convex/conversations/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:60:21
+     58|
+     59|   it('gets a single conversation by id', async () => {
+     60|     const { get } = await import('../../convex/conversations/queries');
+       |                     ^
+     61|
+     62|     expect(get).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[61/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Read > returns count of conversations
+Error: Cannot find module '/convex/conversations/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:71:23
+     69|
+     70|   it('returns count of conversations', async () => {
+     71|     const { count } = await import('../../convex/conversations/queries…
+       |                       ^
+     72|
+     73|     expect(count).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[62/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Update > updates conversation title
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:80:24
+     78| describe('Conversation CRUD - Update', () => {
+     79|   it('updates conversation title', async () => {
+     80|     const { update } = await import('../../convex/conversations/mutati…
+       |                        ^
+     81|
+     82|     expect(update).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[63/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Update > updates conversation and marks title as user-set
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:93:24
+     91|
+     92|   it('updates conversation and marks title as user-set', async () => {
+     93|     const { update } = await import('../../convex/conversations/mutati…
+       |                        ^
+     94|
+     95|     expect(update).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[64/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Delete > deletes conversation
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:108:24
+    106| describe('Conversation CRUD - Delete', () => {
+    107|   it('deletes conversation', async () => {
+    108|     const { remove } = await import('../../convex/conversations/mutati…
+       |                        ^
+    109|
+    110|     expect(remove).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[65/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Delete > deletes conversation and cascades to chat messages
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:118:24
+    116|
+    117|   it('deletes conversation and cascades to chat messages', async () =>…
+    118|     const { remove } = await import('../../convex/conversations/mutati…
+       |                        ^
+    119|
+    120|     expect(remove).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[66/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Touch (update timestamp) > updates conversation updatedAt timestamp
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:130:23
+    128| describe('Conversation CRUD - Touch (update timestamp)', () => {
+    129|   it('updates conversation updatedAt timestamp', async () => {
+    130|     const { touch } = await import('../../convex/conversations/mutatio…
+       |                       ^
+    131|
+    132|     expect(touch).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[67/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Touch (update timestamp) > updates lastMessagePreview when touching
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:140:23
+    138|
+    139|   it('updates lastMessagePreview when touching', async () => {
+    140|     const { touch } = await import('../../convex/conversations/mutatio…
+       |                       ^
+    141|
+    142|     expect(touch).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[68/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Edge Cases > handles empty title
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:154:24
+    152| describe('Conversation CRUD - Edge Cases', () => {
+    153|   it('handles empty title', async () => {
+    154|     const { create } = await import('../../convex/conversations/mutati…
+       |                        ^
+    155|
+    156|     expect(create).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[69/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Edge Cases > preserves conversation data across updates
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:164:24
+    162|
+    163|   it('preserves conversation data across updates', async () => {
+    164|     const { update } = await import('../../convex/conversations/mutati…
+       |                        ^
+    165|
+    166|     expect(update).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[70/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Module Exports > exports all queries from index
+Error: Cannot find module '/convex/conversations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:187:33
+    185| describe('Conversation CRUD - Module Exports', () => {
+    186|   it('exports all queries from index', async () => {
+    187|     const conversationsModule = await import('../../convex/conversatio…
+       |                                 ^
+    188|
+    189|     expect(conversationsModule.list).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[71/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > Conversation CRUD - Module Exports > exports all mutations from index
+Error: Cannot find module '/convex/conversations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:195:33
+    193|
+    194|   it('exports all mutations from index', async () => {
+    195|     const conversationsModule = await import('../../convex/conversatio…
+       |                                 ^
+    196|
+    197|     expect(conversationsModule.create).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[72/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > exports setPendingIntent internalMutation
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:212:34
+    210| describe('CLR-001 - Pending Intent Mutations', () => {
+    211|   it('exports setPendingIntent internalMutation', async () => {
+    212|     const { setPendingIntent } = await import('../../convex/conversati…
+       |                                  ^
+    213|
+    214|     expect(setPendingIntent).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[73/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > exports clearPendingIntent internalMutation
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:219:36
+    217|
+    218|   it('exports clearPendingIntent internalMutation', async () => {
+    219|     const { clearPendingIntent } = await import('../../convex/conversa…
+       |                                    ^
+    220|
+    221|     expect(clearPendingIntent).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[74/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > exports isPendingExpired helper
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:226:34
+    224|
+    225|   it('exports isPendingExpired helper', async () => {
+    226|     const { isPendingExpired } = await import('../../convex/conversati…
+       |                                  ^
+    227|
+    228|     expect(isPendingExpired).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[75/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > isPendingExpired returns true for undefined pendingSince
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:233:34
+    231|
+    232|   it('isPendingExpired returns true for undefined pendingSince', async…
+    233|     const { isPendingExpired } = await import('../../convex/conversati…
+       |                                  ^
+    234|
+    235|     expect(isPendingExpired(undefined)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[76/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > isPendingExpired returns false for recent pendingSince
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:239:34
+    237|
+    238|   it('isPendingExpired returns false for recent pendingSince', async (…
+    239|     const { isPendingExpired } = await import('../../convex/conversati…
+       |                                  ^
+    240|
+    241|     // Just now should not be expired
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[77/163]⎯
+
+ FAIL  |integration| tests/integration/conversations.test.ts > CLR-001 - Pending Intent Mutations > isPendingExpired returns true for pendingSince older than 30 minutes
+Error: Cannot find module '/convex/conversations/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/conversations.test.ts
+ ❯ tests/integration/conversations.test.ts:246:34
+    244|
+    245|   it('isPendingExpired returns true for pendingSince older than 30 min…
+    246|     const { isPendingExpired } = await import('../../convex/conversati…
+       |                                  ^
+    247|
+    248|     // 31 minutes ago should be expired
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[78/163]⎯
+
+ FAIL  |integration| tests/integration/redhat-fix-01-streaming-seed.test.ts > REDHAT-FIX-01 Streaming seed closeout > AC-1: after seed:e2e --reset, PATH-A Streaming count==1 with messages>=1 (or PATH-B recorded)
+AssertionError: seed:e2e must exit 0: {
+  "ok": false,
+  "database": "holocron_nonprod",
+  "seed_fingerprint": "",
+  "conversations": 0,
+  "messages": 0,
+  "documents": 0,
+  "categories": 0,
+  "feed_items": 0,
+  "subscription_sources": 0,
+  "subscription_content": 0,
+  "research_sessions": 0,
+  "research_iterations": 0,
+  "assimilation_sessions": 0,
+  "whats_new_reports": 0,
+  "reset": true,
+  "log": [
+    "database holocron_nonprod already exists",
+    "migrations_dir: /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/src/db/migrations",
+    "ordinal_gate: ok (39 files)",
+    "current_user: justinrich",
+    "role_mode: owner/admin",
+    "extension vector: ok",
+    "skip (already applied): 0000_groovy_stellaris.sql",
+    "skip (already applied): 0001_schema3_indexes_search_vector.sql",
+    "skip (already applied): 0002_zero_pub.sql",
+    "skip (already applied): 0003_evidence_one_open_belief.sql",
+    "skip (already applied): 0004_beliefs_immutability_revise.sql",
+    "skip (already applied): 0005_belief_asof_net_support.sql",
+    "skip (already applied): 0006_beliefs_insert_authenticity.sql",
+    "skip (already applied): 0007_app_role_seed_operability_grants.sql",
+    "skip (already applied): 0008_budget_ledger.sql",
+    "skip (already applied): 0009_budget_ledger_allow_escape.sql",
+    "skip (already applied): 0010_queue_leased.sql",
+    "skip (already applied): 0011_outbox_inbox.sql",
+    "skip (already applied): 0012_job_runs.sql",
+    "skip (already applied): 0013_inference_telemetry.sql",
+    "skip (already applied): 0014_evals.sql",
+    "skip (already applied): 0015_sprint14_etl_uploads.sql",
+    "skip (already applied): 0016_sprint14_etl_uploads_hardening.sql",
+    "skip (already applied): 0017_mission_contracts.sql",
+    "skip (already applied): 0018_mission_run_status_suspended.sql",
+    "skip (already applied): 0019_mission_http_control_auth_idempotency.sql",
+    "skip (already applied): 0020_public_article_assets.sql",
+    "skip (already applied): 0021_chat_runs_sse.sql",
+    "skip (already applied): 0022_assimilation_manifest_statuses.sql",
+    "skip (already applied): 0023_mission_evidence_research.sql",
+    "skip (already applied): 0024_mission_pipeline_publish.sql",
+    "skip (already applied): 0025_deterministic_human_gate.sql",
+    "skip (already applied): 0026_mission_verdict_rejections.sql",
+    "skip (already applied): 0027_mission_human_gate_crash_boundary.sql",
+    "skip (already applied): 0028_escape_provider_deepseek.sql",
+    "skip (already applied): 0029_backup_heartbeat.sql",
+    "skip (already applied): 0030_data_plane_ponr.sql",
+    "skip (already applied): 0031_data_plane_ponr_truncate_guard.sql",
+    "skip (already applied): 0032_post_export_write_audit.sql",
+    "skip (already applied): 0033_zero_pub_file_objects.sql",
+    "skip (already applied): 0034_degraded_mode_retry_queue.sql",
+    "skip (already applied): 0035_backup_wal_burst.sql",
+    "skip (already applied): 0036_queue_schema_reconcile.sql",
+    "skip (already applied): 0037_queue_durable_app_dml_grants.sql",
+    "skip (already applied): 0038_domain_referential_fks.sql",
+    "zero_pub present on holocron_nonprod"
+  ],
+  "errors": [
+    "PONR_IMMUTABLE: data_plane_ponr is append-only (UC-SYNC-04 point of no return)"
+  ]
+}
+
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/integration/redhat-fix-01-streaming-seed.test.ts:132:67
+    130|
+    131|     const seed = runHolo(['seed:e2e', '--reset', '--json'], { timeoutM…
+    132|     expect(seed.status, `seed:e2e must exit 0: ${seed.combined}`).toBe…
+       |                                                                   ^
+    133|
+    134|     const streamingCount = psqlScalar(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[79/163]⎯
+
+ FAIL  |integration| tests/integration/s-rewrite-01-chat-cluster-zero.test.ts > S-REWRITE-01 chat cluster Zero/Hono rewire > Maestro flow files present for behavioral ACs > Maestro flows assert AC oracles (3 rows, rename title, >=3 bubbles, send, cancel)
+AssertionError: expected 'appId: ${MAESTRO_APP_ID}\n---\n# AC-3…' to match /message-bubble/
+
+- Expected:
+/message-bubble/
+
++ Received:
+"appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3 + S31-FE-02 AC-6 — Chat thread loads messages via Zero query
+# Prerequisite: seeded conversation with >=2 messages + healthy zero-cache.
+# Connection pattern mirrors FE-05 / S31 session-loads (LAN Metro + Open dialog).
+
+- launchApp:
+    clearState: true
+
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
+- extendedWaitUntil:
+    visible: \"Open\"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: \"Open\"
+    optional: true
+
+- extendedWaitUntil:
+    visible: \"Enter URL manually\"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible: \"Enter URL manually\"
+    commands:
+      - tapOn:
+          point: \"50%,28%\"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: \"http://192.168.1.160:8081\"
+    commands:
+      - tapOn: \"http://192.168.1.160:8081\"
+
+- runFlow:
+    when:
+      visible: \"http://127.0.0.1:8081\"
+    commands:
+      - tapOn: \"http://127.0.0.1:8081\"
+
+- extendedWaitUntil:
+    visible: \"Continue\"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: \"Continue\"
+    optional: true
+
+- runFlow:
+    when:
+      visible: \"Go home\"
+    commands:
+      - tapOn:
+          id: \"xmark\"
+          optional: true
+- runFlow:
+    when:
+      visible: \"Runtime version\"
+    commands:
+      - tapOn:
+          id: \"xmark\"
+          optional: true
+- swipe:
+    start: \"92%,12%\"
+    end: \"92%,75%\"
+    duration: 500
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: \".*Type a message.*|.*New Chat.*|.*Holocron.*\"
+    timeout: 120000
+    optional: true
+
+# Deep-link into the seeded conversation
+- openLink: ${MAESTRO_CHAT_URL}
+
+- extendedWaitUntil:
+    visible: \"Open\"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: \"Open\"
+    optional: true
+
+# Prefer durable seed copy over ScreenLayout testIDs (XCTest often misses View testIDs)
+- extendedWaitUntil:
+    visible:
+      text: \".*Hello from E2E Conversation Alpha.*|.*E2E Conversation Alpha.*\"
+    timeout: 90000
+
+- assertVisible:
+    text: \".*Hello from E2E Conversation Alpha.*|.*E2E Conversation Alpha.*\"
+
+# S31-FE-02 AC-6 happy path — healthy Zero must not surface terminal/degraded error chrome.
+- assertNotVisible:
+    id: \"chat-degraded-banner\"
+
+- assertNotVisible:
+    text: \"Live data sync unavailable\"
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-6-thread-loads
+"
+
+ ❯ tests/integration/s-rewrite-01-chat-cluster-zero.test.ts:263:22
+    261|
+    262|       // AC-3: >=3 message bubbles
+    263|       expect(thread).toMatch(/message-bubble/);
+       |                      ^
+    264|       expect(thread).toMatch(/index:\s*2/);
+    265|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[80/163]⎯
+
+ FAIL  |integration| tests/integration/s31-fe-06-contract-freeze.test.ts > S31-FE-06 contract freeze > nine reported call sites resolve to zero
+AssertionError: expected '  });' to match /useQuery/
+
+- Expected:
+/useQuery/
+
++ Received:
+"  });"
+
+ ❯ tests/integration/s31-fe-06-contract-freeze.test.ts:281:24
+    279|       expect(importBlock).toContain('@rocicorp/zero/react');
+    280|       expect(importBlock).not.toMatch(/from ['"]convex\/react['"]/);
+    281|       expect(reported).toMatch(/useQuery/);
+       |                        ^
+    282|       resolutions.push(`${coord} import=@rocicorp/zero/react line=${re…
+    283|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[81/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-1: report header > produces '# Shop Results: {query}' heading with Search Date, Budget, Condition, Session
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:39:34
+     37| describe('formatShopReport — AC-1: report header', () => {
+     38|   it("produces '# Shop Results: {query}' heading with Search Date, Bud…
+     39|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+     40|
+     41|     const session: ShopSession = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[82/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-1: report header > shows 'No limit' for budget when budget is not provided
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:68:34
+     66|
+     67|   it("shows 'No limit' for budget when budget is not provided", async …
+     68|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+     69|
+     70|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[83/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-1: report header > shows em-dash for session when sessionId is not provided
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:87:34
+     85|
+     86|   it('shows em-dash for session when sessionId is not provided', async…
+     87|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+     88|
+     89|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[84/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-2: price formatting > formats prices from cents to dollars
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:113:34
+    111| describe('formatShopReport — AC-2: price formatting', () => {
+    112|   it('formats prices from cents to dollars', async () => {
+    113|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    114|
+    115|     const session: ShopSession = { query: 'test headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[85/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-3: trust tier labels > maps trustTier 1 to Authorized, 2-3 to Verified Seller, 4-5 to Unverified
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:139:34
+    137| describe('formatShopReport — AC-3: trust tier labels', () => {
+    138|   it('maps trustTier 1 to Authorized, 2-3 to Verified Seller, 4-5 to U…
+    139|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    140|
+    141|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[86/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-4: comparison tables split by condition > places new listings under 'New Products' and used listings under 'Used/Refurbished'
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:183:34
+    181| describe('formatShopReport — AC-4: comparison tables split by conditio…
+    182|   it("places new listings under 'New Products' and used listings under…
+    183|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    184|
+    185|     const session: ShopSession = { query: 'wireless headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[87/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-4: comparison tables split by condition > omits Used/Refurbished section when there are no used listings
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:225:34
+    223|
+    224|   it('omits Used/Refurbished section when there are no used listings',…
+    225|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    226|
+    227|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[88/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-4: comparison tables split by condition > includes Deal Score column in comparison tables
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:247:34
+    245|
+    246|   it('includes Deal Score column in comparison tables', async () => {
+    247|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    248|
+    249|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[89/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-4: comparison tables split by condition > includes link column with arrow notation pointing to product URL
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:268:34
+    266|
+    267|   it('includes link column with arrow notation pointing to product URL…
+    268|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    269|
+    270|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[90/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-4: comparison tables split by condition > truncates product titles beyond 30 chars in comparison tables
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:290:34
+    288|
+    289|   it('truncates product titles beyond 30 chars in comparison tables', …
+    290|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    291|
+    292|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[91/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-5: recommendations section > includes Best Deal, Budget Pick, Best New, Best Used when applicable
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:318:34
+    316| describe('formatShopReport — AC-5: recommendations section', () => {
+    317|   it('includes Best Deal, Budget Pick, Best New, Best Used when applic…
+    318|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    319|
+    320|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[92/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-5: recommendations section > omits Best Used when there are no used listings
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:361:34
+    359|
+    360|   it('omits Best Used when there are no used listings', async () => {
+    361|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    362|
+    363|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[93/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-5: recommendations section > recommendation lines include price, retailer, and score for Best Deal
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:393:34
+    391|
+    392|   it('recommendation lines include price, retailer, and score for Best…
+    393|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    394|
+    395|     const session: ShopSession = { query: 'noise cancelling headphones…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[94/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-6: notes and trust legend > includes a Notes section
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:423:34
+    421| describe('formatShopReport — AC-6: notes and trust legend', () => {
+    422|   it('includes a Notes section', async () => {
+    423|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    424|
+    425|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[95/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-6: notes and trust legend > includes Trust Legend with Authorized, Verified Seller, Unverified definitions
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:442:34
+    440|
+    441|   it('includes Trust Legend with Authorized, Verified Seller, Unverifi…
+    442|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    443|
+    444|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[96/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-6: notes and trust legend > includes ephemeral footer note
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:464:34
+    462|
+    463|   it('includes ephemeral footer note', async () => {
+    464|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    465|
+    466|     const session: ShopSession = { query: 'headphones' };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[97/163]⎯
+
+ FAIL  |integration| tests/integration/shop-output.test.ts > formatShopReport — AC-7: empty listings > returns a header and no-results message when listings is empty
+Error: Cannot find module '/convex/shop/output' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/shop-output.test.ts
+ ❯ tests/integration/shop-output.test.ts:490:34
+    488| describe('formatShopReport — AC-7: empty listings', () => {
+    489|   it('returns a header and no-results message when listings is empty',…
+    490|     const { formatShopReport } = await import('../../convex/shop/outpu…
+       |                                  ^
+    491|
+    492|     const session: ShopSession = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[98/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-maestro-native-human-gate.test.ts > Sprint 20 explicit native Maestro human gate > passes the native gate adapter static preflight
+AssertionError: 
+sprint20-native-human-gate: shared native runner is missing or not executable: /Users/inference1/.codex/skills/kb-run-human-tests/references/run-maestro-step.sh
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tests/integration/sprint20-maestro-native-human-gate.test.ts:82:65
+     80|   it('passes the native gate adapter static preflight', () => {
+     81|     const result = spawnSync(gateRunner, ['--check'], { encoding: 'utf…
+     82|     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0…
+       |                                                                 ^
+     83|     expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, driver…
+     84|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[99/163]⎯
+
+ FAIL  |integration| tests/integration/sprint20-maestro-native-human-gate.test.ts > Sprint 20 explicit native Maestro human gate > binds the real Maestro invocation and explicit native verifier to the plan
+Error: ENOENT: no such file or directory, open '/Users/inference1/.codex/skills/kb-run-human-tests/references/verify-gate-evidence.sh'
+ ❯ tests/integration/sprint20-maestro-native-human-gate.test.ts:89:28
+     87|     const harnessSource = readFileSync(nativeHarness, 'utf8');
+     88|     const gateRunnerSource = readFileSync(gateRunner, 'utf8');
+     89|     const verifierSource = readFileSync(
+       |                            ^
+     90|       `${sharedSkillRoot}/references/verify-gate-evidence.sh`,
+     91|       'utf8'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[100/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > AC-1 independently verifies health, both model observers, and reviewer inference2 routing
+Error: PLATFORM_IT=1 is required; this real-service test never skips
+ ❯ requireLiveEnvironment tests/integration/sprint33-ops-02-router-capacity.test.ts:366:13
+    364|   function requireLiveEnvironment(): void {
+    365|     if (process.env.PLATFORM_IT !== '1') {
+    366|       throw new Error('PLATFORM_IT=1 is required; this real-service te…
+       |             ^
+    367|     }
+    368|   }
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:407:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[101/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > AC-2 verifies concurrent implementer distribution and fresh log evidence on both minis
+Error: PLATFORM_IT=1 is required; this real-service test never skips
+ ❯ requireLiveEnvironment tests/integration/sprint33-ops-02-router-capacity.test.ts:366:13
+    364|   function requireLiveEnvironment(): void {
+    365|     if (process.env.PLATFORM_IT !== '1') {
+    366|       throw new Error('PLATFORM_IT=1 is required; this real-service te…
+       |             ^
+    367|     }
+    368|   }
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:514:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[102/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > rejects both modes when the real router dependency is unavailable
+Error: PLATFORM_IT=1 is required; this real-service test never skips
+ ❯ requireLiveEnvironment tests/integration/sprint33-ops-02-router-capacity.test.ts:366:13
+    364|   function requireLiveEnvironment(): void {
+    365|     if (process.env.PLATFORM_IT !== '1') {
+    366|       throw new Error('PLATFORM_IT=1 is required; this real-service te…
+       |             ^
+    367|     }
+    368|   }
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:639:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[103/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > rejects lexical traversal and symlink evidence candidates before any write
+Error: PLATFORM_IT=1 is required; this real-service test never skips
+ ❯ requireLiveEnvironment tests/integration/sprint33-ops-02-router-capacity.test.ts:366:13
+    364|   function requireLiveEnvironment(): void {
+    365|     if (process.env.PLATFORM_IT !== '1') {
+    366|       throw new Error('PLATFORM_IT=1 is required; this real-service te…
+       |             ^
+    367|     }
+    368|   }
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:656:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[104/163]⎯
+
+ FAIL  |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > keeps live invalid-observer and invalid-log controls exact when the router is available
+Error: PLATFORM_IT=1 is required; this real-service test never skips
+ ❯ requireLiveEnvironment tests/integration/sprint33-ops-02-router-capacity.test.ts:366:13
+    364|   function requireLiveEnvironment(): void {
+    365|     if (process.env.PLATFORM_IT !== '1') {
+    366|       throw new Error('PLATFORM_IT=1 is required; this real-service te…
+       |             ^
+    367|     }
+    368|   }
+ ❯ tests/integration/sprint33-ops-02-router-capacity.test.ts:696:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[105/163]⎯
+
+ FAIL  |integration| tests/integration/validate-migration.test.ts > Migration Validation - AC-4: Integrity Report > should have validateMigration function exported
+Error: Cannot find module '/scripts/validate-migration' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/validate-migration.test.ts
+ ❯ tests/integration/validate-migration.test.ts:348:20
+    346|
+    347|   it('should have validateMigration function exported', async () => {
+    348|     const module = await import('../../scripts/validate-migration');
+       |                    ^
+    349|
+    350|     expect(module.validateMigration).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[106/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-1: Returns token on success > createSession action is exported from convex/voice/actions.ts
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:23:31
+     21| describe('voice.createSession - AC-1: Returns token on success', () =>…
+     22|   it('createSession action is exported from convex/voice/actions.ts', …
+     23|     const { createSession } = await import('../../convex/voice/actions…
+       |                               ^
+     24|
+     25|     expect(createSession).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[107/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-1: Returns token on success > createSessionHandler returns ephemeralKey, expiresAt, sessionId on success
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:46:38
+     44|     );
+     45|
+     46|     const { createSessionHandler } = await import('../../convex/voice/…
+       |                                      ^
+     47|
+     48|     const mockSessionId = 'vs_newSession123';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[108/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-2: Stale session auto-end > createSessionHandler auto-ends stale session and proceeds to create new one
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:91:38
+     89|     );
+     90|
+     91|     const { createSessionHandler } = await import('../../convex/voice/…
+       |                                      ^
+     92|
+     93|     const mockActiveSession = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[109/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-2: Stale session auto-end > createSessionHandler does not call endSession when no active session exists
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:148:38
+    146|     );
+    147|
+    148|     const { createSessionHandler } = await import('../../convex/voice/…
+       |                                      ^
+    149|
+    150|     const mockSessionId = 'vs_brand_new';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[110/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-3: Missing API key error > createSessionHandler throws descriptive error when OPENAI_API_KEY is missing
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:184:38
+    182|     delete process.env.OPENAI_API_KEY;
+    183|
+    184|     const { createSessionHandler } = await import('../../convex/voice/…
+       |                                      ^
+    185|
+    186|     const mockCtx = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[111/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - AC-4: Non-200 OpenAI response > createSessionHandler throws with status code context on non-200 and does not create session
+Error: Cannot find module '/convex/voice/actions' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:221:38
+    219|     );
+    220|
+    221|     const { createSessionHandler } = await import('../../convex/voice/…
+       |                                      ^
+    222|
+    223|     const mockCtx = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[112/163]⎯
+
+ FAIL  |integration| tests/integration/voice-create-session.test.ts > voice.createSession - Internal mutation > internalCreateSession is exported from convex/voice/mutations.ts
+Error: Cannot find module '/convex/voice/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/voice-create-session.test.ts
+ ❯ tests/integration/voice-create-session.test.ts:250:39
+    248| describe('voice.createSession - Internal mutation', () => {
+    249|   it('internalCreateSession is exported from convex/voice/mutations.ts…
+    250|     const { internalCreateSession } = await import('../../convex/voice…
+       |                                       ^
+    251|
+    252|     expect(internalCreateSession).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[113/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-storage.test.ts > US-SUMM-002: Summary Storage & Retrieval > AC-1: Report with summaries → Report saved to database → Summaries persisted in findingsJson > should persist findings with summaries in findingsJson field
+Error: Cannot find module '/convex/whatsNew/mutations' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-storage.test.ts
+ ❯ tests/integration/whats-new-summary-storage.test.ts:13:33
+     11|     it('should persist findings with summaries in findingsJson field',…
+     12|       // Import the internal mutations module
+     13|       const whatsNewMutations = await import('../../convex/whatsNew/mu…
+       |                                 ^
+     14|
+     15|       // Create test findings with summaries
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[114/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-storage.test.ts > US-SUMM-002: Summary Storage & Retrieval > AC-2: Query latest findings → Client requests findings → Response includes summary field > should have getLatestFindings query that returns summary field
+Error: Cannot find module '/convex/whatsNew/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-storage.test.ts
+ ❯ tests/integration/whats-new-summary-storage.test.ts:118:37
+    116|
+    117|     it('should have getLatestFindings query that returns summary field…
+    118|       const { getLatestFindings } = await import('../../convex/whatsNe…
+       |                                     ^
+    119|
+    120|       expect(getLatestFindings).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[115/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-storage.test.ts > US-SUMM-002: Summary Storage & Retrieval > AC-4: Finding without summary → Card renders → Card shows title only (no broken UI) > should export all necessary queries and mutations
+Error: Cannot find module '/convex/whatsNew/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-storage.test.ts
+ ❯ tests/integration/whats-new-summary-storage.test.ts:247:31
+    245|     it('should export all necessary queries and mutations', async () =…
+    246|       // Import from the main whatsNew module
+    247|       const whatsNewQueries = await import('../../convex/whatsNew/quer…
+       |                               ^
+    248|       const whatsNewMutations = await import('../../convex/whatsNew/mu…
+    249|       const whatsNewInternal = await import('../../convex/whatsNew/int…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[116/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-storage.test.ts > US-SUMM-002: Summary Storage & Retrieval > AC-4: Finding without summary → Card renders → Card shows title only (no broken UI) > should have getLatestFindings that filters by category
+Error: Cannot find module '/convex/whatsNew/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-storage.test.ts
+ ❯ tests/integration/whats-new-summary-storage.test.ts:263:37
+    261|
+    262|     it('should have getLatestFindings that filters by category', async…
+    263|       const { getLatestFindings } = await import('../../convex/whatsNe…
+       |                                     ^
+    264|
+    265|       expect(getLatestFindings).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[117/163]⎯
+
+ FAIL  |integration| tests/integration/whats-new-summary-storage.test.ts > US-SUMM-002: Summary Storage & Retrieval > AC-4: Finding without summary → Card renders → Card shows title only (no broken UI) > should provide complete report metadata with findings
+Error: Cannot find module '/convex/whatsNew/queries' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/tests/integration/whats-new-summary-storage.test.ts
+ ❯ tests/integration/whats-new-summary-storage.test.ts:296:37
+    294|
+    295|     it('should provide complete report metadata with findings', async …
+    296|       const { getLatestFindings } = await import('../../convex/whatsNe…
+       |                                     ^
+    297|
+    298|       expect(getLatestFindings).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[118/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/docker-resilience.test.ts > D08-08 cold-host bootstrap and managed lifecycle > IMP-AC-16 documented cold-host bootstrap (ARM64, four services, no client assets, 44111)
+AssertionError: failed to connect to the docker API at unix:///Users/justinrich/.docker/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/justinrich/.docker/run/docker.sock: connect: no such file or directory
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/docker-resilience.test.ts:344:76
+    342|
+    343|     const dockerArch = run(dockerBin(), ['info', '--format', '{{.Archi…
+    344|     expect(dockerArch.status, dockerArch.stderr || 'docker info requir…
+       |                                                                            ^
+    345|     const arch = (dockerArch.stdout ?? '').trim().toLowerCase();
+    346|     expect(['aarch64', 'arm64']).toContain(arch);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[119/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/docker-resilience.test.ts > D08-08 cold-host bootstrap and managed lifecycle > IMP-AC-17 managed lifecycle: stop/restart, Serve restore, sentinels, zero volume deletions
+AssertionError: Docker daemon required for IMP-AC-17: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/docker-resilience.test.ts:498:65
+    496|
+    497|     const info = run(dockerBin(), ['info', '--format', '{{.ServerVersi…
+    498|     expect(info.status, 'Docker daemon required for IMP-AC-17').toBe(0…
+       |                                                                 ^
+    499|
+    500|     const workRoot = mkdtempSync(resolve(tmpdir(), 'd08-08-ac17-'));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[120/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts > Sprint 19 MCP rehost gateway > rejects an already-cancelled tool request before database dispatch
+AssertionError: expected [Function] to throw error including 'MCP request cancelled' but got 'MCP tool list_documents refuses non-n…'
+
+Expected: "MCP request cancelled"
+Received: "MCP tool list_documents refuses non-nonprod database 'mortal_context' — expected holocron_nonprod; set HOLO_DANGEROUS_ALLOW_PROD_DB=1 to override (dangerous)"
+
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:451:6
+    449|         }
+    450|       )
+    451|     ).rejects.toThrow('MCP request cancelled');
+       |      ^
+    452|   });
+    453|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[121/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts > Sprint 19 MCP rehost gateway > strict predicate classifies each failure class
+Error: strict predicate classifies each failure class requires PLATFORM_IT=1 — refusing skip-to-green for MCP dual-transport cutover proof (R36)
+ ❯ requirePlatformItForCutoverSweep services/platform/tests/integration/sprint19-mcp-rehost.test.ts:34:11
+     32| function requirePlatformItForCutoverSweep(label: string): void {
+     33|   if (!PLATFORM_IT) {
+     34|     throw new Error(
+       |           ^
+     35|       `${label} requires PLATFORM_IT=1 — refusing skip-to-green for MC…
+     36|     );
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:489:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[122/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts > Sprint 19 MCP rehost gateway > cutover gate requires PLATFORM_IT
+Error: cutover gate requires PLATFORM_IT=1 — refusing skip-to-green for MCP dual-transport sweep (R36)
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:566:13
+    564|   it('cutover gate requires PLATFORM_IT', () => {
+    565|     if (!PLATFORM_IT) {
+    566|       throw new Error(
+       |             ^
+    567|         'cutover gate requires PLATFORM_IT=1 — refusing skip-to-green …
+    568|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[123/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts > Sprint 19 MCP rehost gateway > executes initialize, list, and a tool call over real stdio
+Error: executes initialize, list, and a tool call over real stdio requires PLATFORM_IT=1 — refusing skip-to-green for MCP dual-transport cutover proof (R36)
+ ❯ requirePlatformItForCutoverSweep services/platform/tests/integration/sprint19-mcp-rehost.test.ts:34:11
+     32| function requirePlatformItForCutoverSweep(label: string): void {
+     33|   if (!PLATFORM_IT) {
+     34|     throw new Error(
+       |           ^
+     35|       `${label} requires PLATFORM_IT=1 — refusing skip-to-green for MC…
+     36|     );
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:615:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[124/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint19-mcp-rehost.test.ts > Sprint 19 MCP rehost gateway > executes every manifest tool through the real HTTP gateway
+Error: executes every manifest tool through the real HTTP gateway requires PLATFORM_IT=1 — refusing skip-to-green for MCP dual-transport cutover proof (R36)
+ ❯ requirePlatformItForCutoverSweep services/platform/tests/integration/sprint19-mcp-rehost.test.ts:34:11
+     32| function requirePlatformItForCutoverSweep(label: string): void {
+     33|   if (!PLATFORM_IT) {
+     34|     throw new Error(
+       |           ^
+     35|       `${label} requires PLATFORM_IT=1 — refusing skip-to-green for MC…
+     36|     );
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:774:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[125/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa12-gate-fix.test.ts > GATE-FIX-S28R3-QA12 MEDIUM-2 consumer-level mutations > fire-drill refuses HOLO_QA_PROOF_MUTATE=wrong-tuple
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /tuple_fp16 mismatch|DEPENDENCY-S28-R…/i
+
+- Expected:
+/tuple_fp16 mismatch|DEPENDENCY-S28-R2-RO|RO proof/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa12-gate-fix.test.ts:296:22
+    294|     });
+    295|     expect(run.status).not.toBe(0);
+    296|     expect(combined).toMatch(/tuple_fp16 mismatch|DEPENDENCY-S28-R2-RO…
+       |                      ^
+    297|   });
+    298| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[126/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa13-gate-fix.test.ts > GATE-FIX-S28R3-QA13 MEDIUM-2 two-consumer mutations + canaries > aws canaries absent on success/error; recorder+parity clean
+AssertionError: 
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa13-gate-fix.test.ts:360:43
+    358|     const fdC = `${fd.stdout ?? ''}\n${fd.stderr ?? ''}`;
+    359|     writeEvidence('m2-recorder.json', { status: fd.status, combined: f…
+    360|     expect(fd.status, fdC.slice(0, 1200)).toBe(0);
+       |                                           ^
+    361|     expect(fdC).toMatch(/recorder:ok/);
+    362|     expect(fdC).not.toContain(CANARY_AWS);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[127/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill baseline reaches recorder with zero exit
+AssertionError: 
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts:322:49
+    320|     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    321|     writeEvidence('h2-fd-baseline.json', { status: run.status, combine…
+    322|     expect(run.status, combined.slice(0, 1500)).toBe(0);
+       |                                                 ^
+    323|     expect(combined).toMatch(/recorder:ok/);
+    324|     expect(existsSync(recOut)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[128/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=stale fails at proof validation (no recorder)
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=future fails at proof validation (no recorder)
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=wrong-tuple fails at proof validation (no recorder)
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=malformed fails at proof validation (no recorder)
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=wrong-producer fails at proof validation (no recorder)
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts > GATE-FIX-S28R3-QA14 HIGH two-consumer mutations > fire-drill mutate=wrong-context fails at proof validation (no recorder)
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /RO proof|tuple_fp16|context_fp16|sch…/i
+
+- Expected:
+/RO proof|tuple_fp16|context_fp16|schema|producer|stale|DEPENDENCY-S28-R2-RO/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts:379:24
+    377|       const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    378|       expect(run.status, combined.slice(0, 800)).not.toBe(0);
+    379|       expect(combined).toMatch(
+       |                        ^
+    380|         /RO proof|tuple_fp16|context_fp16|schema|producer|stale|DEPEND…
+    381|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[129/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa18-gate-fix.test.ts > GATE-FIX-S28R3-QA18 forged ambient secrets through consumers > fire-drill (harness) never emits ambient canaries on success path
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa18-gate-fix.test.ts:222:24
+    220|     const combined = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+    221|     writeEv('fire-drill.json', { status: run.status, out: redact(combi…
+    222|     expect(run.status).toBe(0);
+       |                        ^
+    223|     expect(combined).toMatch(/recorder:ok/);
+    224|     assertNoCanaries('fire-drill', combined);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[130/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill baseline reaches recorder with zero exit
+AssertionError: 
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:323:49
+    321|     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    322|     writeEv('fd-baseline.json', { status: run.status, out: redact(comb…
+    323|     expect(run.status, combined.slice(0, 2000)).toBe(0);
+       |                                                 ^
+    324|     expect(combined).toMatch(/recorder:ok/);
+    325|     expect(existsSync(recOut)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[131/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=stale exact fail; no recorder side effects
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=future exact fail; no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /stale or future-dated|RO proof attes…/i
+
+- Expected:
+/stale or future-dated|RO proof attestation stale/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:390:24
+    388|       });
+    389|       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
+    390|       expect(combined).toMatch(mut.re);
+       |                        ^
+    391|       expect(combined).not.toMatch(/recorder:ok/);
+    392|       expect(existsSync(recOut)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[132/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=wrong-tuple exact fail; no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /tuple_fp16 mismatch/i
+
+- Expected:
+/tuple_fp16 mismatch/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:390:24
+    388|       });
+    389|       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
+    390|       expect(combined).toMatch(mut.re);
+       |                        ^
+    391|       expect(combined).not.toMatch(/recorder:ok/);
+    392|       expect(existsSync(recOut)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[133/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=wrong-context exact fail; no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /context_fp16 mismatch/i
+
+- Expected:
+/context_fp16 mismatch/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:390:24
+    388|       });
+    389|       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
+    390|       expect(combined).toMatch(mut.re);
+       |                        ^
+    391|       expect(combined).not.toMatch(/recorder:ok/);
+    392|       expect(existsSync(recOut)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[134/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=malformed exact fail; no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /schema\/ok|missing s…/ok|missing schema
+
+- Expected:
+/schema\/ok|missing schema/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:390:24
+    388|       });
+    389|       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
+    390|       expect(combined).toMatch(mut.re);
+       |                        ^
+    391|       expect(combined).not.toMatch(/recorder:ok/);
+    392|       expect(existsSync(recOut)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[135/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 harness success baselines + exact mutations > fire-drill mutate=wrong-producer exact fail; no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /producer is not fixed/i
+
+- Expected:
+/producer is not fixed/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:390:24
+    388|       });
+    389|       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
+    390|       expect(combined).toMatch(mut.re);
+       |                        ^
+    391|       expect(combined).not.toMatch(/recorder:ok/);
+    392|       expect(existsSync(recOut)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[136/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts > GATE-FIX-S28R3-QA19 concurrent proof races (consumer-level) > fire-drill concurrent proof swap yields no recorder side effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /RO proof|symlink|NOFOLLOW|prove|tupl…/i
+
+- Expected:
+/RO proof|symlink|NOFOLLOW|prove|tuple|context|identity|trusted/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts:654:24
+    652|       expect(combined).not.toMatch(/recorder:ok/);
+    653|       expect(existsSync(recOut)).toBe(false);
+    654|       expect(combined).toMatch(/RO proof|symlink|NOFOLLOW|prove|tuple|…
+       |                        ^
+    655|     } else {
+    656|       // Success path: proof was validated before race — still a valid…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[137/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts > GATE-FIX-S28R3-QA21 consumer-level deterministic races > fire-drill race swap=file fails identity; no recorder/report/attestation effects
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts > GATE-FIX-S28R3-QA21 consumer-level deterministic races > fire-drill race swap=parent fails identity; no recorder/report/attestation effects
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /symlink|NOFOLLOW|no-follow|refuse fo…/i
+
+- Expected:
+/symlink|NOFOLLOW|no-follow|refuse follow|not a regular file|cannot open proof|identity|not trusted|private directory|realpath|not a real directory/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts:442:24
+    440|       });
+    441|       expect(run.status, combined.slice(0, 2000)).not.toBe(0);
+    442|       expect(combined).toMatch(RACE_FAIL_RE);
+       |                        ^
+    443|       expect(combined).toMatch(/HOLO_QA_RACE_SWAP applied/i);
+    444|       expect(combined).not.toMatch(/recorder:ok/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[138/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts > GATE-FIX-S28R3-QA21 discriminating success/error canary oracle > requires both consumer success + failure paths and scans raw artifacts
+AssertionError: 
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts:586:47
+    584|     const fdOkC = `${fdOk.stdout ?? ''}\n${fdOk.stderr ?? ''}`;
+    585|     writeFileSync(resolve(tree, 'fire-drill-ok-raw.txt'), fdOkC);
+    586|     expect(fdOk.status, fdOkC.slice(0, 1500)).toBe(0);
+       |                                               ^
+    587|     expect(fdOkC).toMatch(/recorder:ok/);
+    588|     // Contract artifacts MUST exist (not optional).
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[139/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts > GATE-FIX-S28R3-QA25 CRITICAL3 successful disposable production-boundary > reaches real fire-drill FD launcher + credentialed child; races; scans artifacts
+Error: GATE-FIX-S28R3-QA26: no root-trusted pg_ctl found (require root-owned /usr/local/bin/pg_ctl or /usr/bin/pg_ctl; absolute overrides and Homebrew candidates must pass the same root-trust validation)
+ ❯ resolveTrustedPgCtlBin services/platform/src/backup/trusted-bin.ts:113:9
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts:415:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[140/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa26-gate-fix.test.ts > GATE-FIX-S28R3-QA26 HIGH1 production-boundary path-independence contract > boundary helper discovers checkout-local inputs and refuses provision exit1 soft-pass
+AssertionError: expected 'FAIL: no env file discovered\n' to match /refuse soft-pass|provision exit/i
+
+- Expected:
+/refuse soft-pass|provision exit/i
+
++ Received:
+"FAIL: no env file discovered
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa26-gate-fix.test.ts:635:42
+    633|     });
+    634|     expect(run.status).not.toBe(0);
+    635|     expect(`${run.stdout}${run.stderr}`).toMatch(/refuse soft-pass|pro…
+       |                                          ^
+    636|
+    637|     // Env discovery works from worktree or explicit path.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[141/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts > GATE-FIX-S28R3-QA27 H-2 real production-boundary soft-fail refuse > invokes real provision+fire-drill; failed provision with paths.txt is non-zero (no soft-pass)
+AssertionError: detached env/secrets discovery: expected null to be truthy
+
+- Expected:
+true
+
++ Received:
+null
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts:470:70
+    468|     const envPath = discoverEnvPath();
+    469|     const secretsPath = discoverSecretsPath();
+    470|     expect(envPath || secretsPath, 'detached env/secrets discovery').t…
+       |                                                                      ^
+    471|
+    472|     const probeDir = resolve(EVIDENCE, 'prod-boundary');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[142/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts > GATE-FIX-S28R3-QA27 H-3 real lifecycle twice > runs real production provision cleanup path twice; zero QA27 namespace residue each time
+AssertionError: docker required for real lifecycle: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts:773:65
+    771|     if (info.status !== 0) {
+    772|       writeEv('lifecycle-cleanup.json', { reason: 'docker unavailable'…
+    773|       expect(info.status, 'docker required for real lifecycle').toBe(0…
+       |                                                                 ^
+    774|       return;
+    775|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[143/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts > GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real restore proof > real scripts exist and parse without changing their gate contracts
+AssertionError: DEPENDENCY-S28R3-QA32-BUN-TRUST: fixed /usr/local/bin/bun is missing or untrusted: expected null not to be null
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts:695:11
+    693|       bun,
+    694|       `${BUN_DEPENDENCY_FAILURE}: fixed ${TRUSTED_BUN_PATH} is missing…
+    695|     ).not.toBeNull();
+       |           ^
+    696|     const qa30 = spawnSync(bun as string, ['x', 'vitest', 'run', QA30_…
+    697|       cwd: REPO_ROOT,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[144/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts > GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real restore proof > routes a credentialed PITR-window probe only through the fixed trusted Bun path
+AssertionError: expected '' to be '/usr/local/bin/bun' // Object.is equality
+
+- Expected
++ Received
+
+- /usr/local/bin/bun
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts:731:29
+    729|       }
+    730|     );
+    731|     expect(observedCommand).toBe(TRUSTED_BUN_PATH);
+       |                             ^
+    732|     expect(observedArgs).toEqual([HOLO_CLI, 'restore:window', '--json'…
+    733|     expect(observedEnv?.R2_RESTORE_SECRET_ACCESS_KEY).toBe('qa32-secre…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[145/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts > GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real restore proof > real no-key provision and fire-drill paths fail closed without prefix ambient state or artifacts
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa31-ambient-prefix-execution.test.ts:1213:41
+    1211|     expect(provisionOutput).not.toMatch(/SUCCESS: fresh restore target…
+    1212|     expect(fireDrillOutput).not.toMatch(/POSTGRES_PARITY_PASS\s*[:=]\s…
+    1213|     expect(noSuccessfulRestoreArtifact).toBe(true);
+       |                                         ^
+    1214|     expect(beforeCleanup.dockerRuntimeStatus).toBe(0);
+    1215|     expect(afterConsumersBeforeCleanup.dockerRuntimeStatus).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[146/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa33-configured-positive-failure.test.ts > GATE-FIX-S28R3-QA33 configured-positive failure semantics > returns nonzero when configured credentials cannot discover a trusted PITR window
+AssertionError: expected '\n' to match /DEPENDENCY-S28R3-QA32-BUN-TRUST|DEPEN…/
+
+- Expected:
+/DEPENDENCY-S28R3-QA32-BUN-TRUST|DEPENDENCY-S28R3-QA33-PITR-WINDOW/
+
++ Received:
+"
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa33-configured-positive-failure.test.ts:61:22
+     59|       const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+     60|       expect(result.status, output).not.toBe(0);
+     61|       expect(output).toMatch(/DEPENDENCY-S28R3-QA32-BUN-TRUST|DEPENDEN…
+       |                      ^
+     62|     } finally {
+     63|       rmSync(root, { recursive: true, force: true });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[147/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts > GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret > fire-drill: same parent AK without writer secret refused before docker
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /writer secret|cannot establish disti…/i
+
+- Expected:
+/writer secret|cannot establish distinct|GATE-FIX-S28R3-QA9/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts:180:22
+    178|     });
+    179|     expect(run.status).not.toBe(0);
+    180|     expect(combined).toMatch(/writer secret|cannot establish distinct|…
+       |                      ^
+    181|     // Must not only fail on docker after accepting shape.
+    182|     expect(combined).not.toMatch(/volume unresolvable.*accepted Cloudf…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[148/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts > GATE-FIX-S28R3-QA9 M2 behavioral fire-drill + verifier > fire-drill maps session token into child (recorder must execute)
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /recorder:ok/
+
+- Expected:
+/recorder:ok/
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts:379:22
+    377|       combined: combined.slice(0, 4000),
+    378|     });
+    379|     expect(combined).toMatch(/recorder:ok/);
+       |                      ^
+    380|     expect(existsSync(recorderOut)).toBe(true);
+    381|     const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[149/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts > GATE-FIX-S28R3-QA9 M2 behavioral fire-drill + verifier > fire-drill refuses equal secret
+AssertionError: expected '\nerror: GATE-FIX-S28R3-QA25 secrets.…' to match /writer-equivalent|equals writer secr…/i
+
+- Expected:
+/writer-equivalent|equals writer secret/i
+
++ Received:
+"
+error: GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)
+RESIDUAL: DEPENDENCY-S28-SECRETS
+"
+
+ ❯ services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts:414:22
+    412|     });
+    413|     expect(run.status).not.toBe(0);
+    414|     expect(combined).toMatch(/writer-equivalent|equals writer secret/i…
+       |                      ^
+    415|   });
+    416| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[150/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-deployment.test.ts > D06-07 inference1 deployment contract > IMP-AC-7 Docker VM and host headroom
+Error: deploy:apply refused: docker info --format {{.MemTotal}} failed (exit 1)
+ ❯ deployFail services/platform/src/deploy/production-deploy.ts:225:9
+    223|
+    224| function deployFail(message: string): never {
+    225|   throw new Error(`deploy:apply refused: ${message}`);
+       |         ^
+    226| }
+    227|
+ ❯ runOrFail services/platform/src/deploy/production-deploy.ts:607:5
+ ❯ observeDockerVmMemoryGib services/platform/src/deploy/production-deploy.ts:794:15
+ ❯ services/platform/tests/integration/sprint29-deployment.test.ts:537:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[151/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-deployment.test.ts > D06-07 inference1 deployment contract > IMP-AC-12 reusable non-mutating host preflight
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint29-deployment.test.ts:676:47
+    674|       expect(report.serve_https_port, 'serve_https_port').toBe(44_111);
+    675|       expect(report.checks.secret_paths.ok).toBe(true);
+    676|       expect(report.checks.docker_compose.ok).toBe(true);
+       |                                               ^
+    677|       expect(report.checks.linux_arm64.ok).toBe(true);
+    678|       expect(report.checks.target_host.ok).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[152/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-deployment.test.ts > D06-07 inference1 deployment contract > IMP-AC-13 non-secret portable deployment receipt
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/sprint29-deployment.test.ts:742:28
+    740|     // on the engine they must both be present; absence is allowed on …
+    741|     const volumes = spawnSync('docker', ['volume', 'ls', '-q'], { enco…
+    742|     expect(volumes.status).toBe(0);
+       |                            ^
+    743|     const volumeNames = (volumes.stdout ?? '').split(/\n/).filter(Bool…
+    744|     const named = ['holocron-postgres', 'holocron-blobs'].filter((name…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[153/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts > S31-MCP-02 mutation idempotent replay > declaredIdempotentMutationsLeaveOneRow
+Error: declaredIdempotentMutationsLeaveOneRow requires PLATFORM_IT=1 — refusing skip-to-green for MCP idempotent replay proof
+ ❯ requirePlatformIt services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts:33:11
+     31| function requirePlatformIt(label: string): void {
+     32|   if (!PLATFORM_IT) {
+     33|     throw new Error(
+       |           ^
+     34|       `${label} requires PLATFORM_IT=1 — refusing skip-to-green for MC…
+     35|     );
+ ❯ services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts:634:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[154/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts > S31-MCP-02 mutation idempotent replay > semiIdempotentReturnsExistingRow
+Error: semiIdempotentReturnsExistingRow requires PLATFORM_IT=1 — refusing skip-to-green for MCP idempotent replay proof
+ ❯ requirePlatformIt services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts:33:11
+     31| function requirePlatformIt(label: string): void {
+     32|   if (!PLATFORM_IT) {
+     33|     throw new Error(
+       |           ^
+     34|       `${label} requires PLATFORM_IT=1 — refusing skip-to-green for MC…
+     35|     );
+ ❯ services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts:715:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[155/163]⎯
+
+ FAIL  |integration| services/platform/tests/integration/service/health-readiness.test.ts > D06-07 production health readiness > IMP-AC-20 lifecycle memory and headroom contract (50/54/64/8/10, reject 51)
+Error: deploy:apply refused: docker info --format {{.MemTotal}} failed (exit 1)
+ ❯ deployFail services/platform/src/deploy/production-deploy.ts:225:9
+    223|
+    224| function deployFail(message: string): never {
+    225|   throw new Error(`deploy:apply refused: ${message}`);
+       |         ^
+    226| }
+    227|
+ ❯ runOrFail services/platform/src/deploy/production-deploy.ts:607:5
+ ❯ observeDockerVmMemoryGib services/platform/src/deploy/production-deploy.ts:794:15
+ ❯ services/platform/tests/integration/service/health-readiness.test.ts:435:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[156/163]⎯
+
+
+ Test Files  82 failed | 158 passed | 129 skipped (369)
+      Tests  108 failed | 1471 passed | 685 skipped (2264)
+   Start at  09:03:44
+   Duration  210.77s (transform 62.98s, setup 173.54s, import 344.53s, tests 1973.14s, environment 12.71s)
+
+ ELIFECYCLE  Test failed. See above for more details.

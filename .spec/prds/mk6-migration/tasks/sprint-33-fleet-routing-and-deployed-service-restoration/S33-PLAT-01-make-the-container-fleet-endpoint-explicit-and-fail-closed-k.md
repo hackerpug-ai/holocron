@@ -1,6 +1,10 @@
 # S33-PLAT-01: Make the container fleet endpoint explicit and fail-closed (kill the implicit host.docker.internal default and the unconditional loopback rewrite)
 
-> Status: Backlog
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: d25c96792d982d76bf3e8a05a8a94c1380e282b9
+> Reviewer: product-manager+mastra-reviewer
+> Completed: 2026-08-17T22:42:40Z
 > Assignee: mastra-implementer
 > Priority: P0
 > Type: FEATURE

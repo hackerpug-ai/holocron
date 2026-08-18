@@ -255,13 +255,9 @@ export function selectPast8kRetrievalAnchor(
   return anchor;
 }
 
-async function probeEmbedCapability(endpointOverride?: string) {
-  const resolved = await resolveModel('embed', endpointOverride ? { endpointOverride } : undefined);
-  const probeVector = await embed(
-    'holocron etl:vectors fleet probe',
-    'document',
-    endpointOverride ? { endpointOverride } : undefined
-  );
+async function probeEmbedCapability() {
+  const resolved = await resolveModel('embed');
+  const probeVector = await embed('holocron etl:vectors fleet probe', 'document');
 
   const probeVectorNorm = vectorNorm(probeVector);
   return {
@@ -327,7 +323,6 @@ async function embedAllPassages(options: { sql: Sql; databaseUrl: string; embedF
 async function verifyPast8kRetrieval(
   sql: Sql,
   options?: {
-    endpointOverride?: string;
     emptyCorpus?: boolean;
     anchor?: Past8kRetrievalAnchor | null;
   }
@@ -370,12 +365,7 @@ async function verifyPast8kRetrieval(
   const result = await rrfHybridSearch(db, sql, {
     query: options.anchor.query,
     limit: 5,
-    embed: (text, mode) =>
-      embed(
-        text,
-        mode,
-        options?.endpointOverride ? { endpointOverride: options.endpointOverride } : undefined
-      ),
+    embed: (text, mode) => embed(text, mode),
   });
   const normalizedMarker = normalizeRetrievalText(options.anchor.marker);
   const hit =
@@ -413,8 +403,7 @@ export async function runEtlVectors(options?: {
   });
   const { sql } = ctx;
   try {
-    const endpointOverride = process.env.FLEET_URL;
-    const fleetProbe = await probeEmbedCapability(endpointOverride);
+    const fleetProbe = await probeEmbedCapability();
 
     const docs = await sql<
       Array<{
@@ -535,14 +524,12 @@ export async function runEtlVectors(options?: {
     const embedResult = await embedAllPassages({
       sql,
       databaseUrl: ctx.databaseUrl,
-      embedFn: (text, mode) =>
-        embed(text, mode, endpointOverride ? { endpointOverride } : undefined),
+      embedFn: (text, mode) => embed(text, mode),
     });
 
     const unitNorm = await verifyUnitNorm(sql);
     const emptyCorpus = docs.length === 0 && passagesInserted === 0;
     const retrieval = await verifyPast8kRetrieval(sql, {
-      endpointOverride,
       emptyCorpus,
       anchor: past8kAnchor,
     });

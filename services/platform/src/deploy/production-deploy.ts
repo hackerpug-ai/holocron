@@ -444,8 +444,11 @@ function randomSecret(): string {
   return randomBytes(32).toString('base64url');
 }
 
-function fleetUrlForContainer(value: string | undefined): string {
-  const raw = value?.trim() || 'http://host.docker.internal:4545/v1';
+function fleetUrlForContainer(value: string | undefined, allowLoopback: boolean): string {
+  const raw = value?.trim();
+  if (!raw) {
+    deployFail('FLEET_URL_REQUIRED: set an explicit fleet endpoint in consolidated secrets');
+  }
   let url: URL;
   try {
     url = new URL(raw);
@@ -455,20 +458,28 @@ function fleetUrlForContainer(value: string | undefined): string {
   if (url.username || url.password) {
     deployFail('FLEET_URL must not contain URL credentials');
   }
-  if (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '::1') {
-    url.hostname = 'host.docker.internal';
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const isLoopback = hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+  if (isLoopback && !allowLoopback) {
+    deployFail(
+      `FLEET_URL_LOOPBACK_REFUSED: ${hostname} is container-local; set FLEET_URL to host.docker.internal for a co-located host fleet, or explicitly set FLEET_URL_ALLOW_HOST_LOOPBACK=1 when the fleet is co-located in the container`
+    );
   }
   return url.toString().replace(/\/$/, '');
 }
 
-function runtimeSecrets(options: {
+export function runtimeSecrets(options: {
   secretsPath: string;
   runtimeSecretsPath: string;
   legacyEvidenceSecretsPath?: string;
+  env?: NodeJS.ProcessEnv;
 }): Record<string, string> {
   if (!existsSync(options.secretsPath))
     deployFail(`secrets file is missing: ${options.secretsPath}`);
-  const consolidated = loadConsolidatedSecrets({ secretsPath: options.secretsPath });
+  const consolidated = loadConsolidatedSecrets({
+    secretsPath: options.secretsPath,
+    env: options.env,
+  });
   const retained = existsSync(options.runtimeSecretsPath)
     ? readPrivateJson(options.runtimeSecretsPath)
     : readPrivateJson(options.legacyEvidenceSecretsPath ?? '');
@@ -487,7 +498,10 @@ function runtimeSecrets(options: {
     MASTRA_API_KEY: mastraApiKey,
     FLEET_KEY: fleetKey,
     ZERO_ADMIN_PASSWORD: zeroAdminPassword,
-    FLEET_URL: fleetUrlForContainer(consolidated.FLEET_URL),
+    FLEET_URL: fleetUrlForContainer(
+      consolidated.FLEET_URL,
+      consolidated.FLEET_URL_ALLOW_HOST_LOOPBACK === '1'
+    ),
   };
   atomicJson(options.runtimeSecretsPath, values, 0o600);
   if (

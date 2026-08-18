@@ -28,8 +28,9 @@ export type ResolveModelOptions = {
   /** Pre-loaded manifest (skips disk when provided). */
   manifest?: FleetRoleManifest;
   /**
-   * Override the role's endpoint for health probing only.
-   * Used by fail-closed tests (dead port). Does NOT invent a success path.
+   * Per-call fleet endpoint override.
+   * Used by fail-closed tests (dead port) and explicit operator routing. Does
+   * NOT invent a success path: the selected endpoint is always live-probed.
    * Ignored on allowEscape=true (escape uses DeepSeek, not fleet).
    */
   endpointOverride?: string;
@@ -329,7 +330,27 @@ export async function resolveModel(
     throw err;
   }
 
-  const probeEndpoint = options.endpointOverride ?? entry.endpoint;
+  // One configured base must feed both the health probe and the returned
+  // client baseURL. FLEET_URL is written into the deployed service by the
+  // production-deploy contract; the manifest endpoint/default remains the
+  // laptop-safe fallback when no runtime base is configured.
+  const endpointCandidates = [
+    options.endpointOverride,
+    process.env.FLEET_URL,
+    entry.endpoint,
+    manifest.defaultEndpoint,
+  ];
+  const probeEndpoint = endpointCandidates.find(
+    (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+  );
+  if (!probeEndpoint) {
+    throw new RoleUnavailableError(
+      role,
+      'unconfigured',
+      entry.degradationAction,
+      'no fleet endpoint configured (set FLEET_URL or declare a manifest endpoint)'
+    );
+  }
 
   // Belt-and-suspenders: refuse cloud endpoints on the default path even if
   // someone misconfigured the manifest (before we probe).

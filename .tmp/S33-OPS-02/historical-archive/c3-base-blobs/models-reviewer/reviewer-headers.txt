@@ -1,0 +1,29 @@
+HTTP/1.1 200 OK
+date: Mon, 17 Aug 2026 14:53:01 GMT
+server: uvicorn
+content-length: 781
+content-type: application/json
+x-litellm-call-id: 5232a974-667b-4a5a-82dd-78ee4284dd37
+x-litellm-model-id: 8879ea299e666c6a4387422b531581447b1925d0a19e3f77dd639392fd0f1b6e
+x-litellm-model-name: openai/Qwen3.8-27B-8bit
+x-litellm-model-api-base: http://inference2.tail011a51.ts.net:8003/v1
+x-litellm-version: 1.97.0
+x-litellm-response-cost-original: 0.0
+x-litellm-response-cost-discount-amount: 0.0
+x-litellm-response-cost-margin-amount: 0.0
+x-litellm-response-cost-margin-percent: 0.0
+x-litellm-key-spend: 0.0
+x-litellm-response-duration-ms: 19454.426000000003
+x-litellm-overhead-duration-ms: 9.896
+x-litellm-callback-duration-ms: 0.0
+llm_provider-date: Mon, 17 Aug 2026 14:53:01 GMT
+llm_provider-server: uvicorn
+llm_provider-content-type: application/json
+llm_provider-transfer-encoding: chunked
+x-litellm-model-group: reviewer
+x-litellm-attempted-retries: 0
+x-litellm-attempted-fallbacks: 0
+x-frame-options: DENY
+content-security-policy: frame-ancestors 'none'
+x-content-type-options: nosniff
+

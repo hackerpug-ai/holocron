@@ -1,0 +1,17 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > changed transport commands keep TLS and SSH verification strict 2ms
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > verifier health assertion rejects missing and non-null failing_dependency 157ms
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > AC-1 independently verifies health, both model observers, and reviewer inference2 routing 20167ms
+ × |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > AC-2 verifies concurrent implementer distribution and fresh log evidence on both minis 18794ms
+   → expected [] to have a length of 6 but got +0
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > rejects both modes when the real router dependency is unavailable 1371ms
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > rejects lexical traversal and symlink evidence candidates before any write 122ms
+ ✓ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts > S33-OPS-02 router capacity against real services > keeps live invalid-observer and invalid-log controls exact when the router is available 1028ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  08:57:16
+   Duration  41.96s (transform 97ms, setup 209ms, import 14ms, tests 41.64s, environment 0ms)
+

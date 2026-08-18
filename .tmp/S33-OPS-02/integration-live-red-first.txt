@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
+
+ ❯ |integration| tests/integration/sprint33-ops-02-router-capacity.test.ts (7 tests | 1 failed) 44755ms
+     × AC-2 verifies concurrent implementer distribution and fresh log evidence on both minis 20607ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  08:55:55
+   Duration  45.24s (transform 151ms, setup 332ms, import 28ms, tests 44.76s, environment 0ms)
+
