@@ -175,18 +175,17 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));
   }, 30_000);
 
-  it.each(DISALLOWED_FLEET_ENDPOINTS)(
-    'provenance negative control: rejects non-approved fleet endpoint %s',
-    async (fleetEndpoint) => {
-      const response = (await runHealthCheck({
-        fleetEndpoint,
-        fleetManifestPath: MANIFEST_PATH,
-        strictReadiness: false,
-      })) as unknown as RoleAwareHealth;
-      expect(response.body.fleet.ready, fleetEndpoint).toBe(false);
-      expect(response.body.failing_dependency, fleetEndpoint).toBe('fleet');
-      expect(response.body.fleet.roles.divergent.present, fleetEndpoint).toBe(false);
-      expect(response.body.fleet.roles.embed.present, fleetEndpoint).toBe(false);
-    },
-  );
+  it.each(
+    DISALLOWED_FLEET_ENDPOINTS
+  )('provenance negative control: rejects non-approved fleet endpoint %s', async (fleetEndpoint) => {
+    const response = (await runHealthCheck({
+      fleetEndpoint,
+      fleetManifestPath: MANIFEST_PATH,
+      strictReadiness: false,
+    })) as unknown as RoleAwareHealth;
+    expect(response.body.fleet.ready, fleetEndpoint).toBe(false);
+    expect(response.body.failing_dependency, fleetEndpoint).toBe('fleet');
+    expect(response.body.fleet.roles.divergent.present, fleetEndpoint).toBe(false);
+    expect(response.body.fleet.roles.embed.present, fleetEndpoint).toBe(false);
+  });
 });
