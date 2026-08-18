@@ -55,7 +55,8 @@ type FrameParseResult = { ok: true; frame: Record<string, unknown> } | { ok: fal
 type InspectorRun = {
   command: string;
   args: string[];
-  inheritedEnvironmentNames: string[];
+  environmentSource: string;
+  environmentNames: string[];
   exitCode: number;
   stdout: string;
   stderr: string;
@@ -185,6 +186,69 @@ function makeSecretsPath(): string {
   return path;
 }
 
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function makeInspectorConfig(fleetUrl: string): { configPath: string; environmentNames: string[] } {
+  const directory = mkdtempSync(join(EVIDENCE_DIR, 'inspector-'));
+  temporaryDirectories.push(directory);
+  const environmentNames = [
+    'DATABASE_URL',
+    'FLEET_URL',
+    'HOLO_HARNESS',
+    'HOLO_KEY_RN',
+    'HOLO_KEY_MCP',
+    'HOLO_KEY_CONTROL',
+    'HOLO_SECRETS_PATH',
+  ];
+  const environmentFile = join(directory, 'runtime.env');
+  writeFileSync(
+    environmentFile,
+    environmentNames
+      .map((name) => {
+        const values: Record<string, string> = {
+          DATABASE_URL,
+          FLEET_URL: fleetUrl,
+          HOLO_HARNESS: '1',
+          HOLO_KEY_RN: KEYS.rn,
+          HOLO_KEY_MCP: KEYS.mcp,
+          HOLO_KEY_CONTROL: KEYS.control,
+          HOLO_SECRETS_PATH: secretsPath,
+        };
+        return `${name}=${shellQuote(values[name] ?? '')}`;
+      })
+      .join('\n') + '\n',
+    { encoding: 'utf8', mode: 0o600 }
+  );
+  const serverArgs = [
+    '-c',
+    `set -a; . ${shellQuote(environmentFile)}; exec bun ${shellQuote(
+      resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts')
+    )} mcp:stdio`,
+  ];
+  const configPath = join(directory, 'mcp.json');
+  writeFileSync(
+    configPath,
+    `${JSON.stringify(
+      {
+        mcpServers: {
+          's33-mcp-02': {
+            type: 'stdio',
+            command: 'sh',
+            args: serverArgs,
+            cwd: REPO_ROOT,
+          },
+        },
+      },
+      null,
+      2
+    )}\n`,
+    { encoding: 'utf8', mode: 0o600 }
+  );
+  return { configPath, environmentNames };
+}
+
 async function startGateway(fleetUrl: string): Promise<GatewayHandle> {
   const port = await freePort();
   const honoPath = resolve(REPO_ROOT, 'services/platform/src/http/hono-app.ts');
@@ -293,17 +357,17 @@ async function runInspector(
   method: 'tools/list' | 'tools/call',
   toolArgs?: Record<string, unknown>
 ): Promise<InspectorRun> {
+  const inspectorConfig = makeInspectorConfig(fleetUrl);
   const args = [
     '--yes',
     '@modelcontextprotocol/inspector',
     '--cli',
-    'bun',
-    'services/platform/src/cli/holo.ts',
-    'mcp:stdio',
+    '--config',
+    inspectorConfig.configPath,
+    '--server',
+    's33-mcp-02',
     '--format',
     'json',
-    '--cwd',
-    REPO_ROOT,
     '--method',
     method,
   ];
@@ -315,17 +379,8 @@ async function runInspector(
       JSON.stringify(toolArgs ?? { query: SEMANTIC_QUERY, limit: 10 })
     );
   }
-  const inheritedEnvironmentNames = [
-    'PLATFORM_IT',
-    'DATABASE_URL',
-    'FLEET_URL',
-    'HOLO_HARNESS',
-    'HOLO_KEY_RN',
-    'HOLO_KEY_MCP',
-    'HOLO_KEY_CONTROL',
-    'HOLO_SECRETS_PATH',
-  ];
-  const command = `env ${inheritedEnvironmentNames.map((name) => `${name}=<inherited>`).join(' ')} npx ${args.join(' ')}`;
+  const environmentSource = 'task-local temporary Inspector env file; values omitted';
+  const command = `npx ${args.join(' ')} (server env: ${environmentSource})`;
   return new Promise((resolveInspector, rejectInspector) => {
     const child = spawn('npx', args, {
       cwd: REPO_ROOT,
@@ -358,7 +413,8 @@ async function runInspector(
       resolveInspector({
         command,
         args,
-        inheritedEnvironmentNames,
+        environmentSource,
+        environmentNames: inspectorConfig.environmentNames,
         exitCode: code ?? 1,
         stdout,
         stderr,
@@ -750,7 +806,7 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
     expect(live.exitCode).toBe(0);
     expect(liveText).toContain(SEMANTIC_TITLE);
     expect(liveText).toContain('"searchMethod":"hybrid"');
-    expect(closed.exitCode).toBe(0);
+    expect(closed.exitCode).toBe(5);
     expect(closedText).toContain('ROLE_UNAVAILABLE');
     expect(closedText).toContain("fleet role 'embed'");
     expect(closedText).toContain(closedFleetUrl);
@@ -759,14 +815,16 @@ describe('S33-MCP-02 hybrid_search fleet-backed retrieval contract', () => {
         transport: 'stdio',
         server: 'bun services/platform/src/cli/holo.ts mcp:stdio',
         inspector: '@modelcontextprotocol/inspector --cli',
+        environmentSource: 'task-local temporary Inspector env file; values omitted',
+        environmentNames: closed.environmentNames,
         database: {
           host: '127.0.0.1',
           name: 'holocron_nonprod',
-          credentials: 'inherited environment; values omitted',
+          credentials: 'task-local temporary env file; values omitted',
         },
         liveFleetUrl: FLEET_URL,
         closedFleetUrl,
-        credentials: 'inherited environment; values omitted',
+        credentials: 'task-local temporary env file; values omitted',
       },
       toolsList: list,
       semanticSuccess: live,
