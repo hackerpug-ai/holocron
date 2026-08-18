@@ -192,12 +192,11 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));
   }, 30_000);
 
-  it.each(DISALLOWED_FLEET_ENDPOINTS)(
-    'provenance negative control: rejects non-approved fleet endpoint %s',
-    (fleetEndpoint) => {
-      expect(() => assertApprovedTestFleetOrigin(fleetEndpoint), fleetEndpoint).toThrow(
-        'approved real test router'
-      );
-    },
-  );
+  it.each(
+    DISALLOWED_FLEET_ENDPOINTS
+  )('provenance negative control: rejects non-approved fleet endpoint %s', (fleetEndpoint) => {
+    expect(() => assertApprovedTestFleetOrigin(fleetEndpoint), fleetEndpoint).toThrow(
+      'approved real test router'
+    );
+  });
 });
