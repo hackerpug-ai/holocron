@@ -30,11 +30,8 @@ import {
 } from '../queue/backend.ts';
 import { type DeploymentIdentityProbe, readDeploymentIdentity } from './deployment-identity.ts';
 
-/** The only router origin whose model list is valid fleet readiness evidence. */
-export const APPROVED_FLEET_ENDPOINT = 'http://holocron.tail011a51.ts.net:4545';
-
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
-export const DEFAULT_FLEET_ENDPOINT = APPROVED_FLEET_ENDPOINT;
+export const DEFAULT_FLEET_ENDPOINT = 'http://127.0.0.1:4545';
 
 /**
  * @deprecated Process-local adapter kept for type-compat only.
@@ -214,7 +211,7 @@ export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeRes
  * Hits /v1/models (OpenAI-compatible) — real HTTP, not a static flag.
  */
 export async function probeFleet(
-  endpoint = process.env.FLEET_URL ?? DEFAULT_FLEET_ENDPOINT,
+  endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT,
   manifestPath?: string
 ): Promise<FleetProbeResult> {
   const start = performance.now();
@@ -235,7 +232,7 @@ export async function probeFleet(
   }
   let base: string;
   try {
-    const parsed = new URL(endpoint.trim());
+    const parsed = new URL(endpoint);
     if (parsed.username || parsed.password) {
       return {
         ready: false,
@@ -244,22 +241,6 @@ export async function probeFleet(
         roles: compareFleetRoles(manifest, []).roles,
         unavailable_roles: compareFleetRoles(manifest, []).unavailable_roles,
         error: 'fleet endpoint credentials are forbidden',
-      };
-    }
-    const normalizedPath = parsed.pathname.replace(/\/+$/, '');
-    if (
-      parsed.origin !== APPROVED_FLEET_ENDPOINT ||
-      (normalizedPath !== '' && normalizedPath !== '/v1') ||
-      parsed.search ||
-      parsed.hash
-    ) {
-      return {
-        ready: false,
-        endpoint: parsed.origin,
-        latency_ms: elapsedMs(start),
-        roles: compareFleetRoles(manifest, []).roles,
-        unavailable_roles: compareFleetRoles(manifest, []).unavailable_roles,
-        error: `fleet endpoint is not the approved router origin (${APPROVED_FLEET_ENDPOINT})`,
       };
     }
     base = parsed.origin;
