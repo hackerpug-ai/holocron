@@ -15,13 +15,13 @@
 
 Remove the last documentation drift (a fictional fleet hostname) from the deploy contract and provide a deterministic, inspectable, live-reconfirmed guarantee that the fleet-serving path has zero laptop dependency, so the sprint's human testing gate has nothing left to trip on from this lane.
 
-**Success state:** production.env.example contains no reference to the fictional 'inference-fleet' hostname; grep across services/platform/deploy/** for fleet-related config shows zero references to 'laptop' or a laptop-only IP; live curl from this laptop to inference1:8003, inference2:8003, and holocron:4545 each succeed independently (peer-to-peer Tailscale reachability, not proxied through the laptop).
+**Success state:** production.env.example contains exactly `FLEET_URL=http://host.docker.internal:4545` and no reference to the fictional `inference-fleet` hostname; the real Docker Compose CLI renders the production contract with every required example-only secret variable supplied; config inspection finds zero laptop hostname or laptop-only IP references; and bounded direct curls to inference1:8003, inference2:8003, and holocron:4545 validate the exact nonempty model IDs while the two inference response bodies are proven non-byte-identical.
 
 ## Critical Constraints
 
 **MUST**
 
-- Replace the fictional `FLEET_URL=http://inference-fleet:4545/v1` placeholder in production.env.example with either the correct real default (omit it, relying on production-deploy.ts's host.docker.internal:4545 default, now backed by S33-OPS-02's live router) or an explicit comment documenting that value with a working example.
+- Replace the fictional `FLEET_URL=http://inference-fleet:4545/v1` placeholder in production.env.example with exactly `FLEET_URL=http://host.docker.internal:4545`, matching `services/platform/config/secrets.example.yaml` and intentionally omitting `/v1`.
 - Prove — by config inspection AND live network calls from a real device other than holocron — that nothing in the fleet-serving path (router.compose.yaml, compose.yaml scheduler/mastra fleet vars) references the laptop's hostname, IP, or a loopback address that would only resolve on the laptop.
 - Coordinate the corrected FLEET_URL value with S33-PLAT-01's services/platform/config/secrets.example.yaml so the two example files state the same value — different files, no edit collision, but they must agree.
 
@@ -34,18 +34,18 @@ Remove the last documentation drift (a fictional fleet hostname) from the deploy
 ### AC-1 — production.env.example no longer names a fictional host
 
 - **GIVEN** production.env.example line 6 currently reads FLEET_URL=http://inference-fleet:4545/v1, a hostname that resolves nowhere on the real tailnet.
-- **WHEN** The line is corrected to a real, resolvable value or removed in favor of the documented host.docker.internal default.
-- **THEN** grep -rn 'inference-fleet' services/platform/deploy/ returns no matches, and `docker compose -f compose.yaml --env-file production.env.example config --quiet` still renders successfully.
-- **Verify:** `grep -rn 'inference-fleet' services/platform/deploy/ ; echo exit=$?  # must be 1 (no match) ; docker compose -f services/platform/deploy/compose/compose.yaml --env-file services/platform/deploy/compose/production.env.example config --quiet`
+- **WHEN** The line is corrected to the exact deployed-host default and the production Compose contract is rendered with non-secret example values for every required Compose secret input.
+- **THEN** the fictional hostname search exits exactly 1, the corrected line occurs exactly once, and the actual `docker compose ... config --quiet` command exits 0.
+- **Verify:** `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet`
 - **Tier:** integration · **Service:** docker compose config render (real CLI, real files) · **Flow:** UC-PLAT-05
 - **Scenario:** topology `single-node` · evidence `stdout` · negative control: static
 
 ### AC-2 — Fleet-serving path is provably laptop-independent
 
 - **GIVEN** router.compose.yaml (S33-OPS-02) and compose.yaml's scheduler/mastra fleet vars (S33-OPS-03) reference only inference1/inference2/holocron endpoints.
-- **WHEN** A grep across the fleet-related deploy config is run, and independent live curls are made from this laptop to each of the three real hosts.
-- **THEN** Zero occurrences of 'laptop' or a laptop-only address in fleet-related config; inference1:8003/v1/models, inference2:8003/v1/models, and holocron:4545/v1/models each respond directly and independently (none proxied through another).
-- **Verify:** `grep -rniE 'laptop|100\.123\.216\.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml ; curl -sS http://inference1.tail011a51.ts.net:8003/v1/models ; curl -sS http://inference2.tail011a51.ts.net:8003/v1/models ; curl -sS http://holocron.tail011a51.ts.net:4545/v1/models`
+- **WHEN** Fail-closed config-absence checks run and bounded direct curls save each real host's response independently.
+- **THEN** The config searches each exit exactly 1; inference1 advertises exactly the embedding and Qwen3.6 IDs; inference2 advertises those IDs plus Qwen3.8; Holocron advertises reviewer, implementer, and qwen3-embedding; and `cmp` exits exactly 1 for the two inference response files, proving the validated bodies are non-byte-identical rather than treating a comparison error as success.
+- **Verify:** `{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference1.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference2.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o "$probe_dir/holocron.json" && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit"]' "$probe_dir/inference1.json" >/dev/null && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit","Qwen3.8-27B-8bit"]' "$probe_dir/inference2.json" >/dev/null && jq -e '[.data[].id] == ["reviewer","implementer","qwen3-embedding"]' "$probe_dir/holocron.json" >/dev/null && { cmp -s "$probe_dir/inference1.json" "$probe_dir/inference2.json"; cmp_status=$?; test "$cmp_status" -eq 1; } && printf '%s\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL`
 - **Tier:** integration · **Service:** real tailnet endpoints (inference1, inference2, holocron) · **Flow:** UC-PLAT-05
 - **Scenario:** topology `multi-node` · evidence `api_response` · negative control: disconnect
 
@@ -53,8 +53,8 @@ Remove the last documentation drift (a fictional fleet hostname) from the deploy
 
 | ID | Statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | no fictional hostname remains in the deploy contract | AC-1 | `grep -rn 'inference-fleet' services/platform/deploy/` |
-| TC-2 | fleet config has zero laptop references | AC-2 | `grep -rniE 'laptop|100\.123\.216\.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml` |
+| TC-1 | no fictional hostname remains, the exact FLEET_URL occurs once, and real Compose renders with all required example inputs | AC-1 | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet` |
+| TC-2 | fleet config has zero laptop references and all three direct model endpoints return the exact independent real model sets | AC-2 | `{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference1.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference2.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o "$probe_dir/holocron.json" && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit"]' "$probe_dir/inference1.json" >/dev/null && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit","Qwen3.8-27B-8bit"]' "$probe_dir/inference2.json" >/dev/null && jq -e '[.data[].id] == ["reviewer","implementer","qwen3-embedding"]' "$probe_dir/holocron.json" >/dev/null && { cmp -s "$probe_dir/inference1.json" "$probe_dir/inference2.json"; cmp_status=$?; test "$cmp_status" -eq 1; } && printf '%s\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL` |
 
 ## Fixtures
 
@@ -94,8 +94,8 @@ _Source:_ `services/platform/deploy/compose/README.md`
 
 | Gate | Command | Expected |
 |---|---|---|
-| no fictional hostname | `grep -rn 'inference-fleet' services/platform/deploy/` | no matches (exit 1) |
-| no laptop coupling in fleet config | `grep -rniE 'laptop|100\.123\.216\.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml` | no matches (exit 1) |
+| corrected example renders | `{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test "$?" -eq 1; fi; } && test "$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet` | exit 0; no fictional host; exact value once; real Compose render succeeds |
+| direct fleet endpoints are real and independent | `{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test "$?" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference1.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o "$probe_dir/inference2.json" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o "$probe_dir/holocron.json" && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit"]' "$probe_dir/inference1.json" >/dev/null && jq -e '[.data[].id] == ["Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.6-35B-A3B-MLX-8bit","Qwen3.8-27B-8bit"]' "$probe_dir/inference2.json" >/dev/null && jq -e '[.data[].id] == ["reviewer","implementer","qwen3-embedding"]' "$probe_dir/holocron.json" >/dev/null && { cmp -s "$probe_dir/inference1.json" "$probe_dir/inference2.json"; cmp_status=$?; test "$cmp_status" -eq 1; } && printf '%s\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL` | exit 0; five exact sentinel lines; direct bounded responses; inference bodies differ with `cmp` status exactly 1 |
 
 ## Agent Assignment
 
@@ -114,7 +114,8 @@ _Source:_ `services/platform/deploy/compose/README.md`
   "verification_policy": {
     "requires_tests": true,
     "requires_red_evidence": false,
-    "requires_seeded_evidence": false
+    "requires_seeded_evidence": false,
+    "tdd_lineage_required": false
   },
   "fixtures": {
     "fictional-hostname": {
@@ -130,8 +131,9 @@ _Source:_ `services/platform/deploy/compose/README.md`
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN a fictional FLEET_URL placeholder WHEN it is corrected THEN no reference remains and compose config still renders",
-      "verify": "grep -rn 'inference-fleet' services/platform/deploy/",
+      "description": "GIVEN a fictional FLEET_URL placeholder WHEN it is corrected to the exact deployed-host default THEN the absence check exits exactly 1, the corrected value occurs once, and real Docker Compose renders with every required example input.",
+      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && test \"$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)\" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet",
+      "maps_to_ac": null,
       "scenario": {
         "id": "AC-1",
         "primary": true,
@@ -154,18 +156,22 @@ _Source:_ `services/platform/deploy/compose/README.md`
             "action": {
               "actor": "devops-engineer",
               "steps": [
-                "edit production.env.example FLEET_URL line",
-                "run grep + compose config"
+                "edit production.env.example to the exact FLEET_URL=http://host.docker.internal:4545 line",
+                "run the fail-closed fictional-host grep and real Docker Compose render with all required example inputs"
               ]
             },
             "end_state": {
               "must_observe": [
-                "grep -rn 'inference-fleet' services/platform/deploy/ exits 1 (no matches)",
-                "docker compose config --quiet exits 0"
+                "the fictional-host grep exits exactly 1 (no matches)",
+                "production.env.example contains exactly one FLEET_URL=http://host.docker.internal:4545 line",
+                "docker compose config --quiet exits 0 with POSTGRES_PASSWORD, DATABASE_URL, MASTRA_API_KEY, FLEET_KEY, and ZERO_ADMIN_PASSWORD supplied as example-only values"
               ],
               "must_not_observe": [
                 "'inference-fleet' string present anywhere under services/platform/deploy/",
-                "grep -rn 'inference-fleet' services/platform/deploy/ returning more than 0 matching lines"
+                "zero corrected FLEET_URL lines or an empty FLEET_URL value",
+                "the negative grep exits with an error but is accepted as absence",
+                "the corrected FLEET_URL contains /v1",
+                "Compose is rendered without all five required example-only secret inputs"
               ]
             }
           }
@@ -176,8 +182,9 @@ _Source:_ `services/platform/deploy/compose/README.md`
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": true,
-      "description": "GIVEN the packaged router+scheduler wiring WHEN inspected and live-queried THEN zero laptop coupling exists and all three hosts respond independently",
-      "verify": "grep + 3x curl",
+      "description": "GIVEN the packaged router and platform wiring WHEN fail-closed config checks and bounded direct model requests execute THEN no laptop coupling exists, all three hosts expose their exact nonempty model IDs, and the two inference bodies are non-byte-identical.",
+      "verify": "{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test \"$?\" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test \"$?\" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o \"$probe_dir/inference1.json\" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o \"$probe_dir/inference2.json\" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o \"$probe_dir/holocron.json\" && jq -e '[.data[].id] == [\"Qwen3-Embedding-0.6B-4bit-DWQ\",\"Qwen3.6-35B-A3B-MLX-8bit\"]' \"$probe_dir/inference1.json\" >/dev/null && jq -e '[.data[].id] == [\"Qwen3-Embedding-0.6B-4bit-DWQ\",\"Qwen3.6-35B-A3B-MLX-8bit\",\"Qwen3.8-27B-8bit\"]' \"$probe_dir/inference2.json\" >/dev/null && jq -e '[.data[].id] == [\"reviewer\",\"implementer\",\"qwen3-embedding\"]' \"$probe_dir/holocron.json\" >/dev/null && { cmp -s \"$probe_dir/inference1.json\" \"$probe_dir/inference2.json\"; cmp_status=$?; test \"$cmp_status\" -eq 1; } && printf '%s\\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL",
+      "maps_to_ac": null,
       "scenario": {
         "id": "AC-2",
         "primary": true,
@@ -187,7 +194,9 @@ _Source:_ `services/platform/deploy/compose/README.md`
         "topology": "multi-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect"
+            "a config grep exits 2 but is accepted as absence",
+            "any direct endpoint is unavailable or omits an expected model ID",
+            "the validated inference1 and inference2 response bodies are byte-identical"
           ]
         },
         "evidence": {
@@ -200,20 +209,26 @@ _Source:_ `services/platform/deploy/compose/README.md`
             "action": {
               "actor": "devops-engineer",
               "steps": [
-                "grep fleet config for laptop references",
-                "curl each of the three real hosts independently \u2014 inference1 and inference2 are two devices queried separately from holocron, each proving its own direct reachability rather than being inferred from the other"
+                "run separate fail-closed literal searches for the laptop hostname and laptop-only address in the two fleet configuration files",
+                "curl inference1:8003, inference2:8003, and holocron:4545 directly with bounded connection and total timeouts into separate response files",
+                "validate each response's exact expected model ID array and require cmp to exit exactly 1 for the two inference files"
               ]
             },
             "end_state": {
               "must_observe": [
-                "grep for 'laptop' in fleet config returns 0 matches",
-                "all three curls return HTTP 200 with a real model list",
-                "the inference1 and inference2 /v1/models response bodies are not byte-identical to each other (each device's own oMLX process reports its own model set/load timestamps independently \u2014 a single relayed or fixture response could not produce this)"
+                "both config greps exit exactly 1 with no matches",
+                "inference1 returns exactly Qwen3-Embedding-0.6B-4bit-DWQ and Qwen3.6-35B-A3B-MLX-8bit",
+                "inference2 returns exactly Qwen3-Embedding-0.6B-4bit-DWQ, Qwen3.6-35B-A3B-MLX-8bit, and Qwen3.8-27B-8bit",
+                "holocron returns exactly reviewer, implementer, and qwen3-embedding",
+                "cmp exits exactly 1 for the validated inference1 and inference2 response files"
               ],
               "must_not_observe": [
                 "any fleet-related config line referencing 'laptop.tail011a51.ts.net' or '100.123.216.92'",
-                "grep -rniE 'laptop|100\\.123\\.216\\.92' returning more than 0 matches",
-                "inference1 and inference2 /v1/models responses being byte-identical (would indicate a single shared/relayed source, not two independent devices)"
+                "a config grep error is treated as a successful absence check",
+                "a curl has no connect or total timeout",
+                "a response with an empty, partial, or unexpected model ID array passes",
+                "inference1 and inference2 /v1/models responses are byte-identical",
+                "cmp exit status 2 is treated as a successful non-identity result"
               ]
             }
           }
@@ -223,16 +238,16 @@ _Source:_ `services/platform/deploy/compose/README.md`
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "no fictional hostname",
+      "description": "no fictional hostname remains, the exact FLEET_URL occurs once, and real Compose renders with all required example inputs",
       "maps_to_ac": "AC-1",
-      "verify": "grep -rn 'inference-fleet' services/platform/deploy/"
+      "verify": "{ if grep -RniF 'inference-fleet' services/platform/deploy/; then false; else test \"$?\" -eq 1; fi; } && test \"$(grep -Fxc 'FLEET_URL=http://host.docker.internal:4545' services/platform/deploy/compose/production.env.example)\" -eq 1 && env POSTGRES_PASSWORD=example DATABASE_URL=postgres://example:example@postgres:5432/holocron MASTRA_API_KEY=example FLEET_KEY=sk-none ZERO_ADMIN_PASSWORD=example docker compose --env-file services/platform/deploy/compose/production.env.example -f services/platform/deploy/compose/compose.yaml config --quiet"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "no laptop coupling",
+      "description": "fleet config has zero laptop references and all three direct model endpoints return exact independent real model sets",
       "maps_to_ac": "AC-2",
-      "verify": "grep -rniE 'laptop|100\\.123\\.216\\.92' ..."
+      "verify": "{ if grep -rniF 'laptop' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test \"$?\" -eq 1; fi; } && { if grep -rniF '100.123.216.92' services/platform/deploy/compose/router.compose.yaml services/platform/deploy/compose/compose.yaml; then false; else test \"$?\" -eq 1; fi; } && probe_dir=$(mktemp -d) && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference1.tail011a51.ts.net:8003/v1/models -o \"$probe_dir/inference1.json\" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://inference2.tail011a51.ts.net:8003/v1/models -o \"$probe_dir/inference2.json\" && curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://holocron.tail011a51.ts.net:4545/v1/models -o \"$probe_dir/holocron.json\" && jq -e '[.data[].id] == [\"Qwen3-Embedding-0.6B-4bit-DWQ\",\"Qwen3.6-35B-A3B-MLX-8bit\"]' \"$probe_dir/inference1.json\" >/dev/null && jq -e '[.data[].id] == [\"Qwen3-Embedding-0.6B-4bit-DWQ\",\"Qwen3.6-35B-A3B-MLX-8bit\",\"Qwen3.8-27B-8bit\"]' \"$probe_dir/inference2.json\" >/dev/null && jq -e '[.data[].id] == [\"reviewer\",\"implementer\",\"qwen3-embedding\"]' \"$probe_dir/holocron.json\" >/dev/null && { cmp -s \"$probe_dir/inference1.json\" \"$probe_dir/inference2.json\"; cmp_status=$?; test \"$cmp_status\" -eq 1; } && printf '%s\\n' FLEET_CONFIG_NO_LAPTOP_REFERENCES INFERENCE1_MODELS_VALID INFERENCE2_MODELS_VALID HOLOCRON_ROUTER_MODELS_VALID INFERENCE_BODIES_NONIDENTICAL"
     }
   ]
 }
