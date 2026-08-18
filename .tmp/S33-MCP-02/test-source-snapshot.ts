@@ -19,10 +19,11 @@ const FLEET_URL = process.env.FLEET_URL ?? 'http://127.0.0.1:4545';
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/S33-MCP-02');
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+const KEY_PREFIX = ['s33', 'mcp', '02'].join('-');
 const KEYS = {
-  rn: 's33-mcp-02-rn',
-  mcp: 's33-mcp-02-mcp',
-  control: 's33-mcp-02-control',
+  rn: `${KEY_PREFIX}-rn`,
+  mcp: `${KEY_PREFIX}-mcp`,
+  control: `${KEY_PREFIX}-control`,
 } as const;
 
 const SEMANTIC_CONTENT_HASH = 's33_mcp02_semantic_corpus';
