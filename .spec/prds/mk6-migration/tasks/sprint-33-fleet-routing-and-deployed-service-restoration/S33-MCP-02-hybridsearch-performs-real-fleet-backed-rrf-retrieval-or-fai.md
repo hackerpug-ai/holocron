@@ -168,7 +168,8 @@ _Source:_ `services/platform/src/mcp/executor.ts:26-27 (INVALID_ARGUMENT prefix 
 | lint | `pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/mcp/executor.ts services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts` | Exit 0 |
 | typecheck | `pnpm tsgo --noEmit` | Exit 0 |
 | unit | `pnpm test:unit` | Exit 0 |
-| integration | `pnpm test:integration` | Exit 0 |
+| integration-real-service | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545 pnpm test:integration services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts` | Exit 0 |
+| manifest | `pnpm test:integration tests/integration/mcp-verify-manifest.test.ts tests/integration/mcp-manifest-negative-controls.test.ts` | Exit 0 |
 | prd-consistency | `pnpm prd:consistency` | Exit 0 |
 
 ## Agent Assignment
