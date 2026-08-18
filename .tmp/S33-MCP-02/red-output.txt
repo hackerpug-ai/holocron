@@ -1,0 +1,73 @@
+
+> holocron@1.0.0 test:integration /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-MCP-02-r3
+> vitest run --project integration "services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts"
+
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-MCP-02-r3
+
+ ❯ |integration| services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts (4 tests | 3 failed) 7469ms
+     × AC-1: retrieves the lexically-disjoint seeded passage through hybrid vector RRF over HTTP 38ms
+     × AC-2: fails closed with ROLE_UNAVAILABLE and the literal role and endpoint when fleet is unreachable 18ms
+     × AC-4: stdio reproduces live and closed hybrid outcomes with zero stdout parse failures 2098ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts > S33-MCP-02 hybrid_search fleet-backed retrieval contract > AC-1: retrieves the lexically-disjoint seeded passage through hybrid vector RRF over HTTP
+AssertionError: expected 'postgres-fts' to be 'hybrid' // Object.is equality
+
+Expected: "hybrid"
+Received: "postgres-fts"
+
+ ❯ services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts:456:41
+    454|     expect(hybrid.error).toBeUndefined();
+    455|     expect(hybrid.result?.isError ?? false).toBe(false);
+    456|     expect(hybridPayload?.searchMethod).toBe('hybrid');
+       |                                         ^
+    457|     expect(hybridPayload?.totalResults).toBeGreaterThan(0);
+    458|     expect(hybridResults).toEqual(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts > S33-MCP-02 hybrid_search fleet-backed retrieval contract > AC-2: fails closed with ROLE_UNAVAILABLE and the literal role and endpoint when fleet is unreachable
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts:484:36
+    482|     writeEvidence('red-ac-2-http-closed-fleet.json', { hybrid, error, …
+    483|     expect(hybrid.error).toBeUndefined();
+    484|     expect(hybrid.result?.isError).toBe(true);
+       |                                    ^
+    485|     expect(error.code).toBe('ROLE_UNAVAILABLE');
+    486|     expect(error.message).toContain("fleet role 'embed'");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts > S33-MCP-02 hybrid_search fleet-backed retrieval contract > AC-4: stdio reproduces live and closed hybrid outcomes with zero stdout parse failures
+AssertionError: expected 'postgres-fts' to be 'hybrid' // Object.is equality
+
+Expected: "hybrid"
+Received: "postgres-fts"
+
+ ❯ services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts:548:39
+    546|     expect(closed.parseFailures).toEqual([]);
+    547|     expect(live.result?.isError ?? false).toBe(false);
+    548|     expect(livePayload?.searchMethod).toBe('hybrid');
+       |                                       ^
+    549|     expect(livePayload?.results).toEqual(
+    550|       expect.arrayContaining([expect.objectContaining({ title: SEMANTI…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  00:46:26
+   Duration  9.58s (transform 498ms, setup 353ms, import 1.60s, tests 7.47s, environment 0ms)
+
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT_CODE:1

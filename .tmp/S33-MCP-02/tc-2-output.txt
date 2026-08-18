@@ -1,0 +1,12 @@
+
+> holocron@1.0.0 test:integration /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-MCP-02-r3
+> vitest run --project integration "services/platform/tests/integration/sprint33-mcp-02-hybrid-search-fleet.test.ts"
+
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-MCP-02-r3
+
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  01:44:36
+   Duration  10.88s (transform 237ms, setup 196ms, import 602ms, tests 9.98s, environment 0ms)

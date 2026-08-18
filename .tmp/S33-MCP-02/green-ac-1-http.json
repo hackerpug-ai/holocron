@@ -1,0 +1,42 @@
+{
+  "hybrid": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"_id\":\"01a013a2-2691-72cb-b9da-b62c9835cbdc\",\"title\":\"S33-MCP-02 Fleet Retrieval Proof\",\"content\":\"The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.\",\"score\":0.01639344262295082}],\"totalResults\":1,\"searchMethod\":\"hybrid\"}"
+        }
+      ],
+      "structuredContent": {
+        "results": [
+          {
+            "_id": "01a013a2-2691-72cb-b9da-b62c9835cbdc",
+            "title": "S33-MCP-02 Fleet Retrieval Proof",
+            "content": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+            "score": 0.01639344262295082
+          }
+        ],
+        "totalResults": 1,
+        "searchMethod": "hybrid"
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330101
+  },
+  "fts": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[],\"totalResults\":0}"
+        }
+      ],
+      "structuredContent": {
+        "results": [],
+        "totalResults": 0
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 330102
+  }
+}

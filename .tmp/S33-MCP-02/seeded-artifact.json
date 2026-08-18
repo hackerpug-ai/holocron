@@ -1,0 +1,10 @@
+{
+  "semanticTitle": "S33-MCP-02 Fleet Retrieval Proof",
+  "semanticPassage": "The escape hatch engages whenever the on-premises token generator stops answering during a scheduled service window.",
+  "semanticQuery": "what occurs if the local LLM box quits replying while being patched",
+  "lexicalTitle": "S33-MCP-02 Lexical Anchor",
+  "lexicalContent": "zylophonequux is the distinctive lexical anchor token for S33-MCP-02",
+  "embeddingDimension": 1024,
+  "fleetUrl": "http://127.0.0.1:4545",
+  "closedFleetUrl": "http://127.0.0.1:54976"
+}

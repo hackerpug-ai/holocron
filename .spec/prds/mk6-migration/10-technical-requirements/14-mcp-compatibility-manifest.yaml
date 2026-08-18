@@ -209,6 +209,8 @@ tools:
     errors:
       - code: INTERNAL_SERVER_ERROR
         description: "Both hybrid and FTS fallback failed"
+      - code: ROLE_UNAVAILABLE
+        description: "Fleet embed role is unreachable; hybrid retrieval fails closed"
     pagination: null
     side_effects: null
     idempotency: null
