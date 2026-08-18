@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve as pathResolve, relative } from 'node:path';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import type { LanguageModelV4, LanguageModelV4Usage } from '@ai-sdk/provider-v7';
 import { generateObject, generateText } from 'ai';
 import type { z } from 'zod';
 import { createSql, type Sql } from '../db/client';
@@ -43,6 +44,76 @@ import {
  * buffers spans on the same exporter that flushMissionLangfuse flushes.
  */
 const missionLangfuseAls = new AsyncLocalStorage<HolocronLangfuseExporter>();
+
+/**
+ * Request/run-scoped accounting for the public chat model boundary.
+ *
+ * The scope is entered by chat-runs.ts immediately around agent.stream(). The
+ * model wrapper below enters it at every underlying doStream/doGenerate call,
+ * so a tool loop cannot be represented by one outer stream counter.
+ */
+export type ModelRequestAccounting = {
+  requestId: string;
+  runId: string;
+  resolvedEndpoint: string;
+  modelRequests: number;
+  fleetRequests: number;
+  cloudRequests: number;
+  unknownRequests: number;
+  responseHeaderApiBases: string[];
+  terminalized: boolean;
+};
+
+export type ModelRequestAccountingSnapshot = Omit<
+  ModelRequestAccounting,
+  'responseHeaderApiBases'
+> & {
+  responseHeaderApiBase: string | null;
+  responseHeaderApiBases: string[];
+  reconciliationComplete: boolean;
+};
+
+const modelRequestAccountingAls = new AsyncLocalStorage<ModelRequestAccounting>();
+
+export function createModelRequestAccounting(input: {
+  requestId: string;
+  runId: string;
+  resolvedEndpoint: string;
+}): ModelRequestAccounting {
+  return {
+    ...input,
+    modelRequests: 0,
+    fleetRequests: 0,
+    cloudRequests: 0,
+    unknownRequests: 0,
+    responseHeaderApiBases: [],
+    terminalized: false,
+  };
+}
+
+export async function runWithModelRequestAccounting<T>(
+  scope: ModelRequestAccounting,
+  fn: () => Promise<T>
+): Promise<T> {
+  return modelRequestAccountingAls.run(scope, async () => {
+    try {
+      return await fn();
+    } finally {
+      scope.terminalized = true;
+    }
+  });
+}
+
+export function snapshotModelRequestAccounting(
+  scope: ModelRequestAccounting
+): ModelRequestAccountingSnapshot {
+  return {
+    ...scope,
+    responseHeaderApiBase: scope.responseHeaderApiBases[0] ?? null,
+    reconciliationComplete:
+      scope.modelRequests === scope.fleetRequests + scope.cloudRequests + scope.unknownRequests,
+  };
+}
 
 /** Run `fn` with a shared HolocronLangfuseExporter bound for nested fleet calls. */
 export function runWithMissionLangfuseExporter<T>(
@@ -338,6 +409,165 @@ export function displayEndpoint(
   return resolved.endpoint;
 }
 
+/** Normalize the operator-selected fleet router for failure telemetry. */
+function configuredFleetEndpoint(env: NodeJS.ProcessEnv = process.env): string {
+  return toOpenAiCompatibleBaseURL(env.FLEET_URL?.trim() || 'http://127.0.0.1:4545/v1');
+}
+
+function chatRunIdFromAgentId(agentId: string | undefined): string | undefined {
+  return agentId?.match(
+    /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i
+  )?.[1];
+}
+
+/** Read the LiteLLM-selected backend from the real provider response. */
+function responseHeaderApiBase(headers: unknown): string | undefined {
+  if (!headers || typeof headers !== 'object') return undefined;
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    const value = headers.get('x-litellm-model-api-base');
+    if (!value || value.trim().length === 0) return undefined;
+    return toOpenAiCompatibleBaseURL(value.trim());
+  }
+  const value = Object.entries(headers as Record<string, unknown>).find(
+    ([key]) => key.toLowerCase() === 'x-litellm-model-api-base'
+  )?.[1];
+  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
+  return toOpenAiCompatibleBaseURL(value.trim());
+}
+
+function classifyModelInvocation(
+  responseEndpoint: string | undefined
+): 'fleet' | 'cloud' | 'unknown' {
+  if (!responseEndpoint) return 'unknown';
+  if (
+    /^https?:\/\/(?:inference1|inference2)\.tail011a51\.ts\.net:8003\/v1$/i.test(responseEndpoint)
+  ) {
+    return 'fleet';
+  }
+  if (/api\.(?:openai|anthropic|deepseek)\.com/i.test(responseEndpoint)) return 'cloud';
+  return 'unknown';
+}
+
+function usageCounts(usage: LanguageModelV4Usage | undefined): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+} {
+  const inputTokens = nonNegInt(usage?.inputTokens?.total);
+  const outputTokens = nonNegInt(usage?.outputTokens?.total);
+  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+}
+
+async function recordChatAgentModelCall(options: {
+  runId?: string;
+  role: string;
+  modelId: string;
+  fallbackEndpoint: string;
+  responseHeaders: unknown;
+  usage?: LanguageModelV4Usage;
+  startedMs: number;
+}): Promise<void> {
+  const headerEndpoint = responseHeaderApiBase(options.responseHeaders);
+  const scope = modelRequestAccountingAls.getStore();
+  const classification = classifyModelInvocation(headerEndpoint);
+  if (scope) {
+    scope.modelRequests += 1;
+    if (headerEndpoint) scope.responseHeaderApiBases.push(headerEndpoint);
+    if (classification === 'fleet') scope.fleetRequests += 1;
+    if (classification === 'cloud') scope.cloudRequests += 1;
+    if (classification === 'unknown') scope.unknownRequests += 1;
+  }
+
+  const runId = options.runId ?? scope?.runId;
+  if (!runId) return;
+  const counts = usageCounts(options.usage);
+  await recordInferenceTelemetry({
+    runId,
+    stepId: 'chat-runs/model',
+    traceId: runId,
+    role: options.role,
+    provider: 'fleet',
+    // The durable telemetry endpoint is the resolved router endpoint. The
+    // selected mini is separately persisted in the request accounting event.
+    endpoint: options.fallbackEndpoint,
+    modelId: options.modelId,
+    ...counts,
+    wallMs: Math.max(1, Date.now() - options.startedMs),
+    status: classification === 'fleet' ? 'success' : 'error',
+    errorCode: classification === 'fleet' ? null : 'MODEL_ENDPOINT_UNTRUSTED',
+    errorMessage:
+      classification === 'fleet'
+        ? null
+        : headerEndpoint
+          ? `model response endpoint was not an allowed mini: ${headerEndpoint}`
+          : 'LiteLLM response omitted x-litellm-model-api-base',
+  });
+}
+
+/**
+ * Wrap the actual provider model, not global fetch and not the outer Agent.
+ * Mastra invokes this wrapper once for every underlying doStream/doGenerate,
+ * including additional calls made by tool loops and multi-step runs.
+ */
+function wrapChatAgentModel(
+  model: ReturnType<typeof createFleetChatModel>,
+  options: { runId?: string; role: string; fallbackEndpoint: string }
+): ReturnType<typeof createFleetChatModel> {
+  const source = model as unknown as LanguageModelV4;
+  const wrapped: LanguageModelV4 = {
+    specificationVersion: 'v4',
+    provider: source.provider,
+    modelId: source.modelId,
+    supportedUrls: source.supportedUrls,
+    async doGenerate(params) {
+      const startedMs = Date.now();
+      let result: Awaited<ReturnType<LanguageModelV4['doGenerate']>>;
+      try {
+        result = await source.doGenerate(params);
+      } catch (error) {
+        await recordChatAgentModelCall({
+          ...options,
+          modelId: source.modelId,
+          responseHeaders: undefined,
+          startedMs,
+        });
+        throw error;
+      }
+      await recordChatAgentModelCall({
+        ...options,
+        modelId: source.modelId,
+        responseHeaders: result.response?.headers,
+        usage: result.usage,
+        startedMs,
+      });
+      return result;
+    },
+    async doStream(params) {
+      const startedMs = Date.now();
+      let result: Awaited<ReturnType<LanguageModelV4['doStream']>>;
+      try {
+        result = await source.doStream(params);
+      } catch (error) {
+        await recordChatAgentModelCall({
+          ...options,
+          modelId: source.modelId,
+          responseHeaders: undefined,
+          startedMs,
+        });
+        throw error;
+      }
+      await recordChatAgentModelCall({
+        ...options,
+        modelId: source.modelId,
+        responseHeaders: result.response?.headers,
+        startedMs,
+      });
+      return result;
+    },
+  };
+  return wrapped as unknown as ReturnType<typeof createFleetChatModel>;
+}
+
 export type RunFleetModelCallOptions = {
   role?: string;
   prompt: string;
@@ -484,8 +714,8 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
     const isRoleUnavail = err instanceof RoleUnavailableError;
     const endpoint =
       isRoleUnavail && err.endpoint
-        ? err.endpoint
-        : (process.env.FLEET_URL ?? 'http://127.0.0.1:4545/v1');
+        ? toOpenAiCompatibleBaseURL(err.endpoint)
+        : configuredFleetEndpoint();
     const telemetry = await recordInferenceTelemetry({
       runId: opts.runId,
       stepId,
@@ -715,7 +945,7 @@ async function maybeExportLangfuse(
     createLangfuseExporterFromEnv({
       failOnExportError: false,
     });
-  // Misconfigured exporters skip export rather than throw on hot path.
+  // Misconfigured exporters do not export rather than throw on the hot path.
   if (!exporter.baseUrl || !exporter.publicKey || !exporter.secretKey) return;
   bufferMissionModelCall(exporter, {
     traceId: span.traceId,
@@ -905,6 +1135,7 @@ export async function createFleetAgentModelBundle(options: {
   resolveOptions?: Parameters<typeof resolveModel>[1];
   apiKey?: string;
   agentId?: string;
+  runId?: string;
 }): Promise<{
   model: ReturnType<typeof createFleetChatModel>;
   resolved: ResolvedModel;
@@ -921,7 +1152,15 @@ export async function createFleetAgentModelBundle(options: {
     apiKey: options.apiKey,
     name: 'holocron-fleet',
   });
-  return { model, resolved };
+  const runId = options.runId ?? chatRunIdFromAgentId(options.agentId);
+  return {
+    model: wrapChatAgentModel(model, {
+      runId,
+      role: resolved.role,
+      fallbackEndpoint: displayEndpoint(resolved),
+    }),
+    resolved,
+  };
 }
 
 /**
@@ -1094,7 +1333,7 @@ export async function runFleetFailureFixture(opts: {
   // Dead loopback port — health probe fails closed (no cloud escape).
   const DEAD = 'http://127.0.0.1:1';
   // Configured fleet endpoint for operator-visible endpoint column (AC-5 :4545).
-  const configuredEndpoint = process.env.FLEET_URL ?? 'http://127.0.0.1:4545/v1';
+  const configuredEndpoint = configuredFleetEndpoint();
 
   try {
     await resolveModel(role, {
@@ -1109,13 +1348,10 @@ export async function runFleetFailureFixture(opts: {
     const wallMs = Math.max(1, Date.now() - started);
     const isRoleUnavail = err instanceof RoleUnavailableError;
     const errorCode = isRoleUnavail ? err.code : 'ROLE_UNAVAILABLE';
-    // Prefer configured fleet endpoint for AC-5 (:4545); fall back to error endpoint.
-    const endpoint =
-      configuredEndpoint.includes(':4545') || configuredEndpoint.includes('127.0.0.1')
-        ? configuredEndpoint
-        : isRoleUnavail
-          ? err.endpoint
-          : configuredEndpoint;
+    // This fixture intentionally probes a dead endpoint, but records the
+    // configured router that the operator would have used, never a loopback
+    // literal selected by the accounting code.
+    const endpoint = configuredEndpoint;
 
     const telemetry = await recordInferenceTelemetry({
       runId: opts.runId,

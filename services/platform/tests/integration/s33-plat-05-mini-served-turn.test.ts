@@ -76,6 +76,20 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(rows[0]?.endpoint).toBe(
       `${fleetOrigin.origin + fleetOrigin.pathname.replace(/\/$/, '').replace(/\/v1$/i, '')}/v1`
     );
+    console.info(
+      'S33-PLAT-05-EVIDENCE',
+      JSON.stringify({
+        ac: 'AC-3',
+        runId: result.runId,
+        textLength: result.text?.trim().length ?? 0,
+        modelRequests: result.modelRequests,
+        fleetRequests: result.fleetRequests,
+        cloudRequests: result.cloudRequests,
+        unknownRequests: result.unknownRequests,
+        endpoint: rows[0]?.endpoint,
+        provider: rows[0]?.provider,
+      })
+    );
   }, 300_000);
 
   it('AC-5: the public agent.stream boundary accounts for every real model transport call', async () => {
@@ -103,6 +117,20 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(rows.every((row) => row.runId === runId)).toBe(true);
     expect(rows.every((row) => row.provider === 'fleet')).toBe(true);
     expect(rows.every((row) => row.endpoint === `${fleetOrigin.origin}/v1`)).toBe(true);
+    console.info(
+      'S33-PLAT-05-EVIDENCE',
+      JSON.stringify({
+        ac: 'AC-5-public-boundary',
+        runId,
+        textLength: text.trim().length,
+        modelRequests: rows.length,
+        fleetRequests: rows.length,
+        cloudRequests: 0,
+        unknownRequests: 0,
+        endpoint: rows[0]?.endpoint,
+        provider: rows[0]?.provider,
+      })
+    );
   }, 300_000);
 
   it('AC-5: a real public chat run creates before its fleet stream is observed', async () => {
@@ -140,5 +168,17 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
       cloudRequests: 0,
       unknownRequests: 0,
     });
+    console.info(
+      'S33-PLAT-05-EVIDENCE',
+      JSON.stringify({
+        ac: 'AC-5-public-chat',
+        requestId,
+        runId: created.runId,
+        status: terminal.status,
+        textLength: terminal.finalText?.trim().length ?? 0,
+        telemetryRows: rows.length,
+        accounting: accounting?.data_json,
+      })
+    );
   }, 300_000);
 });

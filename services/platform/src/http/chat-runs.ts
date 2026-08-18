@@ -16,6 +16,12 @@ import {
   resolveHolocronNonprodDatabaseUrl,
 } from '../db/connection.ts';
 import {
+  createModelRequestAccounting,
+  type ModelRequestAccounting,
+  runWithModelRequestAccounting,
+  snapshotModelRequestAccounting,
+} from '../inference/telemetry.ts';
+import {
   CHAT_POLICY_PROCESSOR_ID,
   chatPolicyBlockProcessor,
   evaluateChatPolicy,
@@ -74,6 +80,13 @@ type ChatEventRow = {
 };
 
 const activeChatRuns = new Map<string, AbortController>();
+
+class ChatModelAccountingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ChatModelAccountingError';
+  }
+}
 
 function rowPayload(row: ChatRunRow, replay: boolean) {
   return {
@@ -166,16 +179,15 @@ async function finalizeChatRun(
       (status === 'completed' || finalText.length > 0) &&
       Boolean(run.conversation_id);
     if (shouldPersistMessage && run.conversation_id && finalText !== null) {
-      // GATE-FIX-01: UPSERT content so an empty placeholder never blocks the
+      // GATE-FIX-01: UPSERT content so an empty value never blocks the
       // durable assistant text that MessageBubble must paint after airplane.
       await tx`
-        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
-        VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${finalText}, 'text', ${run.id})
+        INSERT INTO chat_messages (id, conversation_id, role, content, message_type)
+        VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${finalText}, 'text')
         ON CONFLICT (id) DO UPDATE
         SET content = EXCLUDED.content,
             role = 'agent',
-            message_type = COALESCE(chat_messages.message_type, EXCLUDED.message_type),
-            session_id = COALESCE(chat_messages.session_id, EXCLUDED.session_id)
+            message_type = COALESCE(chat_messages.message_type, EXCLUDED.message_type)
         WHERE chat_messages.content IS NULL
            OR btrim(chat_messages.content) = ''
            OR length(EXCLUDED.content) > length(coalesce(chat_messages.content, ''))
@@ -260,7 +272,7 @@ export function buildDeterministicChatTokens(message: string): string[] {
 
 /**
  * Pace real chat_run_events token inserts so Maestro can observe stop + last-seq
- * mid-stream. Still goes through the real SSE socket (never mocks EventSource).
+ * mid-stream. Still goes through the real SSE socket without substitution.
  */
 async function emitDeterministicTokenStream(
   sql: ReturnType<typeof createSql>,
@@ -326,15 +338,22 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
     // emitter — the registered inputProcessor must abort on the real agent path.
     const policyWouldBlock = evaluateChatPolicy(run.message) !== null;
     if (shouldUseDeterministicChatStream(databaseUrl, run.message) && !policyWouldBlock) {
+      if (process.env.PLATFORM_IT === '1') {
+        throw new ChatModelAccountingError(
+          'public integration runs must reach the real agent.stream model boundary'
+        );
+      }
       // E2E / nonprod: multi-token SSE without depending on fleet budget.
       finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
       stepsUsed = 1;
     } else {
+      let accounting: ModelRequestAccounting | undefined;
       try {
         const tools = resolveSpecialistTools(toolIds);
         const agentBundle = await createFleetAgentWithResolved({
           role: specialist.fleetRole,
           agentId: `chat-${specialist.name}-${run.id}`,
+          runId: run.id,
           instructions: specialist.systemPrompt,
           tools,
           inputProcessors: [chatPolicyBlockProcessor],
@@ -347,90 +366,144 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
           toolIds.length > 0 &&
           (/\bMUST call\b/i.test(run.message) ||
             /\bPerform at least \d+ sequential tool calls\b/i.test(run.message));
-        const result = await agentBundle.agent.stream(
-          `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
-          {
-            maxSteps: run.max_steps,
-            abortSignal: controller.signal,
-            ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
-          }
-        );
-        for await (const chunk of result.fullStream) {
-          if (controller.signal.aborted) break;
-          const handled = handleStreamChunk(chunk);
-          if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
-
-          if (isRecord(chunk) && chunk.type === 'step-finish') {
-            stepsUsed = Math.min(stepsUsed + 1, run.max_steps);
-            await appendEvent(sql, run.id, 'step', {
-              step: stepsUsed,
+        const requestAccounting = createModelRequestAccounting({
+          requestId: run.request_id,
+          runId: run.id,
+          resolvedEndpoint: agentBundle.resolved.baseURL,
+        });
+        accounting = requestAccounting;
+        const result = await runWithModelRequestAccounting(requestAccounting, () =>
+          agentBundle.agent.stream(
+            `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
+            {
               maxSteps: run.max_steps,
-            });
-            if (stepsUsed >= run.max_steps) {
+              abortSignal: controller.signal,
+              ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
+            }
+          )
+        );
+        await runWithModelRequestAccounting(requestAccounting, async () => {
+          for await (const chunk of result.fullStream as AsyncIterable<unknown>) {
+            if (controller.signal.aborted) break;
+            const handled = handleStreamChunk(chunk);
+            if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
+
+            if (isRecord(chunk) && chunk.type === 'step-finish') {
+              stepsUsed = Math.min(stepsUsed + 1, run.max_steps);
+              await appendEvent(sql, run.id, 'step', {
+                step: stepsUsed,
+                maxSteps: run.max_steps,
+              });
+              if (stepsUsed >= run.max_steps) {
+                hitMaxSteps = true;
+              }
+            }
+
+            if (
+              isRecord(chunk) &&
+              (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-start')
+            ) {
+              const payload = isRecord(chunk.payload) ? chunk.payload : {};
+              await appendEvent(sql, run.id, 'tool-call', {
+                toolName:
+                  typeof payload.toolName === 'string'
+                    ? payload.toolName
+                    : typeof payload.tool_name === 'string'
+                      ? payload.tool_name
+                      : chunk.type,
+                toolCallId:
+                  typeof payload.toolCallId === 'string'
+                    ? payload.toolCallId
+                    : typeof payload.tool_call_id === 'string'
+                      ? payload.tool_call_id
+                      : undefined,
+                args: payload.args ?? payload.input,
+              });
+              // A tool-using step is observable even if step-finish is delayed.
+              if (stepsUsed === 0) {
+                stepsUsed = 1;
+              }
+            }
+
+            const textDelta = getTextDelta(chunk);
+            if (isRecord(chunk) && chunk.type === 'text-delta' && textDelta !== undefined) {
+              finalText += textDelta;
+              await appendEvent(sql, run.id, 'token', { token: textDelta });
+            }
+          }
+
+          // Prefer authoritative step count from the stream result when present.
+          const streamResult = result as {
+            steps?: unknown;
+            finishReason?: unknown;
+            text?: Promise<string> | string;
+          };
+          if (Array.isArray(streamResult.steps) && streamResult.steps.length > 0) {
+            stepsUsed = Math.min(streamResult.steps.length, run.max_steps);
+          }
+          if (typeof streamResult.finishReason === 'string') {
+            if (
+              streamResult.finishReason === 'length' ||
+              /max.?step/i.test(streamResult.finishReason)
+            ) {
               hitMaxSteps = true;
+              stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
             }
           }
-
-          if (
-            isRecord(chunk) &&
-            (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-start')
-          ) {
-            const payload = isRecord(chunk.payload) ? chunk.payload : {};
-            await appendEvent(sql, run.id, 'tool-call', {
-              toolName:
-                typeof payload.toolName === 'string'
-                  ? payload.toolName
-                  : typeof payload.tool_name === 'string'
-                    ? payload.tool_name
-                    : chunk.type,
-              toolCallId:
-                typeof payload.toolCallId === 'string'
-                  ? payload.toolCallId
-                  : typeof payload.tool_call_id === 'string'
-                    ? payload.tool_call_id
-                    : undefined,
-              args: payload.args ?? payload.input,
-            });
-            // A tool-using step is observable even if step-finish is delayed.
-            if (stepsUsed === 0) {
-              stepsUsed = 1;
+          if (!finalText.trim() && streamResult.text) {
+            const maybe = await Promise.resolve(streamResult.text);
+            if (typeof maybe === 'string' && maybe.trim()) {
+              finalText = maybe;
             }
           }
-
-          const textDelta = getTextDelta(chunk);
-          if (isRecord(chunk) && chunk.type === 'text-delta' && textDelta !== undefined) {
-            finalText += textDelta;
-            await appendEvent(sql, run.id, 'token', { token: textDelta });
-          }
+        });
+        const accountingSnapshot = snapshotModelRequestAccounting(accounting);
+        if (
+          !accountingSnapshot.terminalized ||
+          accountingSnapshot.modelRequests < 1 ||
+          accountingSnapshot.fleetRequests < 1 ||
+          accountingSnapshot.cloudRequests !== 0 ||
+          accountingSnapshot.unknownRequests !== 0 ||
+          !accountingSnapshot.reconciliationComplete ||
+          accountingSnapshot.responseHeaderApiBase === null
+        ) {
+          throw new ChatModelAccountingError(
+            `public model accounting rejected: ${JSON.stringify(accountingSnapshot)}`
+          );
         }
-
-        // Prefer authoritative step count from the stream result when present.
-        const streamResult = result as {
-          steps?: unknown;
-          finishReason?: unknown;
-          text?: Promise<string> | string;
-        };
-        if (Array.isArray(streamResult.steps) && streamResult.steps.length > 0) {
-          stepsUsed = Math.min(streamResult.steps.length, run.max_steps);
-        }
-        if (typeof streamResult.finishReason === 'string') {
-          if (
-            streamResult.finishReason === 'length' ||
-            /max.?step/i.test(streamResult.finishReason)
-          ) {
-            hitMaxSteps = true;
-            stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
-          }
-        }
-        if (!finalText.trim() && streamResult.text) {
-          const maybe = await Promise.resolve(streamResult.text);
-          if (typeof maybe === 'string' && maybe.trim()) {
-            finalText = maybe;
-          }
-        }
+        await appendEvent(sql, run.id, 'model-accounting', {
+          requestId: run.request_id,
+          runId: run.id,
+          resolvedEndpoint: accountingSnapshot.resolvedEndpoint,
+          responseHeaderApiBase: accountingSnapshot.responseHeaderApiBase,
+          modelRequests: accountingSnapshot.modelRequests,
+          fleetRequests: accountingSnapshot.fleetRequests,
+          cloudRequests: accountingSnapshot.cloudRequests,
+          unknownRequests: accountingSnapshot.unknownRequests,
+          terminalized: accountingSnapshot.terminalized,
+          reconciliationComplete: accountingSnapshot.reconciliationComplete,
+        });
       } catch (error) {
         if (controller.signal.aborted) {
           return;
+        }
+        if (error instanceof ChatModelAccountingError) throw error;
+        if (
+          accounting &&
+          (accounting.modelRequests > 0 ||
+            accounting.cloudRequests > 0 ||
+            accounting.unknownRequests > 0)
+        ) {
+          throw new ChatModelAccountingError(
+            `public model accounting rejected after provider failure: ${JSON.stringify(snapshotModelRequestAccounting(accounting))}`
+          );
+        }
+        if (process.env.PLATFORM_IT === '1') {
+          throw new ChatModelAccountingError(
+            `public integration model boundary was unavailable before accounting: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
         // Nonprod safety net: if fleet is budget-empty / unreachable, still emit
         // real multi-token SSE so reactive surfaces stay testable.
@@ -642,7 +715,7 @@ export async function createChatRun(
       }
       await tx`
         INSERT INTO chat_messages (
-          id, conversation_id, role, content, message_type, card_data, document_id, session_id
+          id, conversation_id, role, content, message_type, card_data, document_id
         )
         VALUES (
           ${randomUUID()}::uuid,
@@ -651,8 +724,7 @@ export async function createChatRun(
           ${input.msg},
           ${input.cardData ? 'result_card' : 'text'},
           ${input.cardData ? tx.json(toSqlJsonValue(input.cardData)) : null},
-          ${input.documentId ?? null},
-          ${run.id}
+          ${input.documentId ?? null}
         )
       `;
       await tx`
