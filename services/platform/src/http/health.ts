@@ -11,6 +11,13 @@
 import postgres from 'postgres';
 import { resolveObservedDataPlane } from '../cutover/soak-fence.ts';
 import { type DatabaseTargetIdentity, parseDatabaseTargetIdentity } from '../db/connection.ts';
+import { getFleetManifest } from '../fleet/manifest.ts';
+import {
+  compareFleetRoles,
+  extractFleetModelIds,
+  type FleetRoleReadiness,
+  unavailableFleetRoles,
+} from '../inference/probe-fleet-roles.ts';
 import { DATABASE_URL } from '../mastra.ts';
 import {
   isProcessQueueReady,
@@ -110,6 +117,8 @@ export type ProbeResult = {
 
 export type FleetProbeResult = ProbeResult & {
   endpoint: string;
+  roles: FleetRoleReadiness['roles'];
+  unavailable_roles: FleetRoleReadiness['unavailable_roles'];
 };
 
 export type EndpointProbeResult = ProbeResult & {
@@ -202,9 +211,25 @@ export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeRes
  * Hits /v1/models (OpenAI-compatible) — real HTTP, not a static flag.
  */
 export async function probeFleet(
-  endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT
+  endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT,
+  manifestPath?: string
 ): Promise<FleetProbeResult> {
   const start = performance.now();
+  let manifest: ReturnType<typeof getFleetManifest>;
+  try {
+    manifest = getFleetManifest(manifestPath);
+  } catch (err) {
+    const unavailable = unavailableFleetRoles();
+    const error = err instanceof Error ? err.message : String(err);
+    return {
+      ready: false,
+      endpoint: 'unavailable',
+      latency_ms: elapsedMs(start),
+      roles: unavailable.roles,
+      unavailable_roles: unavailable.unavailable_roles,
+      error: `fleet manifest unavailable: ${error}`,
+    };
+  }
   let base: string;
   try {
     const parsed = new URL(endpoint);
@@ -213,6 +238,8 @@ export async function probeFleet(
         ready: false,
         endpoint: parsed.origin,
         latency_ms: elapsedMs(start),
+        roles: compareFleetRoles(manifest, []).roles,
+        unavailable_roles: compareFleetRoles(manifest, []).unavailable_roles,
         error: 'fleet endpoint credentials are forbidden',
       };
     }
@@ -222,6 +249,8 @@ export async function probeFleet(
       ready: false,
       endpoint: 'invalid',
       latency_ms: elapsedMs(start),
+      roles: compareFleetRoles(manifest, []).roles,
+      unavailable_roles: compareFleetRoles(manifest, []).unavailable_roles,
       error: 'fleet endpoint is invalid',
     };
   }
@@ -233,12 +262,42 @@ export async function probeFleet(
       signal: controller.signal,
       headers: { accept: 'application/json' },
     });
-    const ready = res.ok;
+    if (!res.ok) {
+      const unavailable = compareFleetRoles(manifest, []);
+      return {
+        ready: false,
+        endpoint: base,
+        latency_ms: elapsedMs(start),
+        roles: unavailable.roles,
+        unavailable_roles: unavailable.unavailable_roles,
+        error: `HTTP ${res.status}`,
+      };
+    }
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch {
+      const unavailable = compareFleetRoles(manifest, []);
+      return {
+        ready: false,
+        endpoint: base,
+        latency_ms: elapsedMs(start),
+        roles: unavailable.roles,
+        unavailable_roles: unavailable.unavailable_roles,
+        error: 'fleet model list was not valid JSON',
+      };
+    }
+    const observed = compareFleetRoles(
+      manifest,
+      extractFleetModelIds(payload as { data?: unknown })
+    );
     return {
-      ready,
+      ready: observed.ready,
       endpoint: base,
       latency_ms: elapsedMs(start),
-      ...(ready ? {} : { error: `HTTP ${res.status}` }),
+      roles: observed.roles,
+      unavailable_roles: observed.unavailable_roles,
+      ...(observed.ready ? {} : { error: 'one or more gating fleet roles are unavailable' }),
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -246,6 +305,8 @@ export async function probeFleet(
       ready: false,
       endpoint: base,
       latency_ms: elapsedMs(start),
+      roles: compareFleetRoles(manifest, []).roles,
+      unavailable_roles: compareFleetRoles(manifest, []).unavailable_roles,
       error,
     };
   } finally {
@@ -381,6 +442,7 @@ export async function runHealthCheck(options?: {
   strictReadiness?: boolean;
   deploymentEnv?: NodeJS.ProcessEnv;
   processFacts?: { pid?: number; uptimeMs?: number };
+  fleetManifestPath?: string;
 }): Promise<HealthResponse> {
   const strictReadiness = options?.strictReadiness ?? process.env.HOLO_PRODUCTION_READINESS === '1';
   const databaseUrl = options?.databaseUrl ?? DATABASE_URL;
@@ -394,7 +456,7 @@ export async function runHealthCheck(options?: {
   const deployment = readDeploymentIdentity(options?.deploymentEnv, options?.processFacts);
   const [db, fleet, queue, zeroCache] = await Promise.all([
     probeDb(databaseUrl),
-    probeFleet(options?.fleetEndpoint),
+    probeFleet(options?.fleetEndpoint, options?.fleetManifestPath),
     probeQueue(options?.queue, databaseUrl),
     probeZeroCache(options?.zeroCacheEndpoint, strictReadiness),
   ]);
@@ -439,6 +501,8 @@ export async function runHealthCheck(options?: {
       ready: fleet.ready,
       endpoint: fleet.endpoint,
       latency_ms: fleet.latency_ms,
+      roles: fleet.roles,
+      unavailable_roles: fleet.unavailable_roles,
       ...(fleet.error ? { error: fleet.error } : {}),
     },
     queue: {
