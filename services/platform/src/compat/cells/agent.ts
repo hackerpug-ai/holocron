@@ -70,6 +70,12 @@ export type FleetAgentBundle = {
   resolved: ResolvedModel;
 };
 
+export function isAllowedFleetRouterEndpoint(endpoint: string): boolean {
+  return /^https?:\/\/(?:host\.docker\.internal|holocron(?:\.tail011a51\.ts\.net)?|localhost|127\.0\.0\.1):4545\/v1$/i.test(
+    endpoint
+  );
+}
+
 /**
  * Network assertion: count outbound requests to known cloud providers.
  * We monkey-patch globalThis.fetch for the duration of the generate() call.
@@ -158,6 +164,9 @@ export async function createFleetAgentWithResolved(
     agentId: options.agentId,
     runId: options.runId,
   });
+  if (!isAllowedFleetRouterEndpoint(resolved.baseURL)) {
+    throw new Error(`fleet agent refused non-router endpoint: ${resolved.baseURL}`);
+  }
 
   const id = options.agentId ?? 'compat-agent';
   const agent = new Agent({

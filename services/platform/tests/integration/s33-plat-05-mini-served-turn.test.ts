@@ -5,21 +5,22 @@
  * does not replace a provider, database, HTTP transport, or Mastra primitive.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { access, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
 import { Hono } from 'hono';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createFleetAgentWithResolved, runAgentCell } from '../../src/compat/cells/agent.ts';
+import {
+  createFleetAgentWithResolved,
+  isAllowedFleetRouterEndpoint,
+  runAgentCell,
+} from '../../src/compat/cells/agent.ts';
 import { createSql } from '../../src/db/client.ts';
 import { createHonoApp, type HonoAppVariables } from '../../src/http/hono-app.ts';
 import { createScopedKeyMiddleware } from '../../src/http/middleware/scoped-key.ts';
-import {
-  listInferenceTelemetry,
-  type ModelRequestAccountingEvent,
-} from '../../src/inference/telemetry.ts';
+import { listInferenceTelemetry } from '../../src/inference/telemetry.ts';
 import { createStorage } from '../../src/mastra.ts';
 
 const platformIt = process.env.PLATFORM_IT === '1';
@@ -53,6 +54,7 @@ afterAll(async () => {
 type PublicChatRun = {
   status: string;
   finalText?: string;
+  errorCode?: string;
   events: Array<{ event_type: string; data_json: unknown }>;
 };
 
@@ -68,6 +70,10 @@ async function importMutatedChatRuns(
   await mkdir(httpRoot, { recursive: true });
   const copyPath = join(httpRoot, 'chat-runs.ts');
   await writeFile(copyPath, source, 'utf8');
+  const copyStat = await lstat(copyPath);
+  if (!copyStat.isFile() || copyStat.isSymbolicLink()) {
+    throw new Error(`mutation source copy is not a regular file: ${copyPath}`);
+  }
 
   const actualSourceRoot = join(process.cwd(), 'services/platform/src');
   for (const directory of ['chat', 'compat', 'db', 'inference', 'mastra']) {
@@ -141,6 +147,15 @@ async function waitForTerminalRun(
 }
 
 describe('S33-PLAT-05 real fleet and public chat accounting', () => {
+  it('AC-5 guard control: only approved Holocron fleet routers pass preflight', () => {
+    expect(isAllowedFleetRouterEndpoint(fleetUrl)).toBe(true);
+    expect(isAllowedFleetRouterEndpoint('https://api.openai.com/v1')).toBe(false);
+    expect(isAllowedFleetRouterEndpoint('http://unknown.invalid:4545/v1')).toBe(false);
+    expect(isAllowedFleetRouterEndpoint('http://holocron.tail011a51.ts.net:4545/v1/evil')).toBe(
+      false
+    );
+  });
+
   it('AC-3: a real non-loopback fleet request reports request accounting and its endpoint', async () => {
     const result = await runAgentCell(new Mastra({ storage: createStorage() }));
 
@@ -499,7 +514,21 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         if (mutation.name === 'direct-cloud-api-openai' || mutation.name === 'unknown-transport') {
           expect(rows, `${mutation.name} must fail before provider request`).toHaveLength(0);
         }
-        expect(terminal.finalText).toMatch(/accounting|endpoint|boundary|reconcile/i);
+        expect(terminal.errorCode, `${mutation.name} must expose a terminal rejection`).toMatch(
+          /ROLE_UNAVAILABLE|CHAT_RUN_FAILED/
+        );
+        console.info(
+          'S33-PLAT-05-MUTATION-RECEIPT',
+          JSON.stringify({
+            mutation: mutation.name,
+            runId: created.runId,
+            status: terminal.status,
+            errorCode: terminal.errorCode,
+            telemetryRows: rows.length,
+            successfulAccountingEvent: false,
+            regularSourceCopy: true,
+          })
+        );
       }
       console.info(
         'S33-PLAT-05-EVIDENCE',
@@ -515,6 +544,7 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
       );
     } finally {
       await rm(root, { recursive: true, force: true });
+      await expect(access(root)).rejects.toThrow();
     }
   }, 300_000);
 });

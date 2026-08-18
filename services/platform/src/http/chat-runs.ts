@@ -9,7 +9,10 @@ import {
   type SpecialistName,
 } from '../chat/specialists.ts';
 import { triageMessage } from '../chat/triage.ts';
-import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
+import {
+  createFleetAgentWithResolved,
+  isAllowedFleetRouterEndpoint,
+} from '../compat/cells/agent.ts';
 import { createSql, toSqlJsonValue } from '../db/client.ts';
 import {
   isHolocronNonprodDatabaseUrl,
@@ -361,6 +364,14 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
           tools,
           inputProcessors: [chatPolicyBlockProcessor],
         });
+        // Keep the public boundary fail-closed even if a future factory caller
+        // accidentally returns a non-router model. This check is before Agent
+        // stream creation and therefore before any provider transport call.
+        if (!isAllowedFleetRouterEndpoint(agentBundle.resolved.baseURL)) {
+          throw new ChatModelAccountingError(
+            `public chat refused non-router endpoint: ${agentBundle.resolved.baseURL}`
+          );
+        }
         // Bound runs that need more work than maxSteps: force a tool call every
         // step so the loop hits the ceiling (AC-3). Never force on larger budgets —
         // toolChoice:required would consume every step without a final text turn.
@@ -377,15 +388,17 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
         accounting = requestAccounting;
         let accountingSnapshot: ReturnType<typeof snapshotModelRequestAccounting> | undefined;
         try {
-          await runWithModelRequestAccounting(requestAccounting, async () => {
-            const result = await agentBundle.agent.stream(
+          const result = await runWithModelRequestAccounting(requestAccounting, () =>
+            agentBundle.agent.stream(
               `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
               {
                 maxSteps: run.max_steps,
                 abortSignal: controller.signal,
                 ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
               }
-            );
+            )
+          );
+          await runWithModelRequestAccounting(requestAccounting, async () => {
             // The accounting ALS must remain active through the complete stream.
             // Mastra may issue additional doGenerate/doStream calls while this
             // iterator consumes tool-loop steps.
@@ -471,12 +484,21 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
         if (!accountingSnapshot) {
           throw new ChatModelAccountingError('public model accounting did not terminalize');
         }
-        assertModelRequestAccountingSnapshot(accountingSnapshot);
+        const telemetryCountRows = await sql<{ count: number }[]>`
+          SELECT count(*)::int AS count
+          FROM inference_telemetry
+          WHERE run_id = ${run.id}
+            AND step_id = 'chat-runs/model'
+        `;
+        const telemetryRows = Number(telemetryCountRows[0]?.count ?? 0);
+        assertModelRequestAccountingSnapshot(accountingSnapshot, {
+          durableTelemetryRows: telemetryRows,
+        });
         await appendEvent(
           sql,
           run.id,
           'model-accounting',
-          createModelRequestAccountingEvent(accountingSnapshot)
+          createModelRequestAccountingEvent(accountingSnapshot, telemetryRows)
         );
       } catch (error) {
         if (controller.signal.aborted) {
