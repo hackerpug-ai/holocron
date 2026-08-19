@@ -528,21 +528,21 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
         if (!accountingSnapshot) {
           throw new ChatModelAccountingError('public model accounting did not terminalize');
         }
-        const telemetryCountRows = await sql<{ count: number }[]>`
-          SELECT count(*)::int AS count
+        const telemetryIdRows = await sql<{ id: string }[]>`
+          SELECT id::text AS id
           FROM inference_telemetry
           WHERE run_id = ${run.id}
             AND step_id = 'chat-runs/model'
         `;
-        const telemetryRows = Number(telemetryCountRows[0]?.count ?? 0);
+        const telemetryRowIds = telemetryIdRows.map((row) => row.id).sort();
         assertModelRequestAccountingSnapshot(accountingSnapshot, {
-          durableTelemetryRows: telemetryRows,
+          durableTelemetryRows: telemetryRowIds.length,
         });
         await appendEvent(
           sql,
           run.id,
           'model-accounting',
-          createModelRequestAccountingEvent(accountingSnapshot, telemetryRows)
+          createModelRequestAccountingEvent(accountingSnapshot, telemetryRowIds)
         );
       } catch (error) {
         if (controller.signal.aborted) {

@@ -1012,10 +1012,54 @@ run_final_lineage() {
   git merge-base --is-ancestor "$CANDIDATE_SHA" "$EXPECTED_LANDED_MAIN_SHA" || json_error "LANDED_ANCESTRY_INVALID" "landed main does not contain candidate"
   regular_nonsymlink "$RED_FAILURE_EVIDENCE_PATH" || json_error "RED_EVIDENCE_INVALID" "RED failure evidence must be regular and non-symlink"
   local red_evidence_sha; red_evidence_sha=$(artifact_hash_or_error "$RED_FAILURE_EVIDENCE_PATH" "RED_EVIDENCE_INVALID")
-  grep -Eiq 'missing[_ -]public[_ -]chat[_ -]accounting|public.*accounting' "$RED_FAILURE_EVIDENCE_PATH" || json_error "RED_EVIDENCE_INVALID" "RED evidence did not identify the public accounting failure"
-  grep -Eiq 'Hono|Postgres|fleet|real' "$RED_FAILURE_EVIDENCE_PATH" || json_error "RED_EVIDENCE_INVALID" "RED evidence did not identify real dependency reachability"
-  grep -Eiq 'RoleUnavailableError|health probe failed|refuses non-nonprod|DATABASE_URL|FLEET_URL' "$RED_FAILURE_EVIDENCE_PATH" &&
-    json_error "RED_EVIDENCE_SETUP_FAILURE" "RED evidence shows unavailable fleet/database setup rather than the missing public accounting behavior"
+  local red_test_file='services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts'
+  local expected_red_command='PLATFORM_IT=1 FLEET_URL=http://holocron.tail011a51.ts.net:4545/v1 DATABASE_URL=<private-canonical-nonprod> HOLO_KEY_RN=<private-canonical> pnpm exec vitest run --project integration services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts --disableConsoleIntercept'
+  local red_test_blob red_raw_output red_raw_output_sha red_observation red_marker_count
+  red_test_blob=$(git rev-parse "${RED_SHA}:${red_test_file}" 2>/dev/null) || json_error "RED_EVIDENCE_INVALID" "RED test blob was not readable from the exact RED commit"
+  jq -e --arg red "$RED_SHA" --arg parent "$IMPLEMENTATION_BASE_SHA" --arg test_file "$red_test_file" --arg test_blob "$red_test_blob" --arg command "$expected_red_command" '
+    type == "object" and
+    (keys | sort) == ["command","execution","redParentSha","redSha","schema","testBlobOid","testFile"] and
+    .schema == "s33-plat-05-red-evidence/v1" and
+    .redSha == $red and .redParentSha == $parent and .testFile == $test_file and
+    .testBlobOid == $test_blob and .command == $command and
+    (.execution | type == "object" and
+      (keys | sort) == ["cleanDetachedClone","executedHead","exitCode","rawOutputPath","rawOutputSha256","trackedStatusCleanAfter","trackedStatusCleanBefore"] and
+      .cleanDetachedClone == true and .executedHead == $red and
+      .trackedStatusCleanBefore == true and .trackedStatusCleanAfter == true and
+      .exitCode == 1 and (.rawOutputPath | type == "string" and length > 0) and
+      (.rawOutputSha256 | test("^[0-9a-f]{64}$")))
+  ' "$RED_FAILURE_EVIDENCE_PATH" >/dev/null 2>&1 ||
+    json_error "RED_EVIDENCE_INVALID" "RED evidence envelope was not bound to the exact clean detached RED execution"
+  red_raw_output=$(jq -r '.execution.rawOutputPath' "$RED_FAILURE_EVIDENCE_PATH")
+  regular_nonsymlink "$red_raw_output" || json_error "RED_EVIDENCE_INVALID" "RED raw output must be a regular non-symlink file"
+  red_raw_output_sha=$(artifact_hash_or_error "$red_raw_output" "RED_EVIDENCE_INVALID")
+  [[ "$red_raw_output_sha" == "$(jq -r '.execution.rawOutputSha256' "$RED_FAILURE_EVIDENCE_PATH")" ]] ||
+    json_error "RED_EVIDENCE_INVALID" "RED raw output hash did not match the exact execution envelope"
+  red_marker_count=$(grep -c '^S33-PLAT-05-RED-EVIDENCE ' "$red_raw_output" 2>/dev/null || true)
+  [[ "$red_marker_count" == "1" ]] || json_error "RED_EVIDENCE_INVALID" "RED output must contain exactly one structured accounting-failure observation"
+  red_observation=$(sed -n 's/^S33-PLAT-05-RED-EVIDENCE //p' "$red_raw_output")
+  jq -e --arg red "$RED_SHA" --arg test_file "$red_test_file" '
+    type == "object" and
+    (keys | sort) == ["accountingEventPresent","failureClass","fleet","missingField","postgres","publicHono","redSha","requestId","runId","schema","terminalStatus","testFile"] and
+    .schema == "s33-plat-05-red-observation/v1" and .redSha == $red and
+    .failureClass == "missing_public_chat_accounting" and .missingField == "telemetryRowIds" and
+    .testFile == $test_file and (.requestId | test("^s33-plat-05-")) and
+    (.runId | test("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"; "i")) and
+    (.publicHono | type == "object" and (keys | sort) == ["createStatus","reached"] and .reached == true and .createStatus == 200) and
+    (.postgres | type == "object" and (keys | sort) == ["reached","telemetryRows"] and .reached == true and (.telemetryRows | type == "number" and . >= 1)) and
+    (.fleet | type == "object" and (keys | sort) == ["endpoints","providers","reached"] and .reached == true and .providers == ["fleet"] and
+      (.endpoints | type == "array" and length >= 1 and all(.[]; test("^http://holocron\\.tail011a51\\.ts\\.net:4545/v1$")))) and
+    .accountingEventPresent == true and .terminalStatus == "completed"
+  ' <<<"$red_observation" >/dev/null 2>&1 ||
+    json_error "RED_EVIDENCE_INVALID" "RED observation did not prove the real Hono/Postgres/fleet accounting gap"
+  grep -Fq 'Tests  1 failed | 6 passed (7)' "$red_raw_output" ||
+    json_error "RED_EVIDENCE_INVALID" "RED execution was not the full seven-test file with exactly one failure"
+  grep -Fq 'AssertionError: missing public chat accounting telemetry row identity' "$red_raw_output" ||
+    json_error "RED_EVIDENCE_INVALID" "RED terminal failure was not the missing public-chat accounting identity"
+  grep -Eq '"responseHeaderApiBases":\["http://inference[12]\.tail011a51\.ts\.net:8003/v1"' "$red_raw_output" ||
+    json_error "RED_EVIDENCE_INVALID" "RED output did not retain an independently selected mini response header"
+  grep -Eiq 'health probe failed|refuses non-nonprod|permission denied for table|requires DATABASE_URL|requires FLEET_URL' "$red_raw_output" &&
+    json_error "RED_EVIDENCE_SETUP_FAILURE" "RED output shows unavailable fleet/database setup rather than the accounting failure"
   local typecheck_command='pnpm exec tsgo --noEmit -p services/platform/tsconfig.json'
   local base_typecheck candidate_typecheck
   regular_nonsymlink "$LINEAGE_RECEIPT_PATH" || json_error "LINEAGE_RECEIPT_INVALID" "lineage receipt must be regular and non-symlink"

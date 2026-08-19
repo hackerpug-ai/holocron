@@ -436,7 +436,7 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(
       accountingData.telemetryRowIds,
       'missing public chat accounting telemetry row identity'
-    ).toEqual(rows.map((row) => row.id));
+    ).toEqual(rows.map((row) => row.id).sort());
     expect(accountingData.responseHeaderApiBases).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/),
@@ -509,6 +509,7 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(data.modelRequests).toBeGreaterThanOrEqual(2);
     expect(data.underlyingTransportCalls).toBe(rows.length);
     expect(data.telemetryRows).toBe(rows.length);
+    expect(data.telemetryRowIds).toEqual(rows.map((row) => row.id).sort());
     expect(data.fleetRequests).toBeGreaterThanOrEqual(2);
     expect(data.cloudRequests).toBe(0);
     expect(data.unknownRequests).toBe(0);
@@ -608,8 +609,8 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
         name: 'counter-mismatch',
         mutate: (input) =>
           input.replace(
-            'createModelRequestAccountingEvent(accountingSnapshot, telemetryRows)',
-            'createModelRequestAccountingEvent(accountingSnapshot, telemetryRows + 1)'
+            'createModelRequestAccountingEvent(accountingSnapshot, telemetryRowIds)',
+            'createModelRequestAccountingEvent(accountingSnapshot, [...telemetryRowIds, randomUUID()])'
           ),
         maxSteps: 1,
         message: `S33 counter mismatch ${randomUUID()}: reply with one short sentence.`,

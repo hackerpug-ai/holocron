@@ -89,6 +89,7 @@ export type ModelRequestAccountingEvent = {
   modelRequests: number;
   underlyingTransportCalls: number;
   telemetryRows: number;
+  telemetryRowIds: string[];
   fleetRequests: number;
   cloudRequests: number;
   unknownRequests: number;
@@ -220,8 +221,10 @@ export function assertModelRequestAccountingSnapshot(
 
 export function createModelRequestAccountingEvent(
   snapshot: ModelRequestAccountingSnapshot,
-  durableTelemetryRows: number
+  durableTelemetryRowIds: readonly string[]
 ): ModelRequestAccountingEvent {
+  const telemetryRowIds = [...durableTelemetryRowIds].sort();
+  const durableTelemetryRows = telemetryRowIds.length;
   assertModelRequestAccountingSnapshot(snapshot, { durableTelemetryRows });
   if (snapshot.instrumentationBoundary !== 'provider-model') {
     throw accountingFailure(snapshot, 'invalid-instrumentation-boundary');
@@ -235,6 +238,7 @@ export function createModelRequestAccountingEvent(
     modelRequests: snapshot.modelRequests,
     underlyingTransportCalls: snapshot.underlyingTransportCalls,
     telemetryRows: durableTelemetryRows,
+    telemetryRowIds,
     fleetRequests: snapshot.fleetRequests,
     cloudRequests: snapshot.cloudRequests,
     unknownRequests: snapshot.unknownRequests,
