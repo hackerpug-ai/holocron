@@ -8,31 +8,33 @@
 > Sprint: sprint-33-fleet-routing-and-deployed-service-restoration
 > Proposed By: mcp-planner
 > TDD_MODE: red_first · RED_GREEN_REQUIRED: yes
-> Depends on: S33-MCP-01, S33-MCP-02, S33-PLAT-*:data plane flipped to postgres, S33-OPS-*:holocron router reachable on the tailnet with role models resident on the minis, MK6-DATA-001
+> Depends on: S33-MCP-01, S33-MCP-02, S33-PLAT-04, S33-OPS-01, MK6-DATA-001, MK6-MCP-001, CUTOVER-MCP-001
 > Blocks: —
 
 ## Outcome
 
-Produce the sprint's MCP-side gate evidence: against the live deployed service, the full 44-tool surface enumerates over both transports, get_document returns real Postgres content instead of the retired-plane failure, and the fleet-dependent search tool lands in exactly one named state (HYBRID_OK or ROLE_UNAVAILABLE) with the fleet endpoint proven non-loopback.
+Produce the sprint's MCP-side gate evidence: against the live deployed service, the full 44-tool surface enumerates over both transports, every frozen tool receives a real production call under the guarded cutover namespace, get_document returns real Postgres content instead of the retired-plane failure, and the fleet-dependent search tool succeeds through the real non-loopback fleet.
 
-**Success state:** A reviewer holding .tmp/S33-MCP-03/ can see, from raw captured responses: 44 tools listed over Streamable HTTP and over stdio in the container; the same documentId returning the same title and non-empty content on both transports with data_plane 'postgres'; the pre-flip capture showing the 410 retired-plane failure for the identical call; and the fleet-dependent tool's named classification alongside the non-loopback fleet endpoint from /health.
+**Success state:** A reviewer holding `.tmp/S33-MCP-03/` and the bound `CUTOVER-MCP-001` ledger can see 44 tools listed over Streamable HTTP and in-container stdio, 44 real manifest-ordered production calls, independent read/write oracles, exact-sha service identity, successful namespaced cleanup with zero residual rows/jobs, the same document content over both transports, and a successful fleet-backed hybrid search.
 
 ## Critical Constraints
 
 **MUST**
 
-- Discover the target document by calling list_documents on the deployed service — never seed by writing to production.
+- Discover the migrated-document witness by calling list_documents on the deployed service; namespaced mutation fixtures are separate and must never substitute for retained-corpus evidence.
 - Capture a RED artifact before the flip (get_document over the deployed endpoint while data_plane is 'convex') and a GREEN artifact after, both written under .tmp/S33-MCP-03/.
 - Fail closed when HOLO_PRODUCTION_BASE_URL, HOLO_KEY_MCP, HOLO_DEPLOY_TARGET or HOLO_RELEASE_PATH are unset — throw in beforeAll, never it.skip to green.
 - Assert the fleet endpoint reported by the deployed /health is a non-loopback, non-laptop address, so a fleet answer cannot be credited to the operator's machine.
-- Record the fleet-dependent tool outcome in an artifact 'classification' field as exactly one of HYBRID_OK or ROLE_UNAVAILABLE and assert which one occurred; never accept an empty success.
+- Record the fleet-dependent tool outcome as exactly `HYBRID_OK`; `ROLE_UNAVAILABLE`, an empty result, or a loopback/laptop inference route is blocking.
+- Invoke the frozen 44-tool manifest in order through the guarded `CUTOVER-MCP-001` production-write verifier. Stop on first failure, repair only the responsible production path, retry that tool and family, and resume only after they pass.
+- Record every created row and dependent job under the unique `mcp-e2e-<run-id>` namespace, verify each effect independently, and remove only ledgered identifiers in a scoped transaction. Zero residue is required.
 
 **NEVER**
 
-- NEVER write to the deployed database (no store_document / update_document / share_document / remove_* against production).
+- NEVER issue an unnamespaced, unledgered, or non-reversible production mutation. Production writes are authorized only through the guarded verifier after host, SHA, Postgres health, bearer credential, and rollback-checkpoint proof.
 - NEVER edit deployment, compose, health, cutover, or inference sources — this task adds a test plus captured evidence only.
 - NEVER mark the task complete on the strength of a local run; the ACs are against the deployed service.
-- NEVER accept `{results: []}` or `null` as a passing outcome for any assertion.
+- NEVER accept `{results: []}` or `null` where the tool contract requires real application data, and never weaken a correct oracle to obtain green.
 
 **STRICTLY**
 
@@ -58,11 +60,11 @@ Produce the sprint's MCP-side gate evidence: against the live deployed service, 
 - **Tier:** e2e · **Service:** deployed holocron MCP HTTP endpoint + real `holo mcp:stdio` process inside the deployed mastra container · **Flow:** UC-SVC-04
 - **Scenario:** topology `multi-node` · evidence `stdout` · negative control: disconnect, stub, static, empty
 
-### AC-3 — The fleet-dependent tool lands in exactly one named state, with the fleet endpoint proven off the laptop
+### AC-3 — The fleet-dependent tool succeeds through the real off-laptop fleet
 
 - **GIVEN** the deployed service's fleet endpoint from /health and the S33-MCP-02 semantics in the running image
 - **WHEN** an MCP client calls hybrid_search against the deployed endpoint
-- **THEN** the artifact's classification field is exactly 'HYBRID_OK' (searchMethod 'hybrid', totalResults >= 1, score > 0) or 'ROLE_UNAVAILABLE' (isError true, code ROLE_UNAVAILABLE, role 'embed' and the endpoint named) — and in both cases the /health fleet endpoint is a non-loopback, non-laptop address
+- **THEN** the artifact's classification field is exactly 'HYBRID_OK', searchMethod is 'hybrid', totalResults is at least 1 with a positive score, and the /health fleet endpoint is a non-loopback, non-laptop address
 - **Verify:** `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts`
 - **Tier:** e2e · **Service:** deployed holocron MCP endpoint + deployed /health fleet probe + the LiteLLM router on holocron routing to the Mac minis · **Flow:** UC-SVC-04
 - **Scenario:** topology `multi-node` · evidence `api_response` · negative control: stub, empty, static, mock
@@ -75,7 +77,7 @@ Produce the sprint's MCP-side gate evidence: against the live deployed service, 
 | TC-2 | The pre-flip RED artifact for the identical call contains HTTP 410 with retired_cloud_plane_removed_d08_02 and the post-flip response does not | AC-1 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
 | TC-3 | Unauthenticated POST /mcp returns 401 and authenticated returns 200 on the deployed endpoint | AC-1 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
 | TC-4 | Both transports enumerate the identical 44 tool ids, return deep-equal get_document payloads, and the recorded digest matches the running container | AC-2 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
-| TC-5 | hybrid_search on the deployed service classifies as exactly HYBRID_OK or ROLE_UNAVAILABLE and never an empty success | AC-3 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
+| TC-5 | hybrid_search on the deployed service classifies as exactly HYBRID_OK with at least one positively scored result | AC-3 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
 | TC-6 | The deployed /health fleet endpoint is non-loopback and not the operator's laptop | AC-3 | `PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts` |
 
 ## Fixtures
@@ -118,7 +120,7 @@ Produce the sprint's MCP-side gate evidence: against the live deployed service, 
 - services/platform/deploy/**, scripts/deploy* - devops-engineer lane (S33-OPS-*)
 - services/platform/src/cutover/**, src/http/**, src/deploy/**, src/inference/**, fleet/manifest.json - mastra-planner lane (S33-PLAT-*)
 - .spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml - S33-MCP-01 and S33-MCP-02 own the additive edits
-- the deployed database - read-only; no MCP mutation tools against production
+- the deployed database - guarded namespaced writes only through `CUTOVER-MCP-001`; all recorded rows and dependent jobs must be independently proven and removed by ledgered identifier
 
 ## Design
 
@@ -131,7 +133,7 @@ Produce the sprint's MCP-side gate evidence: against the live deployed service, 
 
 - This task cannot start green: before the S33-PLAT flip, AC-1 fails against the deployed service. That failure is the required RED evidence and must be captured to .tmp/S33-MCP-03/red-get-document.json rather than worked around.
 - The human gate turns the laptop off the tailnet; this test proves the machine-checkable half of that claim by asserting the deployed fleet endpoint is neither loopback nor the laptop. Proof that a specific mini generated the tokens comes from the S33-OPS router metrics / oMLX logs, not from an MCP response.
-- AC-3 classifies as ROLE_UNAVAILABLE until S33-OPS-05 provisions qwen3-embedding to the minis and the holocron router; after it lands the expected classification becomes HYBRID_OK. Either is a pass for this AC — an empty success is not.
+- AC-3 runs only after fleet routing is healthy. `ROLE_UNAVAILABLE` is useful diagnostic evidence but is not a passing state for this cutover.
 
 **Pattern** — Discovery-bound assertions: never hardcode an id or title against production — read them from one tool and assert them through another, on both transports, so the assertion cannot be satisfied by a static response.
 
@@ -158,13 +160,13 @@ _Source:_ `services/platform/tests/integration/sprint19-mcp-rehost.test.ts:614-7
 - Fail closed on missing env: throw in beforeAll naming the missing variable. Never it.skip when the deployed target is unreachable.
 - No `any`; parse JSON-RPC payloads through narrow type guards.
 - Every assertion must be traceable to a captured artifact under .tmp/S33-MCP-03/.
-- Read-only against production: the test must not invoke any MCP mutation tool on the deployed service.
+- Production mutations require the guarded verifier and its namespace/ledger/cleanup contract; direct ad hoc mutation calls from this test are prohibited.
 
 ## Boundary Contracts
 
 - Deployed MCP endpoint: https://holocron.tail011a51.ts.net:44111/mcp — Streamable HTTP, bearer HOLO_KEY_MCP, 401 without it (verified live 2026-08-16).
 - Deployed Postgres publishes only 127.0.0.1:44112 on the holocron host, so the stdio transport must be exercised on that host inside the mastra container, not from a remote client.
-- The deployed service may run under the soak write fence; this task must be read-only against production and must not attempt store_document there.
+- The deployed service must report `data_plane: postgres` with migration read-only disabled before the guarded sweep. A write fence, missing rollback checkpoint, wrong host/SHA, missing bearer, or cleanup residue is a blocking failure.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -326,7 +328,7 @@ _Source:_ `services/platform/tests/integration/sprint19-mcp-rehost.test.ts:614-7
       "id": "AC-3",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN the deployed fleet routing WHEN hybrid_search is called against the deployed endpoint THEN the artifact classification is exactly 'HYBRID_OK' or 'ROLE_UNAVAILABLE' with the corresponding concrete assertions, and the /health fleet endpoint is non-loopback and not the laptop",
+      "description": "GIVEN healthy deployed fleet routing WHEN hybrid_search is called against the deployed endpoint THEN the artifact classification is exactly 'HYBRID_OK' with a positive real result, and the /health fleet endpoint is non-loopback and not the laptop",
       "verify": "PLATFORM_IT=1 HOLO_PRODUCTION_BASE_URL=https://holocron.tail011a51.ts.net:44111 HOLO_DEPLOY_TARGET=holocron pnpm test:integration services/platform/tests/integration/sprint33-mcp-03-deployed-surface.test.ts",
       "scenario": {
         "id": "S33-MCP-03/AC-3",
@@ -360,13 +362,13 @@ _Source:_ `services/platform/tests/integration/sprint19-mcp-rehost.test.ts:614-7
             "end_state": {
               "must_observe": [
                 "/health fleet.endpoint does not contain '127.0.0.1', 'localhost', '::1' or 'host.docker.internal'",
-                "artifact field 'classification' === 'HYBRID_OK' or === 'ROLE_UNAVAILABLE'",
-                "if HYBRID_OK: structuredContent.searchMethod === 'hybrid' with totalResults >= 1 and results[0].score > 0",
-                "if ROLE_UNAVAILABLE: result.isError === true, parsed error code === 'ROLE_UNAVAILABLE', message contains the literal role token 'embed' and the fleet endpoint recorded from /health"
+                "artifact field 'classification' === 'HYBRID_OK'",
+                "structuredContent.searchMethod === 'hybrid' with totalResults >= 1 and results[0].score > 0"
               ],
               "must_not_observe": [
                 "structuredContent.totalResults === 0 with result.isError === false",
                 "an empty results array returned as a success",
+                "parsed error code === 'ROLE_UNAVAILABLE'",
                 "parsed error code === 'INTERNAL_SERVER_ERROR' carrying no named role or endpoint",
                 "a fleet endpoint resolving to the operator's laptop"
               ]
