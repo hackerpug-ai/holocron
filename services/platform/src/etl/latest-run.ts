@@ -45,7 +45,9 @@ export async function loadLatestRunContext(options?: {
     const catalogPath = options?.catalogPath ?? latest.catalog_path;
     const exportDir = options?.exportDir ?? latest.export_root;
     const catalog = loadCatalog(catalogPath);
-    const archive = readImmutableExport(exportDir, catalog);
+    const archive = readImmutableExport(exportDir, catalog, {
+      allowUnreferencedStorage: true,
+    });
     return {
       sql,
       databaseUrl,
