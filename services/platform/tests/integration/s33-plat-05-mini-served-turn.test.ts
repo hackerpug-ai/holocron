@@ -733,14 +733,14 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     });
     expect(receipt.actual_curl_child_count).toBeGreaterThanOrEqual(1);
     expect(receipt.positive_path).toEqual({
-      argv: 0,
-      environment: 0,
-      stdout: 0,
-      stderr: 0,
-      receipt: 0,
-      evidence: 0,
-      artifact: 0,
-      retained_file: 0,
+      argv_canary_matches: 0,
+      environment_canary_matches: 0,
+      stdout_canary_matches: 0,
+      stderr_canary_matches: 0,
+      receipt_canary_matches: 0,
+      evidence_canary_matches: 0,
+      artifact_canary_matches: 0,
+      retained_file_canary_matches: 0,
     });
     expect(receipt.negative_control_manifest).toEqual([
       {

@@ -368,6 +368,7 @@ post_chat_from_mini() {
       printf "dump-header = -\n"
       printf "fail-with-body\n"
     } >"$curl_config"
+    printf "S33_PUBLIC_POST_ATTEMPTED\n" >&2
     curl --silent --show-error --config "$curl_config"
     rm -f "$curl_config"
   '
@@ -533,6 +534,45 @@ canary_file_match_count() {
   fi
 }
 
+canary_text_match_count() {
+  local content="${1-}"
+  if [[ "$content" == *"$CANARY_VALUE"* ]]; then
+    printf '1'
+  else
+    printf '0'
+  fi
+}
+
+canary_files_match_count() {
+  local count=0 path
+  for path in "$@"; do
+    count=$((count + $(canary_file_match_count "$path")))
+  done
+  printf '%s' "$count"
+}
+
+canary_retained_file_match_count() {
+  local count=0 path
+  while IFS= read -r -d '' path; do
+    count=$((count + $(canary_file_match_count "$path")))
+  done < <(find "$TEMP_DIR" -type f -print0)
+  printf '%s' "$count"
+}
+
+loaded_credential_value_count() {
+  local count=0 name
+  for name in ANTHROPIC_API_KEY BACKUP_R2_ACCESS_KEY_ID BACKUP_R2_SECRET_ACCESS_API_TOKEN \
+    BACKUP_R2_SECRET_ACCESS_KEY CLOUDFLARE_API_TOKEN DATABASE_URL DATABASE_URL_OWNER \
+    DEEPGRAM_API_KEY DEEPSEEK_API_KEY ELEVENLABS_API_KEY EXPO_PUBLIC_RN_API_KEY EXPO_TOKEN \
+    FLEET_KEY HOLO_KEY_CONTROL HOLO_KEY_MCP HOLO_KEY_RN MASTRA_API_KEY OPENROUTER_API_KEY \
+    PGPASSWORD R2_ACCESS_KEY_ID R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY \
+    R2_RESTORE_SESSION_TOKEN R2_SECRET_ACCESS_KEY RESTIC_PASSWORD TAILSCALE_AUTH_KEY \
+    YOUTUBE_API_KEY ZAI_API_KEY ZERO_ADMIN_PASSWORD; do
+    printenv "$name" >/dev/null 2>&1 && count=$((count + 1))
+  done
+  printf '%s' "$count"
+}
+
 observe_canary_process() {
   local pid="$1"
   command -v ps >/dev/null 2>&1 || return 1
@@ -652,7 +692,7 @@ run_canary_control() {
   esac
   if [[ -e "$artifact_path" ]]; then rm -f "$artifact_path"; fi
   [[ ! -e "$artifact_path" ]] || artifact_removed=false
-  rm -f "$ready_path" "$release_path"
+  rm -f "$ready_path" "$release_path" "$stdout_path" "$stderr_path"
 
   jq -nc \
     --arg id "$id" --arg kind "$kind" --arg method "$method" --arg expected_surface "$expected_surface" \
@@ -666,20 +706,37 @@ run_canary_control() {
 
 run_credential_canary() {
   [[ -n "${S33_CANARY_PUBLIC_URL:-}" ]] || json_error "CANARY_PUBLIC_URL_REQUIRED" "S33_CANARY_PUBLIC_URL must name a real Hono HTTP boundary"
+  local live_credentials_loaded
+  live_credentials_loaded=$(loaded_credential_value_count)
+  [[ "$live_credentials_loaded" -eq 0 ]] || json_error "LIVE_CREDENTIAL_LOADED" "credential canary requires every live credential value to be unloaded"
   IFS= read -r CANARY_VALUE || json_error "CANARY_INPUT_REQUIRED" "credential canary must arrive over private stdin"
   [[ "$CANARY_VALUE" =~ ^S33_CREDENTIAL_CANARY_[A-Za-z0-9]+$ ]] || json_error "CANARY_INPUT_INVALID" "credential canary format was invalid"
   TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/s33-plat-05-canary.XXXXXX") || json_error "TEMP_DIR_UNAVAILABLE" "could not create private canary workspace"
   local positive_config="$TEMP_DIR/positive-curl.conf" positive_body="$TEMP_DIR/positive.body" positive_stderr="$TEMP_DIR/positive.stderr" status_file="$TEMP_DIR/positive.status"
+  local verifier_pid verifier_instance verifier_argv verifier_env
+  if ! observe_canary_process "$$"; then
+    json_error "CANARY_OBSERVER_UNAVAILABLE" "platform process observer could not bind the target verifier"
+  fi
+  verifier_pid="$CANARY_OBSERVED_PID"
+  verifier_instance="$CANARY_OBSERVED_INSTANCE"
+  verifier_argv="$CANARY_OBSERVED_ARGV"
+  verifier_env="$CANARY_OBSERVED_ENV"
   local escaped_canary; escaped_canary=$(printf '%s' "$CANARY_VALUE" | sed 's/[\\"]/\\&/g')
   umask 077
   printf 'url = "%s"\nrequest = GET\nheader = "Authorization: Bearer %s"\nfail-with-body\n' "$S33_CANARY_PUBLIC_URL" "$escaped_canary" >"$positive_config"
   chmod 600 "$positive_config"
   local config_mode; config_mode=$(stat -f '%Lp' "$positive_config" 2>/dev/null || stat -c '%a' "$positive_config" 2>/dev/null || true)
   [[ "$config_mode" == "600" ]] || json_error "CANARY_CONFIG_MODE_INVALID" "positive curl config was not mode 0600"
-  local curl_pid=0 actual_curl_child_count=0 observer_skipped=false
+  local curl_pid=0 curl_parent=0 actual_curl_child_count=0 observer_skipped=false
+  local curl_observed_pid=0 curl_instance='' curl_argv='' curl_env=''
   curl --silent --show-error --config "$positive_config" --output "$positive_body" --write-out '%{http_code}' >"$status_file" 2>"$positive_stderr" &
   curl_pid=$!
   if ! observe_canary_process "$curl_pid"; then observer_skipped=true; fi
+  curl_observed_pid="$CANARY_OBSERVED_PID"
+  curl_instance="$CANARY_OBSERVED_INSTANCE"
+  curl_argv="$CANARY_OBSERVED_ARGV"
+  curl_env="$CANARY_OBSERVED_ENV"
+  curl_parent=$(ps -p "$curl_pid" -o ppid= 2>/dev/null | awk '{print $1; exit}')
   actual_curl_child_count=1
   wait "$curl_pid"; local curl_exit=$?
   local status; status=$(<"$status_file")
@@ -691,7 +748,16 @@ run_credential_canary() {
   local temp_removed=true
   [[ ! -e "$positive_config" ]] || temp_removed=false
   [[ "$observer_skipped" == false ]] || json_error "CANARY_OBSERVER_UNAVAILABLE" "platform process observer could not bind the real curl child"
+  [[ "$verifier_pid" == "$$" && "$curl_observed_pid" == "$curl_pid" && "$curl_parent" == "$$" ]] ||
+    json_error "CANARY_PROCESS_LINEAGE_INVALID" "observed verifier and curl process lineage did not match"
   [[ "$public_reached" == true ]] || json_error "CANARY_PUBLIC_HTTP_FAILED" "real Hono HTTP boundary did not return success"
+
+  local positive_evidence="$TEMP_DIR/positive-evidence.json"
+  jq -n \
+    --argjson verifier_pid "$verifier_pid" --arg verifier_instance "$verifier_instance" \
+    --argjson curl_pid "$curl_pid" --arg curl_instance "$curl_instance" --argjson curl_parent "$curl_parent" \
+    --arg status "$status" --arg body_sha "$(sha256_file "$positive_body")" --arg stderr_sha "$(sha256_file "$positive_stderr")" \
+    '{verifierPid:$verifier_pid,verifierInstanceSha256:$verifier_instance,curlPid:$curl_pid,curlInstanceSha256:$curl_instance,curlParentPid:$curl_parent,httpStatus:$status,bodySha256:$body_sha,stderrSha256:$stderr_sha}' >"$positive_evidence"
 
   local rows='[' row
   row=$(run_canary_control artifact-write artifact private-artifact-write artifact) || json_error "CANARY_OBSERVER_UNAVAILABLE" "artifact control process could not be observed"; rows+="$row,"
@@ -704,15 +770,62 @@ run_credential_canary() {
   local manifest='[{"id":"artifact-write","kind":"artifact","method":"private-artifact-write","expected_surface":"artifact"},{"id":"command-substitution-printenv","kind":"command-substitution","method":"printenv-command-substitution-into-argv","expected_surface":"argv"},{"id":"direct-argv","kind":"direct-argv","method":"direct-positional-argv","expected_surface":"argv"},{"id":"direct-environment","kind":"direct-environment","method":"direct-child-environment","expected_surface":"environment"},{"id":"indirect-parameter-name-length","kind":"indirect-parameter","method":"indirect-shell-parameter-name-length-to-stdout","expected_surface":"stdout"},{"id":"runtime-language-getenv","kind":"runtime-getenv","method":"runtime-language-getenv-to-stdout","expected_surface":"stdout"}]'
   local control_diagnostics control_summary
   control_diagnostics=$(jq -c '[.[] | {id,expected_surface,observed_surface,expected_surface_canary_matches,non_expected_surface_canary_matches,exit_code,control_artifact_removed,actual_pid,observed_pid}]' <<<"$rows")
-  control_summary=$(jq -c --argjson manifest "$manifest" '{manifest_match:($manifest == map({id,kind,method,expected_surface})),row_count:length,unique_id_count:([.[].id] | unique | length),unique_kind_count:([.[].kind] | unique | length),unique_method_count:([.[].method] | unique | length),unique_process_instance_count:([.[].actual_process_instance_id] | unique | length),valid_row_count:([.[] | select(.actual_process_spawned == true and .spawned_process_count == 1 and .bounded_process == true and .actual_pid > 1 and .observed_pid == .actual_pid and .actual_process_instance_id == .observed_process_instance_id and .observed_surface == .expected_surface and .observed_canary_matches == .expected_surface_canary_matches and .expected_surface_canary_matches >= 1 and .non_expected_surface_canary_matches == 0 and .exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED" and .public_request_count == 0 and .external_side_effect_count == 0 and .control_artifact_removed == true)] | length)}' <<<"$rows")
-  jq -en --argjson rows "$rows" --argjson manifest "$manifest" '
-    ($rows | length) == 6 and $manifest == ($rows | map({id,kind,method,expected_surface})) and
-    ([$rows[].id] | unique | length) == 6 and ([$rows[].kind] | unique | length) == 6 and
-    ([$rows[].method] | unique | length) == 6 and ([$rows[].actual_process_instance_id] | unique | length) == 6 and
-    all($rows[]; .actual_process_spawned == true and .spawned_process_count == 1 and .bounded_process == true and .actual_pid > 1 and .observed_pid == .actual_pid and .actual_process_instance_id == .observed_process_instance_id and .observed_surface == .expected_surface and .observed_canary_matches == .expected_surface_canary_matches and .expected_surface_canary_matches >= 1 and .non_expected_surface_canary_matches == 0 and .exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED" and .public_request_count == 0 and .external_side_effect_count == 0 and .control_artifact_removed == true)
-  ' >/dev/null 2>&1 || json_error "CREDENTIAL_CANARY_EXPOSURE_DETECTED" "credential canary control did not fail closed" "$(jq -nc --argjson diagnostics "$control_diagnostics" --argjson summary "$control_summary" '{control_diagnostics:$diagnostics,control_summary:$summary}')"
-  jq -n --argjson rows "$rows" --argjson manifest "$manifest" --argjson curl_children "$actual_curl_child_count" --argjson config_matches "$config_matches" --argjson temp_removed "$temp_removed" --argjson reached "$public_reached" --argjson pid "$CANARY_OBSERVED_PID" \
-    '{ok:true,actual_verifier_executed:true,actual_curl_child_count:$curl_children,real_filesystem_observed:true,public_hono_http_reached:$reached,mock_count:0,stub_count:0,recorded_response_count:0,private_stdin_canary_matches:1,temp_config_canary_matches_during_request:$config_matches,temp_config_mode:600,private_temp_config_removed:$temp_removed,retained_temp_config_count:0,process_observer_skipped:false,positive_path:{argv:0,environment:0,stdout:0,stderr:0,receipt:0,evidence:0,artifact:0,retained_file:0},negative_control_manifest:$manifest,negative_control_manifest_is_id_sorted:true,negative_controls:$rows,negative_control_manifest_match:true,negative_control_unique_id_count:6,negative_control_unique_kind_count:6,negative_control_unique_method_count:6,negative_control_unique_process_instance_count:6,negative_control_duplicate_count:0,negative_control_missing_count:0,negative_control_extra_count:0,negative_control_wrong_surface_count:0,negative_controls_expected_detection_count:6,negative_controls_failed_closed_count:6,unexpected_exposure_count:0,observation_recomputed:true,aggregate_recomputed_from_exact_manifest:true,live_credential_values_loaded:0,live_credential_values_printed:0,network_mutation_performed:false,literal_disconnect_claimed:false,positive_curl_observed_pid:$pid}'
+  control_summary=$(jq -c --argjson manifest "$manifest" '
+    . as $rows |
+    ($manifest | map(.id)) as $expected_ids |
+    ($rows | map(.id)) as $actual_ids |
+    {
+      manifest_match:($manifest == ($rows | map({id,kind,method,expected_surface}))),
+      manifest_is_id_sorted:($expected_ids == ($expected_ids | sort)),
+      row_count:($rows | length),
+      unique_id_count:($actual_ids | unique | length),
+      unique_kind_count:([$rows[].kind] | unique | length),
+      unique_method_count:([$rows[].method] | unique | length),
+      unique_process_instance_count:([$rows[].actual_process_instance_id] | unique | length),
+      duplicate_count:(($actual_ids | length) - ($actual_ids | unique | length)),
+      missing_count:(($expected_ids - $actual_ids) | length),
+      extra_count:(($actual_ids - $expected_ids) | length),
+      wrong_surface_count:([$rows[] as $row | $manifest[] | select(.id == $row.id and (.kind != $row.kind or .method != $row.method or .expected_surface != $row.expected_surface))] | length),
+      expected_detection_count:([$rows[] | select(.expected_surface_canary_matches >= 1)] | length),
+      failed_closed_count:([$rows[] | select(.exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED")] | length),
+      valid_row_count:([$rows[] | select(.actual_process_spawned == true and .spawned_process_count == 1 and .bounded_process == true and .actual_pid > 1 and .observed_pid == .actual_pid and .actual_process_instance_id == .observed_process_instance_id and .observed_surface == .expected_surface and .observed_canary_matches == .expected_surface_canary_matches and .expected_surface_canary_matches >= 1 and .non_expected_surface_canary_matches == 0 and .exit_code != 0 and .error_code == "CREDENTIAL_CANARY_EXPOSURE_DETECTED" and .public_request_count == 0 and .external_side_effect_count == 0 and .control_artifact_removed == true)] | length)
+    }
+  ' <<<"$rows")
+  jq -e '
+    .manifest_match == true and .manifest_is_id_sorted == true and .row_count == 6 and
+    .unique_id_count == 6 and .unique_kind_count == 6 and .unique_method_count == 6 and
+    .unique_process_instance_count == 6 and .duplicate_count == 0 and .missing_count == 0 and
+    .extra_count == 0 and .wrong_surface_count == 0 and .expected_detection_count == 6 and
+    .failed_closed_count == 6 and .valid_row_count == 6
+  ' <<<"$control_summary" >/dev/null 2>&1 || json_error "CREDENTIAL_CANARY_EXPOSURE_DETECTED" "credential canary control did not fail closed" "$(jq -nc --argjson diagnostics "$control_diagnostics" --argjson summary "$control_summary" '{control_diagnostics:$diagnostics,control_summary:$summary}')"
+
+  local argv_matches environment_matches stdout_matches stderr_matches evidence_matches artifact_matches retained_matches private_stdin_matches
+  argv_matches=$(canary_text_match_count "$verifier_argv $curl_argv")
+  environment_matches=$(canary_text_match_count "$verifier_env $curl_env")
+  stdout_matches=$(canary_file_match_count "$positive_body")
+  stderr_matches=$(canary_file_match_count "$positive_stderr")
+  evidence_matches=$(canary_file_match_count "$positive_evidence")
+  artifact_matches=$(canary_files_match_count "$positive_body" "$positive_stderr" "$status_file" "$positive_evidence")
+  retained_matches=$(canary_retained_file_match_count)
+  private_stdin_matches=$(canary_text_match_count "$CANARY_VALUE")
+  local positive_path receipt_basis receipt_matches unexpected_exposure_count
+  positive_path=$(jq -nc \
+    --argjson argv "$argv_matches" --argjson environment "$environment_matches" \
+    --argjson stdout "$stdout_matches" --argjson stderr "$stderr_matches" \
+    --argjson evidence "$evidence_matches" --argjson artifact "$artifact_matches" \
+    --argjson retained "$retained_matches" \
+    '{argv_canary_matches:$argv,environment_canary_matches:$environment,stdout_canary_matches:$stdout,stderr_canary_matches:$stderr,receipt_canary_matches:null,evidence_canary_matches:$evidence,artifact_canary_matches:$artifact,retained_file_canary_matches:$retained}')
+  receipt_basis=$(jq -n --argjson rows "$rows" --argjson manifest "$manifest" --argjson summary "$control_summary" --argjson positive "$positive_path" \
+    --argjson curl_children "$actual_curl_child_count" --argjson config_matches "$config_matches" --argjson temp_removed "$temp_removed" --argjson reached "$public_reached" \
+    --argjson verifier_pid "$verifier_pid" --arg verifier_instance "$verifier_instance" --argjson curl_pid "$curl_observed_pid" --arg curl_instance "$curl_instance" --argjson curl_parent "$curl_parent" \
+    --argjson private_stdin_matches "$private_stdin_matches" --argjson live_loaded "$live_credentials_loaded" \
+    '{ok:true,actual_verifier_executed:true,actual_curl_child_count:$curl_children,real_filesystem_observed:true,public_hono_http_reached:$reached,mock_count:0,stub_count:0,recorded_response_count:0,private_stdin_canary_matches:$private_stdin_matches,temp_config_canary_matches_during_request:$config_matches,temp_config_mode:600,private_temp_config_removed:$temp_removed,retained_temp_config_count:0,process_observer_skipped:false,positive_path:$positive,negative_control_manifest:$manifest,negative_control_manifest_is_id_sorted:$summary.manifest_is_id_sorted,negative_controls:$rows,negative_control_manifest_match:$summary.manifest_match,negative_control_unique_id_count:$summary.unique_id_count,negative_control_unique_kind_count:$summary.unique_kind_count,negative_control_unique_method_count:$summary.unique_method_count,negative_control_unique_process_instance_count:$summary.unique_process_instance_count,negative_control_duplicate_count:$summary.duplicate_count,negative_control_missing_count:$summary.missing_count,negative_control_extra_count:$summary.extra_count,negative_control_wrong_surface_count:$summary.wrong_surface_count,negative_controls_expected_detection_count:$summary.expected_detection_count,negative_controls_failed_closed_count:$summary.failed_closed_count,unexpected_exposure_count:null,observation_recomputed:true,aggregate_recomputed_from_exact_manifest:true,live_credential_values_loaded:$live_loaded,live_credential_values_printed:0,network_mutation_performed:false,literal_disconnect_claimed:false,positive_verifier_observed_pid:$verifier_pid,positive_verifier_instance_sha256:$verifier_instance,positive_curl_observed_pid:$curl_pid,positive_curl_instance_sha256:$curl_instance,positive_curl_parent_pid:$curl_parent}')
+  receipt_matches=$(canary_text_match_count "$receipt_basis")
+  positive_path=$(jq -c --argjson matches "$receipt_matches" '.receipt_canary_matches = $matches' <<<"$positive_path")
+  unexpected_exposure_count=$(jq -n --argjson positive "$positive_path" '$positive | to_entries | map(.value) | add')
+  [[ "$unexpected_exposure_count" -eq 0 ]] || json_error "CREDENTIAL_CANARY_EXPOSURE_DETECTED" "positive credential path exposed the canary" "$(jq -nc --argjson positive "$positive_path" '{positive_path:$positive}')"
+  jq -n --argjson receipt "$receipt_basis" --argjson positive "$positive_path" --argjson unexpected "$unexpected_exposure_count" \
+    '$receipt | .positive_path = $positive | .unexpected_exposure_count = $unexpected'
   exit 0
 }
 
@@ -729,7 +842,12 @@ run_forbidden_control() {
 run_live() {
   require_common_identity
   load_release_lock
-  [[ -n "${HOLO_KEY_RN:-}" ]] || json_error "AUTH_UNAVAILABLE" "HOLO_KEY_RN is required"
+  local public_auth=''
+  if [[ "$MODE" != forbidden-backend && "${S33_MINI_NEGATIVE:-}" != forbidden-backend ]]; then
+    IFS= read -r public_auth || json_error "AUTH_UNAVAILABLE" "HOLO_KEY_RN must arrive over private stdin"
+    [[ -n "$public_auth" ]] || json_error "AUTH_UNAVAILABLE" "HOLO_KEY_RN must arrive over private stdin"
+    unset HOLO_KEY_RN HOLO_KEY_MCP
+  fi
   TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/s33-plat-05.XXXXXX") || json_error "TEMP_DIR_UNAVAILABLE" "could not create private evidence workspace"
   read_router_container
   read_router_snapshot
@@ -748,18 +866,20 @@ run_live() {
   local nonce="s33-$(date -u +%Y%m%dT%H%M%SZ)-$$-$(ruby -e 'print rand(100000..999999)')" request_body="$TEMP_DIR/request.json"
   local post_capture="$TEMP_DIR/post.capture" post_headers="$TEMP_DIR/post.headers" post_body="$TEMP_DIR/post.body"
   jq -nc --arg request_id "$nonce" --arg msg "S33 nonce $nonce: reply with one short sentence." '{requestId:$request_id,msg:$msg}' >"$request_body"
-  CHAT_REQUEST_ISSUED=true
-  post_chat_from_mini "$HOLO_KEY_RN" "$(<"$request_body")" >"$post_capture" 2>/dev/null || json_error "CHAT_REQUEST_FAILED" "the deployed public chat request failed"
+  local post_stderr="$TEMP_DIR/post.stderr" post_exit=0
+  post_chat_from_mini "$public_auth" "$(<"$request_body")" >"$post_capture" 2>"$post_stderr" || post_exit=$?
+  if grep -Fxq 'S33_PUBLIC_POST_ATTEMPTED' "$post_stderr"; then CHAT_REQUEST_ISSUED=true; fi
+  [[ "$post_exit" -eq 0 ]] || json_error "CHAT_REQUEST_FAILED" "the deployed public chat request failed with exit $post_exit"
   split_http_capture "$post_capture" "$post_headers" "$post_body"
   local public_post_http_status
   public_post_http_status=$(awk '$1 ~ /^HTTP\// {code=$2} END {print code+0}' "$post_headers")
   [[ "$public_post_http_status" =~ ^[0-9]+$ && "$public_post_http_status" -ge 200 && "$public_post_http_status" -lt 300 ]] ||
-    json_error "CHAT_REQUEST_FAILED" "the deployed public chat POST did not return a success status"
+    json_error "CHAT_REQUEST_FAILED" "the deployed public chat POST returned HTTP $public_post_http_status"
   local run_id
   run_id=$(jq -r '.runId // .run_id // empty' "$post_body" 2>/dev/null)
   [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ ]] || json_error "CHAT_RUN_ID_MISSING" "the deployed chat response did not return a run id"
   local stream_capture="$TEMP_DIR/stream.capture" stream_headers="$TEMP_DIR/stream.headers" stream_body="$TEMP_DIR/stream.body"
-  stream_chat_from_mini "$HOLO_KEY_RN" "$run_id" >"$stream_capture" 2>/dev/null || json_error "CHAT_STREAM_FAILED" "the deployed chat event stream failed"
+  stream_chat_from_mini "$public_auth" "$run_id" >"$stream_capture" 2>/dev/null || json_error "CHAT_STREAM_FAILED" "the deployed chat event stream failed"
   split_http_capture "$stream_capture" "$stream_headers" "$stream_body"
 
   if [[ "$MODE" == "post-chat-invalid-stream" ]]; then
