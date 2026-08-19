@@ -20,29 +20,38 @@ production evidence, and Codex, Claude, OpenCode, and Grok use the mutation-enab
   not sufficient for this plan's composite-corpus contract.
 - Production must not flip until an isolated candidate and a production rollback checkpoint have
   both been independently reconciled.
+- The deployed backup command currently resolves host `127.0.0.1:5432` even though production
+  Postgres is published by Compose on `127.0.0.1:44112`; the referenced pgBackRest paths and
+  binaries do not exist in either current runtime. No checkpoint claim is valid until a
+  Compose-aware checkpoint is independently restored with Postgres and blob parity.
+- There is no deterministic, versioned exact-SHA staging/package/deploy command. A health payload
+  cannot substitute for a staged release manifest bound to Git SHA, OCI digest, Compose digest,
+  and the observed running containers.
 - `S33-MCP-03` currently prohibits production writes. This conflicts with the approved,
   namespaced, reversible 44-tool production sweep and must be repaired without weakening cleanup,
   provenance, or real-service requirements.
 
 ## Required execution order
 
-1. Preserve unrelated `.tmp` evidence. Snapshot the SQLite database with SQLite backup semantics,
-   recursively inventory and hash the blob and export sources without following links, and create
-   a production Postgres rollback checkpoint before changing production data.
-2. Load the full composite corpus into an isolated Postgres candidate on the Holocron device.
-3. Require exact inventory, identifier, checksum, relationship, blob, embedding, and API
-   reconciliation with zero missing IDs, unexpected rows, FK orphans, checksum mismatches, or ETL
-   errors.
-4. Freeze local writes, re-snapshot the source, require the pre/copy/post semantic identities to
-   match, and apply that verified artifact to production.
-5. Deploy an exact committed SHA, flip `HOLO_DATA_PLANE=postgres`, verify known migrated reads, and
-   disable `HOLO_MIGRATION_READ_ONLY` only after reconciliation and rollback proof pass.
-6. Run the frozen 44 MCP tools in manifest order with guarded production writes. Stop at the first
+1. Finish `MK6-DATA-001` as an isolated-only proof and retain its reviewed immutable composite
+   artifact; it does not write production Postgres or production blob volumes.
+2. Stage, package, deploy, and independently observe one exact committed release while the serving
+   plane remains Convex and `HOLO_MIGRATION_READ_ONLY=1`.
+3. Create a Compose-aware production Postgres plus blob checkpoint and restore it into distinct
+   empty Compose volumes; require independent database, ledger, and blob parity before proceeding.
+4. Arm a durable local SQLite/blob write freeze, prove the current corpus still equals the reviewed
+   MK6 manifest, then apply that exact artifact through the same reviewed transform to production
+   and reconcile source-to-target plus target-to-source while the serving plane remains Convex.
+5. Flip only `HOLO_DATA_PLANE=postgres` and `HOLO_ROLLBACK_TARGET=postgres`, prove migrated reads,
+   and prove `HOLO_MIGRATION_READ_ONLY=1` remained armed before, during, and after the flip.
+6. In a separate operator-authorized action bound to the composite manifest, production checkpoint,
+   production reconcile receipt, and exact release, lift the write fence and durably record PONR.
+7. Run the frozen 44 MCP tools in manifest order with guarded production writes. Stop at the first
    failure; classify it, make the narrowest production repair, deploy the repair SHA, retry that
    tool and its family, then resume.
-7. Prove zero namespaced residue, then replace local MCP registrations for Codex, Claude,
+8. Prove zero namespaced residue, then replace local MCP registrations for Codex, Claude,
    OpenCode, and Grok with the remote Streamable HTTP endpoint.
-8. Independently smoke-test all four harnesses and leave production mutations enabled.
+9. Independently smoke-test all four harnesses and leave production mutations enabled.
 
 ## Composite migration contract
 
@@ -98,9 +107,14 @@ If any harness switch fails, that harness's prior configuration is restored atom
 
 ## Reconciliation with existing work
 
-- `MK6-DATA-001` owns immutable composite source capture, candidate and production load,
-  provenance, and exact reconciliation. Its export-only retained implementation is WIP, not proof.
-- `S33-PLAT-04` consumes a fresh passing `MK6-DATA-001` production corpus proof at flip time.
+- `MK6-DATA-001` owns immutable composite source capture, isolated candidate load, provenance, and
+  exact isolated reconciliation. It never writes production Postgres or production blob volumes.
+- `CUTOVER-RELEASE-001` owns deterministic exact-SHA staging/package/deploy while Convex still
+  serves and the Postgres write fence remains armed.
+- `CUTOVER-PLAT-001` owns the Compose-aware Postgres/blob rollback checkpoint and independent
+  restore proof; `CUTOVER-DATA-001` owns the frozen production apply and reconciliation.
+- `S33-PLAT-04` consumes the production reconcile receipt and flips reads while retaining
+  `HOLO_MIGRATION_READ_ONLY=1`; `CUTOVER-PLAT-002` separately owns write enablement and PONR.
 - `S33-MCP-03` owns deployed dual-transport and production live-tool proof. Its obsolete blanket
   production-write prohibition is replaced by the guarded namespace/ledger/cleanup contract here.
 - `MK6-MCP-001` owns narrow executor semantics fixes discovered during the manifest-ordered live
@@ -114,13 +128,17 @@ The retired `/kb-project-plan` step is represented by the current governed task-
 `.spec/tasks/holocron-device-mcp-cutover/`. The MCP specialist proposed the missing contracts and
 the existing specialist-authored task files remain authoritative for the migration and flip:
 
-1. `MK6-DATA-001` — composite source capture, isolated candidate, load, and exact reconciliation.
-2. `S33-PLAT-04` — proof-gated production flip to Postgres.
-3. `CUTOVER-MCP-001` — guarded manifest-ordered production sweep, repair checkpointing, and cleanup.
-4. `MK6-MCP-001` — narrow executor fixes discovered by the live sweep.
-5. `S33-MCP-03` — final deployed dual-transport and all-tool proof under the repaired write policy.
-6. `CUTOVER-HARNESS-001` — non-secret zsh/cmux credential bootstrap.
-7. `CUTOVER-HARNESS-002` — atomic four-harness switch and independent live smoke.
+1. `MK6-DATA-001` — immutable composite capture and isolated-only reconciliation.
+2. `CUTOVER-RELEASE-001` — deterministic exact-SHA stage/package/deploy under the write fence.
+3. `CUTOVER-PLAT-001` — Compose-aware Postgres/blob checkpoint and independent restore proof.
+4. `CUTOVER-DATA-001` — durable local freeze, exact production apply, and symmetric reconcile.
+5. `S33-PLAT-04` — proof-gated read flip that retains `HOLO_MIGRATION_READ_ONLY=1`.
+6. `CUTOVER-PLAT-002` — separately authorized manifest/checkpoint-bound write enablement and PONR.
+7. `CUTOVER-MCP-001` — guarded manifest-ordered production sweep, repair checkpointing, and cleanup.
+8. `MK6-MCP-001` — narrow executor fixes discovered by the live sweep.
+9. `S33-MCP-03` — final deployed dual-transport and all-tool proof under the repaired write policy.
+10. `CUTOVER-HARNESS-001` — non-secret zsh/cmux credential bootstrap.
+11. `CUTOVER-HARNESS-002` — atomic four-harness switch and independent live smoke.
 
 ## Acceptance gates
 
@@ -164,7 +182,8 @@ Each of Codex, Claude, OpenCode, and Grok independently:
 
 ## Rollback boundary
 
-Before ordinary remote writes begin, service rollback may restore the pre-cutover state. After
-ordinary remote writes begin, rollback preserves the Postgres database and reverts only to a
-previously verified Postgres-capable release. Harness configuration rollback is per-harness and
-atomic. The local SQLite database and pre-cutover snapshot remain retained through remote soak.
+Before `CUTOVER-PLAT-002` records PONR, an explicit rollback may restore the bound checkpoint and
+re-point reads to frozen Convex. After PONR or the first accepted ordinary write, Convex rollback is
+forbidden: rollback preserves Postgres and may only deploy a previously verified Postgres-capable
+release. Harness rollback remains per-harness and atomic. The local SQLite database, blob corpus,
+and immutable MK6 artifact remain retained through remote soak.

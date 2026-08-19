@@ -7,7 +7,7 @@
 > Type: feature
 > Proposed By: mcp-planner
 > TDD_MODE: red_first · RED_GREEN_REQUIRED: yes
-> Depends on: MK6-DATA-001, S33-PLAT-04
+> Depends on: CUTOVER-PLAT-002
 > Files: services/platform/src/cutover/soak-fence.ts, services/platform/src/cutover/mcp-production-verifier.ts, services/platform/src/cutover/mcp-verification-ledger.ts, services/platform/src/cli/holo.ts, services/platform/src/db/schema/cutover.ts, services/platform/src/db/schema/index.ts, services/platform/src/db/migrations/0039_mcp_verification_ledger.sql, services/platform/tests/integration/cutover-mcp-production-verifier.test.ts
 
 ## Outcome
