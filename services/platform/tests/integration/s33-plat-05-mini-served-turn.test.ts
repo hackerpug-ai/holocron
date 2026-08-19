@@ -5,7 +5,7 @@
  * does not replace a provider, database, HTTP transport, or Mastra primitive.
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { access, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -410,6 +410,33 @@ describe('S33-PLAT-05 real fleet and public chat accounting', () => {
     expect(accountingData.modelRequests).toBe(rows.length);
     expect(accountingData.telemetryRows).toBe(rows.length);
     expect(accountingData.instrumentationBoundary).toBe('provider-model');
+    if (!Array.isArray(accountingData.telemetryRowIds)) {
+      console.info(
+        'S33-PLAT-05-RED-EVIDENCE',
+        JSON.stringify({
+          schema: 's33-plat-05-red-observation/v1',
+          redSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+          failureClass: 'missing_public_chat_accounting',
+          missingField: 'telemetryRowIds',
+          testFile: 'services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts',
+          requestId,
+          runId: created.runId,
+          publicHono: { reached: true, createStatus: createResponse.status },
+          postgres: { reached: true, telemetryRows: rows.length },
+          fleet: {
+            reached: true,
+            providers: [...new Set(rows.map((row) => row.provider))],
+            endpoints: [...new Set(rows.map((row) => row.endpoint))],
+          },
+          accountingEventPresent: true,
+          terminalStatus: terminal.status,
+        })
+      );
+    }
+    expect(
+      accountingData.telemetryRowIds,
+      'missing public chat accounting telemetry row identity'
+    ).toEqual(rows.map((row) => row.id));
     expect(accountingData.responseHeaderApiBases).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^http:\/\/inference[12]\.tail011a51\.ts\.net:8003\/v1$/),
