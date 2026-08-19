@@ -1,13 +1,13 @@
 # HANDOFF — Holocron device and four-harness MCP cutover
 
 **Written** 2026-08-19T19:19:23Z by Codex/GPT-5.6
-**Repo** holocron · **Branch** main · **HEAD** a0e11267
+**Repo** holocron · **Branch** main · **Source-work HEAD** a0e11267 before the handoff-only commit
 **How to use this**: read §1–§2, run the checks in §4, then start at §2.
 Claims are labeled VERIFIED / CLAIMED / ASSUMED — re-verify anything not VERIFIED
 before you rely on it. Raw evidence is in §10.
 
 **Staleness warning**: §4 was last checked between 2026-08-19T19:19:23Z and
-2026-08-19T19:21Z. Two separate agent sessions were explicitly interrupted for this handoff;
+2026-08-19T19:24:23Z. Two separate agent sessions were explicitly interrupted for this handoff;
 their uncommitted worktrees must be inspected before either session is resumed or replaced.
 
 ## 1. Mission
@@ -54,8 +54,10 @@ Then do these in order:
 
 - Umbrella PRD plus the original three generated cutover tasks and the S33-MCP-03 production-write
   repair are on `main` — `VERIFIED` at `a0e11267`: `git show --stat a0e11267`.
-- The primary checkout remains on `main` at `a0e11267`; `origin/main` was still `0c469717` during
-  this session — `VERIFIED` by the §10 log/worktree sweep. The planning commit has not been pushed.
+- The source-work baseline is `a0e11267`; committing this handoff advanced local `main` with only
+  `.handoff/handoff-20260819-1919-holocron-device-mcp-cutover.md`. `origin/main` remained
+  `0c469717` at the final re-check — `VERIFIED` by `git rev-parse --short origin/main`. The planning
+  and handoff commits have not been pushed.
 - Production is healthy but still serves the Convex data plane at deployed source revision
   `0c469717d5f0acc680ffae0eb254dbcae7023628` — `VERIFIED` at 2026-08-19T19:20Z with the `/health`
   command in §10. The live flip has not happened.
@@ -463,4 +465,33 @@ $ ps -axo pid=,ppid=,etime=,command= | awk '/\.holocron\/mcp\/src\/mastra\/stdio
     "test:integration": "vitest run --project integration"
   }
 }
+```
+
+### Final perishable re-check after writing the handoff
+
+```text
+$ git rev-parse --short HEAD
+d84588ee
+
+$ git -C .kb-run-sprint/worktrees/MK6-DATA-001-COMPOSITE rev-parse --short HEAD
+aabe2c3b
+$ git -C .kb-run-sprint/worktrees/MK6-DATA-001-COMPOSITE status --porcelain=v1
+?? services/platform/src/etl/composite-corpus.ts
+
+$ git -C .kb-run-sprint/worktrees/SPEC-REPAIR-PLAT rev-parse --short HEAD
+a0e11267
+$ git -C .kb-run-sprint/worktrees/SPEC-REPAIR-PLAT status --porcelain=v1
+ M .spec/prd/holocron-device-mcp-cutover/README.md
+ M .spec/prds/mk6-migration/tasks/sprint-33-fleet-routing-and-deployed-service-restoration/S33-PLAT-04-flip-the-data-plane-convex-to-postgres-behind-a-fail-closed.md
+ M .spec/tasks/holocron-device-mcp-cutover/SPRINT.md
+?? .spec/tasks/holocron-device-mcp-cutover/CUTOVER-DATA-001-production-composite-apply.md
+?? .spec/tasks/holocron-device-mcp-cutover/CUTOVER-PLAT-001-compose-aware-production-checkpoint.md
+?? .spec/tasks/holocron-device-mcp-cutover/CUTOVER-PLAT-002-composite-bound-enable-writes.md
+?? .spec/tasks/holocron-device-mcp-cutover/CUTOVER-RELEASE-001-exact-sha-release-staging-deploy.md
+
+$ ps -axo pid=,ppid=,etime=,command= | awk '/MK6-DATA-001-COMPOSITE|SPEC-REPAIR-PLAT/ && $0 !~ /awk/ {print $1, $2, $3}'
+# no output
+
+$ curl -fsS https://holocron.tail011a51.ts.net:44111/health | jq -r '[.status,.data_plane,.sourceRevision] | @tsv'
+ok convex 0c469717d5f0acc680ffae0eb254dbcae7023628
 ```
