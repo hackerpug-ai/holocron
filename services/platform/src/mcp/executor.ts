@@ -121,6 +121,10 @@ function parseFeedEntries(xml: string): FeedEntry[] {
   });
 }
 
+function toDatabaseToolStatus(status: unknown): string {
+  return status === 'complete' ? 'completed' : String(status);
+}
+
 function asJinaSearchItem(value: unknown): JinaSearchItem | null {
   if (!isRecord(value)) return null;
   const title = typeof value.title === 'string' ? value.title : '';
@@ -1085,7 +1089,7 @@ export async function executePostgresMcpTool(
           ) VALUES (
             ${randomUUID()}::uuid, ${String(input.title)}, ${typeof input.description === 'string' ? input.description : null},
             ${typeof input.content === 'string' ? input.content : null}, ${typeof input.sourceUrl === 'string' ? input.sourceUrl : null},
-            ${String(input.sourceType)}, ${String(input.category)}, ${String(input.status ?? 'draft')},
+            ${String(input.sourceType)}, ${String(input.category)}, ${toDatabaseToolStatus(input.status ?? 'draft')},
             ${sql.json(toSqlJsonValue(tags))}, ${sql.json(toSqlJsonValue(useCases))},
             ${sql.json(toSqlJsonValue(keywords))}, ${typeof input.language === 'string' ? input.language : null},
             ${typeof input.date === 'string' ? input.date : null}, ${typeof input.time === 'string' ? input.time : null}
@@ -1097,7 +1101,9 @@ export async function executePostgresMcpTool(
       case 'get_tool': {
         const rows = await sql`
           SELECT id::text AS "toolId", title, description, content, source_url AS "sourceUrl",
-                 source_type AS "sourceType", category, status, tags, use_cases AS "useCases",
+                 source_type AS "sourceType", category,
+                 CASE WHEN status = 'completed' THEN 'complete' ELSE status END AS status,
+                 tags, use_cases AS "useCases",
                  keywords, language, date, time
           FROM toolbelt_tools WHERE id = ${String(input.toolId)}::uuid LIMIT 1
         `;
@@ -1106,10 +1112,12 @@ export async function executePostgresMcpTool(
       case 'list_tools': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
         const category = typeof input.category === 'string' ? input.category : null;
-        const status = typeof input.status === 'string' ? input.status : null;
+        const status =
+          typeof input.status === 'string' ? toDatabaseToolStatus(input.status) : null;
         const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
         const rows = await sql`
-          SELECT id::text AS "toolId", title, description, category, status,
+          SELECT id::text AS "toolId", title, description, category,
+                 CASE WHEN status = 'completed' THEN 'complete' ELSE status END AS status,
                  source_type AS "sourceType", source_url AS "sourceUrl"
           FROM toolbelt_tools
           WHERE (${category}::text IS NULL OR category = ${category})
@@ -1148,7 +1156,10 @@ export async function executePostgresMcpTool(
         if (typeof input.content === 'string')
           await sql`UPDATE toolbelt_tools SET content = ${input.content} WHERE id = ${toolId}::uuid`;
         if (typeof input.status === 'string')
-          await sql`UPDATE toolbelt_tools SET status = ${input.status} WHERE id = ${toolId}::uuid`;
+          await sql`
+            UPDATE toolbelt_tools SET status = ${toDatabaseToolStatus(input.status)}
+            WHERE id = ${toolId}::uuid
+          `;
         return { toolId, updated: true, embeddingStatus: 'pending' };
       }
       case 'get_document': {
