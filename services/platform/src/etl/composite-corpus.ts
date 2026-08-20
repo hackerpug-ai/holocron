@@ -992,7 +992,12 @@ function buildAccounting(
         inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>
       ).map((entry) => {
         const path = String(entry.relativePath ?? '');
-        return path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+        return (
+          path
+            .split('/')
+            .pop()
+            ?.replace(/\.[^.]+$/, '') ?? ''
+        );
       });
       return (
         omittedCount(storageMetaIds, objectBaseIds) + omittedCount(objectBaseIds, storageMetaIds)
@@ -1438,7 +1443,9 @@ function admitSnapshotForLoad(snapshot: CompositeCorpusSnapshot): void {
   if (omittedCount(discoveredTables, inventoriedTables) > 0) {
     throw new Error('INVENTORY_OMITTED');
   }
-  if (hashTree(snapshot.exportSnapshot).digest !== snapshot.manifest.checkpoints.export.snapshotCopy) {
+  if (
+    hashTree(snapshot.exportSnapshot).digest !== snapshot.manifest.checkpoints.export.snapshotCopy
+  ) {
     throw new Error('SNAPSHOT_DRIFT_REJECTED');
   }
   if (sqliteNow.digest !== snapshot.manifest.checkpoints.sqlite.snapshotCopy) {
@@ -2027,7 +2034,12 @@ export async function verifyMk6DataPlaneTruth(options: {
         Record<string, unknown>
       >;
       if (tables.length < 2) {
-        return { ok: false, case: caseName, failureClass: 'baseline-unhealthy', error: 'too few tables' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'baseline-unhealthy',
+          error: 'too few tables',
+        };
       }
       snapshot.manifest.inventory.arrays['convex.tables'] = tables.slice(1);
       const omitted = omittedCount(
