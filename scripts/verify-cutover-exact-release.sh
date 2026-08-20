@@ -184,21 +184,38 @@ PY
     SECRET_ROOT="${HOLO_SECRET_STORE_ROOT:-$(dirname "$SECRETS_PATH")}"
     ssh_holocron "test -f '$SECRETS_PATH'" || fail_json "secrets path missing on $DEPLOY_HOST"
 
-    # Copy staged lock to host evidence and apply.
+    # Deploy from an exact-SHA archive so Compose bytes match the release lock
+    # (host main checkout may lag this worktree and must not be the authority).
     REMOTE_EVIDENCE="/tmp/CUTOVER-RELEASE-001-${RUN_ID}"
-    ssh_holocron "mkdir -p '$REMOTE_EVIDENCE'"
-    scp -o BatchMode=yes "$STAGE_OUT/image-lock.json" "$STAGE_OUT/release-manifest.json" \
-      "$DEPLOY_HOST:$REMOTE_EVIDENCE/" >/dev/null
-    scp -o BatchMode=yes -r "$ROOT/services/platform/deploy/compose" \
-      "$DEPLOY_HOST:$REMOTE_EVIDENCE/compose" >/dev/null
-
-    APPLY_OUT="$(ssh_holocron "cd /Users/holocron/Projects/holocron && \
-      export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH && \
+    ARCHIVE="$(mktemp -t cutover-deploy-XXXXXX.tar)"
+    cleanup_archive() { rm -f "$ARCHIVE"; }
+    trap cleanup_archive EXIT
+    git -C "$ROOT" archive --format=tar "$SOURCE_REVISION" >"$ARCHIVE"
+    ssh_holocron "rm -rf '$REMOTE_EVIDENCE'; mkdir -p '$REMOTE_EVIDENCE/src'"
+    scp -o BatchMode=yes -q "$ARCHIVE" "$DEPLOY_HOST:$REMOTE_EVIDENCE/src.tar"
+    scp -o BatchMode=yes -q "$STAGE_OUT/image-lock.json" "$STAGE_OUT/release-manifest.json" \
+      "$DEPLOY_HOST:$REMOTE_EVIDENCE/"
+    APPLY_OUT="$(ssh_holocron "export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH
+      set -euo pipefail
+      cd '$REMOTE_EVIDENCE'
+      tar -xf src.tar -C src
+      cd src
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       HOLO_DEPLOY_TARGET='$DEPLOY_HOST' HOLO_PRODUCTION_BASE_URL='$BASE_URL' \
-      bun services/platform/src/cli/holo.ts deploy:apply --authorize \
-        --release '$REMOTE_EVIDENCE/image-lock.json' \
-        --base-url '$BASE_URL' --target '$DEPLOY_HOST' --json" )" || fail_json "deploy:apply failed"
+      bun -e '
+        import { applyProductionDeployment } from \"./services/platform/src/deploy/production-deploy.ts\";
+        const record = applyProductionDeployment({
+          authorized: true,
+          releasePath: \"$REMOTE_EVIDENCE/image-lock.json\",
+          baseUrl: \"$BASE_URL\",
+          secretsPath: \"$SECRETS_PATH\",
+          secretStoreRoot: \"$SECRET_ROOT\",
+          target: \"$DEPLOY_HOST\",
+          cwd: process.cwd(),
+        });
+        process.stdout.write(JSON.stringify(record, null, 2) + \"\\n\");
+      '
+    ")" || fail_json "deploy:apply failed"
     printf '%s\n' "$APPLY_OUT" >"$EVIDENCE/deploy-apply.json"
 
     python3 - "$STAGE_OUT/release-manifest.json" "$BASE_URL" "$DEPLOY_HOST" "$EVIDENCE" <<'PY' || exit 1
@@ -302,17 +319,38 @@ PY
     if [[ "${HOLO_CUTOVER_RELEASE_AUTHORIZE:-}" != "1" ]]; then
       fail_json "set HOLO_CUTOVER_RELEASE_AUTHORIZE=1 to authorize rollback deploy"
     fi
-    # Ship the prior verified lock to the deploy host (path may be laptop-local).
+    PRIOR_REV="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sourceRevision"])' "$PRIOR_RELEASE")"
+    [[ "$PRIOR_REV" =~ ^[a-f0-9]{40}$ ]] || fail_json "prior release sourceRevision is not 40-hex"
+    # Redeploy prior verified Postgres-capable release from its exact SHA tree
+    # (Compose checksum must match the lock; never compose down -v).
     REMOTE_PRIOR="/tmp/CUTOVER-RELEASE-001-${RUN_ID}-prior"
-    ssh_holocron "mkdir -p '$REMOTE_PRIOR'"
-    scp -o BatchMode=yes "$PRIOR_RELEASE" "$DEPLOY_HOST:$REMOTE_PRIOR/image-lock.json" >/dev/null
-    # Redeploy prior verified Postgres-capable release (code only; never compose down -v).
-    APPLY_OUT="$(ssh_holocron "cd /Users/holocron/Projects/holocron && \
-      export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH && \
+    ARCHIVE="$(mktemp -t cutover-prior-XXXXXX.tar)"
+    cleanup_prior() { rm -f "$ARCHIVE"; }
+    trap cleanup_prior EXIT
+    git -C "$ROOT" archive --format=tar "$PRIOR_REV" >"$ARCHIVE"
+    ssh_holocron "rm -rf '$REMOTE_PRIOR'; mkdir -p '$REMOTE_PRIOR/src'"
+    scp -o BatchMode=yes -q "$ARCHIVE" "$DEPLOY_HOST:$REMOTE_PRIOR/src.tar"
+    scp -o BatchMode=yes -q "$PRIOR_RELEASE" "$DEPLOY_HOST:$REMOTE_PRIOR/image-lock.json"
+    APPLY_OUT="$(ssh_holocron "export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH
+      set -euo pipefail
+      cd '$REMOTE_PRIOR'
+      tar -xf src.tar -C src
+      cd src
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
-      bun services/platform/src/cli/holo.ts deploy:apply --authorize \
-        --release '$REMOTE_PRIOR/image-lock.json' \
-        --base-url '$BASE_URL' --target '$DEPLOY_HOST' --json")" || fail_json "prior release deploy failed"
+      bun -e '
+        import { applyProductionDeployment } from \"./services/platform/src/deploy/production-deploy.ts\";
+        const record = applyProductionDeployment({
+          authorized: true,
+          releasePath: \"$REMOTE_PRIOR/image-lock.json\",
+          baseUrl: \"$BASE_URL\",
+          secretsPath: \"$SECRETS_PATH\",
+          secretStoreRoot: \"$SECRET_ROOT\",
+          target: \"$DEPLOY_HOST\",
+          cwd: process.cwd(),
+        });
+        process.stdout.write(JSON.stringify(record, null, 2) + \"\\n\");
+      '
+    ")" || fail_json "prior release deploy failed"
     printf '%s\n' "$APPLY_OUT" >"$EVIDENCE/rollback-apply.json"
     POST="$(ssh_holocron "export PATH=/usr/local/bin:\$PATH; docker volume inspect holocron-postgres holocron-blobs --format '{{.Name}}|{{.CreatedAt}}|{{.Mountpoint}}'")"
     printf '%s\n' "$POST" >"$EVIDENCE/volumes-post.txt"
