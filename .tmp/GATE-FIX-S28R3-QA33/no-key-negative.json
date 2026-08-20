@@ -27,11 +27,11 @@
     "placeholder_escape_injected": false,
     "dependency_marker_observed": true
   },
-  "no_successful_restore_artifact": true,
+  "no_successful_restore_artifact": false,
   "docker_observation": {
     "before_cleanup": {
       "dockerAvailable": true,
-      "dockerRuntimeStatus": 0,
+      "dockerRuntimeStatus": 1,
       "containerStatus": 1,
       "pgdataVolumeStatus": 1,
       "blobsVolumeStatus": 1,
@@ -43,7 +43,7 @@
     },
     "after_consumers_before_cleanup": {
       "dockerAvailable": true,
-      "dockerRuntimeStatus": 0,
+      "dockerRuntimeStatus": 1,
       "containerStatus": 1,
       "pgdataVolumeStatus": 1,
       "blobsVolumeStatus": 1,
@@ -62,9 +62,9 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-msghq196-69380"
+          "s28r3-qa31-no-key-mt1qz5gm-22019"
         ],
-        "status": 0,
+        "status": 1,
         "error": ""
       },
       {
@@ -72,17 +72,17 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-msghq196-69380-pgdata",
-          "s28r3-qa31-no-key-msghq196-69380-blobs"
+          "s28r3-qa31-no-key-mt1qz5gm-22019-pgdata",
+          "s28r3-qa31-no-key-mt1qz5gm-22019-blobs"
         ],
-        "status": 0,
+        "status": 1,
         "error": ""
       },
       {
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-msghq196-69380-net"
+          "s28r3-qa31-no-key-mt1qz5gm-22019-net"
         ],
         "status": 1,
         "error": ""
@@ -90,7 +90,7 @@
     ],
     "stagingRemoved": true
   },
-  "generated_at": "2026-08-05T19:39:02.907Z",
-  "reviewed_sha": "a688bb1782370877f406a0e45aff2923171ebd3a",
-  "execution_head": "a688bb1782370877f406a0e45aff2923171ebd3a"
+  "generated_at": "2026-08-20T16:41:18.307Z",
+  "reviewed_sha": "77605a8aad932a1d12950f965050872170bc4c3e",
+  "execution_head": "77605a8aad932a1d12950f965050872170bc4c3e"
 }

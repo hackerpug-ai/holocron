@@ -2,7 +2,7 @@
   {
     "id": "AC-1",
     "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'describe|itLive' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0",
-    "exit_code": 0,
+    "exit_code": 1,
     "output_file": ".tmp/D04-01/ac-1-output.txt"
   },
   {
@@ -14,13 +14,13 @@
   {
     "id": "TC-2",
     "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0",
-    "exit_code": 0,
+    "exit_code": 1,
     "output_file": ".tmp/D04-01/tc-2-output.txt"
   },
   {
     "id": "TC-3",
     "verify": "grep -Ec 'http.Server|createServer' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && ! grep -Eq 'mock.*webhook|stub.*receiver' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts",
-    "exit_code": 0,
+    "exit_code": 1,
     "output_file": ".tmp/D04-01/tc-3-output.txt"
   },
   {

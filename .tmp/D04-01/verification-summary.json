@@ -1,20 +1,20 @@
 {
   "task_id": "D04-01",
-  "timestamp": "2026-07-28T01:27:20Z",
-  "commit_sha": "3ad7ac13b10e755d90c9a8f07a60f731e7d0d916",
+  "timestamp": "2026-08-18T03:25:32Z",
+  "commit_sha": "41dc2bc1b26bdb74dc57815f9fa1f0a4c69a5992",
   "typecheck": {
     "exit_code": 0
   },
   "lint": {
     "exit_code": 0,
-    "warnings": 1
+    "warnings": 0
   },
-  "pre_existing_issues": false,
+  "pre_existing_issues": true,
   "requirement_results": [
     {
       "id": "AC-1",
       "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'describe|itLive' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0",
-      "exit_code": 0,
+      "exit_code": 1,
       "output_file": ".tmp/D04-01/ac-1-output.txt"
     },
     {
@@ -26,13 +26,13 @@
     {
       "id": "TC-2",
       "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0",
-      "exit_code": 0,
+      "exit_code": 1,
       "output_file": ".tmp/D04-01/tc-2-output.txt"
     },
     {
       "id": "TC-3",
       "verify": "grep -Ec 'http.Server|createServer' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && ! grep -Eq 'mock.*webhook|stub.*receiver' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts",
-      "exit_code": 0,
+      "exit_code": 1,
       "output_file": ".tmp/D04-01/tc-3-output.txt"
     },
     {
@@ -53,24 +53,24 @@
   },
   "generator": {
     "tool": "harvest-evidence.sh",
-    "version": "1.0",
-    "generated_at": "2026-07-28T01:27:20Z",
+    "version": "1.2",
+    "generated_at": "2026-08-18T03:25:32Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
-        "sha256": "aad5f0d210debaedcb7e172bd6c5d6a1e17bd5fde9dda11011adf1ed6925a57d"
+        "sha256": "4b68a5a05c41f16e8f20999975b1c384661efa377e1fda1352f869672d65f460"
       },
       {
         "path": "lint-output.txt",
-        "sha256": "c235c4e2052fd87b2dd816b13d0ad3f40559f55cd4d5c78ced259f7f2dd2bb56"
+        "sha256": "ece3897e7855a7596b64279dea8bd8f8eefd2af1af361b9179ca22460aefa17f"
       },
       {
         "path": "test-output.txt",
-        "sha256": "383f5c6a859b1ae892cc20b3e41c4e630f396280f70fb743715799bd01c67efc"
+        "sha256": "32c9521f77e84c648de1bc53017e9d7f3fa7f4d1bb7d22b23c99fd954620c4f2"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "a5271d4b011e4fc426c6097e526429057f31971b45f9221370131996f289f454"
+        "sha256": "7e8bc34f508acf21018fb8cda3d5bb1b6c80c7263028ef33cd34983062d72c9d"
       },
       {
         "path": "tc-1-output.txt",
@@ -78,7 +78,7 @@
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "84ba7bb875bae2c5e7881fa569fde5c20ce2690bda0deb029d975f60ed4a299e"
+        "sha256": "740aef3d6b056cfece79ced55d04ca88f7c12bc52be1f1ba10545ef92301c1f6"
       },
       {
         "path": "tc-3-output.txt",
@@ -91,6 +91,10 @@
       {
         "path": "tc-5-output.txt",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "6bd31eee999757d75b5c10eb81acebc002425fdcdc87cc78e214acff97874e98"
       }
     ]
   }

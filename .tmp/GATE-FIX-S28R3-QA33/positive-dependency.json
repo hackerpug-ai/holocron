@@ -2,35 +2,23 @@
   "schema": "holo.gate-fix-s28r3-qa33.positive-dependency.v1",
   "status": "blocked",
   "task": "GATE-FIX-S28R3-QA33",
-  "reason": "DEPENDENCY-S28R3-QA33-PITR-WINDOW: trusted restore:window discovery did not return an OK window",
+  "reason": "R2_RESTORE_ACCESS_KEY_ID/SECRET_ACCESS_KEY are absent",
   "credential_gate": {
     "configFound": true,
     "configBasename": "secrets.yaml",
-    "restoreAccessKeyPresent": true,
-    "restoreSecretPresent": true,
+    "restoreAccessKeyPresent": false,
+    "restoreSecretPresent": false,
     "restoreTupleDistinct": true,
-    "available": true,
-    "reason": "distinct live R2_RESTORE_* credentials are available"
+    "available": false,
+    "reason": "R2_RESTORE_ACCESS_KEY_ID/SECRET_ACCESS_KEY are absent"
   },
-  "pitr_window": {
-    "ok": false,
-    "earliest": null,
-    "latest": null,
-    "recommended_pitr": null,
-    "window_max": null,
-    "labels": [],
-    "stanza": "",
-    "repoPrefix": "",
-    "errors": [
-      "backup config missing secrets: backup config missing secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS"
-    ]
-  },
+  "pitr_window": null,
   "requested_target_timestamp": false,
   "target_timestamp_present": false,
   "positive_control_executed": false,
-  "no_key_control_executed": false,
+  "no_key_control_executed": true,
   "provider_or_docker_invoked": false,
-  "generated_at": "2026-08-05T19:52:10.014Z",
-  "reviewed_sha": "a688bb1782370877f406a0e45aff2923171ebd3a",
-  "execution_head": "a688bb1782370877f406a0e45aff2923171ebd3a"
+  "generated_at": "2026-08-20T16:41:18.657Z",
+  "reviewed_sha": "77605a8aad932a1d12950f965050872170bc4c3e",
+  "execution_head": "77605a8aad932a1d12950f965050872170bc4c3e"
 }

@@ -1,13 +1,4 @@
 {
-  "hosts": [
-    "s28r3-qa27-life-a-1785959386652",
-    "s28r3-qa27-life-b-1785959391177"
-  ],
-  "first_leftovers": [],
-  "second_leftovers": [],
-  "first_staging": [],
-  "second_staging": [],
-  "sentinel_preserved_until_assert": true,
-  "real_provision": true,
-  "real_fire_resolve": true
+  "reason": "docker unavailable",
+  "skipped": true
 }

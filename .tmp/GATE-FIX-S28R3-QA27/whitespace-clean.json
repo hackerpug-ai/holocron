@@ -1,6 +1,6 @@
 {
   "range": "4630c1b4aa6019507af13435862801777b11a93d..HEAD",
   "ok": false,
-  "out": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/D07-01-red-rollback-recovers-zero-loss-ponr-write-closes-rollback-path.md:292: trailing whitespace.\n+- **`soaked_stack_live`** — A real read-only soak: migrated Postgres, a pre-existing Hono serving process listening on an ephemeral 127.0.0.1 port that re-reads the durable secrets control-plane on every GET /health, a disposable secrets file at .tmp/D07-01/secrets.yaml with HOLO_MIGRATION_READ_ONLY=",
+  "out": ".maestro/reactive/run-offline-contract-airplane-reads.sh:785: trailing whitespace.\n+**Proven conjunct (1 of 5):** airplane-mode reads  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:786: trailing whitespace.\n+**Flow:** .maestro/reactive/offline-contract-airplane-reads.yml  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:787: trailing whitespace.\n+**Harness:** .maestro/reactive/run-offline-contract-airplane-reads.sh  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:7",
   "note": "must be clean on freeze tip"
 }

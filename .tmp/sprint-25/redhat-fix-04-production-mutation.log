@@ -1,6 +1,6 @@
-# REDHAT-FIX-04 production mutation probe 2026-08-09T11:03:30.459Z
-repo_root=/Users/inference1/Projects/holocron
-base_head=ed9bc25b282619eb7da85fb1c30490a3e947a207
+# REDHAT-FIX-04 production mutation probe 2026-08-20T16:41:27.990Z
+repo_root=/Users/justinrich/Projects/holocron
+base_head=77605a8aad932a1d12950f965050872170bc4c3e
 correct mode=unmutated exit=0 failures=0 exit_ok=true
 production-assembly-reset mode=production-assembly-reset exit=1 failures=2 exit_nonzero=true
 production-assembly-reset KILLED (suite exit non-zero under production wipe)

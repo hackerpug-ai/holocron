@@ -1,18 +1,18 @@
 {
   "schema": "holo.qa24-trusted-tool-probe.v1",
   "task_id": "GATE-FIX-S28R3-QA24",
-  "pgbackrest_trusted": "/usr/local/bin/pgbackrest",
-  "restic_trusted": "/usr/local/bin/restic",
+  "pgbackrest_trusted": null,
+  "restic_trusted": null,
   "pgbackrest_detail": [
-    "trusted:/usr/local/bin/pgbackrest",
+    "missing:/usr/local/bin/pgbackrest",
     "missing:/usr/bin/pgbackrest",
-    "untrusted:/opt/homebrew/bin/pgbackrest owner=inference1"
+    "missing:/opt/homebrew/bin/pgbackrest"
   ],
   "restic_detail": [
-    "trusted:/usr/local/bin/restic",
+    "missing:/usr/local/bin/restic",
     "missing:/usr/bin/restic",
-    "untrusted:/opt/homebrew/bin/restic owner=inference1"
+    "missing:/opt/homebrew/bin/restic"
   ],
-  "d05_04_real_restore_possible": true,
-  "operational_blocker": null
+  "d05_04_real_restore_possible": false,
+  "operational_blocker": "root-owned pgbackrest and/or restic unavailable at /usr/local/bin or /usr/bin; Homebrew user-owned binaries fail r2_ro_validate_root_bin (uid!=0). D05-04 real disposable restore blocked until signed/root-owned tools are installed. Never weaken trust or substitute a recorder for success."
 }

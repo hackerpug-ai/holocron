@@ -1,4 +1,4 @@
 
-> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron
 > tsgo --noEmit
 
