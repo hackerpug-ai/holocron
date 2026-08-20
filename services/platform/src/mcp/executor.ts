@@ -344,19 +344,21 @@ async function runLiveShopSearch(
     .sort((a, b) => b.dealScore - a.dealScore || a.price - b.price)
     .slice(0, 50);
   await sql.begin(async (tx) => {
+    let bestDealId: string | null = null;
     for (const [index, listing] of unique.entries()) {
+      const listingId = randomUUID();
+      if (index === 0) bestDealId = listingId;
       await tx`
         INSERT INTO shop_listings (id, session_id, title, price, currency, condition, retailer, url,
           product_hash, deal_score, trust_tier, seller_trust_score, is_verified_seller, is_duplicate)
-        VALUES (${randomUUID()}::uuid, ${sessionId}, ${listing.title}, ${listing.price}, 'USD', ${listing.condition},
+        VALUES (${listingId}::uuid, ${sessionId}, ${listing.title}, ${listing.price}, 'USD', ${listing.condition},
           ${listing.retailer}, ${listing.url}, ${createHash('sha256').update(`${listing.title}:${listing.retailer}`).digest('hex')},
           ${listing.dealScore}, ${String(listing.trustTier)}, ${listing.sellerTrustScore}, ${listing.isVerifiedSeller}, ${index > 0 && unique[index - 1]?.title === listing.title})
       `;
     }
-    const best = unique[0];
     await tx`
       UPDATE shop_sessions SET status = 'completed', total_listings = ${unique.length},
-        best_deal_id = ${best?.url ?? null}, completed_at = now(), updated_at = now()
+        best_deal_id = ${bestDealId}::uuid, completed_at = now(), updated_at = now()
       WHERE id = ${sessionId}::uuid
     `;
   });
@@ -1112,8 +1114,7 @@ export async function executePostgresMcpTool(
       case 'list_tools': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
         const category = typeof input.category === 'string' ? input.category : null;
-        const status =
-          typeof input.status === 'string' ? toDatabaseToolStatus(input.status) : null;
+        const status = typeof input.status === 'string' ? toDatabaseToolStatus(input.status) : null;
         const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
         const rows = await sql`
           SELECT id::text AS "toolId", title, description, category,
