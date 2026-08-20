@@ -799,7 +799,7 @@ function deriveProvenance(snapshot: SqliteSnapshot): CompositeManifest['provenan
     localProvenanceCount: p,
     provenanceOnlyTombstoneCount: m,
     materializedLocalMissingProvenance: missing.length,
-    unclassifiedLocalProvenance: 0,
+    unclassifiedLocalProvenance: snapshot.provenance.filter((row) => !row.source_origin).length,
     equationsValid:
       n > 0 &&
       p >= n &&
@@ -833,6 +833,40 @@ function omittedCount(sourceIds: string[], inventoryIds: string[]): number {
   return sourceIds.filter((id) => id && !seen.has(id)).length;
 }
 
+function duplicateCount(ids: string[]): number {
+  const counts = new Map<string, number>();
+  for (const id of ids.filter(Boolean)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  let extras = 0;
+  for (const n of counts.values()) if (n > 1) extras += n - 1;
+  return extras;
+}
+
+function ambiguousDispositionCount(entries: Array<Record<string, unknown>>): number {
+  const byId = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    const id = identityOf(entry);
+    if (!id) continue;
+    const set = byId.get(id) ?? new Set<string>();
+    set.add(String(entry.disposition ?? ''));
+    byId.set(id, set);
+  }
+  return [...byId.values()].filter((set) => set.size > 1).length;
+}
+
+function pairwiseFieldMismatches(
+  source: CorpusEntry[],
+  copy: CorpusEntry[],
+  field: 'nodeType' | 'logicalSizeBytes' | 'contentOrTreeSha256'
+): number {
+  const copyByPath = new Map(copy.map((entry) => [entry.relativePath, entry]));
+  let mismatches = 0;
+  for (const entry of source) {
+    const matched = copyByPath.get(entry.relativePath);
+    if (!matched || matched[field] !== entry[field]) mismatches += 1;
+  }
+  return mismatches;
+}
+
 function buildAccounting(
   inventory: CompositeManifest['inventory'],
   snapshot: SqliteSnapshot,
@@ -844,15 +878,23 @@ function buildAccounting(
     discoveredStorageMetaIds: string[];
     discoveredStorageObjectPaths: string[];
     discoveredBlobFilePaths: string[];
+    catalogTableNames: string[];
+    sourceFilesystem: CorpusEntry[];
+    copyFilesystem: CorpusEntry[];
+    sourceBlobs: CorpusEntry[];
+    copyBlobs: CorpusEntry[];
+    sqliteSourceDigest: string;
+    sqliteCopyDigest: string;
   }
 ): Record<string, number | boolean | string> {
   const all = Object.values(inventory.arrays).flat() as Array<Record<string, unknown>>;
   const unmapped = all.filter(
     (entry) => !entry.disposition || String(entry.disposition).includes('pending')
   ).length;
-  const filesystemIds = (
-    inventory.arrays['convex.filesystemEntries'] as Array<Record<string, unknown>>
-  ).map(identityOf);
+  const filesystemEntries = inventory.arrays['convex.filesystemEntries'] as Array<
+    Record<string, unknown>
+  >;
+  const filesystemIds = filesystemEntries.map(identityOf);
   const tableIds = (inventory.arrays['convex.tables'] as Array<Record<string, unknown>>).map(
     identityOf
   );
@@ -889,41 +931,113 @@ function buildAccounting(
     'fts-virtual',
     'fts-shadow',
   ];
+  const referenced = inventory.arrays['sqlite.referencedBlobs'] as Array<Record<string, unknown>>;
+  const blobByName = new Map(
+    blobEntries.map((entry) => [entry.relativePath.split('/').pop() ?? '', entry])
+  );
+  const casGroups = new Map<string, Set<string>>();
+  for (const entry of blobEntries) {
+    const set = casGroups.get(entry.contentOrTreeSha256) ?? new Set<string>();
+    set.add(entry.relativePath);
+    casGroups.set(entry.contentOrTreeSha256, set);
+  }
   return {
     unmappedSourceItemCount: unmapped,
     omittedSourceItemCount,
-    duplicateSourceIdentityCount: 0,
-    ambiguousDispositionCount: 0,
-    convexFilesystemEntryOmittedCount: 0,
-    convexFilesystemEntryUnclassifiedCount: 0,
-    convexFilesystemEntryDuplicateCount: 0,
-    convexFilesystemEntryAmbiguousDispositionCount: 0,
-    convexFilesystemEntryTypeMismatchCount: 0,
-    convexFilesystemEntrySizeMismatchCount: 0,
-    convexFilesystemEntryDigestMismatchCount: 0,
-    convexRootEntryClassMismatchCount: 0,
+    duplicateSourceIdentityCount: duplicateCount(all.map(identityOf)),
+    ambiguousDispositionCount: ambiguousDispositionCount(all),
+    convexFilesystemEntryOmittedCount: omittedCount(
+      bijection.sourceFilesystem.map((entry) => entry.relativePath),
+      filesystemIds
+    ),
+    convexFilesystemEntryUnclassifiedCount: filesystemEntries.filter(
+      (entry) => !entry.disposition || String(entry.disposition).includes('pending')
+    ).length,
+    convexFilesystemEntryDuplicateCount: duplicateCount(filesystemIds),
+    convexFilesystemEntryAmbiguousDispositionCount: ambiguousDispositionCount(filesystemEntries),
+    convexFilesystemEntryTypeMismatchCount: pairwiseFieldMismatches(
+      bijection.sourceFilesystem,
+      bijection.copyFilesystem,
+      'nodeType'
+    ),
+    convexFilesystemEntrySizeMismatchCount: pairwiseFieldMismatches(
+      bijection.sourceFilesystem,
+      bijection.copyFilesystem,
+      'logicalSizeBytes'
+    ),
+    convexFilesystemEntryDigestMismatchCount: pairwiseFieldMismatches(
+      bijection.sourceFilesystem,
+      bijection.copyFilesystem,
+      'contentOrTreeSha256'
+    ),
+    convexRootEntryClassMismatchCount: exportEntries.filter(
+      (entry) => classifyExportOwner(entry.relativePath) !== entry.rootOwnerClass
+    ).length,
     convexRootMetadataOmittedCount: exportEntries.filter(
       (entry) => entry.rootOwnerClass === 'root-metadata' && !entry.disposition
     ).length,
-    convexCatalogDriftOmittedCount: 0,
-    convexCatalogDriftUnmappedCount: 0,
-    convexTableSetMismatchCount: 0,
-    convexStorageBijectionMismatchCount: 0,
-    convexStorageUnreferencedUndispositionedCount: 0,
-    convexStorageForgedReferenceCount: 0,
+    convexCatalogDriftOmittedCount: omittedCount(
+      bijection.discoveredTableNames,
+      bijection.catalogTableNames
+    ),
+    convexCatalogDriftUnmappedCount: omittedCount(
+      bijection.catalogTableNames,
+      bijection.discoveredTableNames
+    ),
+    convexTableSetMismatchCount:
+      omittedCount(bijection.discoveredTableNames, tableIds) +
+      omittedCount(tableIds, bijection.discoveredTableNames),
+    convexStorageBijectionMismatchCount: (() => {
+      const objectBaseIds = (
+        inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>
+      ).map((entry) => {
+        const path = String(entry.relativePath ?? '');
+        return path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+      });
+      return (
+        omittedCount(storageMetaIds, objectBaseIds) + omittedCount(objectBaseIds, storageMetaIds)
+      );
+    })(),
+    convexStorageUnreferencedUndispositionedCount: (
+      inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>
+    ).filter((entry) => !entry.disposition).length,
+    convexStorageForgedReferenceCount: omittedCount(
+      referenced.map((row) => String(row.storage_id ?? row.sha256 ?? '')),
+      [...storageMetaIds, ...blobFileIds]
+    ),
     sqliteUnclassifiedPhysicalTableCount: snapshot.physicalTables.filter(
       (entry) => !required.includes(entry.class)
     ).length,
-    sqliteUnclassifiedLogicalTableCount: 0,
+    sqliteUnclassifiedLogicalTableCount: snapshot.logicalRows.filter(
+      (entry) => !required.includes(entry.class)
+    ).length,
     sqliteSemanticCheckpointOmittedClassCount: required.filter(
       (entry) => !classes.has(entry as SqlitePhysicalTable['class'])
     ).length,
-    sqliteSemanticCheckpointDigestMismatchCount: 0,
-    sqliteBlobIdentityUnmappedCount: 0,
-    sqliteBlobInvalidAliasCount: 0,
-    sqliteBlobCasCollisionCount: 0,
-    sqliteBlobByteMismatchCount: 0,
-    sqliteBlobFileOmittedCount: 0,
+    sqliteSemanticCheckpointDigestMismatchCount:
+      bijection.sqliteSourceDigest === bijection.sqliteCopyDigest ? 0 : 1,
+    sqliteBlobIdentityUnmappedCount: referenced.filter(
+      (row) => String(row.disposition ?? '') === 'referenced-missing-cas-file'
+    ).length,
+    sqliteBlobInvalidAliasCount: referenced.filter((row) => {
+      const sha = String(row.sha256 ?? '');
+      return sha.length > 0 && !/^[a-f0-9]{64}$/.test(sha);
+    }).length,
+    sqliteBlobCasCollisionCount: [...casGroups.entries()].filter(([, paths]) => {
+      const sizes = new Set(
+        blobEntries
+          .filter((entry) => paths.has(entry.relativePath))
+          .map((entry) => entry.logicalSizeBytes)
+      );
+      return sizes.size > 1;
+    }).length,
+    sqliteBlobByteMismatchCount: referenced.filter((row) => {
+      const sha = String(row.sha256 ?? '');
+      const file = blobByName.get(sha);
+      if (!file) return false;
+      return Number(row.bytes ?? 0) !== file.logicalSizeBytes;
+    }).length,
+    sqliteBlobFileOmittedCount: omittedCount(bijection.discoveredBlobFilePaths, blobFileIds),
     sqliteBlobFileUndispositionedCount: blobEntries.filter((entry) => !entry.disposition).length,
     localMaterializedMissingProvenanceCount: local.materializedLocalMissingProvenance,
     unclassifiedLocalProvenanceCount: local.unclassifiedLocalProvenance,
@@ -1105,10 +1219,11 @@ export async function createCompositeCorpusSnapshot(
     arrayHashes,
     unionSha256: canonicalSha256(inventoryArrays),
   };
+  const copyExportRaw = hashTree(exportSnapshot);
   const checkpoints = {
     export: {
       sourcePre: preExportRaw.digest,
-      snapshotCopy: hashTree(exportSnapshot).digest,
+      snapshotCopy: copyExportRaw.digest,
       sourcePost: postExportRaw.digest,
     },
     sqlite: {
@@ -1147,6 +1262,13 @@ export async function createCompositeCorpusSnapshot(
       discoveredStorageMetaIds: storage.metadata.map((row) => String(row._id ?? '')),
       discoveredStorageObjectPaths: storage.objects.map((entry) => entry.relativePath),
       discoveredBlobFilePaths: sqliteBlobFiles.map((entry) => entry.relativePath),
+      catalogTableNames: Object.keys(catalog.tables),
+      sourceFilesystem: preExportRaw.entries,
+      copyFilesystem: copyExportRaw.entries,
+      sourceBlobs: preBlobRaw.entries,
+      copyBlobs: sqliteBlobFiles,
+      sqliteSourceDigest: preSqlite.digest,
+      sqliteCopyDigest: copySqlite.digest,
     }),
     provenance,
     sources: {
@@ -1296,11 +1418,43 @@ function normalizeDocumentStatus(value: string | null | undefined): string {
   return DOCUMENT_STATUSES.has(status) ? status : 'draft';
 }
 
+function admitSnapshotForLoad(snapshot: CompositeCorpusSnapshot): void {
+  const sqliteNow = inspectSqlite(snapshot.sqliteSnapshot);
+  const provenance = deriveProvenance(sqliteNow);
+  if (
+    snapshot.manifest.provenance.localMaterializedCount > 0 &&
+    (provenance.localMaterializedCount === 0 ||
+      provenance.localMaterializedCount < snapshot.manifest.provenance.localMaterializedCount)
+  ) {
+    throw new Error('SOURCE_SET_INCOMPLETE');
+  }
+  if (snapshot.manifest.provenance.equationsValid && !provenance.equationsValid) {
+    throw new Error('SOURCE_SET_INCOMPLETE');
+  }
+  const discoveredTables = discoverConvexTableNames(snapshot.exportSnapshot);
+  const inventoriedTables = (
+    snapshot.manifest.inventory.arrays['convex.tables'] as Array<Record<string, unknown>>
+  ).map((row) => String(row.name ?? ''));
+  if (omittedCount(discoveredTables, inventoriedTables) > 0) {
+    throw new Error('INVENTORY_OMITTED');
+  }
+  if (hashTree(snapshot.exportSnapshot).digest !== snapshot.manifest.checkpoints.export.snapshotCopy) {
+    throw new Error('SNAPSHOT_DRIFT_REJECTED');
+  }
+  if (sqliteNow.digest !== snapshot.manifest.checkpoints.sqlite.snapshotCopy) {
+    throw new Error('SNAPSHOT_DRIFT_REJECTED');
+  }
+  if (hashTree(snapshot.blobSnapshot).digest !== snapshot.manifest.checkpoints.blobs.snapshotCopy) {
+    throw new Error('SNAPSHOT_DRIFT_REJECTED');
+  }
+}
+
 export async function loadCompositeCorpusIntoIsolatedPostgres(options: {
   snapshot: CompositeCorpusSnapshot;
   databaseUrl: string;
   blobRoot: string;
 }): Promise<CompositeLoadResult> {
+  admitSnapshotForLoad(options.snapshot);
   const databaseUrl = resolveHolocronNonprodDatabaseUrl({
     databaseUrl: options.databaseUrl,
     context: 'composite-corpus-load',
@@ -1626,8 +1780,22 @@ export const CANONICAL_NEGATIVE_CONTROLS = [
   'external-witness-contract-matrix',
 ] as const;
 
+const NEGATIVE_CONTROL_OK_CLASSES: Record<string, readonly string[]> = {
+  'count-equal-content-corrupt': ['CONTENT_DIGEST_MISMATCH'],
+  'provenance-matrix': ['SOURCE_SET_INCOMPLETE'],
+  'snapshot-blob-matrix': ['SNAPSHOT_DRIFT_REJECTED'],
+  'identity-source-matrix': ['SOURCE_ADMISSION_REJECTED'],
+  'external-binding-matrix': ['HONO_PID_INVALID'],
+  'witness-auth-matrix': ['WITNESS_AUTH_REJECTED', 'WITNESS_AUTH_MISSING'],
+  'full-inventory-matrix': ['INVENTORY_OMITTED'],
+  'external-witness-contract-matrix': ['WITNESS_ROUTE_REJECTED'],
+};
+
 function classifyVerifyError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('SNAPSHOT_DRIFT_REJECTED')) return 'SNAPSHOT_DRIFT_REJECTED';
+  if (message.includes('SOURCE_SET_INCOMPLETE')) return 'SOURCE_SET_INCOMPLETE';
+  if (message.includes('INVENTORY_OMITTED')) return 'INVENTORY_OMITTED';
   if (message.includes('HONO_PID_INVALID')) return 'HONO_PID_INVALID';
   if (message.includes('WITNESS_AUTH_MISSING')) return 'WITNESS_AUTH_MISSING';
   if (message.includes('WITNESS_AUTH_REJECTED')) return 'WITNESS_AUTH_REJECTED';
@@ -1838,12 +2006,15 @@ export async function verifyMk6DataPlaneTruth(options: {
           error: 'blob mutation not observed',
         };
       }
+      const blobRoot = options.blobRoot ?? join(snapshot.runRoot, 'isolated-blobs');
+      mkdirSync(blobRoot, { recursive: true });
+      await loadCompositeCorpusIntoIsolatedPostgres({ snapshot, databaseUrl, blobRoot });
       return {
-        ok: true,
+        ok: false,
         case: caseName,
-        failureClass: 'SNAPSHOT_DRIFT_REJECTED',
+        failureClass: 'mutant-accepted',
+        error: 'mutated snapshot copy was loaded',
         runId: snapshot.runId,
-        runRoot: snapshot.runRoot,
       };
     }
 
@@ -1855,20 +2026,25 @@ export async function verifyMk6DataPlaneTruth(options: {
       const tables = snapshot.manifest.inventory.arrays['convex.tables'] as Array<
         Record<string, unknown>
       >;
-      const names = tables.map((row) => String(row.name ?? ''));
-      const omitted = omittedCount(names, names.slice(1));
-      if (omitted === 0) {
-        return {
-          ok: false,
-          case: caseName,
-          failureClass: 'mutant-accepted',
-          error: 'omitted inventory stayed zero',
-        };
+      if (tables.length < 2) {
+        return { ok: false, case: caseName, failureClass: 'baseline-unhealthy', error: 'too few tables' };
       }
+      snapshot.manifest.inventory.arrays['convex.tables'] = tables.slice(1);
+      const omitted = omittedCount(
+        tables.map((row) => String(row.name ?? '')),
+        (snapshot.manifest.inventory.arrays['convex.tables'] as Array<Record<string, unknown>>).map(
+          (row) => String(row.name ?? '')
+        )
+      );
+      snapshot.manifest.accounting.omittedSourceItemCount = omitted;
+      const blobRoot = options.blobRoot ?? join(snapshot.runRoot, 'isolated-blobs');
+      mkdirSync(blobRoot, { recursive: true });
+      await loadCompositeCorpusIntoIsolatedPostgres({ snapshot, databaseUrl, blobRoot });
       return {
-        ok: true,
+        ok: false,
         case: caseName,
-        failureClass: 'INVENTORY_OMITTED',
+        failureClass: 'mutant-accepted',
+        error: 'truncated inventory was loaded',
         omittedSourceItemCount: omitted,
         runId: snapshot.runId,
       };
@@ -1893,10 +2069,14 @@ export async function verifyMk6DataPlaneTruth(options: {
       ) {
         return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
       }
+      const blobRoot = options.blobRoot ?? join(snapshot.runRoot, 'isolated-blobs');
+      mkdirSync(blobRoot, { recursive: true });
+      await loadCompositeCorpusIntoIsolatedPostgres({ snapshot, databaseUrl, blobRoot });
       return {
-        ok: true,
+        ok: false,
         case: caseName,
-        failureClass: 'SOURCE_SET_INCOMPLETE',
+        failureClass: 'mutant-accepted',
+        error: 'incomplete local source set was loaded',
         runId: snapshot.runId,
       };
     }
@@ -2014,7 +2194,7 @@ export async function verifyMk6DataPlaneTruth(options: {
         await sql.end({ timeout: 5 });
       }
       const mutated = await reconcileCompositeLoad({ snapshot, databaseUrl, blobRoot });
-      if (mutated.contentDigestMismatchCount === 0 && mutated.ok) {
+      if (mutated.contentDigestMismatchCount === 0) {
         return { ok: false, case: caseName, failureClass: 'mutant-accepted', reconcile: mutated };
       }
       return {
@@ -2097,12 +2277,11 @@ export async function verifyMk6DataPlaneTruth(options: {
     };
   } catch (error) {
     const failureClass = classifyVerifyError(error);
-    const expectedReject = Boolean(options.negativeControl);
+    const allowed = options.negativeControl
+      ? (NEGATIVE_CONTROL_OK_CLASSES[options.negativeControl] ?? [])
+      : [];
     return {
-      ok:
-        expectedReject &&
-        failureClass !== 'mutant-accepted' &&
-        failureClass !== 'UNKNOWN_NEGATIVE_CONTROL',
+      ok: allowed.includes(failureClass),
       case: caseName,
       failureClass,
       error: error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400),

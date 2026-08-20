@@ -221,6 +221,8 @@ describe('MK6-DATA-001 composite corpus v2', () => {
       expect(exitCode).toBe(0);
       expect(result.ok).toBe(true);
       expect(result.failureClass).toBe('CONTENT_DIGEST_MISMATCH');
+      const mutated = result.reconcile as { contentDigestMismatchCount?: number };
+      expect(mutated.contentDigestMismatchCount).toBeGreaterThan(0);
     },
     2_400_000
   );
