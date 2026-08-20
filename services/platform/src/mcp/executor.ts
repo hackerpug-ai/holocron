@@ -504,12 +504,20 @@ export async function executePostgresMcpTool(
         if (!profile[0])
           return { success: false, status: 'failed', error: 'creator profile not found' };
         const videos = await sql`
-          SELECT content_id AS "contentId", url AS "sourceUrl"
-          FROM subscription_content WHERE source_id = ${profileId}
+          SELECT c.content_id AS "contentId", c.url AS "sourceUrl"
+          FROM subscription_sources s
+          JOIN subscription_content c ON c.source_id = s.id
+          WHERE s.creator_profile_id = ${profileId}::uuid
         `;
         const existing = await sql`
           SELECT count(*)::int AS count
-          FROM video_transcripts WHERE content_id IN (SELECT content_id FROM subscription_content WHERE source_id = ${profileId})
+          FROM video_transcripts v
+          WHERE v.content_id IN (
+            SELECT c.content_id
+            FROM subscription_sources s
+            JOIN subscription_content c ON c.source_id = s.id
+            WHERE s.creator_profile_id = ${profileId}::uuid
+          )
         `;
         const forceRegenerate = Boolean(input.forceRegenerate);
         let queued = 0;
@@ -551,9 +559,11 @@ export async function executePostgresMcpTool(
           SELECT v.content_id AS "contentId", v.source_url AS "sourceUrl",
                  v.transcript_source AS "transcriptSource", v.preview_text AS "previewText",
                  v.word_count AS "wordCount", EXTRACT(EPOCH FROM v.generated_at) * 1000 AS "generatedAt"
-          FROM subscription_content c
+          FROM subscription_sources s
+          JOIN subscription_content c ON c.source_id = s.id
           JOIN video_transcripts v ON v.content_id = c.content_id
-          WHERE c.source_id = ${String(input.profileId)} LIMIT ${limit}
+          WHERE s.creator_profile_id = ${String(input.profileId)}::uuid
+          LIMIT ${limit}
         `;
         return {
           success: true,
@@ -568,7 +578,9 @@ export async function executePostgresMcpTool(
       case 'regenerate_transcript': {
         const contentId = String(input.contentId);
         const existing = await sql`
-          SELECT id::text AS "jobId" FROM transcript_jobs WHERE content_id = ${contentId} LIMIT 1
+          SELECT id::text AS "jobId" FROM transcript_jobs
+          WHERE content_id = ${contentId} AND status IN ('pending', 'running', 'in_progress')
+          ORDER BY created_at DESC LIMIT 1
         `;
         if (existing[0]) {
           return {
