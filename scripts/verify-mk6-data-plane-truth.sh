@@ -101,55 +101,9 @@ export HOLO_MIGRATION_READ_ONLY=1
 export HOLO_KEY_RN="$RN_KEY"
 export MK6_DATA_EXTERNAL_BEARER_TOKEN="$RN_KEY"
 
-HONO_PID=""
-cleanup() {
-  if [[ -n "${HONO_PID}" ]] && kill -0 "$HONO_PID" 2>/dev/null; then
-    kill "$HONO_PID" 2>/dev/null || true
-    wait "$HONO_PID" 2>/dev/null || true
-  fi
-}
-trap cleanup EXIT
-
-if [[ -z "${MK6_DATA_EXTERNAL_BASE_URL:-}" ]]; then
-  PORT="$(bun -e 'process.stdout.write(String(43000 + Math.floor(Math.random() * 2000)))')"
-  PORT="$PORT" HOLO_PORT="$PORT" \
-    DATABASE_URL="$MK6_DATA_DATABASE_URL" \
-    HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
-    HOLO_SECRETS_PATH="$SECRETS" \
-    HOLOCRON_SECRETS_PATH="$SECRETS" \
-    HOLO_DATA_PLANE=postgres \
-    HOLO_ROLLBACK_TARGET=postgres \
-    HOLO_MIGRATION_READ_ONLY=1 \
-    HOLO_KEY_RN="$RN_KEY" \
-    HOLO_KEY_MCP="mk6-mcp-${RUN_TOKEN}" \
-    HOLO_KEY_CONTROL="mk6-ctl-${RUN_TOKEN}" \
-    HOLO_DEPLOY_HOST=127.0.0.1 \
-    HOLO_DEPLOY_RUNTIME=container \
-    HOLO_IMAGE_DIGEST="$IMAGE_DIGEST" \
-    HOLO_SOURCE_REVISION="$SOURCE_REVISION" \
-    HOLO_COMPOSE_GENERATION="$COMPOSE_GENERATION" \
-    HOLO_COMPOSE_SHA256="$COMPOSE_SHA256" \
-    HOLO_DEPLOYED_AT="$DEPLOYED_AT" \
-    bun "$MODULE" --serve-isolated >"$EVIDENCE/hono.log" 2>&1 &
-  HONO_PID=$!
-  ready=0
-  for _ in $(seq 1 80); do
-    if grep -q 'HOLO_ISOLATED_HONO_READY' "$EVIDENCE/hono.log" 2>/dev/null && \
-      curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/health" | grep -Eq '200|503'; then
-      ready=1
-      break
-    fi
-    if ! kill -0 "$HONO_PID" 2>/dev/null; then
-      printf '{"ok":false,"error":"isolated Hono exited before health"}\n'
-      exit 1
-    fi
-    sleep 0.25
-  done
-  if [[ "$ready" != "1" ]]; then
-    printf '{"ok":false,"error":"isolated Hono never became reachable"}\n'
-    exit 1
-  fi
-  export MK6_DATA_EXTERNAL_BASE_URL="http://127.0.0.1:${PORT}"
+if [[ -z "${MK6_DATA_EXTERNAL_BASE_URL:-}" && ( -n "$CASE" || "$NEGATIVE" == "count-equal-content-corrupt" || "$NEGATIVE" == "external-witness-contract-matrix" ) ]]; then
+  printf '{"ok":false,"failureClass":"HONO_MISSING","error":"MK6_DATA_EXTERNAL_BASE_URL must name a pre-existing isolated Hono"}\n'
+  exit 2
 fi
 
 ARGS=()

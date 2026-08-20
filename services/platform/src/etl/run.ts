@@ -165,6 +165,16 @@ function sortRows(rows: ParsedExportRow[]): ParsedExportRow[] {
   );
 }
 
+function isLikelyLegacyReference(field: string, value: string): boolean {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    return false;
+  }
+  if (field.endsWith('Id') || field.endsWith('_id') || field.endsWith('Ids')) return true;
+  if (/^[a-z0-9]{20,}$/.test(value)) return true;
+  if (value.startsWith('documents_')) return true;
+  return false;
+}
+
 function mapMaybeLegacyId(value: unknown, idMap: Map<string, string>): unknown {
   if (typeof value === 'string') {
     return idMap.get(value) ?? value;
@@ -539,6 +549,7 @@ function buildRowPayload(
       coerced = coerceForColumn(mappedValue, column, {
         isStatus: resolvedColumn === 'status',
         forbidVectorCopy: sourceField === 'embedding',
+        targetTable: entry.target,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -674,7 +685,23 @@ export async function runEtl(options: EtlRunOptions): Promise<EtlRunResult> {
     for (const row of sorted) {
       idMap.set(row.legacyId, deterministicUuidV7(row.creationTimeMs, rowSeed(row)));
     }
-    await persistIdMap(sql, sorted, idMap);
+    const ghostRows: ParsedExportRow[] = [];
+    for (const row of sorted) {
+      for (const [field, value] of Object.entries(row.rowJson)) {
+        if (typeof value !== 'string' || idMap.has(value)) continue;
+        if (!isLikelyLegacyReference(field, value)) continue;
+        const ghostId = deterministicUuidV7(0, `ghost:${value}`);
+        idMap.set(value, ghostId);
+        ghostRows.push({
+          sourceTable: '_unresolved_ref',
+          legacyId: value,
+          creationTimeMs: 0,
+          rowJson: { _id: value },
+          rowHash: '',
+        });
+      }
+    }
+    await persistIdMap(sql, [...sorted, ...ghostRows], idMap);
     await updateRun(sql, runId, { checkpoint: 'mapped' });
 
     const importedAssets = await importAssets(sql, archive, store);

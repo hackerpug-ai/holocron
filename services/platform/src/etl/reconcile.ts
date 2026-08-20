@@ -112,6 +112,13 @@ export async function runEtlReconcile(options?: {
   exportDir?: string | null;
   catalogPath?: string;
   blobRoot?: string;
+  /**
+   * Composite Convex exports list retained catalog tables that honestly have
+   * zero rows. Production etl:reconcile stays fail-closed on those empties
+   * (S31-CX-03). The isolated composite path opts in so count(source)=0 is
+   * treated as explained rather than EMPTY_SOURCE_TABLE.
+   */
+  allowListedEmptyCountSourceTables?: boolean;
 }): Promise<EtlReconcileReport> {
   const databaseUrl = resolveHolocronNonprodDatabaseUrl({
     databaseUrl: options?.databaseUrl,
@@ -238,15 +245,14 @@ export async function runEtlReconcile(options?: {
       if (sourceLegacyIds.length > 0) {
         const result = await sql<{ count: string }[]>`
           SELECT count(*)::text AS count
-          FROM file_objects
-          WHERE legacy_convex_id = ANY(${sourceLegacyIds})
-             OR EXISTS (
-               SELECT 1
-               FROM jsonb_array_elements_text(
-                 COALESCE(file_objects.metadata_json->'legacyIds', '[]'::jsonb)
-               ) AS legacy_ids(legacy_id)
-               WHERE legacy_ids.legacy_id = ANY(${sourceLegacyIds})
-             )
+          FROM unnest(${sourceLegacyIds}::text[]) AS source_ids(legacy_id)
+          WHERE EXISTS (
+            SELECT 1
+            FROM file_objects
+            WHERE file_objects.legacy_convex_id = source_ids.legacy_id
+               OR COALESCE(file_objects.metadata_json->'legacyIds', '[]'::jsonb)
+                  @> to_jsonb(source_ids.legacy_id)
+          )
         `;
         retainedLoadedCount = Number(result[0]?.count ?? 0);
       }
@@ -295,11 +301,20 @@ export async function runEtlReconcile(options?: {
       blobRoot: options?.blobRoot,
     });
 
+    const emptyBlocking = options?.allowListedEmptyCountSourceTables
+      ? fieldDigests.emptySourceTables.filter((entry) => {
+          const catalogEntry = catalog.tables[entry.table];
+          const formula = (catalogEntry?.expected_target_formula ?? '')
+            .trim()
+            .replace(/^["']|["']$/g, '');
+          return formula !== 'count(source)' && formula !== 'source_count' && formula !== 'count(*)';
+        })
+      : fieldDigests.emptySourceTables;
     const ok =
       tableUnexplainedVariance === 0 &&
       storageRefUnexplainedVariance === 0 &&
       fieldDigests.fieldDigestMismatches === 0 &&
-      fieldDigests.emptySourceTables.length === 0 &&
+      emptyBlocking.length === 0 &&
       fkAudit.orphans === 0 &&
       blobVerify.parityFailures === 0;
 

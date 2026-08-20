@@ -25,6 +25,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore } from '../blob/store.ts';
 import { defaultCatalogPath, loadCatalog, type SourceCatalog } from '../catalog/catalog-loader.ts';
+import { readExport } from '../catalog/export-reader.ts';
 import { createSql } from '../db/client.ts';
 import {
   parseDatabaseTargetIdentity,
@@ -33,7 +34,6 @@ import {
 import { applyMigrations } from '../db/migrate.ts';
 import { writeExportProvenance } from './archive.ts';
 import { deterministicUuidV7 } from './deterministic-uuidv7.ts';
-import { runFkAudit } from './fk-audit.ts';
 import { runEtlReconcile } from './reconcile.ts';
 import { runEtl } from './run.ts';
 
@@ -816,16 +816,64 @@ function dispositionedInventory(entries: CorpusEntry[], catalog: SourceCatalog):
   );
 }
 
+function identityOf(entry: Record<string, unknown>): string {
+  return String(
+    entry.relativePath ??
+      entry.name ??
+      entry.logicalIdentity ??
+      entry.storageId ??
+      entry.storage_id ??
+      entry.pathIdentitySha256 ??
+      ''
+  );
+}
+
+function omittedCount(sourceIds: string[], inventoryIds: string[]): number {
+  const seen = new Set(inventoryIds.filter(Boolean));
+  return sourceIds.filter((id) => id && !seen.has(id)).length;
+}
+
 function buildAccounting(
   inventory: CompositeManifest['inventory'],
   snapshot: SqliteSnapshot,
   exportEntries: CorpusEntry[],
-  blobEntries: CorpusEntry[]
+  blobEntries: CorpusEntry[],
+  bijection: {
+    discoveredTableNames: string[];
+    discoveredSqliteNames: string[];
+    discoveredStorageMetaIds: string[];
+    discoveredStorageObjectPaths: string[];
+    discoveredBlobFilePaths: string[];
+  }
 ): Record<string, number | boolean | string> {
   const all = Object.values(inventory.arrays).flat() as Array<Record<string, unknown>>;
   const unmapped = all.filter(
     (entry) => !entry.disposition || String(entry.disposition).includes('pending')
   ).length;
+  const filesystemIds = (inventory.arrays['convex.filesystemEntries'] as Array<Record<string, unknown>>).map(
+    identityOf
+  );
+  const tableIds = (inventory.arrays['convex.tables'] as Array<Record<string, unknown>>).map(identityOf);
+  const storageMetaIds = (inventory.arrays['convex.storageMetadata'] as Array<Record<string, unknown>>).map(
+    identityOf
+  );
+  const storageObjectIds = (inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>).map(
+    identityOf
+  );
+  const sqlitePhysicalIds = (inventory.arrays['sqlite.physicalTables'] as Array<Record<string, unknown>>).map(
+    identityOf
+  );
+  const blobFileIds = (inventory.arrays['sqlite.blobFiles'] as Array<Record<string, unknown>>).map(identityOf);
+  const omittedSourceItemCount =
+    omittedCount(
+      exportEntries.map((entry) => entry.relativePath),
+      filesystemIds
+    ) +
+    omittedCount(bijection.discoveredTableNames, tableIds) +
+    omittedCount(bijection.discoveredSqliteNames, sqlitePhysicalIds) +
+    omittedCount(bijection.discoveredStorageMetaIds, storageMetaIds) +
+    omittedCount(bijection.discoveredStorageObjectPaths, storageObjectIds) +
+    omittedCount(bijection.discoveredBlobFilePaths, blobFileIds);
   const local = deriveProvenance(snapshot);
   const classes = new Set(snapshot.physicalTables.map((entry) => entry.class));
   const required = [
@@ -839,7 +887,7 @@ function buildAccounting(
   ];
   return {
     unmappedSourceItemCount: unmapped,
-    omittedSourceItemCount: 0,
+    omittedSourceItemCount,
     duplicateSourceIdentityCount: 0,
     ambiguousDispositionCount: 0,
     convexFilesystemEntryOmittedCount: 0,
@@ -876,6 +924,21 @@ function buildAccounting(
     localMaterializedMissingProvenanceCount: local.materializedLocalMissingProvenance,
     unclassifiedLocalProvenanceCount: local.unclassifiedLocalProvenance,
   };
+}
+
+function discoverConvexTableNames(exportRoot: string): string[] {
+  const dirs = readdirSync(exportRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
+    .map((entry) => entry.name);
+  const listedPath = join(exportRoot, '_tables', 'documents.jsonl');
+  const listed: string[] = [];
+  if (existsSync(listedPath)) {
+    for (const line of readFileSync(listedPath, 'utf8').split(/\r?\n/).filter(Boolean)) {
+      const parsed = JSON.parse(line) as { name?: string };
+      if (typeof parsed.name === 'string' && parsed.name) listed.push(parsed.name);
+    }
+  }
+  return [...new Set([...dirs, ...listed])].sort();
 }
 
 function readCodeSourceRows(
@@ -977,7 +1040,7 @@ export async function createCompositeCorpusSnapshot(
     throw new Error('BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT');
   const provenance = deriveProvenance(preSqlite);
   const exportArray = preExport;
-  const tableNames = [...new Set(rows.map((row) => row.sourceTable))].sort();
+  const tableNames = discoverConvexTableNames(exportSnapshot);
   const convexTables = tableNames.map((name) => {
     const tableRowsForName = rows.filter((row) => row.sourceTable === name);
     const entry = catalog.tables[name];
@@ -1074,7 +1137,13 @@ export async function createCompositeCorpusSnapshot(
       physicalTables: copySqlite.physicalTables,
       logicalRows: copySqlite.logicalRows,
     },
-    accounting: buildAccounting(inventory, copySqlite, exportArray, sqliteBlobFiles),
+    accounting: buildAccounting(inventory, copySqlite, exportArray, sqliteBlobFiles, {
+      discoveredTableNames: tableNames,
+      discoveredSqliteNames: copySqlite.physicalTables.map((table) => table.name),
+      discoveredStorageMetaIds: storage.metadata.map((row) => String(row._id ?? '')),
+      discoveredStorageObjectPaths: storage.objects.map((entry) => entry.relativePath),
+      discoveredBlobFilePaths: sqliteBlobFiles.map((entry) => entry.relativePath),
+    }),
     provenance,
     sources: {
       export: {
@@ -1233,6 +1302,7 @@ export async function loadCompositeCorpusIntoIsolatedPostgres(options: {
     context: 'composite-corpus-load',
     allowDangerousOverride: true,
   });
+  process.env.HOLO_BLOB_ROOT = options.blobRoot;
   writeExportProvenance(options.snapshot.exportSnapshot, {
     deployment: 'mk6-isolated-composite',
     exportedAt: new Date().toISOString(),
@@ -1262,14 +1332,41 @@ export async function loadCompositeCorpusIntoIsolatedPostgres(options: {
         expectedSha256: sha,
         expectedByteLength: Number(file.bytes ?? 0) || undefined,
       });
+      const declaredMime = typeof file.content_type === 'string' ? file.content_type : null;
       await upsertFileObject(sql, {
         contentHash: stored.sha256,
         legacyConvexId: String(file.storage_id ?? ''),
-        mimeType: stored.mimeType,
+        ...(declaredMime ? { mimeType: declaredMime } : {}),
         byteSize: stored.byteLength,
         storagePath: stored.relativePath,
         originalName: String(file.storage_id ?? sha),
-        metadata: { producers: ['composite-corpus'], storageId: file.storage_id },
+        metadata: {
+          producers: ['composite-corpus'],
+          storageId: file.storage_id,
+          legacyIds: [String(file.storage_id ?? '')].filter(Boolean),
+        },
+      });
+      blobImportCount += 1;
+    }
+
+    const exportBlobs = readExport(options.snapshot.exportSnapshot).storageBlobs;
+    for (const blob of exportBlobs) {
+      if (!existsSync(blob.path)) continue;
+      const stored = await store.putFile(blob.path, {
+        expectedSha256: blob.sha256,
+        expectedByteLength: blob.bytes,
+      });
+      await upsertFileObject(sql, {
+        contentHash: stored.sha256,
+        legacyConvexId: blob.legacyId,
+        ...(blob.mime ? { mimeType: blob.mime } : {}),
+        byteSize: stored.byteLength,
+        storagePath: stored.relativePath,
+        originalName: blob.legacyId,
+        metadata: {
+          legacyIds: [blob.legacyId],
+          producers: ['composite-corpus-export-storage'],
+        },
       });
       blobImportCount += 1;
     }
@@ -1348,47 +1445,16 @@ export async function reconcileCompositeLoad(options: {
     context: 'composite-corpus-reconcile',
     allowDangerousOverride: true,
   });
-  let report: {
-    ok: boolean;
-    tableUnexplainedVariance: number;
-    storageRefUnexplainedVariance: number;
-    fieldDigestMismatches: number;
-    blobVerify: { parityFailures: number };
-  };
-  try {
-    const live = await runEtlReconcile({
-      databaseUrl,
-      exportDir: options.snapshot.exportSnapshot,
-      blobRoot: options.blobRoot,
-    });
-    report = {
-      ok: live.ok,
-      tableUnexplainedVariance: live.tableUnexplainedVariance,
-      storageRefUnexplainedVariance: live.storageRefUnexplainedVariance,
-      fieldDigestMismatches: live.fieldDigestMismatches,
-      blobVerify: live.blobVerify,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes('invalid status')) throw error;
-    report = {
-      ok: true,
-      tableUnexplainedVariance: 0,
-      storageRefUnexplainedVariance: 0,
-      fieldDigestMismatches: 0,
-      blobVerify: { parityFailures: 0 },
-    };
-  }
-  let fkOrphans = 0;
-  try {
-    const fk = await runFkAudit({ databaseUrl });
-    fkOrphans = fk.orphans;
-  } catch {
-    fkOrphans = 0;
-  }
+  process.env.HOLO_BLOB_ROOT = options.blobRoot;
+  const live = await runEtlReconcile({
+    databaseUrl,
+    exportDir: options.snapshot.exportSnapshot,
+    blobRoot: options.blobRoot,
+    allowListedEmptyCountSourceTables: true,
+  });
   const sql = createSql(databaseUrl);
   let extraTargetDocumentCount = 0;
-  let contentDigestMismatchCount = report.fieldDigestMismatches;
+  let contentDigestMismatchCount = live.fieldDigestMismatches;
   try {
     const expected = new Set<string>();
     for (const row of options.snapshot.exportRows.filter(
@@ -1418,18 +1484,23 @@ export async function reconcileCompositeLoad(options: {
   }
 
   const sourceToTargetMismatchCount =
-    report.tableUnexplainedVariance + report.storageRefUnexplainedVariance;
+    live.tableUnexplainedVariance + live.storageRefUnexplainedVariance;
+  const fkOrphanCount = live.fkAudit.orphans;
+  const blobFailures = live.blobVerify.parityFailures;
   return {
     ok:
+      live.ok === true &&
       extraTargetDocumentCount === 0 &&
       contentDigestMismatchCount === 0 &&
-      sourceToTargetMismatchCount === 0,
+      sourceToTargetMismatchCount === 0 &&
+      fkOrphanCount === 0 &&
+      blobFailures === 0,
     sourceToTargetMismatchCount,
     targetToSourceMismatchCount: extraTargetDocumentCount,
-    fkOrphanCount: fkOrphans,
+    fkOrphanCount,
     contentDigestMismatchCount,
-    missingReferencedBlobCount: report.blobVerify.parityFailures,
-    blobHashMismatchCount: report.blobVerify.parityFailures,
+    missingReferencedBlobCount: blobFailures,
+    blobHashMismatchCount: blobFailures,
     extraTargetDocumentCount,
   };
 }
@@ -1540,8 +1611,20 @@ export async function proveCompositeWitnesses(options: {
   return selected;
 }
 
+export const CANONICAL_NEGATIVE_CONTROLS = [
+  'count-equal-content-corrupt',
+  'provenance-matrix',
+  'snapshot-blob-matrix',
+  'identity-source-matrix',
+  'external-binding-matrix',
+  'witness-auth-matrix',
+  'full-inventory-matrix',
+  'external-witness-contract-matrix',
+] as const;
+
 function classifyVerifyError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('HONO_PID_INVALID')) return 'HONO_PID_INVALID';
   if (message.includes('WITNESS_AUTH_MISSING')) return 'WITNESS_AUTH_MISSING';
   if (message.includes('WITNESS_AUTH_REJECTED')) return 'WITNESS_AUTH_REJECTED';
   if (message.includes('WITNESS_MAPPING_MISMATCH')) return 'WITNESS_MAPPING_MISMATCH';
@@ -1615,58 +1698,203 @@ export async function verifyMk6DataPlaneTruth(options: {
     process.env.HOLO_KEY_RN ??
     process.env.MK6_DATA_EXTERNAL_BEARER_TOKEN ??
     '';
-  if (!databaseUrl)
+  if (options.negativeControl && !(CANONICAL_NEGATIVE_CONTROLS as readonly string[]).includes(options.negativeControl)) {
     return {
       ok: false,
       case: caseName,
-      failureClass: 'ISOLATED_TARGET_MISSING',
-      error: 'databaseUrl required',
+      failureClass: 'UNKNOWN_NEGATIVE_CONTROL',
+      error: `unknown negative control: ${options.negativeControl}`,
     };
-  if (
-    !baseUrl &&
-    !options.negativeControl?.includes('self-minted') &&
-    !options.negativeControl?.includes('missing-witness-auth')
-  ) {
-    return {
-      ok: false,
-      case: caseName,
-      failureClass: 'HONO_MISSING',
-      error: 'externalBaseUrl required',
-    };
+  }
+  if (!databaseUrl) {
+    return { ok: false, case: caseName, failureClass: 'ISOLATED_TARGET_MISSING', error: 'databaseUrl required' };
+  }
+  const needsPreexistingHono =
+    !options.negativeControl ||
+    options.negativeControl === 'count-equal-content-corrupt' ||
+    options.negativeControl === 'external-witness-contract-matrix';
+  if (needsPreexistingHono && !baseUrl) {
+    return { ok: false, case: caseName, failureClass: 'HONO_MISSING', error: 'MK6_DATA_EXTERNAL_BASE_URL required' };
   }
 
   try {
-    if (options.negativeControl === 'fixture-path') {
-      await createCompositeCorpusSnapshot({ canonicalRoot: resolve(process.cwd(), 'fixtures') });
-      return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
-    }
-    if (options.negativeControl === 'symlink-source-indirection') {
-      const scratch = resolve(process.cwd(), '.tmp/MK6-DATA-001', `symlink-${Date.now()}`);
-      mkdirSync(dirname(scratch), { recursive: true });
-      execFileSync('ln', ['-s', options.canonicalRoot ?? resolve(homedir(), '.holocron'), scratch]);
+    if (options.negativeControl === 'identity-source-matrix') {
+      const rejected: string[] = [];
       try {
-        await createCompositeCorpusSnapshot({ canonicalRoot: scratch });
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
-      } finally {
-        rmSync(scratch, { force: true });
+        await createCompositeCorpusSnapshot({ canonicalRoot: resolve(process.cwd(), 'fixtures') });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'fixture-path accepted' };
+      } catch (error) {
+        rejected.push(classifyVerifyError(error));
       }
+      const clone = resolve(process.cwd(), '.tmp/MK6-DATA-001', `clone-${Date.now()}`);
+      mkdirSync(clone, { recursive: true });
+      try {
+        await createCompositeCorpusSnapshot({ canonicalRoot: clone });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'arbitrary-source-clone accepted' };
+      } catch (error) {
+        rejected.push(classifyVerifyError(error));
+      } finally {
+        rmSync(clone, { recursive: true, force: true });
+      }
+      const link = resolve(process.cwd(), '.tmp/MK6-DATA-001', `symlink-${Date.now()}`);
+      mkdirSync(dirname(link), { recursive: true });
+      execFileSync('ln', ['-s', options.canonicalRoot ?? resolve(homedir(), '.holocron'), link]);
+      try {
+        await createCompositeCorpusSnapshot({ canonicalRoot: link });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'symlink accepted' };
+      } catch (error) {
+        rejected.push(classifyVerifyError(error));
+      } finally {
+        rmSync(link, { force: true });
+      }
+      if (rejected.length !== 3) return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      return { ok: true, case: caseName, failureClass: 'SOURCE_ADMISSION_REJECTED' };
     }
-    if (options.negativeControl === 'missing-witness-auth') {
+
+    if (options.negativeControl === 'snapshot-blob-matrix') {
       const snapshot = await createCompositeCorpusSnapshot({
         canonicalRoot: options.canonicalRoot,
         runRoot: options.runRoot,
       });
-      await proveCompositeWitnesses({
-        snapshot,
-        databaseUrl,
-        baseUrl: baseUrl ?? 'http://127.0.0.1:9',
-        bearerToken: '',
-      });
-      return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      const exportFile = join(snapshot.exportSnapshot, '_tables', 'documents.jsonl');
+      writeFileSync(exportFile, `${readFileSync(exportFile, 'utf8')}\n`, { flag: 'a' });
+      if (hashTree(snapshot.exportSnapshot).digest === snapshot.manifest.checkpoints.export.snapshotCopy) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'export mutation not observed' };
+      }
+      const sqlitePath = snapshot.sqliteSnapshot;
+      execFileSync(sqliteBin(), [
+        sqlitePath,
+        "UPDATE import_batches SET note = note || 'x' WHERE id = (SELECT id FROM import_batches LIMIT 1)",
+      ]);
+      if (inspectSqlite(sqlitePath).digest === snapshot.manifest.checkpoints.sqlite.snapshotCopy) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'sqlite mutation not observed' };
+      }
+      const blobFiles = snapshot.manifest.inventory.arrays['sqlite.blobFiles'] as Array<{ relativePath: string }>;
+      const firstBlob = blobFiles[0]?.relativePath;
+      if (!firstBlob) return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'no blob file' };
+      const blobPath = join(snapshot.blobSnapshot, firstBlob);
+      writeFileSync(blobPath, Buffer.concat([readFileSync(blobPath), Buffer.from('x')]));
+      if (hashTree(snapshot.blobSnapshot).digest === snapshot.manifest.checkpoints.blobs.snapshotCopy) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'blob mutation not observed' };
+      }
+      return { ok: true, case: caseName, failureClass: 'SNAPSHOT_DRIFT_REJECTED', runId: snapshot.runId, runRoot: snapshot.runRoot };
     }
 
-    if (baseUrl)
-      await bindExternalHealth({ baseUrl, databaseUrl, releaseLockPath: options.releaseLockPath });
+    if (options.negativeControl === 'full-inventory-matrix') {
+      const snapshot = await createCompositeCorpusSnapshot({
+        canonicalRoot: options.canonicalRoot,
+        runRoot: options.runRoot,
+      });
+      const tables = snapshot.manifest.inventory.arrays['convex.tables'] as Array<Record<string, unknown>>;
+      const names = tables.map((row) => String(row.name ?? ''));
+      const omitted = omittedCount(names, names.slice(1));
+      if (omitted === 0) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'omitted inventory stayed zero' };
+      }
+      return { ok: true, case: caseName, failureClass: 'INVENTORY_OMITTED', omittedSourceItemCount: omitted, runId: snapshot.runId };
+    }
+
+    if (options.negativeControl === 'provenance-matrix') {
+      const snapshot = await createCompositeCorpusSnapshot({
+        canonicalRoot: options.canonicalRoot,
+        runRoot: options.runRoot,
+      });
+      if (snapshot.localDocuments.length === 0 || !snapshot.manifest.provenance.equationsValid) {
+        return { ok: false, case: caseName, failureClass: 'baseline-unhealthy' };
+      }
+      execFileSync(sqliteBin(), [
+        snapshot.sqliteSnapshot,
+        "DELETE FROM documents WHERE source_origin = 'local' AND import_batch_id = 'local-writes'",
+      ]);
+      const mutated = inspectSqlite(snapshot.sqliteSnapshot);
+      const provenance = deriveProvenance(mutated);
+      if (provenance.localMaterializedCount === snapshot.manifest.provenance.localMaterializedCount) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      }
+      return { ok: true, case: caseName, failureClass: 'SOURCE_SET_INCOMPLETE', runId: snapshot.runId };
+    }
+
+    if (options.negativeControl === 'witness-auth-matrix') {
+      const snapshot = await createCompositeCorpusSnapshot({
+        canonicalRoot: options.canonicalRoot,
+        runRoot: options.runRoot,
+      });
+      try {
+        await proveCompositeWitnesses({
+          snapshot,
+          databaseUrl,
+          baseUrl: baseUrl ?? 'http://127.0.0.1:9',
+          bearerToken: '',
+        });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      } catch (error) {
+        if (classifyVerifyError(error) !== 'WITNESS_AUTH_MISSING') throw error;
+      }
+      const { createServer } = await import('node:http');
+      const server = createServer((_req, res) => {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end('{"error":"unauthorized"}');
+      });
+      await new Promise<void>((resolvePromise) => server.listen(0, '127.0.0.1', resolvePromise));
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      try {
+        await proveCompositeWitnesses({
+          snapshot,
+          databaseUrl,
+          baseUrl: `http://127.0.0.1:${port}`,
+          bearerToken: 'wrong-token',
+        });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      } catch (error) {
+        if (classifyVerifyError(error) !== 'WITNESS_AUTH_REJECTED') throw error;
+      } finally {
+        await new Promise<void>((resolvePromise, reject) =>
+          server.close((err) => (err ? reject(err) : resolvePromise()))
+        );
+      }
+      return { ok: true, case: caseName, failureClass: 'WITNESS_AUTH_REJECTED' };
+    }
+
+    if (options.negativeControl === 'external-binding-matrix') {
+      const { createServer } = await import('node:http');
+      const server = createServer((_req, res) => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          status: 'ok',
+          pid: process.pid,
+          database_target: { fingerprint: 'self-minted' },
+          data_plane: 'postgres',
+        }));
+      });
+      await new Promise<void>((resolvePromise) => server.listen(0, '127.0.0.1', resolvePromise));
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      try {
+        await bindExternalHealth({ baseUrl: `http://127.0.0.1:${port}`, databaseUrl });
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      } catch {
+        // expected reject of verifier-created impostor
+      } finally {
+        await new Promise<void>((resolvePromise, reject) => server.close((err) => (err ? reject(err) : resolvePromise())));
+      }
+      return { ok: true, case: caseName, failureClass: 'HONO_PID_INVALID' };
+    }
+
+    if (options.negativeControl === 'external-witness-contract-matrix') {
+      if (!baseUrl) return { ok: false, case: caseName, failureClass: 'HONO_MISSING' };
+      const probe = await fetch(`${baseUrl.replace(/\/$/, '')}/api/content-probe`);
+      if (probe.status === 200) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'content-probe accepted' };
+      }
+      const wrong = await fetch(`${baseUrl.replace(/\/$/, '')}/api/documents`, { method: 'PUT' });
+      if (wrong.status === 200) {
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'wrong route accepted' };
+      }
+      return { ok: true, case: caseName, failureClass: 'WITNESS_ROUTE_REJECTED' };
+    }
+
+    if (baseUrl) await bindExternalHealth({ baseUrl, databaseUrl, releaseLockPath: options.releaseLockPath });
     const snapshot = await createCompositeCorpusSnapshot({
       canonicalRoot: options.canonicalRoot,
       runRoot: options.runRoot,
@@ -1705,14 +1933,20 @@ export async function verifyMk6DataPlaneTruth(options: {
       };
     }
 
+    if (options.negativeControl) {
+      return { ok: false, case: caseName, failureClass: 'UNKNOWN_NEGATIVE_CONTROL' };
+    }
+
     if (!reconcile.ok) {
       return {
         ok: false,
         case: caseName,
         failureClass:
-          reconcile.contentDigestMismatchCount > 0
-            ? 'CONTENT_DIGEST_MISMATCH'
-            : 'RECONCILE_MISMATCH',
+          reconcile.fkOrphanCount > 0
+            ? 'FK_ORPHAN'
+            : reconcile.contentDigestMismatchCount > 0
+              ? 'CONTENT_DIGEST_MISMATCH'
+              : 'RECONCILE_MISMATCH',
         runId: snapshot.runId,
         runRoot: snapshot.runRoot,
         manifestSchema: snapshot.manifest.schema,
@@ -1727,21 +1961,12 @@ export async function verifyMk6DataPlaneTruth(options: {
       baseUrl: baseUrl as string,
       bearerToken,
     });
-    const postExport = hashTree(
-      admitPath(snapshot.canonicalRoot, EXPORT_RELATIVE, snapshot.runRoot)
-    ).digest;
-    const postSqlite = inspectSqlite(
-      admitPath(snapshot.canonicalRoot, SQLITE_RELATIVE, snapshot.runRoot)
-    ).digest;
-    const postBlobs = hashTree(
-      admitPath(snapshot.canonicalRoot, BLOBS_RELATIVE, snapshot.runRoot)
-    ).digest;
-    if (postExport !== snapshot.manifest.checkpoints.export.snapshotCopy)
-      throw new Error('EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT');
-    if (postSqlite !== snapshot.manifest.checkpoints.sqlite.snapshotCopy)
-      throw new Error('SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT');
-    if (postBlobs !== snapshot.manifest.checkpoints.blobs.snapshotCopy)
-      throw new Error('BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    const postExport = hashTree(admitPath(snapshot.canonicalRoot, EXPORT_RELATIVE, snapshot.runRoot)).digest;
+    const postSqlite = inspectSqlite(admitPath(snapshot.canonicalRoot, SQLITE_RELATIVE, snapshot.runRoot)).digest;
+    const postBlobs = hashTree(admitPath(snapshot.canonicalRoot, BLOBS_RELATIVE, snapshot.runRoot)).digest;
+    if (postExport !== snapshot.manifest.checkpoints.export.snapshotCopy) throw new Error('EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    if (postSqlite !== snapshot.manifest.checkpoints.sqlite.snapshotCopy) throw new Error('SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    if (postBlobs !== snapshot.manifest.checkpoints.blobs.snapshotCopy) throw new Error('BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT');
 
     return {
       ok: true,
@@ -1763,7 +1988,7 @@ export async function verifyMk6DataPlaneTruth(options: {
     const failureClass = classifyVerifyError(error);
     const expectedReject = Boolean(options.negativeControl);
     return {
-      ok: expectedReject && failureClass !== 'mutant-accepted',
+      ok: expectedReject && failureClass !== 'mutant-accepted' && failureClass !== 'UNKNOWN_NEGATIVE_CONTROL',
       case: caseName,
       failureClass,
       error: error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400),
