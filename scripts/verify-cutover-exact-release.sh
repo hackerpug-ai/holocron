@@ -200,6 +200,8 @@ PY
       cd '$REMOTE_EVIDENCE'
       tar -xf src.tar -C src
       cd src
+      # Env overlays secrets for container-reachable fleet (running stack already uses host.docker.internal).
+      FLEET_URL='${HOLO_FLEET_URL:-http://host.docker.internal:4545/v1}' \
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       HOLO_DEPLOY_TARGET='$DEPLOY_HOST' HOLO_PRODUCTION_BASE_URL='$BASE_URL' \
       bun -e '
@@ -336,6 +338,7 @@ PY
       cd '$REMOTE_PRIOR'
       tar -xf src.tar -C src
       cd src
+      FLEET_URL='${HOLO_FLEET_URL:-http://host.docker.internal:4545/v1}' \
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       bun -e '
         import { applyProductionDeployment } from \"./services/platform/src/deploy/production-deploy.ts\";
