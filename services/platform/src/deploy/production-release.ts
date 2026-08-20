@@ -791,11 +791,7 @@ export function assertCleanExactSha(options: ExactShaOptions): string {
       `source revision mismatch: HEAD ${head} does not match requested ${options.sourceRevision}`
     );
   }
-  const dirty = runner(
-    'git',
-    ['status', '--porcelain=v1', '--untracked-files=all'],
-    cwd
-  )
+  const dirty = runner('git', ['status', '--porcelain=v1', '--untracked-files=all'], cwd)
     .stdout.split('\n')
     .map((line) => line.trimEnd())
     .filter((line) => {
@@ -829,7 +825,9 @@ export type StageExactReleaseOptions = {
 
 function refuseMutableTag(image: string): void {
   const repository = imageRepository(image);
-  const tagPortion = repository.includes(':') ? repository.slice(repository.lastIndexOf(':') + 1) : '';
+  const tagPortion = repository.includes(':')
+    ? repository.slice(repository.lastIndexOf(':') + 1)
+    : '';
   if (tagPortion === 'latest' || /(^|\/)latest@/.test(image) || image.endsWith(':latest')) {
     fail(`mutable image tag is forbidden: ${image}`);
   }
@@ -860,10 +858,7 @@ export function stageExactRelease(options: StageExactReleaseOptions): ExactRelea
     ''
   );
   if (!registry) fail('OCI registry is required');
-  const previousImage =
-    options.previousImage ??
-    process.env.HOLO_PREVIOUS_PLATFORM_IMAGE ??
-    '';
+  const previousImage = options.previousImage ?? process.env.HOLO_PREVIOUS_PLATFORM_IMAGE ?? '';
   if (!previousImage) fail('previousImage is required for deterministic staging');
   refuseMutableTag(previousImage);
   const previousDigest = assertDeployableImage(previousImage);
@@ -874,7 +869,9 @@ export function stageExactRelease(options: StageExactReleaseOptions): ExactRelea
   const compose = readCompose(composePath);
   assertComposeContract(compose);
   const composeDigest = composeSha256(composePath);
-  const pgbackrestConfSha256 = createHash('sha256').update(readFileSync(pgbackrestConfPath)).digest('hex');
+  const pgbackrestConfSha256 = createHash('sha256')
+    .update(readFileSync(pgbackrestConfPath))
+    .digest('hex');
 
   const registryRepo = `${registry}/holocron-platform`;
   const revisionTag = `${registryRepo}:${sourceRevision}`;
@@ -884,11 +881,7 @@ export function stageExactRelease(options: StageExactReleaseOptions): ExactRelea
   // Reuse an already-pushed exact-SHA image when present so a second clean stage
   // of the same revision is byte-identical (content-addressed, not rebuild-noisy).
   let pushedDigest = '';
-  const existingInspect = runner(
-    'docker',
-    ['buildx', 'imagetools', 'inspect', revisionTag],
-    cwd
-  );
+  const existingInspect = runner('docker', ['buildx', 'imagetools', 'inspect', revisionTag], cwd);
   if (existingInspect.status === 0) {
     const output = existingInspect.stdout.trim();
     pushedDigest = DIGEST_PATTERN.test(output)
