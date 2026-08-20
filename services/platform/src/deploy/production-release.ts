@@ -665,8 +665,7 @@ function renderCompose(
     HOLO_PLATFORM_IMAGE: image,
     FLEET_URL: process.env.FLEET_URL || 'http://host.docker.internal:4545',
     POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD || 'stage-render-placeholder',
-    DATABASE_URL:
-      process.env.DATABASE_URL || 'postgres://holocron:stage@127.0.0.1:44112/holocron',
+    DATABASE_URL: process.env.DATABASE_URL || 'postgres://holocron:stage@127.0.0.1:44112/holocron',
     MASTRA_API_KEY: process.env.MASTRA_API_KEY || 'stage-render-placeholder',
     FLEET_KEY: process.env.FLEET_KEY || 'stage-render-placeholder',
     ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD || 'stage-render-placeholder',
