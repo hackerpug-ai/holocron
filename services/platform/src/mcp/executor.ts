@@ -323,7 +323,7 @@ export async function executePostgresMcpTool(
         const rows = await sql`
           SELECT id::text AS "sessionId", COALESCE(topic, '') AS topic, status,
                  (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt",
-                 CASE WHEN lower(COALESCE(topic, '')) LIKE ${`%${query}%`} THEN 1.0 ELSE 0.0 END AS "relevanceScore"
+                 (CASE WHEN lower(COALESCE(topic, '')) LIKE ${`%${query}%`} THEN 1.0 ELSE 0.0 END)::float8 AS "relevanceScore"
           FROM research_sessions
           WHERE lower(COALESCE(topic, '')) LIKE ${`%${query}%`}
           ORDER BY "relevanceScore" DESC, created_at DESC LIMIT ${limit}
