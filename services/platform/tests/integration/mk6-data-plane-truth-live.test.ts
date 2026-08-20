@@ -4,7 +4,7 @@
  * These tests are integration-gated. They deliberately require the canonical
  * operator corpus and never create a fixture or fake a database/service.
  */
-import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -232,12 +232,19 @@ describe('MK6-DATA-001 composite corpus v2', () => {
     expect(result.failureClass).toBe('UNKNOWN_NEGATIVE_CONTROL');
   });
 
-  itLive('rejects identity-source mutants instead of loading them', async () => {
-    const { result, exitCode } = await runVerifier(['--negative-control', 'identity-source-matrix']);
-    expect(exitCode).toBe(0);
-    expect(result.ok).toBe(true);
-    expect(result.failureClass).toBe('SOURCE_ADMISSION_REJECTED');
-  }, 120_000);
+  itLive(
+    'rejects identity-source mutants instead of loading them',
+    async () => {
+      const { result, exitCode } = await runVerifier([
+        '--negative-control',
+        'identity-source-matrix',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(result.ok).toBe(true);
+      expect(result.failureClass).toBe('SOURCE_ADMISSION_REJECTED');
+    },
+    120_000
+  );
 
   itLive('rejects a verifier-created self-minted listener', async () => {
     const { result, exitCode } = await runVerifier([

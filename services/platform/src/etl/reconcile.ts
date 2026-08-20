@@ -307,7 +307,9 @@ export async function runEtlReconcile(options?: {
           const formula = (catalogEntry?.expected_target_formula ?? '')
             .trim()
             .replace(/^["']|["']$/g, '');
-          return formula !== 'count(source)' && formula !== 'source_count' && formula !== 'count(*)';
+          return (
+            formula !== 'count(source)' && formula !== 'source_count' && formula !== 'count(*)'
+          );
         })
       : fieldDigests.emptySourceTables;
     const ok =

@@ -850,20 +850,24 @@ function buildAccounting(
   const unmapped = all.filter(
     (entry) => !entry.disposition || String(entry.disposition).includes('pending')
   ).length;
-  const filesystemIds = (inventory.arrays['convex.filesystemEntries'] as Array<Record<string, unknown>>).map(
+  const filesystemIds = (
+    inventory.arrays['convex.filesystemEntries'] as Array<Record<string, unknown>>
+  ).map(identityOf);
+  const tableIds = (inventory.arrays['convex.tables'] as Array<Record<string, unknown>>).map(
     identityOf
   );
-  const tableIds = (inventory.arrays['convex.tables'] as Array<Record<string, unknown>>).map(identityOf);
-  const storageMetaIds = (inventory.arrays['convex.storageMetadata'] as Array<Record<string, unknown>>).map(
+  const storageMetaIds = (
+    inventory.arrays['convex.storageMetadata'] as Array<Record<string, unknown>>
+  ).map(identityOf);
+  const storageObjectIds = (
+    inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>
+  ).map(identityOf);
+  const sqlitePhysicalIds = (
+    inventory.arrays['sqlite.physicalTables'] as Array<Record<string, unknown>>
+  ).map(identityOf);
+  const blobFileIds = (inventory.arrays['sqlite.blobFiles'] as Array<Record<string, unknown>>).map(
     identityOf
   );
-  const storageObjectIds = (inventory.arrays['convex.storageObjects'] as Array<Record<string, unknown>>).map(
-    identityOf
-  );
-  const sqlitePhysicalIds = (inventory.arrays['sqlite.physicalTables'] as Array<Record<string, unknown>>).map(
-    identityOf
-  );
-  const blobFileIds = (inventory.arrays['sqlite.blobFiles'] as Array<Record<string, unknown>>).map(identityOf);
   const omittedSourceItemCount =
     omittedCount(
       exportEntries.map((entry) => entry.relativePath),
@@ -1698,7 +1702,10 @@ export async function verifyMk6DataPlaneTruth(options: {
     process.env.HOLO_KEY_RN ??
     process.env.MK6_DATA_EXTERNAL_BEARER_TOKEN ??
     '';
-  if (options.negativeControl && !(CANONICAL_NEGATIVE_CONTROLS as readonly string[]).includes(options.negativeControl)) {
+  if (
+    options.negativeControl &&
+    !(CANONICAL_NEGATIVE_CONTROLS as readonly string[]).includes(options.negativeControl)
+  ) {
     return {
       ok: false,
       case: caseName,
@@ -1707,14 +1714,24 @@ export async function verifyMk6DataPlaneTruth(options: {
     };
   }
   if (!databaseUrl) {
-    return { ok: false, case: caseName, failureClass: 'ISOLATED_TARGET_MISSING', error: 'databaseUrl required' };
+    return {
+      ok: false,
+      case: caseName,
+      failureClass: 'ISOLATED_TARGET_MISSING',
+      error: 'databaseUrl required',
+    };
   }
   const needsPreexistingHono =
     !options.negativeControl ||
     options.negativeControl === 'count-equal-content-corrupt' ||
     options.negativeControl === 'external-witness-contract-matrix';
   if (needsPreexistingHono && !baseUrl) {
-    return { ok: false, case: caseName, failureClass: 'HONO_MISSING', error: 'MK6_DATA_EXTERNAL_BASE_URL required' };
+    return {
+      ok: false,
+      case: caseName,
+      failureClass: 'HONO_MISSING',
+      error: 'MK6_DATA_EXTERNAL_BASE_URL required',
+    };
   }
 
   try {
@@ -1722,7 +1739,12 @@ export async function verifyMk6DataPlaneTruth(options: {
       const rejected: string[] = [];
       try {
         await createCompositeCorpusSnapshot({ canonicalRoot: resolve(process.cwd(), 'fixtures') });
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'fixture-path accepted' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'fixture-path accepted',
+        };
       } catch (error) {
         rejected.push(classifyVerifyError(error));
       }
@@ -1730,7 +1752,12 @@ export async function verifyMk6DataPlaneTruth(options: {
       mkdirSync(clone, { recursive: true });
       try {
         await createCompositeCorpusSnapshot({ canonicalRoot: clone });
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'arbitrary-source-clone accepted' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'arbitrary-source-clone accepted',
+        };
       } catch (error) {
         rejected.push(classifyVerifyError(error));
       } finally {
@@ -1741,13 +1768,19 @@ export async function verifyMk6DataPlaneTruth(options: {
       execFileSync('ln', ['-s', options.canonicalRoot ?? resolve(homedir(), '.holocron'), link]);
       try {
         await createCompositeCorpusSnapshot({ canonicalRoot: link });
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'symlink accepted' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'symlink accepted',
+        };
       } catch (error) {
         rejected.push(classifyVerifyError(error));
       } finally {
         rmSync(link, { force: true });
       }
-      if (rejected.length !== 3) return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
+      if (rejected.length !== 3)
+        return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
       return { ok: true, case: caseName, failureClass: 'SOURCE_ADMISSION_REJECTED' };
     }
 
@@ -1758,8 +1791,16 @@ export async function verifyMk6DataPlaneTruth(options: {
       });
       const exportFile = join(snapshot.exportSnapshot, '_tables', 'documents.jsonl');
       writeFileSync(exportFile, `${readFileSync(exportFile, 'utf8')}\n`, { flag: 'a' });
-      if (hashTree(snapshot.exportSnapshot).digest === snapshot.manifest.checkpoints.export.snapshotCopy) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'export mutation not observed' };
+      if (
+        hashTree(snapshot.exportSnapshot).digest ===
+        snapshot.manifest.checkpoints.export.snapshotCopy
+      ) {
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'export mutation not observed',
+        };
       }
       const sqlitePath = snapshot.sqliteSnapshot;
       execFileSync(sqliteBin(), [
@@ -1767,17 +1808,43 @@ export async function verifyMk6DataPlaneTruth(options: {
         "UPDATE import_batches SET note = note || 'x' WHERE id = (SELECT id FROM import_batches LIMIT 1)",
       ]);
       if (inspectSqlite(sqlitePath).digest === snapshot.manifest.checkpoints.sqlite.snapshotCopy) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'sqlite mutation not observed' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'sqlite mutation not observed',
+        };
       }
-      const blobFiles = snapshot.manifest.inventory.arrays['sqlite.blobFiles'] as Array<{ relativePath: string }>;
+      const blobFiles = snapshot.manifest.inventory.arrays['sqlite.blobFiles'] as Array<{
+        relativePath: string;
+      }>;
       const firstBlob = blobFiles[0]?.relativePath;
-      if (!firstBlob) return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'no blob file' };
+      if (!firstBlob)
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'no blob file',
+        };
       const blobPath = join(snapshot.blobSnapshot, firstBlob);
       writeFileSync(blobPath, Buffer.concat([readFileSync(blobPath), Buffer.from('x')]));
-      if (hashTree(snapshot.blobSnapshot).digest === snapshot.manifest.checkpoints.blobs.snapshotCopy) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'blob mutation not observed' };
+      if (
+        hashTree(snapshot.blobSnapshot).digest === snapshot.manifest.checkpoints.blobs.snapshotCopy
+      ) {
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'blob mutation not observed',
+        };
       }
-      return { ok: true, case: caseName, failureClass: 'SNAPSHOT_DRIFT_REJECTED', runId: snapshot.runId, runRoot: snapshot.runRoot };
+      return {
+        ok: true,
+        case: caseName,
+        failureClass: 'SNAPSHOT_DRIFT_REJECTED',
+        runId: snapshot.runId,
+        runRoot: snapshot.runRoot,
+      };
     }
 
     if (options.negativeControl === 'full-inventory-matrix') {
@@ -1785,13 +1852,26 @@ export async function verifyMk6DataPlaneTruth(options: {
         canonicalRoot: options.canonicalRoot,
         runRoot: options.runRoot,
       });
-      const tables = snapshot.manifest.inventory.arrays['convex.tables'] as Array<Record<string, unknown>>;
+      const tables = snapshot.manifest.inventory.arrays['convex.tables'] as Array<
+        Record<string, unknown>
+      >;
       const names = tables.map((row) => String(row.name ?? ''));
       const omitted = omittedCount(names, names.slice(1));
       if (omitted === 0) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'omitted inventory stayed zero' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'omitted inventory stayed zero',
+        };
       }
-      return { ok: true, case: caseName, failureClass: 'INVENTORY_OMITTED', omittedSourceItemCount: omitted, runId: snapshot.runId };
+      return {
+        ok: true,
+        case: caseName,
+        failureClass: 'INVENTORY_OMITTED',
+        omittedSourceItemCount: omitted,
+        runId: snapshot.runId,
+      };
     }
 
     if (options.negativeControl === 'provenance-matrix') {
@@ -1808,10 +1888,17 @@ export async function verifyMk6DataPlaneTruth(options: {
       ]);
       const mutated = inspectSqlite(snapshot.sqliteSnapshot);
       const provenance = deriveProvenance(mutated);
-      if (provenance.localMaterializedCount === snapshot.manifest.provenance.localMaterializedCount) {
+      if (
+        provenance.localMaterializedCount === snapshot.manifest.provenance.localMaterializedCount
+      ) {
         return { ok: false, case: caseName, failureClass: 'mutant-accepted' };
       }
-      return { ok: true, case: caseName, failureClass: 'SOURCE_SET_INCOMPLETE', runId: snapshot.runId };
+      return {
+        ok: true,
+        case: caseName,
+        failureClass: 'SOURCE_SET_INCOMPLETE',
+        runId: snapshot.runId,
+      };
     }
 
     if (options.negativeControl === 'witness-auth-matrix') {
@@ -1860,12 +1947,14 @@ export async function verifyMk6DataPlaneTruth(options: {
       const { createServer } = await import('node:http');
       const server = createServer((_req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({
-          status: 'ok',
-          pid: process.pid,
-          database_target: { fingerprint: 'self-minted' },
-          data_plane: 'postgres',
-        }));
+        res.end(
+          JSON.stringify({
+            status: 'ok',
+            pid: process.pid,
+            database_target: { fingerprint: 'self-minted' },
+            data_plane: 'postgres',
+          })
+        );
       });
       await new Promise<void>((resolvePromise) => server.listen(0, '127.0.0.1', resolvePromise));
       const address = server.address();
@@ -1876,7 +1965,9 @@ export async function verifyMk6DataPlaneTruth(options: {
       } catch {
         // expected reject of verifier-created impostor
       } finally {
-        await new Promise<void>((resolvePromise, reject) => server.close((err) => (err ? reject(err) : resolvePromise())));
+        await new Promise<void>((resolvePromise, reject) =>
+          server.close((err) => (err ? reject(err) : resolvePromise()))
+        );
       }
       return { ok: true, case: caseName, failureClass: 'HONO_PID_INVALID' };
     }
@@ -1885,16 +1976,27 @@ export async function verifyMk6DataPlaneTruth(options: {
       if (!baseUrl) return { ok: false, case: caseName, failureClass: 'HONO_MISSING' };
       const probe = await fetch(`${baseUrl.replace(/\/$/, '')}/api/content-probe`);
       if (probe.status === 200) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'content-probe accepted' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'content-probe accepted',
+        };
       }
       const wrong = await fetch(`${baseUrl.replace(/\/$/, '')}/api/documents`, { method: 'PUT' });
       if (wrong.status === 200) {
-        return { ok: false, case: caseName, failureClass: 'mutant-accepted', error: 'wrong route accepted' };
+        return {
+          ok: false,
+          case: caseName,
+          failureClass: 'mutant-accepted',
+          error: 'wrong route accepted',
+        };
       }
       return { ok: true, case: caseName, failureClass: 'WITNESS_ROUTE_REJECTED' };
     }
 
-    if (baseUrl) await bindExternalHealth({ baseUrl, databaseUrl, releaseLockPath: options.releaseLockPath });
+    if (baseUrl)
+      await bindExternalHealth({ baseUrl, databaseUrl, releaseLockPath: options.releaseLockPath });
     const snapshot = await createCompositeCorpusSnapshot({
       canonicalRoot: options.canonicalRoot,
       runRoot: options.runRoot,
@@ -1961,12 +2063,21 @@ export async function verifyMk6DataPlaneTruth(options: {
       baseUrl: baseUrl as string,
       bearerToken,
     });
-    const postExport = hashTree(admitPath(snapshot.canonicalRoot, EXPORT_RELATIVE, snapshot.runRoot)).digest;
-    const postSqlite = inspectSqlite(admitPath(snapshot.canonicalRoot, SQLITE_RELATIVE, snapshot.runRoot)).digest;
-    const postBlobs = hashTree(admitPath(snapshot.canonicalRoot, BLOBS_RELATIVE, snapshot.runRoot)).digest;
-    if (postExport !== snapshot.manifest.checkpoints.export.snapshotCopy) throw new Error('EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT');
-    if (postSqlite !== snapshot.manifest.checkpoints.sqlite.snapshotCopy) throw new Error('SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT');
-    if (postBlobs !== snapshot.manifest.checkpoints.blobs.snapshotCopy) throw new Error('BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    const postExport = hashTree(
+      admitPath(snapshot.canonicalRoot, EXPORT_RELATIVE, snapshot.runRoot)
+    ).digest;
+    const postSqlite = inspectSqlite(
+      admitPath(snapshot.canonicalRoot, SQLITE_RELATIVE, snapshot.runRoot)
+    ).digest;
+    const postBlobs = hashTree(
+      admitPath(snapshot.canonicalRoot, BLOBS_RELATIVE, snapshot.runRoot)
+    ).digest;
+    if (postExport !== snapshot.manifest.checkpoints.export.snapshotCopy)
+      throw new Error('EXPORT_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    if (postSqlite !== snapshot.manifest.checkpoints.sqlite.snapshotCopy)
+      throw new Error('SQLITE_SOURCE_CHANGED_AFTER_SNAPSHOT');
+    if (postBlobs !== snapshot.manifest.checkpoints.blobs.snapshotCopy)
+      throw new Error('BLOB_SOURCE_CHANGED_AFTER_SNAPSHOT');
 
     return {
       ok: true,
@@ -1988,7 +2099,10 @@ export async function verifyMk6DataPlaneTruth(options: {
     const failureClass = classifyVerifyError(error);
     const expectedReject = Boolean(options.negativeControl);
     return {
-      ok: expectedReject && failureClass !== 'mutant-accepted' && failureClass !== 'UNKNOWN_NEGATIVE_CONTROL',
+      ok:
+        expectedReject &&
+        failureClass !== 'mutant-accepted' &&
+        failureClass !== 'UNKNOWN_NEGATIVE_CONTROL',
       case: caseName,
       failureClass,
       error: error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400),
