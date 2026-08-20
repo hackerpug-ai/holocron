@@ -335,7 +335,12 @@ function resolveBlobManifest(root: string, exp: ConvexExport): BlobManifest {
   throw new Error(`etl export missing required _blob_meta.json: ${metaFile}`);
 }
 
-function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalog): void {
+function validateBlobMeta(
+  root: string,
+  exp: ConvexExport,
+  catalog: SourceCatalog,
+  options?: { allowUnreferencedStorage?: boolean }
+): void {
   const storageDir = join(root, '_storage');
   const hasStorage = existsSync(storageDir) && statSync(storageDir).isDirectory();
   const retainedIds = collectRetainedStorageLegacyIds(catalog, exp);
@@ -381,6 +386,7 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
     }
     const accounted = accountedIds.get(legacyId);
     if (!accounted) {
+      if (options?.allowUnreferencedStorage) continue;
       throw new Error(
         `etl export blob ${legacyId} is not represented by an approved retained or dropped catalog storage ref`
       );
@@ -395,6 +401,7 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
   for (const blob of exp.storageBlobs) {
     const accounted = accountedIds.get(blob.legacyId);
     if (!accounted) {
+      if (options?.allowUnreferencedStorage) continue;
       throw new Error(
         `etl export blob ${blob.legacyId} is not represented by an approved retained or dropped catalog storage ref`
       );
@@ -421,7 +428,11 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
   }
 }
 
-export function readImmutableExport(exportDir: string, catalog: SourceCatalog): ImmutableExport {
+export function readImmutableExport(
+  exportDir: string,
+  catalog: SourceCatalog,
+  options?: { allowUnreferencedStorage?: boolean }
+): ImmutableExport {
   const root = resolve(exportDir);
   if (!existsSync(root) || !statSync(root).isDirectory()) {
     throw new Error(`etl export directory does not exist: ${root}`);
@@ -434,7 +445,7 @@ export function readImmutableExport(exportDir: string, catalog: SourceCatalog): 
   validateTableSurface(root, listedTables);
 
   const exportData = readExport(root);
-  validateBlobMeta(root, exportData, catalog);
+  validateBlobMeta(root, exportData, catalog, options);
 
   const rows = listedTables.flatMap((table) => parseTableRows(root, table));
   const assetInventory = buildAssetInventory(catalog, exportData);

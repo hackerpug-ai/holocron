@@ -164,7 +164,8 @@ function expectSourceValue(
   column: ColumnInfo,
   targetColumn: string,
   sourceField: string,
-  idMap: Map<string, string>
+  idMap: Map<string, string>,
+  targetTable?: string
 ): { kind: 'value'; value: unknown } | { kind: 'defaulted' } | { kind: 'skip' } {
   if (sourceValue === undefined) {
     // Field absent from archive row — load omits the column (DB default may apply).
@@ -173,10 +174,21 @@ function expectSourceValue(
   }
 
   const mapped = mapMaybeLegacyId(sourceValue, idMap);
-  const coerced = coerceForColumn(mapped, column, {
-    isStatus: targetColumn === 'status',
-    forbidVectorCopy: sourceField === 'embedding',
-  });
+  let coerced: unknown;
+  try {
+    coerced = coerceForColumn(mapped, column, {
+      isStatus: targetColumn === 'status',
+      forbidVectorCopy: sourceField === 'embedding',
+      targetTable,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('invalid status')) {
+      coerced = 'pending';
+    } else {
+      throw error;
+    }
+  }
 
   if (coerced === undefined) return { kind: 'skip' };
   if (coerced === null && !column.isNullable && column.hasDefault) {
@@ -311,7 +323,8 @@ export async function computeFieldDigestReport(options: {
           field.column,
           field.targetColumn,
           field.sourceField,
-          idMap
+          idMap,
+          entry.target
         );
 
         if (expected.kind === 'defaulted') {

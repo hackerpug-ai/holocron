@@ -16,10 +16,35 @@ export function normalizeStatus(value: unknown): string {
     .replace(/\s+/g, '_');
 }
 
+const TABLE_STATUS_VOCAB: Record<string, ReadonlySet<string>> = {
+  documents: new Set(documentStatusValues),
+  research_sessions: new Set(lifecycleStatusValues),
+  research_iterations: new Set(lifecycleStatusValues),
+};
+
+const STATUS_SYNONYMS: Record<string, readonly string[]> = {
+  processing: ['in_progress', 'running', 'pending'],
+  active: ['published', 'ready', 'in_progress', 'pending'],
+  complete: ['completed', 'ready', 'published'],
+  error: ['failed'],
+};
+
+export function coerceStatusForTarget(value: unknown, targetTable?: string): string {
+  const normalized = normalizeStatus(value);
+  const allowed = (targetTable && TABLE_STATUS_VOCAB[targetTable]) || STATUS_VOCAB;
+  if (allowed.has(normalized)) return normalized;
+  for (const candidate of STATUS_SYNONYMS[normalized] ?? []) {
+    if (allowed.has(candidate)) return candidate;
+  }
+  if (allowed.has('pending')) return 'pending';
+  if (allowed.has('draft')) return 'draft';
+  throw new Error(`invalid status value: ${String(value)}`);
+}
+
 export function coerceForColumn(
   value: unknown,
   column: ColumnInfo,
-  options: { isStatus?: boolean; forbidVectorCopy?: boolean } = {}
+  options: { isStatus?: boolean; forbidVectorCopy?: boolean; targetTable?: string } = {}
 ): unknown {
   if (value === undefined) return undefined;
   if (value === null) return null;
@@ -29,11 +54,7 @@ export function coerceForColumn(
   }
 
   if (options.isStatus) {
-    const normalized = normalizeStatus(value);
-    if (!STATUS_VOCAB.has(normalized)) {
-      throw new Error(`invalid status value: ${String(value)}`);
-    }
-    return normalized;
+    return coerceStatusForTarget(value, options.targetTable);
   }
 
   if (column.udtName === 'jsonb' || column.dataType === 'json') {
