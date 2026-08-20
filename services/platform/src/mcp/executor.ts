@@ -44,8 +44,81 @@ type JinaSearchItem = {
   content: string;
 };
 
+type FeedEntry = {
+  contentId: string;
+  title: string;
+  url: string | null;
+  publishedAt: string | null;
+  summary: string | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function decodeXml(value: string): string {
+  return value
+    .replaceAll('<![CDATA[', '')
+    .replaceAll(']]>', '')
+    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) =>
+      String.fromCodePoint(Number.parseInt(code, 16))
+    )
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+    .trim();
+}
+
+function xmlTag(block: string, names: string[]): string | null {
+  for (const name of names) {
+    const match = block.match(
+      new RegExp(`<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}>`, 'i')
+    );
+    if (match?.[1]) return decodeXml(match[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
+  }
+  return null;
+}
+
+function xmlLink(block: string): string | null {
+  const tags = block.match(/<(?:[\w.-]+:)?link\b[^>]*>/gi) ?? [];
+  for (const tag of tags) {
+    const href = tag.match(/\bhref=(?:"([^"]+)"|'([^']+)')/i);
+    const rel = tag.match(/\brel=(?:"([^"]+)"|'([^']+)')/i);
+    const value = href?.[1] ?? href?.[2];
+    const relation = rel?.[1] ?? rel?.[2];
+    if (value && (!relation || relation === 'alternate')) return decodeXml(value);
+  }
+  return xmlTag(block, ['link']);
+}
+
+function parseFeedEntries(xml: string): FeedEntry[] {
+  const blocks = [
+    ...(xml.match(/<(?:[\w.-]+:)?entry\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?entry>/gi) ?? []),
+    ...(xml.match(/<(?:[\w.-]+:)?item\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?item>/gi) ?? []),
+  ];
+  return blocks.slice(0, 50).flatMap((block) => {
+    const title = xmlTag(block, ['title']);
+    const url = xmlLink(block);
+    const stableId = xmlTag(block, ['id', 'guid']) ?? url;
+    if (!title || !stableId) return [];
+    const published = xmlTag(block, ['published', 'updated', 'pubDate']);
+    const publishedDate = published ? new Date(published) : null;
+    return [
+      {
+        contentId: stableId,
+        title,
+        url,
+        publishedAt:
+          publishedDate && !Number.isNaN(publishedDate.valueOf())
+            ? publishedDate.toISOString()
+            : null,
+        summary: xmlTag(block, ['summary', 'description', 'content']),
+      },
+    ];
+  });
 }
 
 function asJinaSearchItem(value: unknown): JinaSearchItem | null {
@@ -845,12 +918,80 @@ export async function executePostgresMcpTool(
         return { filters: rows };
       }
       case 'check_subscriptions': {
-        const rows = await sql`SELECT count(*)::int AS count FROM subscription_sources`;
+        const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
+        const sources = await sql<
+          Array<{
+            id: string;
+            identifier: string;
+            name: string | null;
+            sourceType: string;
+            feedUrl: string;
+          }>
+        >`
+          SELECT id::text AS id, identifier, name, source_type AS "sourceType",
+                 feed_url AS "feedUrl"
+          FROM subscription_sources
+          WHERE feed_url IS NOT NULL
+            AND (${sourceType}::text IS NULL OR source_type = ${sourceType})
+          ORDER BY created_at ASC
+        `;
+        let totalFetched = 0;
+        let totalQueued = 0;
+        const errors: string[] = [];
+        for (const source of sources) {
+          try {
+            if (options?.signal?.aborted) throw new Error('MCP request cancelled');
+            const response = await fetch(source.feedUrl, {
+              headers: {
+                Accept: 'application/atom+xml, application/rss+xml, application/xml, text/xml',
+                'User-Agent': 'Holocron/1.0 subscription-check',
+              },
+              signal: options?.signal,
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const body = await response.text();
+            const entries = parseFeedEntries(body);
+            if (entries.length === 0) throw new Error('feed contained no Atom/RSS entries');
+            totalFetched += entries.length;
+            for (const entry of entries) {
+              const inserted = await sql`
+                INSERT INTO subscription_content (
+                  id, source_id, content_id, title, url, metadata_json,
+                  passed_filter, research_status, discovered_at
+                )
+                SELECT ${randomUUID()}::uuid, ${source.id}::uuid, ${entry.contentId},
+                       ${entry.title}, ${entry.url},
+                       ${sql.json(
+                         toSqlJsonValue({
+                           feedUrl: source.feedUrl,
+                           publishedAt: entry.publishedAt,
+                           summary: entry.summary,
+                         })
+                       )},
+                       true, 'pending', COALESCE(${entry.publishedAt}::timestamptz, now())
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM subscription_content
+                  WHERE source_id = ${source.id}::uuid AND content_id = ${entry.contentId}
+                )
+                RETURNING id::text AS id
+              `;
+              totalQueued += inserted.length;
+            }
+            await sql`
+              UPDATE subscription_sources SET last_checked = now(), updated_at = now()
+              WHERE id = ${source.id}::uuid
+            `;
+          } catch (error) {
+            errors.push(
+              `${source.identifier}: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
         return {
-          sourcesChecked: Number(rows[0]?.count ?? 0),
-          totalFetched: 0,
-          totalQueued: 0,
-          errors: [],
+          sourcesChecked: sources.length,
+          totalFetched,
+          totalQueued,
+          errors,
         };
       }
       case 'search_fts': {
