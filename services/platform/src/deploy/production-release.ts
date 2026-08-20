@@ -657,7 +657,20 @@ function renderCompose(
   image: string
 ): void {
   const before = process.env.HOLO_PLATFORM_IMAGE;
-  const renderEnv = { ...process.env, HOLO_PLATFORM_IMAGE: image };
+  // Staging/package only validates the rendered contract. Provide non-secret
+  // placeholders for required Compose interpolations that deploy:apply supplies
+  // from the operator secret store at apply time.
+  const renderEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOLO_PLATFORM_IMAGE: image,
+    FLEET_URL: process.env.FLEET_URL || 'http://host.docker.internal:4545',
+    POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD || 'stage-render-placeholder',
+    DATABASE_URL:
+      process.env.DATABASE_URL || 'postgres://holocron:stage@127.0.0.1:44112/holocron',
+    MASTRA_API_KEY: process.env.MASTRA_API_KEY || 'stage-render-placeholder',
+    FLEET_KEY: process.env.FLEET_KEY || 'stage-render-placeholder',
+    ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD || 'stage-render-placeholder',
+  };
   try {
     process.env.HOLO_PLATFORM_IMAGE = image;
     const rendered = runOrFail(
