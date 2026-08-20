@@ -744,6 +744,69 @@ export function defaultComposePath(cwd = process.cwd()): string {
   return resolve(cwd, 'services/platform/deploy/compose/compose.yaml');
 }
 
+
+export type ExactReleaseManifest = {
+  schemaVersion: 1;
+  sourceRevision: string;
+  composeSha256: string;
+  imageDigests: Record<string, string>;
+  images: Record<string, string>;
+  backupRunner: {
+    pgbackrestConfPath: string;
+    pgbackrestConfSha256: string;
+    pgbackrestImage: string;
+    resticImage: string;
+    platformBinaryPaths: { pgbackrest: string; restic: string };
+  };
+  artifactPaths: Record<string, string>;
+  generatedAt: string;
+};
+
+export type ExactShaOptions = {
+  cwd: string;
+  sourceRevision: string;
+  runner?: ProcessRunner;
+};
+
+/**
+ * Fail closed before any image build/push when the tree is dirty or HEAD is not
+ * the requested 40-hex revision.
+ */
+export function assertCleanExactSha(options: ExactShaOptions): string {
+  const runner = options.runner ?? defaultRunner;
+  const cwd = options.cwd;
+  assertSourceRevision(options.sourceRevision);
+  const head = runner('git', ['rev-parse', 'HEAD'], cwd).stdout.trim();
+  assertSourceRevision(head);
+  if (head !== options.sourceRevision) {
+    fail(
+      `source revision mismatch: HEAD ${head} does not match requested ${options.sourceRevision}`
+    );
+  }
+  const dirty = runner(
+    'git',
+    ['status', '--porcelain=v1', '--untracked-files=all'],
+    cwd
+  ).stdout.trim();
+  if (dirty) fail('source tree is dirty; commit the candidate before packaging');
+  return head;
+}
+
+export type StageExactReleaseOptions = {
+  cwd?: string;
+  sourceRevision: string;
+  outDir: string;
+  registry?: string;
+  previousImage?: string;
+  runner?: ProcessRunner;
+  now?: () => Date;
+};
+
+/** RED stub — implemented in CUTOVER-RELEASE-001 GREEN. */
+export function stageExactRelease(_options: StageExactReleaseOptions): ExactReleaseManifest {
+  fail('stageExactRelease is not implemented');
+}
+
 export function defaultImageLockPath(cwd = process.cwd()): string {
   return resolve(cwd, 'services/platform/deploy/compose/image-lock.json');
 }
