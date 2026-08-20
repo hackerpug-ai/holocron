@@ -6,7 +6,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
@@ -17,6 +17,15 @@ export const REVISION_PATTERN = /^[a-f0-9]{40}$/;
 export const REQUIRED_PLATFORM = 'linux/arm64' as const;
 export const PGVECTOR_PG18_IMAGE =
   'pgvector/pgvector@sha256:691673308c99d2161ba298736f3147f1f22d79de2fb7ec93ae9b4afcab870b62';
+export const ZERO_CACHE_IMAGE =
+  'ghcr.io/rocicorp/zero@sha256:9be2d9303b076f2aef29cbcc629350dbc40cf0531ead59a7f61572eeb65fef72';
+export const PGBACKREST_IMAGE =
+  'woblerr/pgbackrest@sha256:3e6c90cc4287efad0c16d667992aee9c70226bcb6ef3052f69a0c84121454bce';
+export const RESTIC_IMAGE =
+  'restic/restic@sha256:740ef3a20c7fe5de05ee031717a610ac8c3d1cf09a06cf77ffd4c3ec26e2302e';
+export const PGBACKREST_CONF_RELATIVE = 'services/platform/deploy/compose/pgbackrest.conf';
+export const PLATFORM_PGBACKREST_BIN = '/usr/local/bin/pgbackrest';
+export const PLATFORM_RESTIC_BIN = '/usr/local/bin/restic';
 
 export type ImagePlatform = { os: string; architecture: string; variant?: string };
 
@@ -744,7 +753,6 @@ export function defaultComposePath(cwd = process.cwd()): string {
   return resolve(cwd, 'services/platform/deploy/compose/compose.yaml');
 }
 
-
 export type ExactReleaseManifest = {
   schemaVersion: 1;
   sourceRevision: string;
@@ -787,7 +795,18 @@ export function assertCleanExactSha(options: ExactShaOptions): string {
     'git',
     ['status', '--porcelain=v1', '--untracked-files=all'],
     cwd
-  ).stdout.trim();
+  )
+    .stdout.split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => {
+      if (!line.trim()) return false;
+      const path = line.slice(3).trim();
+      // Worktree-local installs are not part of the release candidate.
+      if (path === 'node_modules' || path.startsWith('node_modules/')) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
   if (dirty) fail('source tree is dirty; commit the candidate before packaging');
   return head;
 }
@@ -800,11 +819,220 @@ export type StageExactReleaseOptions = {
   previousImage?: string;
   runner?: ProcessRunner;
   now?: () => Date;
+  /**
+   * When true, skip the git dirty/HEAD gate. Only for a remote build host after
+   * the operator shell already proved a clean exact SHA and shipped `git archive`
+   * bytes for that revision.
+   */
+  assumeCleanArchive?: boolean;
 };
 
-/** RED stub — implemented in CUTOVER-RELEASE-001 GREEN. */
-export function stageExactRelease(_options: StageExactReleaseOptions): ExactReleaseManifest {
-  fail('stageExactRelease is not implemented');
+function refuseMutableTag(image: string): void {
+  const repository = imageRepository(image);
+  const tagPortion = repository.includes(':') ? repository.slice(repository.lastIndexOf(':') + 1) : '';
+  if (tagPortion === 'latest' || /(^|\/)latest@/.test(image) || image.endsWith(':latest')) {
+    fail(`mutable image tag is forbidden: ${image}`);
+  }
+}
+
+function digestOfPinnedImage(image: string): string {
+  refuseMutableTag(image);
+  return assertDeployableImage(image);
+}
+
+/**
+ * Build/push an immutable platform image for an exact clean SHA and write the
+ * content-addressed release manifest + deployable image-lock consumed by deploy.
+ */
+export function stageExactRelease(options: StageExactReleaseOptions): ExactReleaseManifest {
+  const cwd = options.cwd ?? process.cwd();
+  const runner = options.runner ?? defaultRunner;
+  assertSourceRevision(options.sourceRevision);
+  const sourceRevision = options.assumeCleanArchive
+    ? options.sourceRevision
+    : assertCleanExactSha({
+        cwd,
+        sourceRevision: options.sourceRevision,
+        runner,
+      });
+  const registry = (options.registry ?? process.env.HOLO_OCI_REGISTRY ?? 'localhost:5000').replace(
+    /\/$/,
+    ''
+  );
+  if (!registry) fail('OCI registry is required');
+  const previousImage =
+    options.previousImage ??
+    process.env.HOLO_PREVIOUS_PLATFORM_IMAGE ??
+    '';
+  if (!previousImage) fail('previousImage is required for deterministic staging');
+  refuseMutableTag(previousImage);
+  const previousDigest = assertDeployableImage(previousImage);
+
+  const composePath = defaultComposePath(cwd);
+  const pgbackrestConfPath = resolve(cwd, PGBACKREST_CONF_RELATIVE);
+  if (!existsSync(pgbackrestConfPath)) fail(`pgBackRest config is missing: ${pgbackrestConfPath}`);
+  const compose = readCompose(composePath);
+  assertComposeContract(compose);
+  const composeDigest = composeSha256(composePath);
+  const pgbackrestConfSha256 = createHash('sha256').update(readFileSync(pgbackrestConfPath)).digest('hex');
+
+  const registryRepo = `${registry}/holocron-platform`;
+  const revisionTag = `${registryRepo}:${sourceRevision}`;
+  const localTag = `holocron-platform:${sourceRevision}`;
+  const dockerfile = resolve(cwd, 'services/platform/Dockerfile');
+
+  // Reuse an already-pushed exact-SHA image when present so a second clean stage
+  // of the same revision is byte-identical (content-addressed, not rebuild-noisy).
+  let pushedDigest = '';
+  const existingInspect = runner(
+    'docker',
+    ['buildx', 'imagetools', 'inspect', revisionTag],
+    cwd
+  );
+  if (existingInspect.status === 0) {
+    const output = existingInspect.stdout.trim();
+    pushedDigest = DIGEST_PATTERN.test(output)
+      ? output
+      : (/^Digest:\s+(sha256:[a-f0-9]{64})$/m.exec(output)?.[1] ?? '');
+  }
+
+  if (!DIGEST_PATTERN.test(pushedDigest)) {
+    runOrFail(runner, cwd, 'docker', [
+      'build',
+      '--file',
+      dockerfile,
+      '--build-arg',
+      `SOURCE_REVISION=${sourceRevision}`,
+      '--platform',
+      REQUIRED_PLATFORM,
+      '--tag',
+      localTag,
+      cwd,
+    ]);
+
+    // Prove packaged backup binaries before push.
+    runOrFail(runner, cwd, 'docker', [
+      'run',
+      '--rm',
+      '--entrypoint',
+      PLATFORM_PGBACKREST_BIN,
+      localTag,
+      'version',
+    ]);
+    runOrFail(runner, cwd, 'docker', [
+      'run',
+      '--rm',
+      '--entrypoint',
+      PLATFORM_RESTIC_BIN,
+      localTag,
+      'version',
+    ]);
+
+    runOrFail(runner, cwd, 'docker', ['tag', localTag, revisionTag]);
+    runOrFail(runner, cwd, 'docker', ['push', revisionTag]);
+    pushedDigest = inspectRemoteDigest(runner, cwd, revisionTag);
+  }
+
+  const platformImage = `${registryRepo}@${pushedDigest}`;
+  refuseMutableTag(platformImage);
+  if (pushedDigest === previousDigest) {
+    fail('candidate image digest must differ from previousImage');
+  }
+
+  // Always prove backup binaries in the immutable platform image (fresh or reused).
+  runOrFail(runner, cwd, 'docker', [
+    'run',
+    '--rm',
+    '--entrypoint',
+    PLATFORM_PGBACKREST_BIN,
+    platformImage,
+    'version',
+  ]);
+  runOrFail(runner, cwd, 'docker', [
+    'run',
+    '--rm',
+    '--entrypoint',
+    PLATFORM_RESTIC_BIN,
+    platformImage,
+    'version',
+  ]);
+
+  const candidate = verifyImageIdentity(runner, cwd, platformImage, sourceRevision);
+  const previous = verifyImageIdentity(runner, cwd, previousImage);
+  renderCompose(runner, cwd, composePath, platformImage);
+
+  // Deterministic timestamp: manifests for one SHA must be byte-identical across stages.
+  const generatedAt = (options.now ?? (() => new Date(0)))().toISOString();
+
+  const outDir = resolve(options.outDir);
+  mkdirSync(outDir, { recursive: true });
+  const lockPath = resolve(outDir, 'image-lock.json');
+  const manifestPath = resolve(outDir, 'release-manifest.json');
+
+  const lock: ReleaseLock = {
+    schemaVersion: 1,
+    deployable: true,
+    image: platformImage,
+    digest: pushedDigest,
+    repoDigest: candidate.repoDigest,
+    sourceRevision,
+    composeSha256: composeDigest,
+    previousImage,
+    previousDigest,
+    previousRepoDigest: previous.repoDigest,
+    generatedAt,
+  };
+  writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o644 });
+
+  const postgresDigest = digestOfPinnedImage(PGVECTOR_PG18_IMAGE);
+  const zeroDigest = digestOfPinnedImage(ZERO_CACHE_IMAGE);
+  const pgbackrestDigest = digestOfPinnedImage(PGBACKREST_IMAGE);
+  const resticDigest = digestOfPinnedImage(RESTIC_IMAGE);
+
+  const manifest: ExactReleaseManifest = {
+    schemaVersion: 1,
+    sourceRevision,
+    composeSha256: composeDigest,
+    imageDigests: {
+      platform: pushedDigest,
+      postgres: postgresDigest,
+      zeroCache: zeroDigest,
+      pgbackrest: pgbackrestDigest,
+      restic: resticDigest,
+    },
+    images: {
+      platform: platformImage,
+      previousPlatform: previousImage,
+      postgres: PGVECTOR_PG18_IMAGE,
+      zeroCache: ZERO_CACHE_IMAGE,
+      pgbackrest: PGBACKREST_IMAGE,
+      restic: RESTIC_IMAGE,
+    },
+    backupRunner: {
+      pgbackrestConfPath: PGBACKREST_CONF_RELATIVE,
+      pgbackrestConfSha256,
+      pgbackrestImage: PGBACKREST_IMAGE,
+      resticImage: RESTIC_IMAGE,
+      platformBinaryPaths: {
+        pgbackrest: PLATFORM_PGBACKREST_BIN,
+        restic: PLATFORM_RESTIC_BIN,
+      },
+    },
+    artifactPaths: {
+      releaseManifest: 'release-manifest.json',
+      imageLock: 'image-lock.json',
+      compose: 'services/platform/deploy/compose/compose.yaml',
+      pgbackrestConf: PGBACKREST_CONF_RELATIVE,
+      dockerfile: 'services/platform/Dockerfile',
+    },
+    generatedAt,
+  };
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o644 });
+
+  // Keep a content-addressed copy of compose + pgbackrest conf beside the lock.
+  writeFileSync(resolve(outDir, 'compose.yaml'), readFileSync(composePath));
+  writeFileSync(resolve(outDir, 'pgbackrest.conf'), readFileSync(pgbackrestConfPath));
+  return manifest;
 }
 
 export function defaultImageLockPath(cwd = process.cwd()): string {

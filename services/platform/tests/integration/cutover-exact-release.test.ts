@@ -5,26 +5,19 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertCleanExactSha,
   composeSha256,
-  defaultComposePath,
   DIGEST_PATTERN,
-  REVISION_PATTERN,
-  stageExactRelease,
+  defaultComposePath,
   type ExactReleaseManifest,
   type ProcessRunner,
+  REVISION_PATTERN,
+  stageExactRelease,
 } from '../../src/deploy/production-release.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
@@ -122,112 +115,118 @@ describe('CUTOVER-RELEASE-001 exact SHA release', () => {
     expect(wrongCommands.filter((c) => c[0] === 'docker')).toHaveLength(0);
   });
 
-  itLive('AC-1: clean exact SHA stages twice to one manifest digest; negatives exit nonzero', () => {
-    const stageScript = resolve(REPO_ROOT, 'scripts/stage-holocron-release.sh');
-    expect(existsSync(stageScript), 'scripts/stage-holocron-release.sh must exist').toBe(true);
+  itLive(
+    'AC-1: clean exact SHA stages twice to one manifest digest; negatives exit nonzero',
+    () => {
+      const stageScript = resolve(REPO_ROOT, 'scripts/stage-holocron-release.sh');
+      expect(existsSync(stageScript), 'scripts/stage-holocron-release.sh must exist').toBe(true);
 
-    const sourceRevision = run('git', ['rev-parse', 'HEAD']).stdout.trim();
-    expect(sourceRevision).toMatch(REVISION_PATTERN);
-    const dirty = run('git', ['status', '--porcelain=v1', '--untracked-files=all']).stdout.trim();
-    // Ignore untracked node_modules if present in this worktree.
-    const meaningfulDirty = dirty
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.endsWith('node_modules') && !line.includes('node_modules/'))
-      .join('\n');
-    expect(meaningfulDirty, 'worktree must be clean for live AC-1 staging').toBe('');
+      const sourceRevision = run('git', ['rev-parse', 'HEAD']).stdout.trim();
+      expect(sourceRevision).toMatch(REVISION_PATTERN);
+      const dirty = run('git', ['status', '--porcelain=v1', '--untracked-files=all']).stdout.trim();
+      // Ignore untracked node_modules if present in this worktree.
+      const meaningfulDirty = dirty
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !line.endsWith('node_modules') && !line.includes('node_modules/'))
+        .join('\n');
+      expect(meaningfulDirty, 'worktree must be clean for live AC-1 staging').toBe('');
 
-    const outA = scratch('stage-a');
-    const outB = scratch('stage-b');
-    const negativeOut = scratch('stage-neg');
-    const env = {
-      ...process.env,
-      PLATFORM_IT: '1',
-      HOLO_OCI_REGISTRY: process.env.HOLO_OCI_REGISTRY ?? 'localhost:5000',
-      HOLO_PREVIOUS_PLATFORM_IMAGE:
-        process.env.HOLO_PREVIOUS_PLATFORM_IMAGE ??
-        'localhost:5000/holocron-platform@sha256:e20d53470c936831bf2ed9e7b4bf6a1a509baab5fcd89eb6d7ec0c6fece23a4f',
-    };
+      const outA = scratch('stage-a');
+      const outB = scratch('stage-b');
+      const negativeOut = scratch('stage-neg');
+      const env = {
+        ...process.env,
+        PLATFORM_IT: '1',
+        HOLO_OCI_REGISTRY: process.env.HOLO_OCI_REGISTRY ?? 'localhost:5000',
+        HOLO_PREVIOUS_PLATFORM_IMAGE:
+          process.env.HOLO_PREVIOUS_PLATFORM_IMAGE ??
+          'localhost:5000/holocron-platform@sha256:e20d53470c936831bf2ed9e7b4bf6a1a509baab5fcd89eb6d7ec0c6fece23a4f',
+      };
 
-    const stageOnce = (outDir: string) => {
-      const result = run(
+      const stageOnce = (outDir: string) => {
+        const result = run(
+          'bash',
+          [stageScript, '--source-revision', sourceRevision, '--out', outDir, '--json'],
+          REPO_ROOT,
+          env
+        );
+        expect(result.status, result.stderr || result.stdout).toBe(0);
+        const manifestPath = join(outDir, 'release-manifest.json');
+        expect(existsSync(manifestPath)).toBe(true);
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as ExactReleaseManifest;
+        return { manifest, manifestSha256: sha256File(manifestPath) };
+      };
+
+      const a = stageOnce(outA);
+      const b = stageOnce(outB);
+      expect(a.manifest.sourceRevision).toBe(sourceRevision);
+      expect(b.manifest.sourceRevision).toBe(sourceRevision);
+      expect(a.manifestSha256).toBe(b.manifestSha256);
+      expect(a.manifest.composeSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(a.manifest.composeSha256).toBe(composeSha256(defaultComposePath(REPO_ROOT)));
+
+      const wrong = run(
         'bash',
-        [stageScript, '--source-revision', sourceRevision, '--out', outDir, '--json'],
+        [stageScript, '--source-revision', 'b'.repeat(40), '--out', negativeOut, '--json'],
         REPO_ROOT,
         env
       );
-      expect(result.status, result.stderr || result.stdout).toBe(0);
-      const manifestPath = join(outDir, 'release-manifest.json');
-      expect(existsSync(manifestPath)).toBe(true);
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as ExactReleaseManifest;
-      return { manifest, manifestSha256: sha256File(manifestPath) };
-    };
+      expect(wrong.status).not.toBe(0);
+      expect(`${wrong.stdout}\n${wrong.stderr}`).not.toMatch(/pushed|docker build|buildx build/i);
 
-    const a = stageOnce(outA);
-    const b = stageOnce(outB);
-    expect(a.manifest.sourceRevision).toBe(sourceRevision);
-    expect(b.manifest.sourceRevision).toBe(sourceRevision);
-    expect(a.manifestSha256).toBe(b.manifestSha256);
-    expect(a.manifest.composeSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(a.manifest.composeSha256).toBe(composeSha256(defaultComposePath(REPO_ROOT)));
-
-    const wrong = run(
-      'bash',
-      [stageScript, '--source-revision', 'b'.repeat(40), '--out', negativeOut, '--json'],
-      REPO_ROOT,
-      env
-    );
-    expect(wrong.status).not.toBe(0);
-    expect(`${wrong.stdout}\n${wrong.stderr}`).not.toMatch(/pushed|docker build|buildx build/i);
-
-    const dirtyWt = scratch('dirty-wt');
-    const wtAdd = run('git', ['worktree', 'add', '--detach', dirtyWt, sourceRevision], REPO_ROOT);
-    expect(wtAdd.status, wtAdd.stderr || wtAdd.stdout).toBe(0);
-    writeFileSync(join(dirtyWt, `DIRTY_CUTOVER_RELEASE_${randomBytes(3).toString('hex')}`), 'nope\n');
-    const dirtyStage = run(
-      'bash',
-      [
-        stageScript,
-        '--source-revision',
-        sourceRevision,
-        '--out',
-        join(negativeOut, 'dirty'),
-        '--json',
-        '--repo',
-        dirtyWt,
-      ],
-      dirtyWt,
-      env
-    );
-    expect(dirtyStage.status).not.toBe(0);
-    expect(`${dirtyStage.stdout}\n${dirtyStage.stderr}`).not.toMatch(/pushed|docker build/i);
-    run('git', ['worktree', 'remove', '--force', dirtyWt], REPO_ROOT);
-
-    const evidenceDir = resolve(
-      REPO_ROOT,
-      `.tmp/CUTOVER-RELEASE-001/${process.env.CUTOVER_RELEASE_RUN_ID ?? `ac1-${Date.now()}`}`
-    );
-    mkdirSync(evidenceDir, { recursive: true });
-    writeFileSync(
-      join(evidenceDir, 'ac1-evidence.json'),
-      `${JSON.stringify(
-        {
-          cleanRunCount: 2,
-          cleanManifestSha256Count: 1,
-          cleanManifestSha256: a.manifestSha256,
-          negativeExitCode: wrong.status,
-          dirtyExitCode: dirtyStage.status,
-          negativePushCount: 0,
+      const dirtyWt = scratch('dirty-wt');
+      const wtAdd = run('git', ['worktree', 'add', '--detach', dirtyWt, sourceRevision], REPO_ROOT);
+      expect(wtAdd.status, wtAdd.stderr || wtAdd.stdout).toBe(0);
+      writeFileSync(
+        join(dirtyWt, `DIRTY_CUTOVER_RELEASE_${randomBytes(3).toString('hex')}`),
+        'nope\n'
+      );
+      const dirtyStage = run(
+        'bash',
+        [
+          stageScript,
+          '--source-revision',
           sourceRevision,
-        },
-        null,
-        2
-      )}\n`
-    );
+          '--out',
+          join(negativeOut, 'dirty'),
+          '--json',
+          '--repo',
+          dirtyWt,
+        ],
+        dirtyWt,
+        env
+      );
+      expect(dirtyStage.status).not.toBe(0);
+      expect(`${dirtyStage.stdout}\n${dirtyStage.stderr}`).not.toMatch(/pushed|docker build/i);
+      run('git', ['worktree', 'remove', '--force', dirtyWt], REPO_ROOT);
 
-    // Keep the typed staging API wired for unit-level consumers.
-    expect(typeof stageExactRelease).toBe('function');
-  });
+      const evidenceDir = resolve(
+        REPO_ROOT,
+        `.tmp/CUTOVER-RELEASE-001/${process.env.CUTOVER_RELEASE_RUN_ID ?? `ac1-${Date.now()}`}`
+      );
+      mkdirSync(evidenceDir, { recursive: true });
+      writeFileSync(
+        join(evidenceDir, 'ac1-evidence.json'),
+        `${JSON.stringify(
+          {
+            cleanRunCount: 2,
+            cleanManifestSha256Count: 1,
+            cleanManifestSha256: a.manifestSha256,
+            negativeExitCode: wrong.status,
+            dirtyExitCode: dirtyStage.status,
+            negativePushCount: 0,
+            sourceRevision,
+          },
+          null,
+          2
+        )}\n`
+      );
+
+      // Keep the typed staging API wired for unit-level consumers.
+      expect(typeof stageExactRelease).toBe('function');
+    }
+  );
 
   it('AC-2 package shape requires backup runner pins and forbids latest', () => {
     expect(typeof stageExactRelease).toBe('function');

@@ -90,26 +90,58 @@ The application image is supplied as `HOLO_PLATFORM_IMAGE` and must be a full
 registry reference ending in `@sha256:<64-hex>`. Both `mastra` and `scheduler`
 use that same image. Do not use tags such as `latest` or a tag-only image.
 
-## Immutable digest packaging
+## Immutable digest packaging (CUTOVER-RELEASE-001)
 
-The candidate must be built from the clean commit with its exact source revision
-in OCI metadata. The release build is root-context only:
+The candidate must be built from one clean committed 40-hex SHA. Dirty trees,
+wrong SHAs, and `:latest` tags fail closed **before** build or deploy. Prefer
+the exact-SHA stager (content-addressed manifest + image-lock):
+
+```sh
+SOURCE_REVISION="$(git rev-parse HEAD)"
+OUT=".tmp/CUTOVER-RELEASE-001/stage-$SOURCE_REVISION"
+bash scripts/stage-holocron-release.sh \
+  --source-revision "$SOURCE_REVISION" \
+  --out "$OUT" \
+  --json
+# Produces: release-manifest.json, image-lock.json, compose.yaml, pgbackrest.conf
+```
+
+Manual package path (root-context Docker build) remains available:
 
 ```sh
 SOURCE_REVISION="$(git rev-parse HEAD)"
 docker build --file services/platform/Dockerfile \
   --build-arg SOURCE_REVISION="$SOURCE_REVISION" \
+  --platform linux/arm64 \
   --tag "holocron-platform:$SOURCE_REVISION" .
 holo deploy:package --image "$HOLO_PLATFORM_IMAGE" --previous-image "$HOLO_PREVIOUS_PLATFORM_IMAGE"
 ```
 
-The command refuses a dirty revision, a placeholder or non-digest image, a
-missing prior rollback digest, a remote manifest mismatch, a local RepoDigest
-mismatch, an OCI revision different from the clean Git SHA, or a broken rendered
-Compose contract. It writes the deployable lock only after all checks pass.
+The stager/package path refuses a dirty revision, a placeholder or non-digest
+image, a missing prior rollback digest, a remote manifest mismatch, a local
+RepoDigest mismatch, an OCI revision different from the clean Git SHA, or a
+broken rendered Compose contract. It writes the deployable lock only after all
+checks pass.
+
+### Compose-native backup runner
+
+`mastra` and `scheduler` ship pinned pgBackRest + restic binaries inside the
+platform image (`/usr/local/bin/{pgbackrest,restic}`) and mount versioned
+`pgbackrest.conf` at `/etc/pgbackrest/pgbackrest.conf`. Production Postgres is
+published on host `:44112` — never target `127.0.0.1:5432` as production.
+Backup binary + config digests are recorded in `release-manifest.json`.
 
 `image-lock.json` in this directory is a checked-in schema example
 (`deployable: false`), not a deploy authorization.
+
+### Volume-preserving deploy / rollback
+
+`holo deploy:apply --authorize --release <image-lock.json>` recreates the four
+services from an immutable digest lock. It must never run
+`docker compose down -v` and must preserve named volumes `holocron-postgres`
+and `holocron-blobs`. Independent container inspection (not `/health` alone)
+proves observed digests/source revision match the staged release while
+`data_plane=convex` and durable `HOLO_MIGRATION_READ_ONLY=1`.
 
 ## Secret injection
 

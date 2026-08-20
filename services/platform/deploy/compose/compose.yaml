@@ -51,11 +51,18 @@ services:
     restart: unless-stopped
     mem_limit: ${HOLO_MASTRA_MEM_LIMIT:-16g}
     logging: *bounded-logging
-    labels: *contract
+    labels:
+      <<: *contract
+      io.holocron.backup.pgbackrest-image: "woblerr/pgbackrest@sha256:3e6c90cc4287efad0c16d667992aee9c70226bcb6ef3052f69a0c84121454bce"
+      io.holocron.backup.restic-image: "restic/restic@sha256:740ef3a20c7fe5de05ee031717a610ac8c3d1cf09a06cf77ffd4c3ec26e2302e"
+      io.holocron.backup.pgbackrest-conf: "/etc/pgbackrest/pgbackrest.conf"
+      io.holocron.backup.pgbackrest-bin: "/usr/local/bin/pgbackrest"
+      io.holocron.backup.restic-bin: "/usr/local/bin/restic"
     environment:
       PORT: "4111"
       FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
       HOLO_BLOB_ROOT: /var/lib/holocron/blobs
+      PGBACKREST_CONFIG: /etc/pgbackrest/pgbackrest.conf
     command:
       - /bin/sh
       - -ec
@@ -76,6 +83,7 @@ services:
         target: fleet_key
     volumes:
       - blob-data:/var/lib/holocron/blobs
+      - ./pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,9 +100,16 @@ services:
     restart: unless-stopped
     mem_limit: ${HOLO_SCHEDULER_MEM_LIMIT:-8g}
     logging: *bounded-logging
-    labels: *contract
+    labels:
+      <<: *contract
+      io.holocron.backup.pgbackrest-image: "woblerr/pgbackrest@sha256:3e6c90cc4287efad0c16d667992aee9c70226bcb6ef3052f69a0c84121454bce"
+      io.holocron.backup.restic-image: "restic/restic@sha256:740ef3a20c7fe5de05ee031717a610ac8c3d1cf09a06cf77ffd4c3ec26e2302e"
+      io.holocron.backup.pgbackrest-conf: "/etc/pgbackrest/pgbackrest.conf"
+      io.holocron.backup.pgbackrest-bin: "/usr/local/bin/pgbackrest"
+      io.holocron.backup.restic-bin: "/usr/local/bin/restic"
     environment:
       FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
+      PGBACKREST_CONFIG: /etc/pgbackrest/pgbackrest.conf
     command:
       - /bin/sh
       - -ec
@@ -109,6 +124,7 @@ services:
         target: fleet_key
     volumes:
       - blob-data:/var/lib/holocron/blobs
+      - ./pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
     depends_on:
       postgres:
         condition: service_healthy

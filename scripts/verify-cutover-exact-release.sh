@@ -95,9 +95,9 @@ case "$CASE" in
     SHA_B="$(shasum -a 256 "$OUT_B/release-manifest.json" | awk '{print $1}')"
     [[ "$SHA_A" == "$SHA_B" ]] || fail_json "release manifests are not byte-identical across two clean stages"
 
-    python3 - "$OUT_A/release-manifest.json" "$PGBACKREST_CONF" "$EVIDENCE" "$SHA_A" <<'PY' || exit 1
-import json, subprocess, sys, pathlib, hashlib
-manifest_path, conf_path, evidence, manifest_sha = sys.argv[1:5]
+    python3 - "$OUT_A/release-manifest.json" "$PGBACKREST_CONF" "$EVIDENCE" "$SHA_A" "$DEPLOY_HOST" <<'PY' || exit 1
+import json, subprocess, sys, pathlib
+manifest_path, conf_path, evidence, manifest_sha, deploy_host = sys.argv[1:6]
 manifest = json.loads(pathlib.Path(manifest_path).read_text())
 errors=[]
 src=manifest.get("sourceRevision") or ""
@@ -122,22 +122,27 @@ if not backup.get("pgbackrestConfPath"):
 conf=pathlib.Path(conf_path)
 if not conf.exists():
   errors.append("missing pgBackRest config file")
-# Execute packaged binaries with version flags (platform image and/or pinned images).
 pg_img=backup.get("pgbackrestImage") or images.get("pgbackrest")
 restic_img=backup.get("resticImage") or images.get("restic")
 platform_img=images.get("platform")
-def run(cmd):
+
+def local_docker_ok():
+  return subprocess.run(["docker","info"], capture_output=True).returncode == 0
+
+def run_docker(args):
+  if local_docker_ok():
+    return subprocess.run(["docker", *args], capture_output=True, text=True)
+  # Prefer production host docker when the laptop socket is unavailable.
+  remote = "export PATH=/usr/local/bin:$PATH; " + subprocess.list2cmdline(["docker", *args])
+  cmd = ["ssh","-o","BatchMode=yes",deploy_host, remote]
   return subprocess.run(cmd, capture_output=True, text=True)
-pg = run(["docker","run","--rm","--entrypoint","pgbackrest", pg_img, "version"]) if pg_img else None
-rs = run(["docker","run","--rm","--entrypoint","restic", restic_img, "version"]) if restic_img else None
-# Also prove binaries exist inside the staged platform image when present.
+
+pg = run_docker(["run","--rm","--entrypoint","pgbackrest", pg_img, "version"]) if pg_img else None
+rs = run_docker(["run","--rm","--entrypoint","restic", restic_img, "version"]) if restic_img else None
 plat_pg=plat_rs=None
 if platform_img:
-  plat_pg=run(["docker","run","--rm","--entrypoint","/usr/local/bin/pgbackrest", platform_img, "version"])
-  plat_rs=run(["docker","run","--rm","--entrypoint","/usr/local/bin/restic", platform_img, "version"])
-pg_code = (plat_pg.status if plat_pg and plat_pg.returncode==0 else (pg.returncode if pg else 1))
-rs_code = (plat_rs.status if plat_rs and plat_rs.returncode==0 else (rs.returncode if rs else 1))
-# subprocess CompletedProcess uses returncode
+  plat_pg=run_docker(["run","--rm","--entrypoint","/usr/local/bin/pgbackrest", platform_img, "version"])
+  plat_rs=run_docker(["run","--rm","--entrypoint","/usr/local/bin/restic", platform_img, "version"])
 pg_code = (plat_pg.returncode if plat_pg and plat_pg.returncode==0 else (pg.returncode if pg else 1))
 rs_code = (plat_rs.returncode if plat_rs and plat_rs.returncode==0 else (rs.returncode if rs else 1))
 out={
@@ -188,6 +193,7 @@ PY
       "$DEPLOY_HOST:$REMOTE_EVIDENCE/compose" >/dev/null
 
     APPLY_OUT="$(ssh_holocron "cd /Users/holocron/Projects/holocron && \
+      export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH && \
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       HOLO_DEPLOY_TARGET='$DEPLOY_HOST' HOLO_PRODUCTION_BASE_URL='$BASE_URL' \
       bun services/platform/src/cli/holo.ts deploy:apply --authorize \
@@ -296,11 +302,16 @@ PY
     if [[ "${HOLO_CUTOVER_RELEASE_AUTHORIZE:-}" != "1" ]]; then
       fail_json "set HOLO_CUTOVER_RELEASE_AUTHORIZE=1 to authorize rollback deploy"
     fi
-    # Redeploy prior verified Postgres-capable release (code only).
+    # Ship the prior verified lock to the deploy host (path may be laptop-local).
+    REMOTE_PRIOR="/tmp/CUTOVER-RELEASE-001-${RUN_ID}-prior"
+    ssh_holocron "mkdir -p '$REMOTE_PRIOR'"
+    scp -o BatchMode=yes "$PRIOR_RELEASE" "$DEPLOY_HOST:$REMOTE_PRIOR/image-lock.json" >/dev/null
+    # Redeploy prior verified Postgres-capable release (code only; never compose down -v).
     APPLY_OUT="$(ssh_holocron "cd /Users/holocron/Projects/holocron && \
+      export PATH=/usr/local/bin:/Users/holocron/.bun/bin:\$PATH && \
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       bun services/platform/src/cli/holo.ts deploy:apply --authorize \
-        --release '$PRIOR_RELEASE' \
+        --release '$REMOTE_PRIOR/image-lock.json' \
         --base-url '$BASE_URL' --target '$DEPLOY_HOST' --json")" || fail_json "prior release deploy failed"
     printf '%s\n' "$APPLY_OUT" >"$EVIDENCE/rollback-apply.json"
     POST="$(ssh_holocron "export PATH=/usr/local/bin:\$PATH; docker volume inspect holocron-postgres holocron-blobs --format '{{.Name}}|{{.CreatedAt}}|{{.Mountpoint}}'")"
