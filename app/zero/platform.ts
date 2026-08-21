@@ -3,13 +3,13 @@ import { isRetiredCloudHost } from './legacy-alias';
 /**
  * Shared platform URL helpers + Hono command client for Zero/Hono call sites
  * (union of S-REWRITE-02 URL helpers and S-REWRITE-04 hono_command targets).
- * Public share links MUST target docs.hackerpug.ai /d/<token> — never a retired
+ * Public share links MUST target docs.holocrnlib.com /d/<token> — never a retired
  * cloud host and never the private Mastra /article/ URL. Blob and API URLs stay
  * on the Mastra host.
  */
 
 /** Public Cloudflare reader origin. Blob/API hosts stay on getMastraHost(). */
-export const PUBLIC_DOCS_ORIGIN = 'https://docs.hackerpug.ai';
+export const PUBLIC_DOCS_ORIGIN = 'https://docs.holocrnlib.com';
 
 function rawPlatformUrl(): string {
   return process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';

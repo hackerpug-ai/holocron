@@ -6,9 +6,9 @@
   "account_id": "d5110b1895ee190e145c0c8756f49879",
   "workers_dev": true,
   "routes": [
-    { "pattern": "docs.hackerpug.ai", "custom_domain": true }
+    { "pattern": "docs.holocrnlib.com", "custom_domain": true }
   ],
   "vars": {
-    "ORIGIN_BASE_URL": "https://origin-docs.hackerpug.ai"
+    "ORIGIN_BASE_URL": "https://origin-docs.holocrnlib.com"
   }
 }

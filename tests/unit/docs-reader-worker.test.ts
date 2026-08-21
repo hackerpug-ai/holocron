@@ -18,7 +18,7 @@ const ORIGIN_BODY = '<!DOCTYPE html><html><body>origin-article-body</body></html
 
 function env(overrides: Partial<ReaderEnv> = {}): ReaderEnv {
   return {
-    ORIGIN_BASE_URL: 'https://origin-docs.hackerpug.ai',
+    ORIGIN_BASE_URL: 'https://origin-docs.holocrnlib.com',
     CF_ACCESS_CLIENT_ID: 'access-client-id',
     CF_ACCESS_CLIENT_SECRET: 'access-client-secret',
     ...overrides,
@@ -52,7 +52,7 @@ describe('holocron-docs-reader', () => {
     const pulls: Array<{ url: string; headers: Record<string, string> }> = [];
     const cache = memoryCache();
     const res = await handlePublicReaderRequest(
-      new Request(`https://docs.hackerpug.ai/d/${TOKEN}`),
+      new Request(`https://docs.holocrnlib.com/d/${TOKEN}`),
       env(),
       {
         cache,
@@ -75,11 +75,16 @@ describe('holocron-docs-reader', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(ORIGIN_BODY);
-    expect(res.headers.get('Cache-Control')).toBe(`public, max-age=${CACHE_MAX_AGE_SECONDS}`);
+    expect(res.headers.get('Cache-Control')).toBe(
+      `public, max-age=${CACHE_MAX_AGE_SECONDS}, s-maxage=${CACHE_MAX_AGE_SECONDS}`
+    );
+    expect(res.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
+      `max-age=${CACHE_MAX_AGE_SECONDS}`
+    );
     expect(CACHE_MAX_AGE_SECONDS).toBe(60);
     expect(pulls).toEqual([
       {
-        url: `https://origin-docs.hackerpug.ai/article/${TOKEN}`,
+        url: `https://origin-docs.holocrnlib.com/article/${TOKEN}`,
         headers: { id: 'access-client-id', secret: 'access-client-secret' },
       },
     ]);
@@ -88,7 +93,7 @@ describe('holocron-docs-reader', () => {
   });
 
   it('default fetch entry serves no-longer-shared for a never-existing token', async () => {
-    const res = await worker.fetch(new Request('https://docs.hackerpug.ai/d/never-existed'), env());
+    const res = await worker.fetch(new Request('https://docs.holocrnlib.com/d/never-existed'), env());
     expect(res.status).toBe(404);
     expect(await res.text()).toBe(noLongerSharedHtml());
   });
@@ -104,7 +109,7 @@ describe('holocron-docs-reader', () => {
     };
 
     const unknown = await handlePublicReaderRequest(
-      new Request('https://docs.hackerpug.ai/d/never-existed'),
+      new Request('https://docs.holocrnlib.com/d/never-existed'),
       env(),
       runtime
     );
@@ -115,7 +120,7 @@ describe('holocron-docs-reader', () => {
     expect(pulls).toEqual([]);
 
     const unshared = await handlePublicReaderRequest(
-      new Request(`https://docs.hackerpug.ai/d/${TOKEN}`),
+      new Request(`https://docs.holocrnlib.com/d/${TOKEN}`),
       env(),
       runtime
     );
@@ -123,7 +128,7 @@ describe('holocron-docs-reader', () => {
     const unsharedBody = await unshared.text();
     expect(unsharedBody).toContain('no longer shared');
     expect(unsharedBody).not.toContain('origin-not-found');
-    expect(pulls).toEqual([`https://origin-docs.hackerpug.ai/article/${TOKEN}`]);
+    expect(pulls).toEqual([`https://origin-docs.holocrnlib.com/article/${TOKEN}`]);
   });
 
   it('does not send blob/api/mcp paths to origin; second /d/ hit is a cache hit', async () => {
@@ -138,7 +143,7 @@ describe('holocron-docs-reader', () => {
     };
     for (const path of ['/api/documents', '/mcp', `/blobs/${'a'.repeat(64)}`]) {
       const res = await handlePublicReaderRequest(
-        new Request(`https://docs.hackerpug.ai${path}`),
+        new Request(`https://docs.holocrnlib.com${path}`),
         env(),
         runtime
       );
@@ -147,12 +152,12 @@ describe('holocron-docs-reader', () => {
     expect(pulls).toBe(0);
 
     const first = await handlePublicReaderRequest(
-      new Request(`https://docs.hackerpug.ai/d/${TOKEN}`),
+      new Request(`https://docs.holocrnlib.com/d/${TOKEN}`),
       env(),
       runtime
     );
     const second = await handlePublicReaderRequest(
-      new Request(`https://docs.hackerpug.ai/d/${TOKEN}`),
+      new Request(`https://docs.holocrnlib.com/d/${TOKEN}`),
       env(),
       runtime
     );

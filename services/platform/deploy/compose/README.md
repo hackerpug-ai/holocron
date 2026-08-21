@@ -181,7 +181,7 @@ public Funnel hostname.
 
 ## Public document share reader (Cloudflare) — operator procedure
 
-Public share links are `https://docs.hackerpug.ai/d/<token>`. A Worker is the
+Public share links are `https://docs.holocrnlib.com/d/<token>`. A Worker is the
 only public face: edge cache (~60s) then origin `GET /article/<token>`. Origin
 stays on holocron loopback `:44111`. **Do not** enable Tailscale Funnel. **Do
 not** add `cloudflared` to Compose (same ancillary slot as Serve). Setup is this
@@ -196,31 +196,23 @@ The mini asleep is a reader-visible error (no R2 fallback).
 
 ### 1. DNS (zone must be on Cloudflare)
 
-Zone `hackerpug.ai` is already in the Cloudflare account (pending nameserver
-cutover). Apex A `76.76.21.21`, `www` CNAME Vercel, Google MX, and the
-site-verification TXT are already copied. Remaining operator step: at
-Namecheap, set nameservers to:
+Zone `holocrnlib.com` is on Cloudflare Registrar (status `active`).
+`dig docs.holocrnlib.com` must return Cloudflare, not `*.ts.net`. Create the
+Access application on `origin-docs.holocrnlib.com` (service-token policy only).
 
-- `etienne.ns.cloudflare.com`
-- `shaz.ns.cloudflare.com`
-
-Then `dig docs.hackerpug.ai` must return Cloudflare, not `*.ts.net`. After the
-zone is `active`, create the Access application on `origin-docs.hackerpug.ai`
-(service-token policy only) — Access rejects the hostname until NS is live.
-
-- `docs.hackerpug.ai` → Worker custom domain (`holocron-docs-reader`, already
-  attached)
-- `origin-docs.hackerpug.ai` → Tunnel CNAME (already in the zone)
+- `docs.holocrnlib.com` → Worker custom domain (`holocron-docs-reader`)
+- `origin-docs.holocrnlib.com` → Tunnel CNAME to
+  `<tunnel-id>.cfargotunnel.com` (proxied)
 
 ### 2. Access service token (Worker is the only holder)
 
 Enable Zero Trust Access on the account. Create an Access application covering
-`origin-docs.hackerpug.ai` (bypass policy for the service token only). Create a
-service token named `holocron-docs-reader`. Store client id/secret as
+`origin-docs.holocrnlib.com` (service-auth policy for the service token only).
+Create a service token named `holocron-docs-reader`. Store client id/secret as
 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` in the operator `.env` and as
 Worker secrets (`wrangler secret put` — never in `wrangler.jsonc`).
 
-Without the token, `curl -i https://origin-docs.hackerpug.ai/article/<token>`
+Without the token, `curl -i https://origin-docs.holocrnlib.com/article/<token>`
 must be **403** from Access. With the token headers, a shared token must be
 **200**.
 
@@ -240,10 +232,10 @@ git). User LaunchAgent `com.holocron.cloudflared` (ancillary-guard slot):
 
 ```yml
 ingress:
-  - hostname: origin-docs.hackerpug.ai
+  - hostname: origin-docs.holocrnlib.com
     path: ^/article/[^/]+$
     service: http://127.0.0.1:44111
-  - hostname: origin-docs.hackerpug.ai
+  - hostname: origin-docs.holocrnlib.com
     service: http_status:404
   - service: http_status:404
 ```
@@ -251,9 +243,9 @@ ingress:
 Live checks (expect refuse + tunnel log deny, not Mastra JSON):
 
 ```sh
-curl -i https://origin-docs.hackerpug.ai/api/documents
-curl -i https://origin-docs.hackerpug.ai/mcp
-curl -i https://origin-docs.hackerpug.ai/blobs/<hash>
+curl -i https://origin-docs.holocrnlib.com/api/documents
+curl -i https://origin-docs.holocrnlib.com/mcp
+curl -i https://origin-docs.holocrnlib.com/blobs/<hash>
 ```
 
 ### 4. Worker
@@ -262,10 +254,10 @@ curl -i https://origin-docs.hackerpug.ai/blobs/<hash>
 cd services/worker-docs-reader
 npx wrangler secret put CF_ACCESS_CLIENT_ID
 npx wrangler secret put CF_ACCESS_CLIENT_SECRET
-npx wrangler deploy   # wrangler.jsonc already binds docs.hackerpug.ai
+npx wrangler deploy   # wrangler.jsonc already binds docs.holocrnlib.com
 ```
 
-`ORIGIN_BASE_URL` is `https://origin-docs.hackerpug.ai` (var, not a secret).
+`ORIGIN_BASE_URL` is `https://origin-docs.holocrnlib.com` (var, not a secret).
 
 ### 5. Serve must stay private
 

@@ -95,7 +95,7 @@ describe('S-REWRITE-02 documents cluster', () => {
       expect(isRetiredCloudHost(PUBLIC_DOCS_ORIGIN)).toBe(false);
 
       const built = buildArticleShareUrl('tok-abc');
-      expect(built).toBe('https://docs.hackerpug.ai/d/tok-abc');
+      expect(built).toBe('https://docs.holocrnlib.com/d/tok-abc');
       expect(built).toBe(`${PUBLIC_DOCS_ORIGIN}/d/tok-abc`);
       expect(built).not.toMatch(/\/article\//);
       expect(built).not.toContain('mastra.example.com');
@@ -105,7 +105,7 @@ describe('S-REWRITE-02 documents cluster', () => {
       const blobId = 'a'.repeat(64);
       const blob = buildBlobAudioUrl(blobId);
       expect(blob).toBe(`https://mastra.example.com/blobs/${blobId}`);
-      expect(blob).not.toContain('docs.hackerpug.ai');
+      expect(blob).not.toContain('docs.holocrnlib.com');
       expect(blob).not.toContain(PUBLIC_DOCS_ORIGIN);
 
       process.env.EXPO_PUBLIC_PLATFORM_SITE_URL = 'https://retired.convex.site';

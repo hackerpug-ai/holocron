@@ -47,13 +47,22 @@ export function noLongerSharedHtml(): string {
 </html>`;
 }
 
-function htmlResponse(status: number, body: string, cacheable: boolean): Response {
-  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
+function applyReaderCacheHeaders(headers: Headers, cacheable: boolean): void {
   if (cacheable) {
-    headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE_SECONDS}`);
+    headers.set(
+      'Cache-Control',
+      `public, max-age=${CACHE_MAX_AGE_SECONDS}, s-maxage=${CACHE_MAX_AGE_SECONDS}`
+    );
+    // Free-plan zone edge TTL floor is 7200s; this header is the 60s revocation SLA.
+    headers.set('Cloudflare-CDN-Cache-Control', `max-age=${CACHE_MAX_AGE_SECONDS}`);
   } else {
     headers.set('Cache-Control', 'no-store');
   }
+}
+
+function htmlResponse(status: number, body: string, cacheable: boolean): Response {
+  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
+  applyReaderCacheHeaders(headers, cacheable);
   return new Response(body, { status, headers });
 }
 
@@ -123,7 +132,7 @@ export async function handlePublicReaderRequest(
   const body = await originRes.arrayBuffer();
   const headers = new Headers();
   headers.set('Content-Type', originRes.headers.get('Content-Type') ?? 'text/html; charset=utf-8');
-  headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE_SECONDS}`);
+  applyReaderCacheHeaders(headers, true);
   const out = new Response(body, { status: 200, headers });
   await cache?.put(cacheKey, out.clone());
   return out;
