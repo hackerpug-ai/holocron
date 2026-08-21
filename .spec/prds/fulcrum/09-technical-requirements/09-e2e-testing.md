@@ -1,17 +1,19 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # E2E Harness Constitution
+
+> **v3.0.0 fleet alignment (2026-08-20) — the determinism seam gains a hard rule.** Assertions about *which model served a call* MUST read the router's `x-litellm-model-api-base` / `x-litellm-model-id` response headers cross-referenced against `GET /model/info`. **The response body's `model` field is NOT a detector** — LiteLLM 1.91.0 rewrites it to the requested alias (measured 2026-08-17), so a body-field assertion passes against a live substitution and is therefore *worse than no test*. Embedding responses carry no model field at all, so assert **1024 dimensionality** instead. The inference lane is gated on the fleet's own `preflight` exit code, and outages are induced the way the fleet initiative induces them (stopping a real oMLX on a real mini), never simulated.
 
 > **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The "Fulcrum Worker (Bun, tailnet)" surface below is replaced by **"Fulcrum mission template (Mastra workflow)"** per [`mk6-migration`](../../mk6-migration/README.md) + [ADR-006](./00-architecture-decisions.md). The **determinism seam** (fixture the model signal, assert gate OUTCOMES, not prose) and the spike-gate discipline carry forward unchanged — re-provision the harness against the mk6 test rig.
 
 ## Framework
 
 - **Convex functions** (Gate, ledger mutations, selector, verdict machine): `convex-test` + Vitest against a real Convex test instance — no mocked DB.
-- **Worker + local inference** (LIS, cycle phases): Bun test driving the real worker loop against a **real local endpoint** — in CI/dev this is the laptop LiteLLM router (or a locally-run `llama-server`); the fleet must be `fleet-start`ed for the inference lane.
+- **Fleet inference** (LIS, cycle phases) *(v3.0.0 — replaces the v1.0.1 "worker + laptop router" line)*: drives the real mission against the **packaged router on loopback**, served by real oMLX on `inference1` / `inference2`. The lane is gated on the fleet's own `preflight` exit code and SKIPs loudly when it is non-zero. Outages are induced by stopping a real server on a real mini, never simulated. The laptop is never a test backend — testing against it would validate a path production does not use.
 - **Full cycle** (CYC UC-01): the worker runs one real cycle against real retrieval + real local inference + a real Convex dev deployment, and the committed ledger is asserted.
 
 ## The Determinism Seam (mandatory — this is an agentic product)
@@ -42,7 +44,16 @@ The harness is **incomplete until one full real cycle is proven green in a spike
 
 ## Landmine ledger
 
-Record, as they're hit: local-model quirks that break extraction (JSON formatting, verbose reasoning bleed), LiteLLM cooldown behavior mid-cycle, Convex action time limits vs cycle length (a cycle may need to run in the worker, not a Convex action, precisely because of this), and any place the coder models produce unusable research output (feeds the role-map-swap decision).
+| Landmine | Symptom | Actual cause |
+|---|---|---|
+| Substitution test passes against a live substitution | Assertion green, wrong model served | The body `model` field echoes the **requested alias**. Only the `x-litellm-model-api-base` / `x-litellm-model-id` headers are truthful |
+| Embedding assertion has nothing to assert | No `model` field in the response | oMLX embeddings carry no identifier — assert **1024** dimensionality |
+| Two namespaces silently compared | Readiness never passes, or passes wrongly | Router **role names** and oMLX **model basenames** are different namespaces; never build one's expectations from the other |
+| Server answers but serves nothing | `/v1/models` returns success with an empty or short list | Weights or farm not ready. Readiness must assert the **expected role set**, never mere liveness |
+| Uneven cycle wall-times | Budget-exceeded outcomes appear erratic | Equal-weight pools landed both 27B models on one mini → evict-and-reload between ASSAY and CHALLENGE (R16) |
+| A role "recovers" suspiciously fast after an outage | Cycle succeeds when it should have degraded | Something in the retry path varied the requested role name — the forbidden substitution (R17) |
+
+Also record as hit: local-model quirks that break extraction (JSON formatting, verbose reasoning bleed), LiteLLM cooldown behavior mid-cycle, and any measured quote-check pass-rate gap between the two candidate bindings — that number feeds the model-swap decision (UC-LIS-03).
 
 ## Flake policy
 

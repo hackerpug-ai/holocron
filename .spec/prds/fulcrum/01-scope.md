@@ -1,21 +1,27 @@
 ---
 stability: FEATURE_SPEC
-last_validated: 2026-07-13
-prd_version: 2.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 scope_posture: full
 ---
 
 # Scope
 
-**Scope Posture:** Full feature. Fulcrum is scoped as a complete, polished autoresearch-loop subsystem inside holocron — **the loops only**. Everything the MK-VI platform provides (the Postgres substrate, the local role router, the local Qwen3 embedder, the Mastra workflow runtime, the retrieval tools, document storage, the app shell) is inherited, not rebuilt. **Hard dependency:** Fulcrum is sequenced after [`mk6-migration`](../mk6-migration/README.md) and presumes that platform is live.
+**Scope Posture:** Full feature. Fulcrum is scoped as a complete, polished autoresearch-loop subsystem inside holocron — **the loops only**. Everything the MK-VI platform provides (the Postgres substrate, the Mastra workflow runtime, the retrieval tools, document storage, the app shell) and everything the Virtual Device Fleet provides (the packaged router, fleet-wide role definitions, derived backend pools, the loopback invariant, model serving on the minis) is inherited, not rebuilt.
+
+**Hard dependencies:** Fulcrum is sequenced after **both**
+
+1. [`mk6-migration`](../mk6-migration/README.md) — the Mastra + Postgres platform must be live; and
+2. **Virtual Device Fleet** ([`~/models/.spec/prds/virtual-device-fleet/`](file:///Users/justinrich/models/.spec/prds/virtual-device-fleet/README.md)) — specifically its config + launcher layers (roadmap Sprints 01–06) plus the two deferred items *"every node answers a role with the same model"* and *"the client node can embed again."* Until those land, a Fulcrum node can silently receive a different model than it asked for — the exact defect the fleet exists to close. The **Tart VM tier is not a dependency**; it is separately gated and cancellable, and Fulcrum is insulated from its outcome.
 
 ## In Scope
 
 ### Local Inference Substrate (LIS)
-- A research-specific **role configuration on the mk6 role router** (`divergent`/`convergent`/`judge`/`embed`/`rerank`) that points Fulcrum's cycle LLM calls at **local** endpoints (the fleet's LiteLLM router / `llama-server`), replacing the cloud `claudeFlash()` factory for all Fulcrum cycle work. The router, endpoints, and fleet are owned by mk6; Fulcrum contributes the research role mapping + the per-mission config.
-- Two research model **roles** — divergent (fast generation, query planning) and convergent (precise claim extraction, scoring, challenge) — mapped onto locally-served models, with the mapping declared in config, not hardcoded.
-- **Degradation**: when the fleet (or a mini) is unreachable, the loop drops to a defined reduced mode and surfaces it — never silently falls back to a cloud model without the operator opting in.
-- Per-cycle inference **telemetry** (tokens, wall time, endpoint, model role) recorded on every cycle.
+- **Consumption of the fleet as an ordinary client**: one **loopback** endpoint on Fulcrum's host node, served by the fleet's packaged router pinned to `inference1` + `inference2`, replacing the cloud `claudeFlash()` factory for all Fulcrum cycle work. Fulcrum declares **no** base URL, host, port, model identifier, or device — the router, pools, endpoints, and fleet are owned by the Virtual Device Fleet.
+- **Three research roles and no others** — `fulcrum-assay` (claim + verbatim-quote extraction), `fulcrum-challenge` (query planning, generation, refutation), and `qwen3-embedding` (1024-dim publish embedding). The two chat roles are guaranteed to resolve to different models, preserving cross-model challenge. **No coder role** (`reviewer`, `implementer`, `orchestrator`, `qwen-coder`, `verifier`) appears on the Fulcrum path.
+- **Swap-and-measure**: the model behind a role is a fleet config edit, scored by a deterministic oracle the gate already produces — quote-check pass rate for ASSAY, refuting-claim gate-pass rate for CHALLENGE. No model ever grades a model.
+- **Per-role degradation**: a role with no reachable backend produces an explicit, named error and a defined reduced mode. The loop never retries by requesting a different role, and never silently falls back to a cloud model without the operator opting in.
+- Per-cycle inference **telemetry** (tokens, wall time, fleet role, and the backend that *actually served* the call, read from router headers rather than the response body) recorded on every cycle.
 
 ### Cycle Loop Engine (CYC)
 - A fixed-budget cycle with six phases: **SENSE** (one novel retrieval), **GENERATE** (refine/mutate a candidate), **ASSAY** (extract claims → gate → score), **CHALLENGE** (a *different* model attempts refutation), **MAP** (niche placement / retire), **COMMIT** (one durable transaction).
@@ -42,7 +48,9 @@ scope_posture: full
 
 ## Out of Scope
 
-- **The platform itself (Mastra + Postgres + local fleet + role router + Qwen3 embedder)** — delivered by the predecessor [`mk6-migration`](../mk6-migration/README.md) PRD. Fulcrum inherits it; it does not build it. The v1.0.x "self-hosted Convex on the Mac minis" north star is **satisfied differently** by mk6's big-bang cutover to Mastra + Postgres (not self-hosted Convex). `[DELIVERED BY: mk6-migration PRD]`
+- **The inference fleet itself** — the packaged router, fleet config schema, role definitions, derived backend pools, farm isolation, the loopback invariant, launcher, and per-node cutover are delivered by the **Virtual Device Fleet** PRD. Fulcrum is a *consumer*. The `fleet.json` edits Fulcrum requires (recorded in [`09-technical-requirements/06-external-dependencies.md`](./09-technical-requirements/06-external-dependencies.md)) are fleet-side work requested by this initiative, not built inside it. `[DELIVERED BY: virtual-device-fleet PRD]`
+- **Choosing which physical device serves a role** — derived by the fleet from per-node capability declarations. Fulcrum names roles; the fleet decides devices.
+- **The platform itself (Mastra + Postgres + Mission Engine + Qwen3 embedder)** — delivered by the predecessor [`mk6-migration`](../mk6-migration/README.md) PRD. Fulcrum inherits it; it does not build it. The v1.0.x "self-hosted Convex on the Mac minis" north star is **satisfied differently** by mk6's big-bang cutover to Mastra + Postgres (not self-hosted Convex). `[DELIVERED BY: mk6-migration PRD]`
 - **A dedicated in-app Fulcrum UI** (leaderboard, lineage graph, verdict console in the React Native app). MVP surfaces are generated Markdown briefs/dossiers (in-repo + stored to holocron) plus a minimal verdict entry point. Rich UI is a follow-on. `[DEFERRED: separate PRD]`
 - **Embedding-based near-duplicate provenance clustering** — MVP uses exact content-hash provenance; semantic near-dup clustering is a later hardening.
 - **Verdict-calibrated automatic weight fitting** — weights are human-edited at the weekly gate in MVP; regression-fit recalibration is later.

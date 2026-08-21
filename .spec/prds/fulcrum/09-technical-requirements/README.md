@@ -1,10 +1,12 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-13
-prd_version: 2.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Technical Requirements — Fulcrum
+
+> **✅ v3.0.0 fleet alignment (2026-08-20) — these sections are now CURRENT:** `00-architecture-decisions.md` (ADR-007/008 added), `01-architecture-posture.md` (stance 3′ replaces stance 3; stance 1 fully dead), `06-external-dependencies.md` (**fully re-derived against the live fleet**, probed not recalled), `07-technical-risks.md` (R1 re-scoped, R5 downgraded, R14–R17 added), `09-e2e-testing.md` (header-truthful substitution rule + landmine ledger). **Still `⚠️ Re-platform pending`:** 02, 03, 04, 05, 08.
 
 > **⚠️ v2.0.0 re-platform in progress (2026-07-13).** Fulcrum is now sequenced after [`mk6-migration`](../../mk6-migration/README.md) and re-platformed onto Mastra + Postgres + local fleet. The **ADRs** (`00-architecture-decisions.md`) are current — ADR-001/002 superseded, ADR-004/005/006 added. The **detail sections 01–09 still describe the v1.0.1 architecture** (tailnet sidecar worker, `bun:sqlite` ledger, Convex publish hop, Cohere embeddings) and each carries a `⚠️ Re-platform pending` banner. They are honest placeholders — to be re-derived against the live mk6 platform in a follow-on `--edit` pass before sprint planning consumes them. Treat any specific SQLite DDL, "worker↔Convex" boundary, or Cohere reference below as **stale** until that pass; the *invariants and seams* (deterministic gate, append-only idempotent ledger, two-model challenge, human done-bit) carry forward unchanged.
 
@@ -37,7 +39,7 @@ Constitution layer for the Fulcrum autoresearch loop. Section index below.
 |---------|-----------|--------|
 | Mastra Mission Engine (Gate, ledger, selector, verdicts) | Mastra test harness + Vitest against real Postgres | **Provision** — inherits mk6's test rig; extend for Fulcrum mission |
 | Fulcrum mission template (Mastra workflow) | Mastra workflow test runner | **Provision** (was "Fulcrum Worker, Bun, tailnet" in v1.0.x — collapsed into the platform) |
-| Local inference (role router → LiteLLM/`llama-server`) | live-endpoint lane, `fleet-start` gated | Present (fleet + router exist via mk6); wire the Fulcrum role-mapping test lane |
+| Local inference (packaged router on loopback → oMLX on `inference1`/`inference2`) | live-fleet lane, gated on the fleet's own `preflight` exit code | Present (router + minis exist); wire the Fulcrum role-resolution + header-truthful telemetry lane |
 | Full cycle | mk6 platform + Fulcrum mission + real retrieval + local inference | **Provision** (the spike gate — proves one green reference cycle end-to-end) |
 
 The mission-template and full-cycle surfaces have no e2e harness yet — a leading INFRA sprint provisions the Fulcrum mission test rig (on top of mk6's) and the proven-reference-flow spike before feature sprints depend on it.

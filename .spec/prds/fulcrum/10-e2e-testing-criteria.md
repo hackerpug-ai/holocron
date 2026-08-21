@@ -1,51 +1,64 @@
 ---
 stability: TEST_SPEC
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # E2E / Human Testing Criteria — Fulcrum
 
-Per-UC criteria. Type tags: `[e2e-automated]` `[integration-test]` `[build-gate]` `[human-gate]`. Every AC is covered by ≥1 criterion. Real services throughout: real Convex test/dev deployment, real local inference (fleet-gated lanes), real retrieval, real fetched sources. No mocked DB, no mocked local endpoint on the live lanes.
+Per-UC criteria. Type tags: `[e2e-automated]` `[integration-test]` `[build-gate]` `[human-gate]`. Every AC is covered by ≥1 criterion. Real services throughout: the real Mission Engine against real Postgres, the **real fleet** (packaged router on loopback, real oMLX on `inference1` / `inference2`), real retrieval, real fetched sources. No mocked DB, no mocked router, no simulated outage — outages are induced by stopping a real server.
+
+**Substitution-detection rule (v3.0.0, non-negotiable).** Any criterion asserting *which model served a call* reads the `x-litellm-model-api-base` / `x-litellm-model-id` response headers cross-referenced against `GET /model/info`. **The response body's `model` field is never a detector** — LiteLLM 1.91.0 rewrites it to the requested alias, so a body-field assertion passes against a live substitution and is worse than no test at all. Embedding responses carry no model identifier, so embedding criteria assert **1024 dimensionality**.
 
 ## LIS: Local Inference Substrate
 
-### UC-LIS-01: Route research calls to local inference
-| # | Criterion | AC Ref | Type | Setup | Pass/Fail |
-|---|-----------|--------|------|-------|-----------|
-| T-LIS-001 | A Fulcrum cycle call completes against the configured local endpoint | AC-1 | [integration-test] | `fleet-start`; base URL = `laptop:4545/v1` | Non-empty completion returned; telemetry shows the local endpoint |
-| T-LIS-002 | Endpoint + models are configurable without code change | AC-2 | [integration-test] | Change base URL/model env only | Cycle uses the new endpoint; no source edit required |
-| T-LIS-003 | No cloud provider is constructed on the cycle path with fallback off | AC-3 | [build-gate] | Static + runtime assertion | Zero cloud-provider instantiation observed on a cycle run |
-| T-LIS-004 | Serving endpoint is recorded per call | AC-4 | [e2e-automated] | Run a cycle | Each inference record names its endpoint |
+> **v3.0.0 fleet alignment.** Every criterion below asserts against the **real fleet** — the packaged router on loopback, real oMLX on `inference1` / `inference2`, real outages induced by stopping a real server. **Model identity is read from the `x-litellm-model-api-base` / `x-litellm-model-id` headers cross-referenced against `GET /model/info`; the response body's `model` field is never a detector** (LiteLLM rewrites it to the requested alias, so a body-field assertion passes against a live substitution). Embedding criteria assert 1024 dimensionality, because embedding responses carry no model identifier.
 
-### UC-LIS-02: Map research roles to local models
+### UC-LIS-01: Consume inference through the fleet's loopback router
 | # | Criterion | AC Ref | Type | Setup | Pass/Fail |
 |---|-----------|--------|------|-------|-----------|
-| T-LIS-005 | Role→model mapping resolves from config | AC-1,AC-4 | [integration-test] | Set `FULCRUM_ROLE_MAP` | Divergent/convergent resolve to the mapped models |
-| T-LIS-006 | Phase resolves the correct role | AC-2 | [e2e-automated] | Run a cycle | ASSAY hits convergent; GENERATE hits divergent (telemetry) |
-| T-LIS-007 | ASSAY≠CHALLENGE enforced, fail-closed | AC-3 | [build-gate] | Configure identical models for both | Cycle refuses to run with a distinct-model error |
+| T-LIS-001 | A Fulcrum cycle generation completes against the loopback router | AC-1 | [integration-test] | Fleet up; router on `127.0.0.1:{port}` | Non-empty completion; telemetry records the serving api-base |
+| T-LIS-002 | Every cycle call is served by `inference1` or `inference2` | AC-2 | [e2e-automated] | Run a full cycle | Every recorded api-base is a mini; zero other hosts |
+| T-LIS-003 | No cycle call reaches the laptop even when it is up and serving | AC-3 | [e2e-automated] | Laptop reachable and serving; run a full cycle | Zero recorded api-base names the laptop |
+| T-LIS-004 | Fulcrum exposes no endpoint configuration surface | AC-4,AC-5 | [build-gate] | Static scan of config schema + env | No base-URL/host/port/device key exists; no cloud provider constructed with fallback off |
 
-### UC-LIS-03: Run inference from a tailnet worker
+### UC-LIS-02: Address research work by fleet role
 | # | Criterion | AC Ref | Type | Setup | Pass/Fail |
 |---|-----------|--------|------|-------|-----------|
-| T-LIS-008 | Worker runs inference against an endpoint unreachable from Convex | AC-1,AC-2 | [integration-test] | Worker on tailnet; Convex cloud | Cycle completes; worker read/wrote ledger |
-| T-LIS-009 | Dispatch is durable; worker restart loses ≤ in-flight cycle | AC-3 | [e2e-automated] | Kill+restart worker mid-run | Queue resumes; no duplicate/lost committed cycle |
-| T-LIS-010 | Same worker runs on laptop (dev) and mini (prod) by config | AC-4 | [human-gate] | Deploy to a mini | Worker operates with only config differing |
+| T-LIS-005 | Phases resolve the correct fleet roles | AC-1 | [e2e-automated] | Run a cycle | ASSAY requests `fulcrum-assay`; SENSE-plan/GENERATE/CHALLENGE request `fulcrum-challenge` |
+| T-LIS-006 | ASSAY≠CHALLENGE enforced on **resolved** identity, fail-closed | AC-2,AC-3 | [integration-test] | Point both roles at one model in fleet config | Cycle refuses to run, naming both roles and the shared model — detected from headers, not role names |
+| T-LIS-007 | No coder role appears on the Fulcrum path | AC-4 | [build-gate] | Static + runtime scan of the running config | Zero occurrences of `reviewer`/`implementer`/`orchestrator`/`qwen-coder`/`verifier` |
+| T-LIS-008 | The embedder is used only for embedding, never as a chat role | AC-5 | [integration-test] | Run publish + a cycle | `qwen3-embedding` receives only embedding calls; returns 1024 dims; no chat role receives an embed call |
 
-### UC-LIS-04: Degrade visibly on fleet loss
+### UC-LIS-03: Swap and measure the model behind a role
 | # | Criterion | AC Ref | Type | Setup | Pass/Fail |
 |---|-----------|--------|------|-------|-----------|
-| T-LIS-011 | Unreachable endpoint detected + marked within bound | AC-1 | [integration-test] | Stop an endpoint | Fleet state flips degraded/offline within the bound |
-| T-LIS-012 | Continues on remaining node when degraded | AC-2 | [integration-test] | One mini down | Cycles continue on the healthy node |
-| T-LIS-013 | Drops to reduced mode when fully offline (no cloud) | AC-3,AC-5 | [e2e-automated] | All local endpoints down, fallback off | No generative cycles; zero cloud calls; sense-only |
-| T-LIS-014 | Fleet/degradation state shown to operator | AC-4 | [human-gate] | Read the brief | Brief shows current fleet state |
+| T-LIS-009 | A model swap requires only a fleet config edit | AC-1 | [integration-test] | Rebind `fulcrum-assay` in fleet config; re-record digest | Next cycle resolves the new model; zero Fulcrum source edits; no redeploy |
+| T-LIS-010 | ASSAY quality reports as quote-check pass rate | AC-2 | [e2e-automated] | Run assay over a fixed real source set | Score equals verified-quote claims ÷ extracted claims, recomputable from the ledger |
+| T-LIS-011 | CHALLENGE quality reports as refuting-claim gate-pass rate | AC-3 | [e2e-automated] | Run challenge over a scored candidate | Score equals gate-passing refuters ÷ refuters produced |
+| T-LIS-012 | Two bindings are comparable over identical source material | AC-4 | [human-gate] | Measure binding A, rebind, measure binding B on the same sources | Both scores shown side by side with their bindings named |
+| T-LIS-013 | The measurement path contains no model call | AC-5 | [build-gate] | Static audit of the scoring path | Zero model invocations; scores are pure functions of the ledger |
+| T-LIS-014 | Each cycle records the binding that produced it | AC-6 | [e2e-automated] | Run cycles across a rebind | Every cycle row names the resolved model per role |
 
-### UC-LIS-05: Record inference telemetry
+### UC-LIS-04: Degrade per role, never substitute
 | # | Criterion | AC Ref | Type | Setup | Pass/Fail |
 |---|-----------|--------|------|-------|-----------|
-| T-LIS-015 | Per-cycle tokens/time/endpoint/role recorded | AC-1 | [e2e-automated] | Run a cycle | `fulcrumCycles.spentJson` populated per phase |
-| T-LIS-016 | Aggregate telemetry viewable per mission | AC-2 | [human-gate] | Run several cycles | Tokens/day, cycles/day, per-role split available |
-| T-LIS-017 | Telemetry feeds budget enforcement | AC-3 | [integration-test] | Set a low cap | Budget-exceeded detected from recorded numbers |
+| T-LIS-015 | Cycles continue when one mini is down | AC-1 | [integration-test] | `ssh inference1 'pkill -f "omlx serve"'` | Cycles keep committing; recorded api-base is the surviving mini |
+| T-LIS-016 | Reduced mode when chat roles have no backend; no cloud call | AC-2 | [e2e-automated] | Stop oMLX on both minis, fallback off | No generative cycles; zero cloud calls; explicit reduced-mode state |
+| T-LIS-017 | No retry ever requests a different role name | AC-3 | [e2e-automated] | Induce a no-host outage, capture every request | The set of requested role names during the outage is unchanged |
+| T-LIS-018 | Per-role availability visible to the operator | AC-4 | [human-gate] | Read the brief during a partial outage | Availability shown per role name, not per host |
+| T-LIS-019 | Cloud fallback only on explicit opt-in | AC-5 | [integration-test] | Outage with fallback off, then on | Zero cloud calls when off; cloud used only when explicitly enabled |
+| T-LIS-020 | A reduced or skipped cycle records an explicit reason | AC-6 | [e2e-automated] | Induce a no-host outage | Cycle-log row carries a machine-readable role-unavailable reason; never a silent non-run |
+
+### UC-LIS-05: Record inference telemetry from router-truthful sources
+| # | Criterion | AC Ref | Type | Setup | Pass/Fail |
+|---|-----------|--------|------|-------|-----------|
+| T-LIS-021 | Per-phase tokens, time, role, and serving backend recorded | AC-1 | [e2e-automated] | Run a cycle | All four present for every inference phase |
+| T-LIS-022 | Serving backend is read from headers, never the response body | AC-2 | [build-gate] | Static audit + a substitution rehearsal | Scoring/telemetry path reads `x-litellm-model-api-base`/`-model-id` + `/model/info`; a deliberately substituted backend is **detected**, proving the body field is not relied on |
+| T-LIS-023 | Resolved model identity is auditable after the fact | AC-3 | [e2e-automated] | Inspect committed cycles | ASSAY≠CHALLENGE re-verifiable from stored telemetry alone |
+| T-LIS-024 | Aggregate telemetry viewable per mission | AC-4 | [human-gate] | Run several cycles | Tokens/day, cycles/day, per-role split available |
+| T-LIS-025 | Telemetry feeds budget enforcement | AC-5 | [integration-test] | Set a low cap | Budget-exceeded detected from recorded numbers |
+| T-LIS-026 | Embedding calls record dimensionality | AC-6 | [e2e-automated] | Publish a finding | Embedding telemetry records 1024 dims (no model id exists to record) |
 
 ## CYC: Cycle Loop Engine
 
@@ -85,7 +98,7 @@ Per-UC criteria. Type tags: `[e2e-automated]` `[integration-test]` `[build-gate]
 ### UC-CYC-05: CHALLENGE — cross-model refutation
 | # | Criterion | AC Ref | Type | Setup | Pass/Fail |
 |---|-----------|--------|------|-------|-----------|
-| T-CYC-018 | Challenge runs on a different model than ASSAY | AC-1 | [e2e-automated] | Run a cycle | Telemetry shows distinct models |
+| T-CYC-018 | Challenge runs on a different **resolved** model than ASSAY | AC-1 | [e2e-automated] | Run a cycle | `x-litellm-model-id` + `/model/info` show two distinct models for `fulcrum-assay` vs `fulcrum-challenge` (body `model` field is not evidence) |
 | T-CYC-019 | Refuting claims pass the same gate | AC-2 | [integration-test] | Produce a refutation | Refute claim goes through admission identically |
 | T-CYC-020 | Strongest disconfirmation queued as future question | AC-3 | [e2e-automated] | Run challenge | A kill-question is attached to the candidate |
 | T-CYC-021 | Support claim marked contested only by gate-passing refuter | AC-4 | [integration-test] | Add a gate-passing refuter | Target support claim → contested |
@@ -201,10 +214,25 @@ Per-UC criteria. Type tags: `[e2e-automated]` `[integration-test]` `[build-gate]
 
 | Type | Count |
 |------|-------|
-| [e2e-automated] | 43 |
-| [integration-test] | 22 |
-| [build-gate] | 5 |
+| [e2e-automated] | 55 |
+| [integration-test] | 30 |
 | [human-gate] | 10 |
-| **Total** | **80** |
+| [build-gate] | 7 |
+| **Total** | **102** |
 
-**AC coverage**: every AC across the 22 UCs is referenced by ≥1 criterion. The **spike gate** (T-CYC-001) is the single most important criterion — one real full cycle on real local inference proving the initiative's two gating risks before perpetual operation is built.
+| Group | Criteria |
+|---|---|
+| LIS | 26 |
+| CYC | 27 |
+| LED | 26 |
+| GATE | 23 |
+
+> **Count correction (v3.0.0).** The v1.0.0–v2.0.0 summary claimed **80** criteria while the document actually contained **93** rows — the table was hand-maintained and had drifted. These counts are now **machine-derived from the rows themselves**, not incremented by hand. The v3.0.0 rewrite added 9 criteria (all in LIS: 17 → 26), taking the real total from 93 to 102. Re-derive rather than increment when editing this table.
+
+The nine added criteria are all in the **LIS** group, rewritten for v3.0.0 (fleet consumption, three research roles, swap-and-measure, header-truthful telemetry). CYC, LED, and GATE are unchanged except T-CYC-018, re-specified to read resolved model identity from headers.
+
+**AC coverage: 110/110 — verified.** Every acceptance criterion across all 22 use cases is referenced by ≥1 criterion (checked programmatically at AC level, not merely at UC level; rows referencing multiple ACs are why 102 rows cover 110 ACs). No duplicate or orphan criterion IDs.
+
+**The two criteria that matter most:**
+- **T-CYC-001 (spike gate)** — one real full cycle on the real fleet, proving the initiative's gating risks before perpetual operation is built.
+- **T-LIS-022 (substitution rehearsal)** — proves the harness can *detect* a deliberately substituted backend. Without it, every other model-identity assertion in this document could be silently vacuous, because the obvious implementation (reading the body `model` field) reports success no matter what served. This criterion tests the test.

@@ -1,12 +1,20 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Architecture Posture
 
-> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** Fulcrum is now sequenced after [`mk6-migration`](../../mk6-migration/README.md). **Stance #1 (tailnet worker) and stance #5 (local SQLite ledger) are contradicted by [ADR-004 / ADR-006](./00-architecture-decisions.md)** — the backend runs on the mini, so there is no cloud runtime to escape and no sidecar worker; the ledger is Postgres append-only tables. Stances #2 (deterministic seam), #3 (two model roles), #4 (evolve not fork), and #6 (human done-bit) carry forward unchanged. Re-derive this file against the live mk6 platform before consuming it.
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** Fulcrum is now sequenced after [`mk6-migration`](../../mk6-migration/README.md). **Stance #1 (tailnet worker) and stance #5 (local SQLite ledger) are contradicted by [ADR-004 / ADR-006](./00-architecture-decisions.md)** — the backend runs on the mini, so there is no cloud runtime to escape and no sidecar worker; the ledger is Postgres append-only tables. Stances #2 (deterministic seam), #4 (evolve not fork), and #6 (human done-bit) carry forward unchanged. Re-derive this file against the live mk6 platform before consuming it.
+
+> **⚠️ Additionally superseded by v3.0.0 fleet alignment (2026-08-20).** **Stance #1 is fully dead** — there is no worker, no `baseURL` to configure, and no dev-laptop/prod-mini split; Fulcrum is a loopback fleet client pinned to `inference1` + `inference2` ([ADR-007](./00-architecture-decisions.md)). **Stance #3 is rewritten below in place** — the two-role split *survives* (it is what preserves cross-model challenge) but the roles are fleet roles resolving to **research** models, not coder models, and the binding is measurable config ([ADR-008](./00-architecture-decisions.md)).
+
+## 3′. Two *research* roles, bound by fleet config, chosen by measurement *(v3.0.0 — replaces stance #3)*
+
+The cycle needs a **claim-extraction** role and an **adversarial** role, and they must be different models so the critic does not inherit the extractor's blind spots. Fulcrum expresses this as two **fleet roles** — `fulcrum-assay` and `fulcrum-challenge` — plus the 1024-dim embedder. No coder role appears anywhere on the Fulcrum path.
+
+The binding from role to model is a `fleet.json` edit: fleet-wide, digest-protected, identical on every node, and changeable with no Fulcrum code change. Which model belongs in which role is settled by **measurement, not preference**, because the Evidence Gate already emits deterministic quality signals — quote-check pass rate for extraction, refuting-claim gate-pass rate for challenge. This is the same seam as stance #2, used a second way: the determinism that stops a model from narrating past the score also stops taste from deciding which model to run.
 
 Six architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit.
 
@@ -21,7 +29,9 @@ All Fulcrum cycle inference runs on **local** Apple-Silicon models, never cloud,
 
 Anything that must *always* be true is code; agents only read, write, judge, and generate. The **Evidence Gate** (grading, admission, provenance, quote-check, scoring) contains **no LLM call** and is a set of pure functions that yield identical output for identical ledger state. The **Loop Engine** never computes a score; the **Gate** never calls a model. This seam is the direct replacement for holocron's `runRalphLoop`, which terminates on an LLM's self-assessed confidence (`coverage ≥ 4 && confidence ≥ 70`) — the reward-hackable pattern Fulcrum exists to remove. The model can write any narrative; the number only moves when a cited claim clears the code gate.
 
-## 3. Local models serve two *roles*, mapped by config
+## 3. ~~Local models serve two *roles*, mapped by config~~ ❌ SUPERSEDED by stance 3′ above (v3.0.0)
+
+> Retained as the historical rationale for the two-role split, which **survives**. What changed: the roles bind to *research* models via fleet config, not to coder models via an app-side role map. Read stance 3′ instead.
 
 The cycle needs a **divergent** role (fast generation, query planning, mutation) and a **convergent** role (precise claim extraction, challenge). These map onto the existing coder fleet — divergent → the fast MoE `implementer` (35B-A3B), convergent → the precise dense `reviewer` (27B) — via configuration, through the same LiteLLM router. This reuse is the lowest-friction way to satisfy "local inference for all research" today; swapping in a research-specific pair (e.g. a fast generator + a strong reasoner) is a config change, not a rebuild. **ASSAY and CHALLENGE must resolve to different models** — a property the two-role split provides for free and the substrate enforces (fail-closed if identical).
 

@@ -1,11 +1,13 @@
 ---
 stability: FEATURE_SPEC
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 functional_group: CYC
 ---
 
 # Use Cases: Cycle Loop Engine (CYC)
+
+> **v3.0.0 fleet alignment.** Cycle phases address **fleet roles** (`fulcrum-assay`, `fulcrum-challenge`), never models or hosts — see [ADR-007 / ADR-008](./09-technical-requirements/00-architecture-decisions.md) and the LIS group. Cross-model challenge is preserved: the two roles are guaranteed to resolve to different models.
 
 | ID | Title | Description |
 |----|-------|-------------|
@@ -65,7 +67,7 @@ Each cycle plans exactly one retrieval question the candidate's dossier cannot a
 After ASSAY, a *different* model attempts to refute the candidate's admitted claims and runs a key-assumptions check. Its strongest attack becomes a queued retrieval question for a future cycle; any refuting claims pass the same gate as supporting ones.
 
 **Acceptance Criteria**
-- ☐ System runs the challenge pass on a different model than performed ASSAY extraction for the same cycle
+- ☐ System runs the challenge pass on the `fulcrum-challenge` role, which resolves to a different served model than the `fulcrum-assay` role used for extraction in the same cycle, verified against the model each call actually resolved to
 - ☐ System produces refuting claims that are submitted through the identical admission gate as supporting claims (no privileged path)
 - ☐ System emits the strongest disconfirmation as a queued retrieval question attached to the candidate
 - ☐ System marks a supporting claim contested only when a gate-passing refuting claim targets it

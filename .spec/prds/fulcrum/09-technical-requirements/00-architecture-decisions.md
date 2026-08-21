@@ -1,10 +1,12 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-13
-prd_version: 2.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Architecture Decision Records
+
+> **v3.0.0 fleet alignment (2026-08-20).** Fulcrum now additionally depends on the **Virtual Device Fleet** ([`~/models/.spec/prds/virtual-device-fleet/`](file:///Users/justinrich/models/.spec/prds/virtual-device-fleet/README.md)), which makes a role name mean one thing fleet-wide, derives router pools from per-node capability, and binds every router to loopback as a code invariant. Two new ADRs record the consequences: **ADR-007** (Fulcrum consumes inference as an ordinary fleet client on loopback, pinned to `inference1` + `inference2`) and **ADR-008** (Fulcrum's model vocabulary is research + embedding only — the coder roles leave — with the model↔role binding as swappable, measurable config). ADR-005 is **re-affirmed and strengthened**: the 1024-dim embedder is already live on both minis. ADR-001/002 remain superseded; ADR-003/004/006 are unaffected.
 
 > **v2.0.0 re-platform (2026-07-13).** Fulcrum is now sequenced **after** the MK-VI Platform Migration ([`../../mk6-migration/README.md`](../../mk6-migration/README.md)), which delivers the Mastra (Bun) + Postgres + local-fleet platform on the mini. That platform retires the two premises Fulcrum v1.0.1 was built around — "Convex cloud cannot reach local inference" and "Cohere owns the 1024-dim embedding contract." **ADR-001 and ADR-002 are SUPERSEDED** (by ADR-004 / ADR-005 below); **ADR-003 is AFFIRMED** (strengthened); three new ADRs (004–006) record the re-platform. The detailed TR sections 01–09 still describe the v1.0.1 SQLite / tailnet-worker architecture and each carries a `⚠️ Re-platform pending` banner until re-derived against the mk6 platform in a follow-on `--edit` / sprint-plan pass. The ADRs in this file are the **current** load-bearing decisions.
 
@@ -16,8 +18,10 @@ prd_version: 2.0.0
 | ADR-002 | Publish through Cohere 1024-dim embeddings | **SUPERSEDED** by ADR-005 |
 | ADR-003 | Reuse holocron's research *design*, re-implement execution | **AFFIRMED** (execution target is now the Mission Engine) |
 | ADR-004 | Ledger of record is Postgres append-only tables on the Mission Engine | **ACTIVE** (v2.0.0) |
-| ADR-005 | Embeddings are local Qwen3-Embedding 1024-dim via the mk6 platform | **ACTIVE** (v2.0.0) |
+| ADR-005 | Embeddings are local Qwen3-Embedding 1024-dim via the mk6 platform | **ACTIVE** (v2.0.0) · re-affirmed v3.0.0 — live on both minis |
 | ADR-006 | Fulcrum is a standing Mission Engine template, not a sidecar worker | **ACTIVE** (v2.0.0) |
+| ADR-007 | Fulcrum consumes inference through the fleet's packaged router on loopback, pinned to `inference1` + `inference2` | **ACTIVE** (v3.0.0) |
+| ADR-008 | Fulcrum's model vocabulary is research + embedding; the model↔role binding is swappable, measurable config | **ACTIVE** (v3.0.0) |
 
 ---
 
@@ -107,3 +111,58 @@ prd_version: 2.0.0
 - Fulcrum's LIS group shrinks: the generic local-inference substrate + role router are **mk6-owned**; Fulcrum contributes only the research-specific role mapping (divergent/convergent), the degradation policy, and per-cycle telemetry that *configure* the platform's router for this mission. (Functional-group UC wording is unchanged by this update; the overlap is noted in scope/overview.)
 - The "Fulcrum Worker (Bun, tailnet)" e2e surface in the harness constitution is replaced by "Fulcrum mission template (Mastra workflow)" — re-provisioning the harness against the mk6 test rig (banner applied to `09-e2e-testing.md`).
 - This is the decision that makes Fulcrum "just another mission template" per mk6's README.
+
+---
+
+## ADR-007 — Fulcrum consumes inference through the fleet's packaged router on loopback 🆕 ACTIVE
+
+**Context.** v2.0.0 assumed Fulcrum configures its own inference endpoint: `FULCRUM_INFERENCE_BASE_URL` = `http://laptop:4545/v1` in dev, "the mini's endpoint" in prod, plus a `FULCRUM_ROLE_MAP` naming models directly. The Virtual Device Fleet initiative makes all three impossible *and* unnecessary:
+
+1. **The router binds loopback only**, as a code invariant with no config key able to widen it. `http://laptop:4545/v1` from another machine is refused by design, so an app-side base URL can only ever be `127.0.0.1`.
+2. **A role name means one thing fleet-wide** and a node cannot redefine it. An application naming a *model* re-opens the exact silent-substitution defect the fleet exists to close.
+3. **Router backend pools are derived** from per-node capability declarations. Which device serves a role is fleet data, not application data.
+
+**Decision.** Fulcrum consumes inference as an ordinary fleet client: **one loopback endpoint** (`http://127.0.0.1:{router_port}/v1`) on whichever node it runs on, addressing **fleet role names** only. The node hosting Fulcrum runs the fleet's packaged router with `node_set: ["inference1", "inference2"]`, so all Fulcrum reading and processing routes to the two always-on minis and never to the laptop. Fulcrum declares no base URL, no host, no model identifier, and no device.
+
+**Consequences.**
+- `FULCRUM_INFERENCE_BASE_URL` and the "dev laptop / prod mini" split are **deleted**. UC-LIS-03 (tailnet worker) was already retired by ADR-006; its residue in the acceptance criteria goes with it.
+- **The laptop leaves Fulcrum's dependency set entirely.** A 24/7 loop must not depend on a machine that sleeps. This is the substantive reason for the pin, not tidiness.
+- Degradation becomes **per-role, not per-endpoint**. Node health, failover between minis, and cooldown are the router's job; Fulcrum observes only success, the fleet's explicit no-host error naming the role, or a refused loopback connect. **Fulcrum must never answer a no-host error by trying a different role** — that would reintroduce at the application layer the substitution the fleet made unrepresentable at the router.
+- Model identity for telemetry and the ASSAY≠CHALLENGE guard is read from the **`x-litellm-model-api-base` and `x-litellm-model-id` response headers** cross-referenced against `GET /model/info` — never from the response body's `model` field, which LiteLLM 1.91.0 rewrites to the requested alias (measured by the fleet initiative 2026-08-17). A body-field check would pass against a live substitution.
+- Prerequisite fleet-side edits are recorded in [`06-external-dependencies.md`](./06-external-dependencies.md). They are `fleet.json` edits, not Fulcrum code.
+
+---
+
+## ADR-008 — Fulcrum's model vocabulary is research + embedding; the binding is swappable, measurable config 🆕 ACTIVE
+
+**Context.** v1.0.x and v2.0.0 mapped Fulcrum's two model roles onto the **coder** fleet — convergent → `reviewer` (27B dense coder), divergent → `implementer` (35B-A3B MoE coder) — because that is what the fleet served when Fulcrum was drafted. It was always a workaround, and R1 said so: extraction quality on coder models is unverified for research. The coder roles now leave Fulcrum's vocabulary entirely. The fleet serves a research-class chat model and a 1024-dim embedder, and those are the only models Fulcrum reasons about.
+
+**Decision.** Fulcrum addresses exactly **three** fleet roles and no others:
+
+| Fulcrum phase | Fleet role | Kind |
+|---|---|---|
+| ASSAY — claim + verbatim-quote extraction | `fulcrum-assay` | chat, research-class |
+| SENSE query planning · GENERATE · CHALLENGE | `fulcrum-challenge` | chat, research-class |
+| Publish / embed (ADR-005) | `qwen3-embedding` | embedding, 1024-dim |
+
+`fulcrum-assay` and `fulcrum-challenge` are **fleet aliases**, so the model behind each is a `fleet.json` edit — digest-protected and identical on every node — never an application setting. This preserves the **ASSAY≠CHALLENGE** invariant (two roles, resolving to two different models) while making the binding swappable and A/B-testable without touching cycle code. No coder role appears anywhere in Fulcrum.
+
+**Recommended default binding** — a reasoned prior, **NOT a measured result**; the first CYC spike measures it:
+
+| Role | Model | Why |
+|---|---|---|
+| `fulcrum-assay` | `Qwen3.8-27B-8bit` | Extraction is a **fidelity** task: the claim's quote must survive a deterministic exact-substring check. 8-bit preserves exact-token copying where 4-bit degrades it, and the newer base helps structured output. |
+| `fulcrum-challenge` | `Qwen3.5-27B-Claude-4.6-Opus-Distilled-4bit` | Refutation is a **reasoning** task. Opus-distilled post-training targets the "here is why this is wrong" register, and its different lineage is what keeps the critic from inheriting the extractor's blind spots. |
+
+**The binding has a deterministic oracle — model choice is measured, never opined.** The gate already emits objective signals, so no LLM ever grades an LLM:
+
+- **ASSAY quality = quote-check pass rate** — the fraction of extracted claims whose quote is verified present in the fetched source (UC-LED-04). Pure code.
+- **CHALLENGE quality** = the gate-pass rate of its refuting claims, plus how often a queued kill-question later yields *admitted* disconfirming evidence.
+
+Fulcrum's determinism seam therefore doubles as its own model-selection harness. Swapping either model is a `fleet.json` edit plus a digest re-record, followed by a re-measured number.
+
+**Consequences.**
+- `02-roles.md`'s "ASSAY and Challenger must be different models" **survives**, now enforced by two distinct fleet aliases instead of a coder/coder split.
+- **R1 is re-scoped**, not retired: the risk is no longer "coder models may extract badly" but "the default research binding is unmeasured." Its mitigation is now a first-class product capability (the oracle above) rather than a hope.
+- Both default models already exist on mini disks, so the binding costs no new downloads — only the mirroring recorded in `06-external-dependencies.md`.
+- The embedder is not a chat model and is never substituted for one, nor a chat model for it.

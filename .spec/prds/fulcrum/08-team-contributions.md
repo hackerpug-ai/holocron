@@ -1,5 +1,7 @@
 # Team Contributions
 
+> **Historical record — read as "what was decided when," not as current state.** Phase 3's role map (convergent → `reviewer`, divergent → `implementer`, via `laptop:4545`) was **superseded in v3.0.0** by [ADR-007 / ADR-008](./09-technical-requirements/00-architecture-decisions.md): Fulcrum consumes the fleet on loopback pinned to `inference1` + `inference2`, and its vocabulary is research + embedding with **no coder role**. The Phase 3 note that "swapping in a research pair is a config change, not a rebuild" is exactly what v3.0.0 exercised — the swap seam did its job. References to `~/models/RULES.md` predate the current fleet config (`~/models/fleet/fleet.json`).
+
 This PRD was synthesized by the orchestrator applying product-manager, Convex-engineering, and local-inference-specialist lenses over an extensive prior design corpus, grounded by direct reading of the holocron codebase (`convex/research/`, `convex/crons.ts`, `convex/schema.ts`, `holocron-mcp/`, `package.json`) and the local-fleet spec (`~/models/RULES.md`). It is the holocron-native realization of the `idea-factory/ideas/autoresearch-loop/` design, which itself passed a 16-finding adversarial red-team.
 
 ## Phase 1 — Product framing (product-manager lens)

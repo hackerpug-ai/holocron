@@ -1,68 +1,83 @@
 ---
 stability: FEATURE_SPEC
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 functional_group: LIS
 ---
 
 # Use Cases: Local Inference Substrate (LIS)
 
+> **v3.0.0 fleet alignment (2026-08-20).** Per [ADR-007](./09-technical-requirements/00-architecture-decisions.md), Fulcrum is an ordinary **fleet client**: one loopback endpoint, fleet **role names** only, pinned to `inference1` + `inference2`. Per [ADR-008](./09-technical-requirements/00-architecture-decisions.md), its vocabulary is **research + embedding** — the coder roles (`reviewer`, `implementer`, `orchestrator`, `qwen-coder`, `verifier`) are gone. UC-LIS-03 previously specified a tailnet worker; that was retired by ADR-006 and is replaced here by **swap-and-measure**, the capability that makes the model↔role binding a config decision backed by a deterministic number.
+
 | ID | Title | Description |
 |----|-------|-------------|
-| UC-LIS-01 | Route research calls to local inference | Fulcrum cycle work calls a local OpenAI-compatible endpoint instead of the cloud `claudeFlash()` factory |
-| UC-LIS-02 | Map research roles to local models | Divergent and convergent roles resolve to configured local models, not hardcoded |
-| UC-LIS-03 | Run inference from a tailnet worker | Cycle inference executes where local endpoints are reachable (dev laptop / prod mini) |
-| UC-LIS-04 | Degrade visibly on fleet loss | When the fleet or a node is unreachable, the loop enters a defined reduced mode and surfaces it |
-| UC-LIS-05 | Record inference telemetry | Every cycle records tokens, wall time, endpoint, and model role per phase |
+| UC-LIS-01 | Consume inference through the fleet's loopback router | All Fulcrum inference goes to one loopback endpoint that routes only to `inference1` + `inference2` |
+| UC-LIS-02 | Address research work by fleet role | Phases resolve fleet role names, never models, hosts, or devices |
+| UC-LIS-03 | Swap and measure the model behind a role | The binding is a fleet config edit, scored by a deterministic oracle |
+| UC-LIS-04 | Degrade per role, never substitute | A role with no reachable backend fails loudly; the loop never silently changes models |
+| UC-LIS-05 | Record inference telemetry from router-truthful sources | Every call records what actually served it, read from headers rather than the response body |
 
 ---
 
-## UC-LIS-01: Route research calls to local inference
+## UC-LIS-01: Consume inference through the fleet's loopback router
 
-The substrate exposes a research model provider that targets a local OpenAI-compatible server (LiteLLM router at the laptop in dev; Mac-mini `llama-server` in prod). All Fulcrum cycle LLM calls use it; the cloud `claudeFlash()` factory is not on the Fulcrum path.
-
-**Acceptance Criteria**
-- ☐ System can complete a real generation against the configured local endpoint for a Fulcrum cycle call
-- ☐ Operator can point the substrate at a local endpoint via configuration (base URL + model names) without code changes
-- ☐ System routes every Fulcrum cycle LLM call through the local provider (no cloud provider invoked on the cycle path unless the Operator explicitly opts into a fallback)
-- ☐ System records which endpoint served each call for later audit
-
-## UC-LIS-02: Map research roles to local models
-
-Fulcrum needs two research roles — **divergent** (fast generation, query planning, mutation) and **convergent** (precise claim extraction, scoring inputs, challenge). These map onto locally-served models (e.g., divergent → the fast MoE `implementer`; convergent → the precise dense `reviewer`) via config.
+Fulcrum holds no endpoint configuration. It dials `http://127.0.0.1:{router_port}/v1` on the node it runs on, and that node's packaged router is declared with `node_set: ["inference1", "inference2"]` so every Fulcrum call is served by an always-on mini. The laptop is not in the pool and is not a dependency.
 
 **Acceptance Criteria**
-- ☐ Operator can declare, in configuration, which local model serves the divergent role and which serves the convergent role
-- ☐ System resolves a phase's model from its role at call time (ASSAY→convergent, GENERATE/SENSE-planning→divergent, CHALLENGE→the role NOT used by ASSAY)
-- ☐ System guarantees ASSAY and CHALLENGE resolve to different models, and fails closed (does not run the cycle) if they would be identical
-- ☐ Operator can change the role→model mapping without changing cycle code
 
-## UC-LIS-03: Run inference from a tailnet worker
+- ☐ System completes a real Fulcrum cycle generation against the loopback router endpoint on its host node
+- ☐ System routes every Fulcrum cycle inference call to `inference1` or `inference2`, verified by the serving api-base recorded for each call
+- ☐ System never routes a Fulcrum cycle call to the laptop, verified across a full cycle with the laptop reachable and serving
+- ☐ Operator can move Fulcrum to a different fleet node without editing Fulcrum, because the endpoint is loopback on every node
+- ☐ System exposes no configuration key for an inference base URL, host, port, or device
 
-Because Convex's runtime cannot reach tailnet-local endpoints, inference-bearing cycle phases execute in a **tailnet-resident worker** (dev: laptop; prod: Mac mini) that holds the local-model connection and reads/writes durable state through Convex.
+## UC-LIS-02: Address research work by fleet role
 
-**Acceptance Criteria**
-- ☐ System can execute a cycle's inference phases from the tailnet worker against a local endpoint unreachable from Convex's own runtime
-- ☐ Worker can read the next work item and write cycle results back to the Convex ledger
-- ☐ System dispatches cycle work to the worker via a durable queue/trigger so a worker restart loses at most the in-flight cycle
-- ☐ Operator can run the worker on the laptop in dev and on a Mac mini in prod with only configuration differing
-
-## UC-LIS-04: Degrade visibly on fleet loss
-
-When the fleet is degraded (one mini down) or fully unreachable (both down / Wi-Fi off), the loop must not silently swap to a cloud model. It enters a defined reduced mode and reports it.
+Fulcrum names three fleet roles — `fulcrum-assay` (chat), `fulcrum-challenge` (chat), and `qwen3-embedding` (1024-dim embedding). It never names a model file, a quantization, or a machine. Because roles are fleet-wide and a node cannot redefine them, the same role name means the same model on every node.
 
 **Acceptance Criteria**
-- ☐ System detects an unreachable local endpoint within a bounded time and marks the fleet state degraded or offline
-- ☐ System continues on remaining healthy local endpoints when the fleet is degraded (one node down)
-- ☐ System drops the loop to a reduced mode (no new generative cycles) when no local endpoint is reachable, rather than calling a cloud model
-- ☐ Operator sees the current fleet/degradation state in the daily brief and loop health
+
+- ☐ System resolves each cycle phase to a fleet role, with ASSAY using `fulcrum-assay` and SENSE-planning, GENERATE, and CHALLENGE using `fulcrum-challenge`
+- ☐ System guarantees `fulcrum-assay` and `fulcrum-challenge` resolve to two different served models, and refuses to run the cycle when they would be identical
+- ☐ System verifies the ASSAY-versus-CHALLENGE distinctness against the model each call actually resolved to, not against the configured role names alone
+- ☐ System names no coder role anywhere on the Fulcrum path, verified by inspection of the running configuration
+- ☐ System uses `qwen3-embedding` only for embedding and never as a chat model, and never substitutes a chat role for the embedder
+
+## UC-LIS-03: Swap and measure the model behind a role
+
+The model serving a Fulcrum role is a fleet config edit, and the choice is settled by measurement rather than opinion. The Evidence Gate already produces deterministic quality signals, so a swap can be scored without a human reading prose and without a model judging a model.
+
+**Acceptance Criteria**
+
+- ☐ Operator can change the model behind `fulcrum-assay` or `fulcrum-challenge` by editing fleet configuration, with no change to Fulcrum code and no redeploy
+- ☐ System reports an ASSAY quality score as the quote-check pass rate — the share of extracted claims whose quote is verified present in the fetched source
+- ☐ System reports a CHALLENGE quality score as the gate-pass rate of refuting claims produced by the challenge pass
+- ☐ Operator can compare two model bindings over the same set of source material and see both scores side by side
+- ☐ System computes both scores in deterministic code with no model call anywhere in the measurement path
+- ☐ System records which model binding produced each cycle, so a historical quality score stays attributable
+
+## UC-LIS-04: Degrade per role, never substitute
+
+Node health, mini-to-mini failover, and cooldown belong to the router. What Fulcrum sees is a served response, an explicit no-host error naming the role, or a refused connection. When a role has no backend the loop reduces its own activity and says so — it never reaches for a different role, and never for a cloud model unless the operator has explicitly opted in.
+
+**Acceptance Criteria**
+
+- ☐ System continues running cycles when one mini is unreachable, because the router fails over to the other
+- ☐ System enters a defined reduced mode when the chat roles have no reachable backend, rather than substituting another role or calling a cloud model
+- ☐ System never retries a failed role by requesting a different role name, verified by the roles requested during an induced outage
+- ☐ Operator can see the current per-role availability in the daily brief and loop health, named by role rather than by host
 - ☐ System uses a cloud model for research only when the Operator has explicitly enabled a fallback
+- ☐ System records an explicit reason when a cycle is reduced or skipped for role unavailability, never a silent non-run
 
-## UC-LIS-05: Record inference telemetry
+## UC-LIS-05: Record inference telemetry from router-truthful sources
 
-Every cycle records what inference it consumed, so the operator can see cost/throughput and so the cycle budget (CYC) can be enforced against real numbers.
+Every cycle records what inference it consumed and, critically, **what actually served it**. The response body's `model` field is not evidence: the router rewrites it to the requested alias, so a body-field check would report success against a live substitution.
 
 **Acceptance Criteria**
-- ☐ System records, per cycle, the tokens consumed, wall-clock time, endpoint, and model role for each inference phase
-- ☐ Operator can view aggregate inference telemetry (tokens/day, cycles/day, per-role split) for a mission
+
+- ☐ System records, per cycle phase, the tokens consumed, wall-clock time, fleet role, and the backend that actually served the call
+- ☐ System reads the serving backend from the router's response headers cross-referenced against its deployment info, never from the response body's model field
+- ☐ System records the resolved model identity for each chat call, so the ASSAY-versus-CHALLENGE distinctness can be audited after the fact
+- ☐ Operator can view aggregate inference telemetry per mission, including tokens per day, cycles per day, and the per-role split
 - ☐ System exposes per-cycle telemetry to the budget enforcement in CYC so a budget-exceeded cycle is detectable from recorded numbers
+- ☐ System records embedding calls with their vector dimensionality, because the embedding response carries no model identifier to record

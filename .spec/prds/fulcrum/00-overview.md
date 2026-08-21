@@ -1,10 +1,12 @@
 ---
 stability: PRODUCT_CONTEXT
-last_validated: 2026-07-13
-prd_version: 2.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Fulcrum — Autonomous Research Loop
+
+> **Fleet-aligned (v3.0.0, 2026-08-20).** Fulcrum consumes inference as an ordinary client of the **Virtual Device Fleet**: one loopback endpoint, fleet **role names** only, pinned to `inference1` + `inference2` so the loop never depends on a laptop that sleeps. Its model vocabulary is **research + embedding** — the coder roles are gone. See [ADR-007 / ADR-008](./09-technical-requirements/00-architecture-decisions.md).
 
 > **Sequenced after MK-VI (v2.0.0).** This initiative is a hard successor to the [MK-VI Platform Migration](../mk6-migration/README.md) (Convex → Mastra + Postgres on the mini). Fulcrum does **not** build its own inference substrate, ledger, or embedder — it plugs into the platform mk6 delivers as a standing **mission template**. The product *behavior* described below is unchanged from v1.0.1; what changes is *where it runs* (the platform, not a sidecar worker) and *what it owns* (the mission logic, not the substrate). See [ADR-004 / ADR-005 / ADR-006](./09-technical-requirements/00-architecture-decisions.md).
 
@@ -21,13 +23,13 @@ Fulcrum is the holocron-native realization of the `idea-factory/ideas/autoresear
 1. **Holocron's research is episodic and cloud-bound.** Findings go stale the moment a session ends; nothing re-checks them, and every `generateText` call in `convex/research/` runs on a cloud model (`claudeFlash()`), metering every token and making true 24/7 operation uneconomic.
 2. **The current loop terminates on an LLM's self-assessed confidence.** `runRalphLoop` stops when a model judges coverage ≥ 4 and confidence ≥ 70. This is the textbook reward-hackable pattern: the thing generating the findings also grades them, so "done" means "the model is satisfied," not "the evidence holds."
 3. **Discovery is bounded by the operator's imagination.** A solo engineer's research is identity-shaped — it drifts toward what he already knows (software for engineers). The opportunities with the best revenue-to-effort ratios often sit in industries he would never think to read about (insurance, logistics, specialty trades).
-4. **Owned compute sits idle.** A split-host Apple-Silicon fleet (M5 Max laptop + two Mac minis on a Tailscale tailnet) already runs local models for coding. Research — the workload most improved by *always-on, cheap, private* inference — doesn't use it at all.
+4. **Owned compute sits idle.** Two always-on Apple-Silicon Mac minis on a Tailscale tailnet (`inference1`, `inference2`) already serve a research-class chat model and a 1024-dim embedder. Research — the workload most improved by *always-on, cheap, private* inference — doesn't use them at all. Being always-on is the load-bearing property: a perpetual loop cannot be hosted on a laptop that sleeps.
 
 ## The Solution
 
 Fulcrum adds four capabilities to holocron, and nothing else (scope is the loops only):
 
-1. **A research-specific inference configuration on the mk6 substrate** — all research model calls route to local endpoints through the role router mk6 delivers (`divergent`/`convergent`/`judge`/`embed`/`rerank`), mapped onto locally-served models. Fulcrum contributes the *research* role mapping (divergent generation, convergent claim-extraction/challenge), the degradation policy, and per-cycle telemetry that configure the platform router for this mission — it does not rebuild the substrate. This is the initiative's defining constraint and it is satisfied by inheriting the mk6 platform.
+1. **A research-role configuration consumed from the fleet** — every Fulcrum inference call goes to one **loopback** endpoint served by the fleet's packaged router, pinned to `inference1` + `inference2`, and addresses **three fleet roles**: `fulcrum-assay` (claim and verbatim-quote extraction), `fulcrum-challenge` (query planning, generation, refutation), and `qwen3-embedding` (1024-dim publish embedding). Fulcrum contributes the *research* role definitions, the per-role degradation policy, per-cycle telemetry, and a deterministic way to **measure a model swap** — it configures no endpoint, names no model, and rebuilds no substrate. The coder models Fulcrum was originally drafted against are out of its vocabulary entirely.
 2. **A perpetual, evidence-gated cycle engine** — a fixed-budget cycle (SENSE → GENERATE → ASSAY → CHALLENGE → MAP → COMMIT) that evolves the existing `convex/research/` loop, alternates divergent discovery with convergent deepening, and runs unattended on a schedule.
 3. **An evidence ledger and deterministic gate** — the anti-reward-hacking core. Claims enter the ledger only with cited, independent, recency-checked evidence; scores are computed by code (top-3-grade mean, disconfirmation weighted double, syndication deduped, sparsity scored as UNKNOWN). This **replaces** the LLM-confidence termination with a metric the model cannot narrate its way past.
 4. **Missions and a human gate** — standing research goals (starting with *development ideas with revenue potential*) that the operator steers by editing one contract, plus a daily brief, per-candidate dossiers with full evidence chains, and verdicts (kill / advance / redirect / boost) that are the only way a candidate advances.
