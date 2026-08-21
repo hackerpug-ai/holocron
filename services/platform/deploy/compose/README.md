@@ -1,6 +1,8 @@
+# Holocron Compose (OBS-04 twelve-service / eight-volume contract)
+
 # Holocron portable production Compose contract
 
-`compose.yaml` is the v1 four-service production contract: `postgres`,
+`compose.yaml` is the v1 twelve-service production contract: `postgres`,
 `mastra`, `scheduler`, and `zero-cache`. `compose.dev.yaml` only changes laptop
 labels and durable volume names; it must never add a service or replace either
 application image.
@@ -8,7 +10,7 @@ application image.
 ## Cold-host bootstrap (Apple silicon) — IMP-AC-16
 
 Reproducible first boot on a fresh M-series Mac. Production runtime is **Docker
-Desktop + Compose only** for the four services below. Do **not** install or
+Desktop + Compose only** for the twelve services below. Do **not** install or
 enable the legacy native Homebrew LaunchAgents documented under
 `services/platform/deploy/launchd/README.md` for this path (they would double-
 bind Postgres/Mastra ports).
@@ -48,7 +50,7 @@ export HOLO_SECRET_STORE_ROOT="/absolute/path/to/store"   # must contain secrets
 # 1) Non-mutating host preflight (nine named checks; zero Docker mutations)
 holo deploy:preflight --target holocron --port 44111 --json
 
-# 2) Authorized apply (immutable digest lock + private Serve + four services)
+# 2) Authorized apply (immutable digest lock + private Serve + twelve services)
 holo deploy:apply --authorize \
   --release path/to/image-lock.json \
   --base-url "https://$(tailscale status --json | jq -r '.Self.DNSName|sub("\\.$";"")'):44111" \
@@ -250,7 +252,7 @@ holo deploy:verify --portable --json
 ```
 
 The non-secret deployment receipt records host, loopback port 44111, private
-Serve URL, immutable image digest/revision/generation, exactly four services,
+Serve URL, immutable image digest/revision/generation, exactly twelve services,
 two named volumes, selected memory limits, and zero credential values.
 
 ## Real deployment verification section
@@ -394,6 +396,6 @@ receipts, peer count ≠ 2, mismatched generation/digest, or empty health/MCP.
 - Evidence stores only hashes, counts, status codes, and redacted identifiers.
 - Scan sealed JSON with seeded credential canaries; require
   `credential_value_count=0` and `raw_environment_present=false`.
-- After any failure: restore Postgres + all four services, re-check private
+- After any failure: restore Postgres + all twelve services, re-check private
   Serve, retain named volumes (`volume_deletion_count=0`), leave D08-05 blocked.
 - Never rewrite a failed drill as pass; retain the immutable failure record.

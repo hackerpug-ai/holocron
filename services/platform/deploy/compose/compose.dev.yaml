@@ -13,9 +13,45 @@ services:
   zero-cache:
     labels:
       io.holocron.environment: laptop
+  edge:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-web:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-worker:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-postgres:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-clickhouse:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-redis:
+    labels:
+      io.holocron.environment: laptop
+  langfuse-minio:
+    labels:
+      io.holocron.environment: laptop
+  otel-collector:
+    labels:
+      io.holocron.environment: laptop
 
 volumes:
   postgres-data:
     name: ${HOLO_POSTGRES_VOLUME:-holocron-postgres-laptop}
-  blob-data:
-    name: ${HOLO_BLOB_VOLUME:-holocron-blobs-laptop}
+  zero-cache-data:
+    name: ${HOLO_ZERO_CACHE_VOLUME:-zero-cache-laptop}
+  langfuse-postgres-data:
+    name: ${HOLO_LANGFUSE_POSTGRES_VOLUME:-langfuse-postgres-laptop}
+  clickhouse-data:
+    name: ${HOLO_CLICKHOUSE_DATA_VOLUME:-clickhouse-data-laptop}
+  clickhouse-logs:
+    name: ${HOLO_CLICKHOUSE_LOGS_VOLUME:-clickhouse-logs-laptop}
+  minio-data:
+    name: ${HOLO_MINIO_VOLUME:-minio-data-laptop}
+  redis-data:
+    name: ${HOLO_REDIS_VOLUME:-redis-data-laptop}
+  otel-queue:
+    name: ${HOLO_OTEL_QUEUE_VOLUME:-otel-collector-queue-laptop}

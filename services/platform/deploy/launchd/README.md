@@ -254,3 +254,8 @@ Holocron uses Homebrew PG18 paths (see `docs/postgres-provisioning.md`):
 
 Do **not** run `brew services start postgresql@18` in parallel with
 `holocron-postgres` — both would fight for port 5432 / the same PGDATA.
+
+
+## OBS-04
+
+`holocron-langfuse.plist` is retired. Langfuse runs inside the canonical production Compose project only.

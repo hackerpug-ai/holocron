@@ -24,6 +24,7 @@ import {
   defaultComposePath,
   parseImagePlatforms,
   REQUIRED_SERVICES,
+  REQUIRED_VOLUME_NAMES,
   type ReleaseLock,
 } from './production-release.ts';
 
@@ -44,6 +45,14 @@ export const DEFAULT_MEMORY_LIMITS_GIB = {
   mastra: 16,
   scheduler: 8,
   'zero-cache': 10,
+  edge: 0.5,
+  'langfuse-web': 4,
+  'langfuse-worker': 4,
+  'langfuse-postgres': 4,
+  'langfuse-clickhouse': 8,
+  'langfuse-redis': 1,
+  'langfuse-minio': 1,
+  'otel-collector': 1,
 } as const satisfies ServiceMemoryLimits;
 
 /** Nine named non-mutating preflight dimensions (IMP-AC-12). Absent names cannot pass. */
@@ -78,10 +87,18 @@ export type ServiceMemoryLimits = {
   mastra: number;
   scheduler: number;
   'zero-cache': number;
+  edge: number;
+  'langfuse-web': number;
+  'langfuse-worker': number;
+  'langfuse-postgres': number;
+  'langfuse-clickhouse': number;
+  'langfuse-redis': number;
+  'langfuse-minio': number;
+  'otel-collector': number;
 };
 
 export type DeploymentRecord = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   authorized: true;
   authorizationScope: string;
   /** Validated portable deploy host (default example: holocron). */
@@ -103,11 +120,11 @@ export type DeploymentRecord = {
   composeSha256: string;
   composeGeneration: string;
   deployedAt: string;
-  services: readonly ['postgres', 'mastra', 'scheduler', 'zero-cache'];
+  services: typeof REQUIRED_SERVICES;
   containers: Record<string, string>;
   previousImage: string;
   previousDigest: string;
-  durableVolumes: readonly ['holocron-postgres', 'holocron-blobs'];
+  durableVolumes: typeof REQUIRED_VOLUME_NAMES;
   memoryLimitsGib: ServiceMemoryLimits;
   coldRecreate: true;
   cutoverActions: 0;
@@ -354,8 +371,8 @@ export function readDeployableRelease(path: string, composePath: string): Releas
     deployFail(`release lock is not valid JSON: ${path}`);
   }
   const value = asObject(parsed, 'release lock') as Partial<ReleaseLock>;
-  if (value.schemaVersion !== 1 || value.deployable !== true) {
-    deployFail('release lock must be deployable schema v1');
+  if (value.schemaVersion !== 2 || value.deployable !== true) {
+    deployFail('release lock must be deployable schema v2');
   }
   const fields = [
     'image',
@@ -376,6 +393,15 @@ export function readDeployableRelease(path: string, composePath: string): Releas
   }
   const lock = value as ReleaseLock;
   assertSourceRevision(lock.sourceRevision);
+  if (lock.platform !== 'linux/arm64') {
+    deployFail('release lock platform must be linux/arm64');
+  }
+  if (!Array.isArray(lock.services) || lock.services.length !== REQUIRED_SERVICES.length) {
+    deployFail(`release lock services must list exactly ${REQUIRED_SERVICES.length} services`);
+  }
+  if (!Array.isArray(lock.volumes) || lock.volumes.length !== REQUIRED_VOLUME_NAMES.length) {
+    deployFail(`release lock volumes must list exactly ${REQUIRED_VOLUME_NAMES.length} volumes`);
+  }
   if (assertDeployableImage(lock.image) !== lock.digest) {
     deployFail('release image and digest disagree');
   }
@@ -1452,7 +1478,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     ...runtime,
     HOLO_PLATFORM_IMAGE: lock.image,
     HOLO_POSTGRES_VOLUME: 'holocron-postgres',
-    HOLO_BLOB_VOLUME: 'holocron-blobs',
+    HOLO_BLOB_HOST_PATH: process.env.HOLO_BLOB_HOST_PATH || './.data/holocron-blobs',
   };
   if (!options.skipImagePreflight) {
     verifyLockedImage({
@@ -1489,7 +1515,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     '--user',
     '0:0',
     '--volume',
-    'holocron-blobs:/var/lib/holocron/blobs',
+    '/var/lib/holocron/blobs',
     '--entrypoint',
     '/bin/sh',
     lock.image,
@@ -1562,7 +1588,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
 
   const record: DeploymentRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     authorized: true,
     authorizationScope: `${host}:${lock.digest}`,
     host,
@@ -1583,7 +1609,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     containers,
     previousImage: lock.previousImage,
     previousDigest: lock.previousDigest,
-    durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    durableVolumes: [...REQUIRED_VOLUME_NAMES],
     memoryLimitsGib: memoryLimits,
     coldRecreate: true,
     cutoverActions: 0,
@@ -1681,7 +1707,7 @@ export function buildPortableDeploymentReceipt(
   const memoryLimitsGib = assertMemoryLimitPlan(partial.memoryLimitsGib);
   const loopbackPort = partial.loopbackPort ?? DEFAULT_LOOPBACK_PORT;
   const record: DeploymentRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     authorized: true,
     authorizationScope: partial.authorizationScope || `${host}:${partial.imageDigest}`,
     host,
@@ -1702,7 +1728,7 @@ export function buildPortableDeploymentReceipt(
     containers: partial.containers,
     previousImage: partial.previousImage,
     previousDigest: partial.previousDigest,
-    durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    durableVolumes: [...REQUIRED_VOLUME_NAMES],
     memoryLimitsGib,
     coldRecreate: true,
     cutoverActions: 0,

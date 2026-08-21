@@ -10,7 +10,47 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-export const REQUIRED_SERVICES = ['postgres', 'mastra', 'scheduler', 'zero-cache'] as const;
+/** Exact OBS-01 Candidate A production topology (12 services). */
+export const REQUIRED_SERVICES = [
+  'postgres',
+  'mastra',
+  'scheduler',
+  'zero-cache',
+  'edge',
+  'langfuse-web',
+  'langfuse-worker',
+  'langfuse-postgres',
+  'langfuse-clickhouse',
+  'langfuse-redis',
+  'langfuse-minio',
+  'otel-collector',
+] as const;
+
+/** Exact OBS-01 Candidate A durable volume keys (8 volumes). */
+export const REQUIRED_VOLUMES = [
+  'postgres-data',
+  'zero-cache-data',
+  'langfuse-postgres-data',
+  'clickhouse-data',
+  'clickhouse-logs',
+  'minio-data',
+  'redis-data',
+  'otel-queue',
+] as const;
+
+export const REQUIRED_VOLUME_NAMES = [
+  'holocron-postgres',
+  'zero-cache',
+  'langfuse-postgres',
+  'clickhouse-data',
+  'clickhouse-logs',
+  'minio-data',
+  'redis-data',
+  'otel-collector-queue',
+] as const;
+
+export const CORE_PLATFORM_SERVICES = ['postgres', 'mastra', 'scheduler', 'zero-cache'] as const;
+
 export const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
 export const REVISION_PATTERN = /^[a-f0-9]{40}$/;
 /** Required OCI platform for Apple-silicon / portable M1 deployments. */
@@ -23,6 +63,23 @@ export const PGBACKREST_IMAGE =
   'woblerr/pgbackrest@sha256:3e6c90cc4287efad0c16d667992aee9c70226bcb6ef3052f69a0c84121454bce';
 export const RESTIC_IMAGE =
   'restic/restic@sha256:740ef3a20c7fe5de05ee031717a610ac8c3d1cf09a06cf77ffd4c3ec26e2302e';
+/** OBS-01 Candidate A pins — Langfuse / Collector / edge. */
+export const LANGFUSE_WEB_IMAGE =
+  'docker.io/langfuse/langfuse@sha256:c2350a95d710f726f6466ffd47675eb704d0ff77fa1df1b9e6751ada6134ef75';
+export const LANGFUSE_WORKER_IMAGE =
+  'docker.io/langfuse/langfuse-worker@sha256:37a7c4251b602e60fd39451e6c252195908bf61837d4e252adbd752c0809e835';
+export const LANGFUSE_CLICKHOUSE_IMAGE =
+  'docker.io/clickhouse/clickhouse-server@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6';
+export const LANGFUSE_REDIS_IMAGE =
+  'docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab';
+export const LANGFUSE_POSTGRES_IMAGE =
+  'docker.io/library/postgres@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449';
+export const LANGFUSE_MINIO_IMAGE =
+  'cgr.dev/chainguard/minio@sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555';
+export const OTEL_COLLECTOR_IMAGE =
+  'docker.io/otel/opentelemetry-collector-contrib@sha256:13b685dc9f68fbbb0fce06d3be84e9d70ba5b90085d79dcbd4c4c0d909ee2d6e';
+export const EDGE_IMAGE =
+  'docker.io/library/caddy@sha256:dc5640f3339bba2a36cb20392dd32d432bd88d14275cdf1f3637f3107caf7ecc';
 export const PGBACKREST_CONF_RELATIVE = 'services/platform/deploy/compose/pgbackrest.conf';
 export const PLATFORM_PGBACKREST_BIN = '/usr/local/bin/pgbackrest';
 export const PLATFORM_RESTIC_BIN = '/usr/local/bin/restic';
@@ -122,9 +179,27 @@ export function assertLinuxArm64Platforms(platforms: ImagePlatform[]): void {
   }
 }
 
+export type ReleaseLockServiceRecord = {
+  name: (typeof REQUIRED_SERVICES)[number] | string;
+  repository: string;
+  digest: string;
+  arm64Digest?: string;
+  sourceRevision?: string;
+  customBuildRequired?: boolean;
+  stateVolumeClass?: 'authoritative' | 'derived' | 'rebuildable';
+};
+
+export type ReleaseLockVolumeRecord = {
+  key: (typeof REQUIRED_VOLUMES)[number] | string;
+  name: string;
+  class: 'authoritative' | 'derived' | 'rebuildable';
+};
+
 export type ReleaseLock = {
-  schemaVersion: 1;
-  deployable: true;
+  schemaVersion: 2;
+  deployable: boolean;
+  nonDeployableReason?: string;
+  /** Platform application image (mastra/scheduler). */
   image: string;
   digest: string;
   repoDigest: string;
@@ -133,6 +208,11 @@ export type ReleaseLock = {
   previousImage: string;
   previousDigest: string;
   previousRepoDigest: string;
+  previousCompatibleRelease?: string;
+  migrationHead?: string;
+  platform: typeof REQUIRED_PLATFORM;
+  services: ReleaseLockServiceRecord[];
+  volumes: ReleaseLockVolumeRecord[];
   generatedAt: string;
 };
 
@@ -399,6 +479,31 @@ function containsCredentialLiteral(value: unknown): boolean {
   return false;
 }
 
+function hasPublishedPorts(service: ComposeService): boolean {
+  const ports = service.ports;
+  return Array.isArray(ports) && ports.length > 0;
+}
+
+function edgePublishes44111(service: ComposeService): boolean {
+  const ports = service.ports;
+  if (!Array.isArray(ports) || ports.length === 0) return false;
+  return ports.some((entry) => {
+    if (typeof entry === 'string') return entry.includes('44111');
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      const published = String((entry as Record<string, unknown>).published ?? '');
+      const target = String((entry as Record<string, unknown>).target ?? '');
+      return published === '44111' || target === '44111' || JSON.stringify(entry).includes('44111');
+    }
+    return false;
+  });
+}
+
+function assertPinnedImage(service: ComposeService, name: string, expected: string): void {
+  if (service.image !== expected) {
+    fail(`${name} must use pinned image ${expected}`);
+  }
+}
+
 /** Validate the static Compose safety and topology contract without running it. */
 export function assertComposeContract(compose: ComposeContract, image?: string): void {
   const services = asObject(compose.services, 'Compose services') as Record<string, ComposeService>;
@@ -410,71 +515,128 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
     );
   }
 
-  const requiredServices = {
+  const core = {
     postgres: asObject(services.postgres, 'postgres service') as ComposeService,
     mastra: asObject(services.mastra, 'mastra service') as ComposeService,
     scheduler: asObject(services.scheduler, 'scheduler service') as ComposeService,
     'zero-cache': asObject(services['zero-cache'], 'zero-cache service') as ComposeService,
-  } satisfies Record<(typeof REQUIRED_SERVICES)[number], ComposeService>;
+  } satisfies Record<(typeof CORE_PLATFORM_SERVICES)[number], ComposeService>;
 
   for (const name of REQUIRED_SERVICES) {
-    const service = requiredServices[name];
+    const service = asObject(services[name], `${name} service`) as ComposeService;
     if (service.restart !== 'unless-stopped') fail(`${name} must use restart: unless-stopped`);
     if (!hasHealthcheck(service)) fail(`${name} requires a real healthcheck`);
   }
-  if (!hasSemanticSchedulerHealthcheck(requiredServices.scheduler)) {
+  if (!hasSemanticSchedulerHealthcheck(core.scheduler)) {
     fail(
       'scheduler healthcheck must read /run/secrets/database_url and probe queue_backend_meta through queue/probe-cli.ts'
     );
   }
-  if (!hasDatabaseUrlSecretMount(requiredServices.scheduler)) {
+  if (!hasDatabaseUrlSecretMount(core.scheduler)) {
     fail('scheduler must mount database-url at /run/secrets/database_url');
   }
-  if (exposesDatabaseUrlEnvironment(requiredServices.scheduler)) {
+  if (exposesDatabaseUrlEnvironment(core.scheduler)) {
     fail('scheduler DATABASE_URL must remain runtime-only and absent from Compose environment');
   }
-  if (!hasZeroReadOnlyMutationFence(requiredServices['zero-cache'])) {
+  if (!hasZeroReadOnlyMutationFence(core['zero-cache'])) {
     fail(
       'zero-cache must disable legacy CRUD mutations and omit every custom mutate/push URL during read-only soak'
     );
   }
-  if (!keepsZeroCredentialsOutOfArgv(requiredServices['zero-cache'])) {
+  if (!keepsZeroCredentialsOutOfArgv(core['zero-cache'])) {
     fail(
       'zero-cache must read database/admin secrets into Zero environment variables without credential-bearing argv flags'
     );
   }
 
-  if (!hasMastraMigrationBootstrap(requiredServices.mastra)) {
+  if (!hasMastraMigrationBootstrap(core.mastra)) {
     fail('mastra must run bun src/cli/holo.ts db:migrate before exec bun src/index.ts');
   }
 
   for (const name of ['mastra', 'scheduler', 'zero-cache'] as const) {
-    if (!hasHealthyPostgresDependency(requiredServices[name])) {
+    if (!hasHealthyPostgresDependency(core[name])) {
       fail(`${name} must depend on postgres with condition: service_healthy`);
     }
   }
   for (const name of ['scheduler', 'zero-cache'] as const) {
-    if (!hasHealthyDependency(requiredServices[name], 'mastra')) {
+    if (!hasHealthyDependency(core[name], 'mastra')) {
       fail(`${name} must depend on mastra with condition: service_healthy after migration`);
     }
   }
 
   const volumes = asObject(compose.volumes, 'Compose volumes');
-  for (const name of ['postgres-data', 'blob-data']) {
-    if (!volumes[name]) fail(`durable ${name} volume is required`);
+  const volumeKeys = Object.keys(volumes).sort();
+  if (volumeKeys.join(',') !== [...REQUIRED_VOLUMES].sort().join(',')) {
+    fail(
+      `required volumes are exactly ${REQUIRED_VOLUMES.join(',')}; got ${volumeKeys.join(',') || '(none)'}`
+    );
   }
-  if (requiredServices.postgres.image !== PGVECTOR_PG18_IMAGE) {
+  if (core.postgres.image !== PGVECTOR_PG18_IMAGE) {
     fail(`postgres must use the verified PG18 pgvector image ${PGVECTOR_PG18_IMAGE}`);
   }
-  if (!hasNamedVolumeMount(requiredServices.postgres, 'postgres-data', '/var/lib/postgresql')) {
+  if (!hasNamedVolumeMount(core.postgres, 'postgres-data', '/var/lib/postgresql')) {
     fail('postgres must mount postgres-data at /var/lib/postgresql for PG18');
   }
-  if (!hasNamedVolume(requiredServices.mastra, 'blob-data')) fail('mastra must mount blob-data');
-  if (!hasNamedVolume(requiredServices.scheduler, 'blob-data'))
-    fail('scheduler must mount blob-data');
+  // Blobs remain bind/path mounted (not one of the eight declared state volumes).
+  const mastraVolumes = Array.isArray(core.mastra.volumes) ? core.mastra.volumes.map(String) : [];
+  const schedulerVolumes = Array.isArray(core.scheduler.volumes)
+    ? core.scheduler.volumes.map(String)
+    : [];
+  if (!mastraVolumes.some((v) => v.includes('/var/lib/holocron/blobs'))) {
+    fail('mastra must mount blob storage at /var/lib/holocron/blobs');
+  }
+  if (!schedulerVolumes.some((v) => v.includes('/var/lib/holocron/blobs'))) {
+    fail('scheduler must mount blob storage at /var/lib/holocron/blobs');
+  }
+  if (!hasNamedVolume(core['zero-cache'], 'zero-cache-data')) {
+    fail('zero-cache must mount zero-cache-data');
+  }
+
+  assertPinnedImage(services['langfuse-web'] as ComposeService, 'langfuse-web', LANGFUSE_WEB_IMAGE);
+  assertPinnedImage(
+    services['langfuse-worker'] as ComposeService,
+    'langfuse-worker',
+    LANGFUSE_WORKER_IMAGE
+  );
+  assertPinnedImage(
+    services['langfuse-clickhouse'] as ComposeService,
+    'langfuse-clickhouse',
+    LANGFUSE_CLICKHOUSE_IMAGE
+  );
+  assertPinnedImage(
+    services['langfuse-redis'] as ComposeService,
+    'langfuse-redis',
+    LANGFUSE_REDIS_IMAGE
+  );
+  assertPinnedImage(
+    services['langfuse-postgres'] as ComposeService,
+    'langfuse-postgres',
+    LANGFUSE_POSTGRES_IMAGE
+  );
+  assertPinnedImage(
+    services['langfuse-minio'] as ComposeService,
+    'langfuse-minio',
+    LANGFUSE_MINIO_IMAGE
+  );
+  assertPinnedImage(
+    services['otel-collector'] as ComposeService,
+    'otel-collector',
+    OTEL_COLLECTOR_IMAGE
+  );
+  assertPinnedImage(services.edge as ComposeService, 'edge', EDGE_IMAGE);
+
+  for (const name of REQUIRED_SERVICES) {
+    if (name === 'edge') continue;
+    if (hasPublishedPorts(services[name] as ComposeService)) {
+      fail(`${name} must not publish host ports in production`);
+    }
+  }
+  if (!edgePublishes44111(services.edge as ComposeService)) {
+    fail('edge must publish loopback 44111');
+  }
 
   for (const name of ['mastra', 'scheduler'] as const) {
-    const serviceImage = requiredServices[name].image;
+    const serviceImage = core[name].image;
     if (typeof serviceImage !== 'string') fail(`${name} requires an application image`);
     if (serviceImage.includes('${') && !serviceImage.includes('HOLO_PLATFORM_IMAGE')) {
       fail(`${name} must reference HOLO_PLATFORM_IMAGE when interpolated`);
@@ -483,7 +645,7 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   }
 
   for (const name of ['postgres', 'zero-cache'] as const) {
-    const serviceImage = requiredServices[name].image;
+    const serviceImage = core[name].image;
     if (typeof serviceImage !== 'string') fail(`${name} requires an immutable image`);
     digestFromImage(serviceImage);
   }
@@ -491,8 +653,7 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   if (image) {
     const expectedImage = image;
     for (const name of ['mastra', 'scheduler'] as const) {
-      if (requiredServices[name].image !== expectedImage)
-        fail(`${name} image does not match release image`);
+      if (core[name].image !== expectedImage) fail(`${name} image does not match release image`);
     }
   }
 
@@ -619,8 +780,11 @@ function parseReleaseLock(path: string): ReleaseLock {
     if (typeof value !== 'string' || !value) fail(`release lock ${field} is missing`);
     return value;
   };
-  if (lock.schemaVersion !== 1 || lock.deployable !== true) {
-    fail('release lock is not a deployable schema v1 lock');
+  if (lock.schemaVersion !== 2) {
+    fail('release lock is not a schema v2 lock');
+  }
+  if (lock.deployable !== true) {
+    fail('release lock is not a deployable schema v2 lock');
   }
   for (const field of [
     'image',
@@ -634,6 +798,15 @@ function parseReleaseLock(path: string): ReleaseLock {
     'generatedAt',
   ] as const) {
     requiredLockString(lock[field], field);
+  }
+  if (lock.platform !== REQUIRED_PLATFORM) {
+    fail(`release lock platform must be ${REQUIRED_PLATFORM}`);
+  }
+  if (!Array.isArray(lock.services) || lock.services.length !== REQUIRED_SERVICES.length) {
+    fail(`release lock services must list exactly ${REQUIRED_SERVICES.length} services`);
+  }
+  if (!Array.isArray(lock.volumes) || lock.volumes.length !== REQUIRED_VOLUMES.length) {
+    fail(`release lock volumes must list exactly ${REQUIRED_VOLUMES.length} volumes`);
   }
   const sourceRevision = requiredLockString(lock.sourceRevision, 'sourceRevision');
   const composeSha256Value = requiredLockString(lock.composeSha256, 'composeSha256');
@@ -650,6 +823,100 @@ function parseReleaseLock(path: string): ReleaseLock {
   return lock as ReleaseLock;
 }
 
+export function buildReleaseLockServiceRecords(platformImage: string): ReleaseLockServiceRecord[] {
+  const platformDigest = digestFromImage(platformImage);
+  const platformRepo = imageRepository(platformImage);
+  return [
+    {
+      name: 'postgres',
+      repository: imageRepository(PGVECTOR_PG18_IMAGE),
+      digest: digestFromImage(PGVECTOR_PG18_IMAGE),
+      stateVolumeClass: 'authoritative',
+    },
+    {
+      name: 'mastra',
+      repository: platformRepo,
+      digest: platformDigest,
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'scheduler',
+      repository: platformRepo,
+      digest: platformDigest,
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'zero-cache',
+      repository: imageRepository(ZERO_CACHE_IMAGE),
+      digest: digestFromImage(ZERO_CACHE_IMAGE),
+      stateVolumeClass: 'derived',
+    },
+    {
+      name: 'edge',
+      repository: imageRepository(EDGE_IMAGE),
+      digest: digestFromImage(EDGE_IMAGE),
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'langfuse-web',
+      repository: imageRepository(LANGFUSE_WEB_IMAGE),
+      digest: digestFromImage(LANGFUSE_WEB_IMAGE),
+      sourceRevision: '2371d606c4ab8882f09f6afce5b73948698552c6',
+      customBuildRequired: true,
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'langfuse-worker',
+      repository: imageRepository(LANGFUSE_WORKER_IMAGE),
+      digest: digestFromImage(LANGFUSE_WORKER_IMAGE),
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'langfuse-postgres',
+      repository: imageRepository(LANGFUSE_POSTGRES_IMAGE),
+      digest: digestFromImage(LANGFUSE_POSTGRES_IMAGE),
+      stateVolumeClass: 'authoritative',
+    },
+    {
+      name: 'langfuse-clickhouse',
+      repository: imageRepository(LANGFUSE_CLICKHOUSE_IMAGE),
+      digest: digestFromImage(LANGFUSE_CLICKHOUSE_IMAGE),
+      stateVolumeClass: 'authoritative',
+    },
+    {
+      name: 'langfuse-redis',
+      repository: imageRepository(LANGFUSE_REDIS_IMAGE),
+      digest: digestFromImage(LANGFUSE_REDIS_IMAGE),
+      stateVolumeClass: 'rebuildable',
+    },
+    {
+      name: 'langfuse-minio',
+      repository: imageRepository(LANGFUSE_MINIO_IMAGE),
+      digest: digestFromImage(LANGFUSE_MINIO_IMAGE),
+      stateVolumeClass: 'authoritative',
+    },
+    {
+      name: 'otel-collector',
+      repository: imageRepository(OTEL_COLLECTOR_IMAGE),
+      digest: digestFromImage(OTEL_COLLECTOR_IMAGE),
+      stateVolumeClass: 'derived',
+    },
+  ];
+}
+
+export function buildReleaseLockVolumeRecords(): ReleaseLockVolumeRecord[] {
+  return [
+    { key: 'postgres-data', name: 'holocron-postgres', class: 'authoritative' },
+    { key: 'zero-cache-data', name: 'zero-cache', class: 'derived' },
+    { key: 'langfuse-postgres-data', name: 'langfuse-postgres', class: 'authoritative' },
+    { key: 'clickhouse-data', name: 'clickhouse-data', class: 'authoritative' },
+    { key: 'clickhouse-logs', name: 'clickhouse-logs', class: 'rebuildable' },
+    { key: 'minio-data', name: 'minio-data', class: 'authoritative' },
+    { key: 'redis-data', name: 'redis-data', class: 'rebuildable' },
+    { key: 'otel-queue', name: 'otel-collector-queue', class: 'derived' },
+  ];
+}
+
 function renderCompose(
   runner: ProcessRunner,
   cwd: string,
@@ -664,11 +931,52 @@ function renderCompose(
     ...process.env,
     HOLO_PLATFORM_IMAGE: image,
     FLEET_URL: process.env.FLEET_URL || 'http://host.docker.internal:4545',
+    POSTGRES_DB: process.env.POSTGRES_DB || 'holocron',
+    POSTGRES_USER: process.env.POSTGRES_USER || 'holocron',
     POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD || 'stage-render-placeholder',
-    DATABASE_URL: process.env.DATABASE_URL || 'postgres://holocron:stage@127.0.0.1:44112/holocron',
+    DATABASE_URL: process.env.DATABASE_URL || 'postgres://holocron@127.0.0.1:44112/holocron',
     MASTRA_API_KEY: process.env.MASTRA_API_KEY || 'stage-render-placeholder',
     FLEET_KEY: process.env.FLEET_KEY || 'stage-render-placeholder',
     ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD || 'stage-render-placeholder',
+    LANGFUSE_DATABASE_URL:
+      process.env.LANGFUSE_DATABASE_URL || 'postgres://langfuse@langfuse-postgres:5432/langfuse',
+    LANGFUSE_NEXTAUTH_URL: process.env.LANGFUSE_NEXTAUTH_URL || 'http://127.0.0.1:44111',
+    LANGFUSE_NEXTAUTH_SECRET: process.env.LANGFUSE_NEXTAUTH_SECRET || 'stage-render-placeholder',
+    LANGFUSE_SALT: process.env.LANGFUSE_SALT || 'stage-render-placeholder',
+    LANGFUSE_ENCRYPTION_KEY:
+      process.env.LANGFUSE_ENCRYPTION_KEY ||
+      '0000000000000000000000000000000000000000000000000000000000000000',
+    LANGFUSE_CLICKHOUSE_MIGRATION_URL:
+      process.env.LANGFUSE_CLICKHOUSE_MIGRATION_URL || 'clickhouse://langfuse-clickhouse:9000',
+    LANGFUSE_CLICKHOUSE_URL:
+      process.env.LANGFUSE_CLICKHOUSE_URL || 'http://langfuse-clickhouse:8123',
+    LANGFUSE_CLICKHOUSE_DB: process.env.LANGFUSE_CLICKHOUSE_DB || 'default',
+    LANGFUSE_CLICKHOUSE_USER: process.env.LANGFUSE_CLICKHOUSE_USER || 'clickhouse',
+    LANGFUSE_CLICKHOUSE_PASSWORD:
+      process.env.LANGFUSE_CLICKHOUSE_PASSWORD || 'stage-render-placeholder',
+    LANGFUSE_S3_BUCKET: process.env.LANGFUSE_S3_BUCKET || 'langfuse',
+    LANGFUSE_S3_ACCESS_KEY_ID: process.env.LANGFUSE_S3_ACCESS_KEY_ID || 'stage-render-placeholder',
+    LANGFUSE_S3_SECRET_ACCESS_KEY:
+      process.env.LANGFUSE_S3_SECRET_ACCESS_KEY || 'stage-render-placeholder',
+    LANGFUSE_S3_ENDPOINT: process.env.LANGFUSE_S3_ENDPOINT || 'http://langfuse-minio:9000',
+    LANGFUSE_REDIS_AUTH: process.env.LANGFUSE_REDIS_AUTH || 'stage-render-placeholder',
+    LANGFUSE_POSTGRES_USER: process.env.LANGFUSE_POSTGRES_USER || 'langfuse',
+    LANGFUSE_POSTGRES_DB: process.env.LANGFUSE_POSTGRES_DB || 'langfuse',
+    LANGFUSE_POSTGRES_PASSWORD:
+      process.env.LANGFUSE_POSTGRES_PASSWORD || 'stage-render-placeholder',
+    LANGFUSE_INIT_ORG_ID: process.env.LANGFUSE_INIT_ORG_ID || 'holocron-observability',
+    LANGFUSE_INIT_ORG_NAME: process.env.LANGFUSE_INIT_ORG_NAME || 'Holocron',
+    LANGFUSE_INIT_PROJECT_ID: process.env.LANGFUSE_INIT_PROJECT_ID || 'holocron',
+    LANGFUSE_INIT_PROJECT_NAME: process.env.LANGFUSE_INIT_PROJECT_NAME || 'Holocron',
+    LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY || 'pk-lf-stage-render-placeholder',
+    LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY || 'lf-stage-render-placeholder',
+    LANGFUSE_INIT_USER_EMAIL: process.env.LANGFUSE_INIT_USER_EMAIL || 'ops@example.invalid',
+    LANGFUSE_INIT_USER_NAME: process.env.LANGFUSE_INIT_USER_NAME || 'ops',
+    LANGFUSE_INIT_USER_PASSWORD:
+      process.env.LANGFUSE_INIT_USER_PASSWORD || 'stage-render-placeholder',
+    LANGFUSE_OTLP_ENDPOINT:
+      process.env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel',
+    LANGFUSE_AUTH_HEADER: process.env.LANGFUSE_AUTH_HEADER || 'Basic stage-render-placeholder',
   };
   try {
     process.env.HOLO_PLATFORM_IMAGE = image;
@@ -723,7 +1031,7 @@ export function packageRelease(options: PackageOptions): ReleaseLock {
   renderCompose(runner, cwd, options.composePath, options.image);
 
   const lock: ReleaseLock = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     deployable: true,
     image: options.image,
     digest: imageDigest,
@@ -733,6 +1041,9 @@ export function packageRelease(options: PackageOptions): ReleaseLock {
     previousImage: options.previousImage,
     previousDigest,
     previousRepoDigest: previous.repoDigest,
+    platform: REQUIRED_PLATFORM,
+    services: buildReleaseLockServiceRecords(options.image),
+    volumes: buildReleaseLockVolumeRecords(),
     generatedAt: (options.now ?? (() => new Date()))().toISOString(),
   };
   selectRollbackDigest(lock);
@@ -975,7 +1286,7 @@ export function stageExactRelease(options: StageExactReleaseOptions): ExactRelea
   const manifestPath = resolve(outDir, 'release-manifest.json');
 
   const lock: ReleaseLock = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     deployable: true,
     image: platformImage,
     digest: pushedDigest,
@@ -985,6 +1296,9 @@ export function stageExactRelease(options: StageExactReleaseOptions): ExactRelea
     previousImage,
     previousDigest,
     previousRepoDigest: previous.repoDigest,
+    platform: REQUIRED_PLATFORM,
+    services: buildReleaseLockServiceRecords(platformImage),
+    volumes: buildReleaseLockVolumeRecords(),
     generatedAt,
   };
   writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o644 });

@@ -24,7 +24,7 @@ import {
   readPrivateServeStatus,
   type ServiceMemoryLimits,
 } from './production-deploy.ts';
-import { REQUIRED_SERVICES } from './production-release.ts';
+import { REQUIRED_SERVICES, REQUIRED_VOLUME_NAMES } from './production-release.ts';
 
 export type VerifyProductionOptions = {
   releasePath: string;
@@ -157,7 +157,7 @@ function runtimeEnvironment(record: DeploymentRecord): NodeJS.ProcessEnv {
     ...process.env,
     HOLO_PLATFORM_IMAGE: record.image,
     HOLO_POSTGRES_VOLUME: 'holocron-postgres',
-    HOLO_BLOB_VOLUME: 'holocron-blobs',
+    HOLO_BLOB_HOST_PATH: process.env.HOLO_BLOB_HOST_PATH || './.data/holocron-blobs',
   };
   for (const key of [
     'POSTGRES_PASSWORD',
@@ -257,7 +257,7 @@ function assertRecordMatchesRelease(record: DeploymentRecord, releasePath: strin
       `deployment record differs from release: ${mismatches.map(([name]) => name).join(', ')}`
     );
   }
-  if (record.services.join(',') !== 'postgres,mastra,scheduler,zero-cache') {
+  if (record.services.join(',') !== [...REQUIRED_SERVICES].join(',')) {
     verifyFail('deployment record must contain the exact four ordered services');
   }
   if (record.cutoverActions !== 0 || record.volumeDeletions !== 0) {
@@ -776,7 +776,7 @@ export async function verifyPortableDeploymentReceipt(options: {
   );
   push(
     'receipt_services',
-    record.services.length === 4 && record.services.join(',') === REQUIRED_SERVICES.join(','),
+    record.services.length === REQUIRED_SERVICES.length && [...record.services].sort().join(',') === [...REQUIRED_SERVICES].sort().join(','),
     `service_count=${record.services.length}`
   );
   push(
@@ -830,7 +830,7 @@ export async function verifyPortableDeploymentReceipt(options: {
   push('live_services', liveServiceCount === 4, `live_service_count=${liveServiceCount}`);
 
   // Named durable volumes must exist on the engine (holocron-postgres + holocron-blobs).
-  const requiredVolumes = ['holocron-postgres', 'holocron-blobs'] as const;
+  const requiredVolumes = REQUIRED_VOLUME_NAMES;
   let liveVolumeCount = 0;
   for (const volumeName of requiredVolumes) {
     const vol = runner('docker', ['volume', 'inspect', '--format', '{{.Name}}', volumeName], {
