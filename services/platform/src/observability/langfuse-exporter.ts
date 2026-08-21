@@ -15,10 +15,11 @@ import { BaseExporter, type BaseExporterConfig } from '@mastra/observability';
 import { OtelExporter } from '@mastra/otel-exporter';
 import {
   basicAuthHeader,
+  HOLOCRON_ATTRIBUTE_ALLOWLIST,
   HOLOCRON_SERVICE_NAME,
+  type LangfuseConfigFromEnv,
   readLangfuseConfigFromEnv,
   readObservabilityConfig,
-  type LangfuseConfigFromEnv,
 } from './config.ts';
 import {
   classifyExportError,
@@ -27,16 +28,15 @@ import {
   recordExportFailure,
   recordExportSuccess,
 } from './export-health.ts';
-import { filterAllowlistedAttributes, redactForExport, REDACTION_TOKEN } from './redaction.ts';
-import { HOLOCRON_ATTRIBUTE_ALLOWLIST } from './config.ts';
+import { filterAllowlistedAttributes, REDACTION_TOKEN, redactForExport } from './redaction.ts';
 
 export {
   HOLOCRON_SERVICE_NAME,
-  readLangfuseConfigFromEnv,
   type LangfuseConfigFromEnv,
+  readLangfuseConfigFromEnv,
 } from './config.ts';
-export { redactForExport, REDACTION_TOKEN } from './redaction.ts';
 export { ExportFailureCode } from './export-health.ts';
+export { REDACTION_TOKEN, redactForExport } from './redaction.ts';
 
 /** @deprecated OBS-02 terminal codes replace LANGFUSE_EXPORT_FAILED. */
 export const LANGFUSE_EXPORT_FAILED = ExportFailureCode.LANGFUSE_UNREACHABLE;
@@ -157,7 +157,9 @@ export class HolocronOtelBridge extends BaseExporter {
   getStatus(): LangfuseExportStatus {
     return {
       ok: !this.#exportFailed && !this.isDisabled,
-      errorCode: this.#exportFailed ? (this.#lastFailureCode ?? ExportFailureCode.LANGFUSE_UNREACHABLE) : null,
+      errorCode: this.#exportFailed
+        ? (this.#lastFailureCode ?? ExportFailureCode.LANGFUSE_UNREACHABLE)
+        : null,
       errorMessage: this.#lastError,
       exportedEvents: this.#exportedEvents,
       lastFlushAt: this.#lastFlushAt,

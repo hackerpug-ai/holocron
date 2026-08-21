@@ -64,8 +64,7 @@ function trimOrNull(value: string | undefined): string | null {
 export function readObservabilityConfig(
   env: NodeJS.ProcessEnv = process.env
 ): ObservabilitySinkConfig {
-  const langfuseBase =
-    trimOrNull(env.LANGFUSE_BASE_URL) ?? trimOrNull(env.LANGFUSE_HOST);
+  const langfuseBase = trimOrNull(env.LANGFUSE_BASE_URL) ?? trimOrNull(env.LANGFUSE_HOST);
   return {
     serviceName: HOLOCRON_SERVICE_NAME,
     databaseUrl: env.DATABASE_URL?.trim() || 'postgres://127.0.0.1:5432/holocron',

@@ -36,7 +36,9 @@ function collectSecretValues(value: unknown, secrets: Set<string>, seen: WeakSet
       const val = m[2];
       if (val && val.length >= 3) secrets.add(val);
     }
-    for (const m of value.matchAll(/\b(?:trace-secret|OBS0[12]-SECRET-SENTINEL)[0-9a-zA-Z_-]*\b/g)) {
+    for (const m of value.matchAll(
+      /\b(?:trace-secret|OBS0[12]-SECRET-SENTINEL)[0-9a-zA-Z_-]*\b/g
+    )) {
       if (m[0]) secrets.add(m[0]);
     }
     return;
@@ -100,7 +102,7 @@ function redactString(s: string, secrets: Set<string>): string {
     /\b(authorization|bearer|password|token|api[_-]?key|secret)\s*[:=]\s*([^\s,;]+)/gi,
     REDACTION_TOKEN
   );
-  out = out.replace(/\bBearer\s+[A-Za-z0-9._\-]+/gi, REDACTION_TOKEN);
+  out = out.replace(/\bBearer\s+[A-Za-z0-9._-]+/gi, REDACTION_TOKEN);
   const ordered = [...secrets].sort((a, b) => b.length - a.length);
   for (const secret of ordered) {
     if (!secret || secret === REDACTION_TOKEN) continue;

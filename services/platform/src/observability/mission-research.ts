@@ -408,10 +408,7 @@ export async function runResearchMission(
     }
   } catch (err) {
     langfuseOk = false;
-    const code =
-      err instanceof LangfuseExportError
-        ? err.code
-        : classifyExportError(err);
+    const code = err instanceof LangfuseExportError ? err.code : classifyExportError(err);
     errorCode = code;
     exportError = err instanceof Error ? err.message : String(err);
     recordExportFailure(code);

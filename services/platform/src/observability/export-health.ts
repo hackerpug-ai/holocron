@@ -12,8 +12,7 @@ export const ExportFailureCode = {
   EXPORT_FLUSH_TIMEOUT: 'EXPORT_FLUSH_TIMEOUT',
 } as const;
 
-export type ExportFailureCodeName =
-  (typeof ExportFailureCode)[keyof typeof ExportFailureCode];
+export type ExportFailureCodeName = (typeof ExportFailureCode)[keyof typeof ExportFailureCode];
 
 export type ExternalExportState = 'ready' | 'degraded' | 'unavailable' | 'unknown';
 
@@ -125,9 +124,7 @@ export async function readExportHealth(): Promise<ExportHealthSnapshot> {
   const cfg = readObservabilityConfig();
   const metricsText = await scrapeMetrics(cfg.otelCollectorMetricsUrl);
   const collectorMetricsReachable = metricsText !== null;
-  const queueDepth = metricsText
-    ? metricValue(metricsText, 'otelcol_exporter_queue_size')
-    : null;
+  const queueDepth = metricsText ? metricValue(metricsText, 'otelcol_exporter_queue_size') : null;
   const queueCapacity = metricsText
     ? metricValue(metricsText, 'otelcol_exporter_queue_capacity')
     : null;
@@ -146,11 +143,7 @@ export async function readExportHealth(): Promise<ExportHealthSnapshot> {
     if (!state.terminalFailureCodes.includes(ExportFailureCode.LANGFUSE_UNREACHABLE)) {
       recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
     }
-  } else if (
-    queueCapacity !== null &&
-    queueDepth !== null &&
-    queueDepth >= queueCapacity
-  ) {
+  } else if (queueCapacity !== null && queueDepth !== null && queueDepth >= queueCapacity) {
     externalState = 'degraded';
     if (!state.terminalFailureCodes.includes(ExportFailureCode.EXPORT_QUEUE_FULL)) {
       recordExportFailure(ExportFailureCode.EXPORT_QUEUE_FULL);
@@ -209,20 +202,25 @@ export async function flushWithDeadline(args: {
   flush?: () => Promise<void>;
 }): Promise<FlushDeadlineResult> {
   const started = Date.now();
-  const flush = args.flush ?? (async () => {
-    // Default probe: wait longer than the deadline so timeout is observable.
-    await new Promise((r) => setTimeout(r, Math.max(args.deadlineMs + 25, 75)));
-  });
+  const flush =
+    args.flush ??
+    (async () => {
+      // Default probe: wait longer than the deadline so timeout is observable.
+      await new Promise((r) => setTimeout(r, Math.max(args.deadlineMs + 25, 75)));
+    });
 
   let timedOut = false;
   try {
     await Promise.race([
       flush(),
       new Promise<void>((_, reject) => {
-        setTimeout(() => {
-          timedOut = true;
-          reject(new Error(ExportFailureCode.EXPORT_FLUSH_TIMEOUT));
-        }, Math.max(1, args.deadlineMs));
+        setTimeout(
+          () => {
+            timedOut = true;
+            reject(new Error(ExportFailureCode.EXPORT_FLUSH_TIMEOUT));
+          },
+          Math.max(1, args.deadlineMs)
+        );
       }),
     ]);
     return {

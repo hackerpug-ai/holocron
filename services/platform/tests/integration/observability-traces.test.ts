@@ -206,7 +206,9 @@ describe('obs-1 observability traces → self-hosted Langfuse', { sequential: tr
       expect(trace!.id).toBe(traceId);
 
       // Exactly one root trace for this run (query by run metadata / name).
-      const list = await langfuseGet(withObservationFields(`/api/public/v2/observations?limit=100`));
+      const list = await langfuseGet(
+        withObservationFields(`/api/public/v2/observations?limit=100`)
+      );
       writeEvidence('ac1-langfuse-list.json', list.body);
       expect(list.status).toBe(200);
       const data = (list.body as { data?: Array<Record<string, unknown>> }).data ?? [];
@@ -220,8 +222,13 @@ describe('obs-1 observability traces → self-hosted Langfuse', { sequential: tr
           metaBlob.includes(runId)
         );
       });
-      expect(matching.length, 'at least one Langfuse observation for the run').toBeGreaterThanOrEqual(1);
-      const matchingTraceIds = new Set(matching.map((t) => String(t.traceId ?? '')).filter(Boolean));
+      expect(
+        matching.length,
+        'at least one Langfuse observation for the run'
+      ).toBeGreaterThanOrEqual(1);
+      const matchingTraceIds = new Set(
+        matching.map((t) => String(t.traceId ?? '')).filter(Boolean)
+      );
       expect(matchingTraceIds.has(traceId)).toBe(true);
 
       const meta = (trace!.metadata ?? {}) as Record<string, unknown>;
