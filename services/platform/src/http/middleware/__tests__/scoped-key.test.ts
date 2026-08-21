@@ -12,10 +12,11 @@
  *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *     bun test services/platform/src/http/middleware/__tests__/scoped-key.test.ts
  */
+
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 
 const RN = process.env.HOLO_KEY_RN ?? 'rn-test';
 const MCP = process.env.HOLO_KEY_MCP ?? 'mcp-test';
