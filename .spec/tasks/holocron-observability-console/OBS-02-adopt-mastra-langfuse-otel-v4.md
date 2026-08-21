@@ -1,4 +1,8 @@
 # OBS-02 — Adopt supported Mastra/Langfuse OTLP v4
+> Status: ✅ Completed
+> Commit: d3ffba4e3f6f1e1b2fb90d3f9095878e61655978
+> Reviewer: product-manager+mastra-reviewer
+> Completed: 2026-08-21T05:43:53Z
 
 **Status:** Planned
 **Proposed By:** `mastra-planner`
