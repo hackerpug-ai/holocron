@@ -2,11 +2,11 @@
   "expectedLocalTraceCount": 1,
   "expectedLangfuseTraceCount": 1,
   "traceIdentityMismatchCount": 0,
-  "localTraceId": "7c85ed7b48fc42a995a6526bb6963d6b",
+  "localTraceId": "772c6029ed0a461f87256689268c87ae",
   "langfuseTraceIds": [
-    "7c85ed7b48fc42a995a6526bb6963d6b"
+    "772c6029ed0a461f87256689268c87ae"
   ],
-  "runId": "7c85ed7b-48fc-42a9-95a6-526bb6963d6b",
+  "runId": "772c6029-ed0a-461f-8725-6689268c87ae",
   "provider": "implementer",
   "serviceName": "holocron-platform",
   "queueSizeBefore": 0,

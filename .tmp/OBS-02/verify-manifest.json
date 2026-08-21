@@ -7,7 +7,7 @@
     "tdd_lineage_required": true
   },
   "project_commands": {
-    "typecheck": "pnpm tsc --noEmit",
+    "typecheck": "bash -c 'pnpm tsc --noEmit; ec=$?; echo EXIT_CODE:$ec; exit $ec'",
     "lint": "pnpm lint",
     "test": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration --no-file-parallelism services/platform/tests/integration/observability-otel-v4.test.ts services/platform/tests/integration/observability-traces.test.ts"
   },

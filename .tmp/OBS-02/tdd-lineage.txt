@@ -10,18 +10,20 @@
   "green": {
     "file": "test-output.txt",
     "sha": "91878ee6af53f5d730ec6832990ba33d5605c9e3",
-    "mtime": 1787287579,
-    "sha256": "2045771322716abc25db604104db1782387c5807ff5c07347699ba7218fed648"
+    "mtime": 1787288693,
+    "sha256": "a46167d6ee84b0ea8c32a3065206bda7ecd141634af5133ac43a9c3b6337a32c"
   },
-  "distinct_commits": true,
+  "distinct_commits": null,
   "waiver": false,
-  "ok": true,
-  "failure_codes": [],
-  "checked_at": "2026-08-21T04:46:20Z",
+  "ok": false,
+  "failure_codes": [
+    "TDD_GREEN_COMMIT_MISMATCH"
+  ],
+  "checked_at": "2026-08-21T05:10:02Z",
   "generator": {
     "tool": "verify-tdd-lineage.sh",
     "version": "1.1",
-    "generated_at": "2026-08-21T04:46:20Z",
+    "generated_at": "2026-08-21T05:10:02Z",
     "inputs": [
       {
         "path": "red-output.txt",
@@ -29,7 +31,7 @@
       },
       {
         "path": "test-output.txt",
-        "sha256": "2045771322716abc25db604104db1782387c5807ff5c07347699ba7218fed648"
+        "sha256": "a46167d6ee84b0ea8c32a3065206bda7ecd141634af5133ac43a9c3b6337a32c"
       }
     ]
   }
