@@ -1,11 +1,8 @@
 /**
- * Holocron Langfuse exporter — real OTLP/ingestion export to self-hosted Langfuse.
+ * OBS-02 Holocron OTLP export bridge.
  *
- * Parallel to MastraStorageExporter (Postgres). Flush/transport failures are
- * explicit (LANGFUSE_EXPORT_FAILED) — never silent success.
- *
- * Uses Langfuse public ingestion API (POST /api/public/ingestion) with Basic auth.
- * No cloud defaults for proof; baseUrl comes from env/config.
+ * Production path: @mastra/otel-exporter → pinned Collector → Langfuse OTLP v4.
+ * Legacy custom ingestion exporter is retired.
  */
 import { randomUUID } from 'node:crypto';
 import type {
@@ -15,161 +12,71 @@ import type {
 } from '@mastra/core/observability';
 import { TracingEventType } from '@mastra/core/observability';
 import { BaseExporter, type BaseExporterConfig } from '@mastra/observability';
+import { OtelExporter } from '@mastra/otel-exporter';
+import {
+  basicAuthHeader,
+  HOLOCRON_ATTRIBUTE_ALLOWLIST,
+  HOLOCRON_SERVICE_NAME,
+  type LangfuseConfigFromEnv,
+  readLangfuseConfigFromEnv,
+  readObservabilityConfig,
+} from './config.ts';
+import {
+  classifyExportError,
+  ExportFailureCode,
+  type ExportFailureCodeName,
+  flushWithDeadline,
+  recordExportFailure,
+  recordExportSuccess,
+} from './export-health.ts';
+import { filterAllowlistedAttributes, REDACTION_TOKEN, redactForExport } from './redaction.ts';
 
-export const LANGFUSE_EXPORT_FAILED = 'LANGFUSE_EXPORT_FAILED' as const;
-export const HOLOCRON_SERVICE_NAME = 'holocron-platform' as const;
+export {
+  HOLOCRON_SERVICE_NAME,
+  type LangfuseConfigFromEnv,
+  readLangfuseConfigFromEnv,
+} from './config.ts';
+export { ExportFailureCode } from './export-health.ts';
+export { REDACTION_TOKEN, redactForExport } from './redaction.ts';
 
-/** Default redaction token — matches SensitiveDataFilter / AC-4. */
-export const REDACTION_TOKEN = '[REDACTED]' as const;
+/** @deprecated OBS-02 terminal codes replace LANGFUSE_EXPORT_FAILED. */
+export const LANGFUSE_EXPORT_FAILED = ExportFailureCode.LANGFUSE_UNREACHABLE;
 
 export class LangfuseExportError extends Error {
-  readonly code = LANGFUSE_EXPORT_FAILED;
+  readonly code: ExportFailureCodeName;
   constructor(
     message: string,
-    override readonly cause?: unknown
+    override readonly cause?: unknown,
+    code: ExportFailureCodeName = ExportFailureCode.LANGFUSE_UNREACHABLE
   ) {
     super(message);
     this.name = 'LangfuseExportError';
+    this.code = code;
   }
 }
 
-export type LangfuseExporterConfig = BaseExporterConfig & {
+export type OtelBridgeConfig = BaseExporterConfig & {
+  collectorUrl?: string;
   publicKey?: string;
   secretKey?: string;
-  /** Self-hosted Langfuse base URL (no trailing slash). Required for proof. */
   baseUrl?: string;
-  /** When true (default), flush() throws LangfuseExportError on transport failure. */
-  failOnExportError?: boolean;
-  /** Optional service name stamped into every exported root. */
   serviceName?: string;
+  /** Soft by default — external sink failure must not take missions down. */
+  failOnExportError?: boolean;
 };
 
 export type LangfuseExportStatus = {
   ok: boolean;
-  errorCode: typeof LANGFUSE_EXPORT_FAILED | null;
+  errorCode: ExportFailureCodeName | null;
   errorMessage: string | null;
   exportedEvents: number;
   lastFlushAt: string | null;
   baseUrl: string | null;
-};
-
-type IngestionEvent = {
-  id: string;
-  type: 'trace-create' | 'span-create' | 'generation-create' | 'span-update' | 'generation-update';
-  timestamp: string;
-  body: Record<string, unknown>;
+  collectorUrl: string | null;
 };
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
-}
-
-function basicAuth(publicKey: string, secretKey: string): string {
-  return `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString('base64')}`;
-}
-
-/** Case-insensitive sensitive key match (mirrors SensitiveDataFilter normalization). */
-const SENSITIVE_KEY_RE =
-  /^(password|token|secret|key|apikey|auth|authorization|bearer|bearertoken|jwt|credential|clientsecret|privatekey|refresh|ssn|email)$/i;
-
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const SECRET_ASSIGN_RE =
-  /\b(secret|password|token|api[_-]?key|authorization|bearer)\s*[:=]\s*([^\s,;]+)/gi;
-
-/**
- * Redact sensitive keys and free-text secrets/PII before external export.
- * Always uses the literal token `[REDACTED]` so AC-4 can observe it.
- *
- * Two-phase:
- *  1) Collect secret/PII values from the payload (secret=…, emails, key fields)
- *  2) Replace those values everywhere (covers model echoes of the sentinel)
- */
-export function redactForExport<T>(value: T): T {
-  const secrets = new Set<string>();
-  collectSecretValues(value, secrets, new WeakSet());
-  return redactDeep(value, secrets, new WeakSet()) as T;
-}
-
-function collectSecretValues(value: unknown, secrets: Set<string>, seen: WeakSet<object>): void {
-  if (value === null || value === undefined) return;
-  if (typeof value === 'string') {
-    for (const m of value.matchAll(EMAIL_RE)) {
-      if (m[0]) secrets.add(m[0]);
-    }
-    for (const m of value.matchAll(SECRET_ASSIGN_RE)) {
-      const val = m[2];
-      if (val && val.length >= 3) secrets.add(val);
-    }
-    // Bare fixture-style sentinels (trace-secret-001)
-    for (const m of value.matchAll(/\btrace-secret-[0-9a-zA-Z_-]+\b/g)) {
-      if (m[0]) secrets.add(m[0]);
-    }
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const v of value) collectSecretValues(v, secrets, seen);
-    return;
-  }
-  if (typeof value === 'object') {
-    if (seen.has(value as object)) return;
-    seen.add(value as object);
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (isSensitiveKey(k) && typeof v === 'string' && v.length >= 3) {
-        secrets.add(v);
-      }
-      collectSecretValues(v, secrets, seen);
-    }
-  }
-}
-
-function redactDeep(value: unknown, secrets: Set<string>, seen: WeakSet<object>): unknown {
-  if (value === null || value === undefined) return value;
-  if (typeof value === 'string') {
-    return redactString(value, secrets);
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') return value;
-  if (typeof value === 'bigint') return value.toString();
-  if (value instanceof Date) return value.toISOString();
-  if (Array.isArray(value)) {
-    return value.map((v) => redactDeep(v, secrets, seen));
-  }
-  if (typeof value === 'object') {
-    if (seen.has(value as object)) return '[Circular]';
-    seen.add(value as object);
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (isSensitiveKey(k)) {
-        out[k] = REDACTION_TOKEN;
-      } else {
-        out[k] = redactDeep(v, secrets, seen);
-      }
-    }
-    return out;
-  }
-  return value;
-}
-
-function isSensitiveKey(key: string): boolean {
-  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (SENSITIVE_KEY_RE.test(normalized)) return true;
-  // Extra holocron sentinels
-  if (normalized.includes('secret') || normalized.includes('password')) return true;
-  if (normalized === 'email' || normalized.endsWith('email')) return true;
-  return false;
-}
-
-function redactString(s: string, secrets: Set<string>): string {
-  let out = s.replace(EMAIL_RE, REDACTION_TOKEN);
-  out = out.replace(SECRET_ASSIGN_RE, `$1=${REDACTION_TOKEN}`);
-  // Replace collected secret values (longest first to avoid partial collisions)
-  const ordered = [...secrets].sort((a, b) => b.length - a.length);
-  for (const secret of ordered) {
-    if (!secret || secret === REDACTION_TOKEN) continue;
-    if (out.includes(secret)) {
-      out = out.split(secret).join(REDACTION_TOKEN);
-    }
-  }
-  return out;
 }
 
 function iso(d: Date | string | undefined | null): string {
@@ -178,70 +85,68 @@ function iso(d: Date | string | undefined | null): string {
   return d.toISOString();
 }
 
-function isModelGeneration(span: AnyExportedSpan): boolean {
-  const t = String(span.type ?? '').toLowerCase();
-  return (
-    t === 'model_generation' || t === 'model_step' || t === 'model_inference' || t === 'generation'
-  );
-}
-
 /**
- * Real Langfuse exporter. Buffers SPAN_ENDED events and POSTs them to the
- * self-hosted ingestion endpoint on flush.
+ * Mission/backup bridge over OtelExporter.
+ * Buffers SPAN_ENDED events and flushes through the Collector; never posts
+ * to legacy-ingestion-endpoint.
  */
-export class HolocronLangfuseExporter extends BaseExporter {
-  name = 'holocron-langfuse-exporter';
+export class HolocronOtelBridge extends BaseExporter {
+  name = 'holocron-otel-exporter';
 
   readonly publicKey: string | undefined;
   readonly secretKey: string | undefined;
   readonly baseUrl: string | undefined;
+  readonly collectorUrl: string;
   readonly serviceName: string;
   readonly failOnExportError: boolean;
 
-  #buffer: IngestionEvent[] = [];
-  #seenTraceIds = new Set<string>();
+  #otel: OtelExporter;
+  #buffer: TracingEvent[] = [];
   #exportedEvents = 0;
   #lastFlushAt: string | null = null;
   #lastError: string | null = null;
   #exportFailed = false;
+  #lastFailureCode: ExportFailureCodeName | null = null;
   #serviceNameFromInit: string | undefined;
+  #initialized = false;
 
-  constructor(config: LangfuseExporterConfig = {}) {
+  constructor(config: OtelBridgeConfig = {}) {
     super(config);
-    this.publicKey = config.publicKey ?? process.env.LANGFUSE_PUBLIC_KEY;
-    this.secretKey = config.secretKey ?? process.env.LANGFUSE_SECRET_KEY;
-    const rawBase = config.baseUrl ?? process.env.LANGFUSE_BASE_URL ?? process.env.LANGFUSE_HOST;
+    const obs = readObservabilityConfig();
+    this.publicKey = config.publicKey ?? obs.langfusePublicKey ?? undefined;
+    this.secretKey = config.secretKey ?? obs.langfuseSecretKey ?? undefined;
+    const rawBase = config.baseUrl ?? obs.langfuseBaseUrl ?? undefined;
     this.baseUrl = rawBase ? stripTrailingSlash(rawBase) : undefined;
+    this.collectorUrl = stripTrailingSlash(config.collectorUrl ?? obs.otelCollectorUrl);
     this.serviceName = config.serviceName ?? HOLOCRON_SERVICE_NAME;
-    this.failOnExportError = config.failOnExportError !== false;
+    this.failOnExportError = config.failOnExportError === true;
 
-    if (!this.publicKey || !this.secretKey || !this.baseUrl) {
-      this.setDisabled(
-        `Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.`
-      );
-    }
+    this.#otel = new OtelExporter({
+      provider: {
+        custom: {
+          endpoint: this.collectorUrl,
+          protocol: 'http/json',
+          headers: {},
+        },
+      },
+      timeout: 10_000,
+      batchSize: 16,
+      signals: { traces: true, logs: false },
+      logger: config.logger,
+      logLevel: config.logLevel ?? 'error',
+    });
   }
 
   override init(options: InitExporterOptions): void {
     this.#serviceNameFromInit = options.config?.serviceName;
+    this.#otel.init(options);
+    this.#initialized = true;
   }
 
   get resolvedServiceName(): string {
     return this.#serviceNameFromInit ?? this.serviceName;
   }
 
-  getStatus(): LangfuseExportStatus {
-    return {
-      ok: !this.#exportFailed && !this.isDisabled,
-      errorCode: this.#exportFailed ? LANGFUSE_EXPORT_FAILED : null,
-      errorMessage: this.#lastError,
-      exportedEvents: this.#exportedEvents,
-      lastFlushAt: this.#lastFlushAt,
-      baseUrl: this.baseUrl ?? null,
-    };
-  }
-
-  /** True when the last flush failed or exporter is misconfigured for a required export. */
   get exportFailed(): boolean {
     return this.#exportFailed || this.isDisabled;
   }
@@ -250,238 +155,198 @@ export class HolocronLangfuseExporter extends BaseExporter {
     return this.#lastError;
   }
 
+  getStatus(): LangfuseExportStatus {
+    return {
+      ok: !this.#exportFailed && !this.isDisabled,
+      errorCode: this.#exportFailed
+        ? (this.#lastFailureCode ?? ExportFailureCode.LANGFUSE_UNREACHABLE)
+        : null,
+      errorMessage: this.#lastError,
+      exportedEvents: this.#exportedEvents,
+      lastFlushAt: this.#lastFlushAt,
+      baseUrl: this.baseUrl ?? null,
+      collectorUrl: this.collectorUrl,
+    };
+  }
+
   protected async _exportTracingEvent(event: TracingEvent): Promise<void> {
     if (event.type !== TracingEventType.SPAN_ENDED) return;
     const span = event.exportedSpan;
     if (!span) return;
-    this.#buffer.push(...this.spanToEvents(span));
+    this.#buffer.push({
+      type: TracingEventType.SPAN_ENDED,
+      exportedSpan: this.#sanitizeSpan(span),
+    });
   }
 
-  private spanToEvents(span: AnyExportedSpan): IngestionEvent[] {
-    const events: IngestionEvent[] = [];
-    const traceId = span.traceId;
-    const now = new Date().toISOString();
-    const serviceName = this.resolvedServiceName;
-
-    const metadata = redactForExport({
-      ...(span.metadata ?? {}),
-      serviceName,
-      spanType: span.type,
-      isRootSpan: span.isRootSpan === true,
-    }) as Record<string, unknown>;
-
-    const input = redactForExport(span.input);
-    const output = redactForExport(span.output);
-
-    if (!this.#seenTraceIds.has(traceId)) {
-      this.#seenTraceIds.add(traceId);
-      events.push({
-        id: randomUUID(),
-        type: 'trace-create',
-        timestamp: now,
-        body: {
-          id: traceId,
-          name:
-            span.isRootSpan === true ? String(span.name ?? 'research-mission') : 'research-mission',
-          metadata,
-          input,
-          output: span.isRootSpan === true ? output : undefined,
-          tags: Array.isArray(span.tags) ? span.tags : ['research-mission', serviceName],
-          timestamp: iso(span.startTime),
-        },
-      });
-    }
-
-    if (isModelGeneration(span)) {
-      events.push({
-        id: randomUUID(),
-        type: 'generation-create',
-        timestamp: now,
-        body: {
-          id: span.id,
-          traceId,
-          name: span.name ?? 'model_generation',
-          startTime: iso(span.startTime),
-          endTime: iso(span.endTime ?? span.startTime),
-          metadata,
-          input,
-          output,
-          model:
-            (span.attributes as { model?: string } | undefined)?.model ??
-            (metadata.model as string | undefined),
-          parentObservationId: span.parentSpanId,
-        },
-      });
-    } else {
-      events.push({
-        id: randomUUID(),
-        type: 'span-create',
-        timestamp: now,
-        body: {
-          id: span.id,
-          traceId,
-          name: span.name ?? String(span.type ?? 'span'),
-          startTime: iso(span.startTime),
-          endTime: iso(span.endTime ?? span.startTime),
-          metadata,
-          input,
-          output,
-          parentObservationId: span.parentSpanId,
-        },
-      });
-    }
-
-    return events;
+  #sanitizeSpan(span: AnyExportedSpan): AnyExportedSpan {
+    const metadata = filterAllowlistedAttributes(
+      redactForExport({
+        ...(span.metadata ?? {}),
+        serviceName: this.resolvedServiceName,
+        spanType: span.type,
+        isRootSpan: span.isRootSpan === true,
+      }) as Record<string, unknown>,
+      HOLOCRON_ATTRIBUTE_ALLOWLIST
+    );
+    return {
+      ...span,
+      metadata,
+      input: redactForExport(span.input),
+      output: redactForExport(span.output),
+      attributes: span.attributes
+        ? (filterAllowlistedAttributes(
+            redactForExport(span.attributes as Record<string, unknown>) as Record<string, unknown>,
+            HOLOCRON_ATTRIBUTE_ALLOWLIST
+          ) as typeof span.attributes)
+        : span.attributes,
+    };
   }
 
   /**
-   * POST buffered events to Langfuse. On failure sets exportFailed and optionally throws.
+   * Flush buffered spans through OtelExporter → Collector.
+   * Failures set degraded status; only throw when failOnExportError is true.
    */
   override async flush(): Promise<void> {
-    if (this.isDisabled) {
-      this.#exportFailed = true;
-      this.#lastError =
-        this.#lastError ?? 'Langfuse exporter disabled (missing credentials or baseUrl)';
-      if (this.failOnExportError) {
-        throw new LangfuseExportError(this.#lastError);
-      }
-      return;
-    }
-
-    if (!this.baseUrl || !this.publicKey || !this.secretKey) {
-      this.#exportFailed = true;
-      this.#lastError = 'Langfuse exporter missing baseUrl/credentials';
-      if (this.failOnExportError) {
-        throw new LangfuseExportError(this.#lastError);
-      }
-      return;
+    if (!this.#initialized) {
+      this.#otel.init({
+        config: { serviceName: this.resolvedServiceName },
+      } as InitExporterOptions);
+      this.#initialized = true;
     }
 
     const batch = this.#buffer.splice(0, this.#buffer.length);
-    if (batch.length === 0) {
-      // Empty flush is still a transport probe — prove endpoint is reachable.
-      await this.#postBatch([]);
-      this.#lastFlushAt = new Date().toISOString();
-      return;
-    }
-
-    await this.#postBatch(batch);
-    this.#lastFlushAt = new Date().toISOString();
-  }
-
-  async #postBatch(batch: IngestionEvent[]): Promise<void> {
-    const url = `${this.baseUrl}/api/public/ingestion`;
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: basicAuth(this.publicKey!, this.secretKey!),
-        },
-        body: JSON.stringify({ batch }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        this.#exportFailed = true;
-        this.#lastError = `Langfuse ingestion HTTP ${res.status}: ${text.slice(0, 400)}`;
-        // put events back for retry visibility
-        this.#buffer.unshift(...batch);
-        if (this.failOnExportError) {
-          throw new LangfuseExportError(this.#lastError);
-        }
-        return;
+      for (const event of batch) {
+        await this.#otel.exportTracingEvent(event);
       }
-      const body = (await res.json().catch(() => ({}))) as {
-        errors?: Array<{ message?: string; status?: number }>;
-        successes?: unknown[];
-      };
-      if (Array.isArray(body.errors) && body.errors.length > 0) {
-        this.#exportFailed = true;
-        this.#lastError = `Langfuse ingestion errors: ${JSON.stringify(body.errors).slice(0, 400)}`;
-        this.#buffer.unshift(...batch);
-        if (this.failOnExportError) {
-          throw new LangfuseExportError(this.#lastError);
-        }
-        return;
-      }
+      await this.#otel.flush();
       this.#exportedEvents += batch.length;
-      // successful flush clears failure latch for this attempt
+      this.#lastFlushAt = new Date().toISOString();
+
+      // Probe collector metrics reachability — do not mark last-success without proof.
+      const cfg = readObservabilityConfig();
+      const metrics = await fetch(cfg.otelCollectorMetricsUrl, {
+        signal: AbortSignal.timeout(3000),
+      }).catch(() => null);
+      if (!metrics?.ok) {
+        this.#exportFailed = true;
+        this.#lastFailureCode = ExportFailureCode.LANGFUSE_UNREACHABLE;
+        this.#lastError = 'collector metrics unreachable after flush';
+        recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
+        if (this.failOnExportError) {
+          throw new LangfuseExportError(this.#lastError, undefined, this.#lastFailureCode);
+        }
+        return;
+      }
+
+      // Bounded v2 confirmation when Langfuse credentials are present (retry briefly).
+      if (this.baseUrl && this.publicKey && this.secretKey) {
+        let v2: Response | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          v2 = await fetch(`${this.baseUrl}/api/public/v2/observations?limit=1`, {
+            headers: {
+              Authorization: basicAuthHeader(this.publicKey, this.secretKey),
+            },
+            signal: AbortSignal.timeout(5000),
+          }).catch(() => null);
+          if (v2 && (v2.status === 200 || v2.status === 401 || v2.status === 403)) break;
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+        if (!v2 || (v2.status !== 200 && v2.status !== 401 && v2.status !== 403)) {
+          this.#exportFailed = true;
+          this.#lastFailureCode = ExportFailureCode.LANGFUSE_UNREACHABLE;
+          this.#lastError = `Langfuse Observations API v2 unreachable (status=${v2?.status ?? 'fetch-failed'})`;
+          recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
+          if (this.failOnExportError) {
+            throw new LangfuseExportError(this.#lastError, undefined, this.#lastFailureCode);
+          }
+          return;
+        }
+        if (v2.status === 200) {
+          recordExportSuccess();
+        }
+      } else {
+        // Collector accepted flush; Langfuse identity not configured for v2 proof.
+        recordExportSuccess();
+      }
+
       this.#exportFailed = false;
       this.#lastError = null;
+      this.#lastFailureCode = null;
     } catch (err) {
       if (err instanceof LangfuseExportError) throw err;
+      const code = classifyExportError(err);
       this.#exportFailed = true;
-      this.#lastError =
-        err instanceof Error ? err.message : `Langfuse export failed: ${String(err)}`;
+      this.#lastFailureCode = code;
+      this.#lastError = err instanceof Error ? err.message : String(err);
       this.#buffer.unshift(...batch);
+      recordExportFailure(code);
       if (this.failOnExportError) {
-        throw new LangfuseExportError(this.#lastError, err);
+        throw new LangfuseExportError(this.#lastError, err, code);
       }
-    }
-  }
-
-  override async shutdown(): Promise<void> {
-    try {
-      await this.flush();
-    } catch {
-      // shutdown still completes; status retained on exporter
     }
   }
 
   /**
-   * Enqueue pre-built ingestion events (mission runtime / instrumented client).
-   * Does not auto-flush — caller must flush().
+   * Process shutdown: bound the real exporter flush. Unflushed work surfaces as
+   * EXPORT_FLUSH_TIMEOUT (or another terminal code) — never a silent green.
    */
-  enqueueEvents(events: IngestionEvent[]): void {
-    if (events.length === 0) return;
-    this.#buffer.push(...events);
-    for (const ev of events) {
-      if (ev.type === 'trace-create') {
-        const id = String((ev.body as { id?: string }).id ?? '');
-        if (id) this.#seenTraceIds.add(id);
-      }
+  override async shutdown(deadlineMs = 5_000): Promise<void> {
+    const result = await flushWithDeadline({
+      deadlineMs,
+      flush: () => this.flush(),
+    });
+    if (!result.ok) {
+      this.#exportFailed = true;
+      this.#lastFailureCode = result.terminalFailureCode;
+      this.#lastError = `shutdown flush failed: ${result.terminalFailureCode} (${result.elapsedMs}ms)`;
     }
+    try {
+      await this.#otel.shutdown();
+    } catch {
+      // ignore otel teardown errors; export status already recorded
+    }
+  }
+
+  /** Enqueue a pre-built SPAN_ENDED event (mission/backup instrumentation). */
+  enqueueSpan(span: AnyExportedSpan): void {
+    this.#buffer.push({
+      type: TracingEventType.SPAN_ENDED,
+      exportedSpan: this.#sanitizeSpan(span),
+    });
   }
 }
 
-export type LangfuseConfigFromEnv = {
-  publicKey: string;
-  secretKey: string;
-  baseUrl: string;
-};
+export type LangfuseExporterConfig = OtelBridgeConfig;
 
-export function readLangfuseConfigFromEnv(
-  env: NodeJS.ProcessEnv = process.env
-): LangfuseConfigFromEnv | null {
-  const publicKey = env.LANGFUSE_PUBLIC_KEY?.trim();
-  const secretKey = env.LANGFUSE_SECRET_KEY?.trim();
-  const baseUrl = (env.LANGFUSE_BASE_URL ?? env.LANGFUSE_HOST)?.trim();
-  if (!publicKey || !secretKey || !baseUrl) return null;
-  return { publicKey, secretKey, baseUrl: stripTrailingSlash(baseUrl) };
-}
-
-export function createLangfuseExporterFromEnv(
-  overrides: LangfuseExporterConfig = {}
-): HolocronLangfuseExporter {
+export function createOtelBridgeFromEnv(overrides: OtelBridgeConfig = {}): HolocronOtelBridge {
   const fromEnv = readLangfuseConfigFromEnv();
-  return new HolocronLangfuseExporter({
+  const obs = readObservabilityConfig();
+  return new HolocronOtelBridge({
     publicKey: overrides.publicKey ?? fromEnv?.publicKey,
     secretKey: overrides.secretKey ?? fromEnv?.secretKey,
     baseUrl: overrides.baseUrl ?? fromEnv?.baseUrl,
+    collectorUrl: overrides.collectorUrl ?? obs.otelCollectorUrl,
     serviceName: overrides.serviceName ?? HOLOCRON_SERVICE_NAME,
-    failOnExportError: overrides.failOnExportError,
+    failOnExportError: overrides.failOnExportError === true,
     logger: overrides.logger,
     logLevel: overrides.logLevel,
   });
 }
 
+/** @deprecated use createOtelBridgeFromEnv */
+export function createLangfuseExporterFromEnv(
+  overrides: OtelBridgeConfig = {}
+): HolocronOtelBridge {
+  return createOtelBridgeFromEnv(overrides);
+}
+
 /**
  * Buffer a mission root span + model-generation span for a real fleet call.
- * Used by runFleetModelCall so production mission/runtime paths export without
- * requiring Mastra Agent tracing infrastructure.
  */
 export function bufferMissionModelCall(
-  exporter: HolocronLangfuseExporter,
+  exporter: HolocronOtelBridge,
   args: {
     traceId: string;
     runId: string;
@@ -498,9 +363,8 @@ export function bufferMissionModelCall(
     status?: string;
   }
 ): void {
-  const spanId = randomUUID();
-  const rootId = `root-${args.traceId}`.slice(0, 64);
-  const now = new Date().toISOString();
+  const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
+  const rootId = randomUUID().replace(/-/g, '').slice(0, 16);
   const metadata = redactForExport({
     serviceName: exporter.resolvedServiceName,
     spanType: 'model_generation',
@@ -513,65 +377,43 @@ export function bufferMissionModelCall(
     status: args.status,
   }) as Record<string, unknown>;
 
-  const events: IngestionEvent[] = [];
-  // Always emit a root span so multi-call missions accumulate ≥2 observations.
-  events.push({
-    id: randomUUID(),
-    type: 'span-create',
-    timestamp: now,
-    body: {
-      id: rootId,
-      traceId: args.traceId,
-      name: 'research-mission',
-      startTime: iso(args.startTime),
-      endTime: iso(args.endTime),
-      metadata: redactForExport({
-        serviceName: exporter.resolvedServiceName,
-        runId: args.runId,
-        isRootSpan: true,
-      }),
-    },
-  });
-  events.push({
-    id: randomUUID(),
-    type: 'trace-create',
-    timestamp: now,
-    body: {
-      id: args.traceId,
-      name: 'research-mission',
-      metadata: redactForExport({
-        serviceName: exporter.resolvedServiceName,
-        runId: args.runId,
-        role: args.role,
-      }),
-      tags: ['research-mission', exporter.resolvedServiceName],
-      timestamp: iso(args.startTime),
-    },
-  });
-  events.push({
-    id: randomUUID(),
-    type: 'generation-create',
-    timestamp: now,
-    body: {
-      id: spanId,
-      traceId: args.traceId,
-      name: args.name ?? 'model_generation',
-      startTime: iso(args.startTime),
-      endTime: iso(args.endTime),
-      metadata,
-      input: redactForExport(args.input),
-      output: redactForExport(args.output),
-      model: args.modelId ?? undefined,
-      parentObservationId: rootId,
-    },
-  });
+  exporter.enqueueSpan({
+    id: rootId,
+    traceId: args.traceId,
+    name: 'research-mission',
+    type: 'span',
+    isRootSpan: true,
+    startTime: args.startTime,
+    endTime: args.endTime,
+    metadata: redactForExport({
+      serviceName: exporter.resolvedServiceName,
+      runId: args.runId,
+      isRootSpan: true,
+    }) as Record<string, unknown>,
+    tags: ['research-mission', exporter.resolvedServiceName],
+  } as AnyExportedSpan);
 
-  exporter.enqueueEvents(events);
+  exporter.enqueueSpan({
+    id: spanId,
+    traceId: args.traceId,
+    name: args.name ?? 'model_generation',
+    type: 'model_generation',
+    isRootSpan: false,
+    parentSpanId: rootId,
+    startTime: args.startTime,
+    endTime: args.endTime,
+    metadata,
+    input: redactForExport(args.input),
+    output: redactForExport(args.output),
+    attributes: { model: args.modelId ?? undefined },
+    tags: ['research-mission', exporter.resolvedServiceName],
+  } as AnyExportedSpan);
 }
 
-/** Query a trace from self-hosted Langfuse (operator/tests). */
-export async function fetchLangfuseTrace(args: {
-  traceId: string;
+/** Query observations via Langfuse Observations API v2 (not deprecated traces). */
+export async function fetchLangfuseObservations(args: {
+  traceId?: string;
+  limit?: number;
   baseUrl?: string;
   publicKey?: string;
   secretKey?: string;
@@ -583,8 +425,10 @@ export async function fetchLangfuseTrace(args: {
   if (!baseUrl || !publicKey || !secretKey) {
     throw new LangfuseExportError('Cannot query Langfuse: missing baseUrl/credentials');
   }
-  const res = await fetch(`${baseUrl}/api/public/traces/${args.traceId}`, {
-    headers: { Authorization: basicAuth(publicKey, secretKey) },
+  const qs = new URLSearchParams({ limit: String(args.limit ?? 50) });
+  if (args.traceId) qs.set('traceId', args.traceId);
+  const res = await fetch(`${baseUrl}/api/public/v2/observations?${qs.toString()}`, {
+    headers: { Authorization: basicAuthHeader(publicKey, secretKey) },
   });
   const text = await res.text();
   let body: unknown = text;
@@ -595,3 +439,28 @@ export async function fetchLangfuseTrace(args: {
   }
   return { status: res.status, body };
 }
+
+/** @deprecated use fetchLangfuseObservations (v2). Kept for transitional callers. */
+export async function fetchLangfuseTrace(args: {
+  traceId: string;
+  baseUrl?: string;
+  publicKey?: string;
+  secretKey?: string;
+}): Promise<{ status: number; body: unknown }> {
+  const obs = await fetchLangfuseObservations(args);
+  if (obs.status !== 200 || !obs.body || typeof obs.body !== 'object') return obs;
+  const data = ((obs.body as { data?: Array<Record<string, unknown>> }).data ?? []).filter(
+    (o) => String(o.traceId ?? '') === args.traceId
+  );
+  if (data.length === 0) return { status: 404, body: { message: 'trace not found via v2' } };
+  return {
+    status: 200,
+    body: {
+      id: args.traceId,
+      observations: data,
+      metadata: data[0]?.metadata ?? {},
+    },
+  };
+}
+
+export { iso };

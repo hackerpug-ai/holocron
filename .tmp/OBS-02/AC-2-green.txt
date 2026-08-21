@@ -1,0 +1,20 @@
+3-
+4:stderr | services/platform/tests/integration/observability-otel-v4.test.ts > OBS-02 adopt Mastra/Langfuse OTLP v4 > AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export
+5-This storage provider does not support batch creating metrics
+6-
+7:stderr | services/platform/tests/integration/observability-otel-v4.test.ts > OBS-02 adopt Mastra/Langfuse OTLP v4 > AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export
+8-This storage provider does not support batch creating metrics
+9-
+--
+14-     ✓ AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities  19403ms
+15:     ✓ AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export  44272ms
+16-     ✓ AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence  12206ms
+17-     ✓ AC-4: queue pressure + shutdown expose official metrics and terminal failure codes  4642ms
+18:stderr | services/platform/tests/integration/observability-traces.test.ts > obs-1 observability traces → self-hosted Langfuse > AC-2/TC-2: model-generation child span correlates to parent run (role metadata)
+19-This storage provider does not support batch creating metrics
+20-
+--
+28-     ✓ AC-1/TC-1: one Langfuse trace per research mission run (serviceName holocron-platform)  20123ms
+29:     ✓ AC-2/TC-2: model-generation child span correlates to parent run (role metadata)  13892ms
+30-     ✓ AC-3/TC-3: export failure when Langfuse endpoint is unavailable (soft degrade)  14558ms
+31-     ✓ AC-4/TC-4: redaction — raw secret sentinel and synthetic PII absent from exported trace  18461ms

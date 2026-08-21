@@ -1,0 +1,50 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-2'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-3'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-4'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/ac-4-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-2'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-3'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-4'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-02/tc-4-output.txt"
+  }
+]

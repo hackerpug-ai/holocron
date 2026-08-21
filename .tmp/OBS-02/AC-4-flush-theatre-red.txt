@@ -1,0 +1,41 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-02
+
+ ❯ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 1 failed | 3 skipped) 419ms
+     ↓ AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities
+     ↓ AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export
+     ↓ AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence
+     × AC-4: queue pressure + shutdown expose official metrics and terminal failure codes 378ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-otel-v4.test.ts > OBS-02 adopt Mastra/Langfuse OTLP v4 > AC-4: queue pressure + shutdown expose official metrics and terminal failure codes
+AssertionError: promise resolved "{ ok: false, …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "elapsedMs": 52,
++   "ok": false,
++   "terminalFailureCode": "EXPORT_FLUSH_TIMEOUT",
+  }
+
+ ❯ services/platform/tests/integration/observability-otel-v4.test.ts:517:56
+    515|
+    516|     // Missing flush must hard-fail — sleep-default theatre is forbidd…
+    517|     await expect(flushWithDeadline({ deadlineMs: 50 })).rejects.toThro…
+       |                                                        ^
+    518|       /flush callback required|FLUSH_CALLBACK_REQUIRED/i
+    519|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  23:21:01
+   Duration  653ms (transform 92ms, setup 153ms, import 13ms, tests 419ms, environment 0ms)
+

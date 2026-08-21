@@ -1,5 +1,5 @@
 /**
- * OTel-style backup job spans via HolocronLangfuseExporter + redactForExport.
+ * OTel-style backup job spans via HolocronOtelBridge + redactForExport.
  *
  * Emits root spans named `backup:wal_archive` / `backup:base_backup`.
  * Attributes are redacted (no bucket creds / hostnames in WAL paths).
@@ -15,7 +15,7 @@ import { resolveRepoRoot } from '../config/secrets.ts';
 import {
   createLangfuseExporterFromEnv,
   HOLOCRON_SERVICE_NAME,
-  type HolocronLangfuseExporter,
+  type HolocronOtelBridge,
   REDACTION_TOKEN,
   readLangfuseConfigFromEnv,
   redactForExport,
@@ -43,7 +43,7 @@ export type EmittedBackupSpan = {
   endTime: string;
   attributes: Record<string, unknown>;
   /**
-   * True only when HolocronLangfuseExporter flush succeeded.
+   * True only when HolocronOtelBridge flush succeeded.
    * False when Langfuse is disabled/unconfigured or flush failed.
    * Local span + hex traceId are always written regardless of this flag.
    */
@@ -136,7 +136,7 @@ function appendSpanLog(span: EmittedBackupSpan): void {
 }
 
 /**
- * Emit a root backup span. Prefer HolocronLangfuseExporter when configured;
+ * Emit a root backup span. Prefer HolocronOtelBridge when configured;
  * always returns a correlated hex traceId and redacted attributes.
  *
  * Honesty contract (Path B when Langfuse unconfigured):
@@ -149,7 +149,7 @@ export async function emitBackupSpan(args: {
   name: BackupSpanName;
   attributes: BackupSpanAttributes;
   traceId?: string;
-  exporter?: HolocronLangfuseExporter;
+  exporter?: HolocronOtelBridge;
   /** When true, throw on Langfuse transport failure. Default soft for backup jobs. */
   failOnExportError?: boolean;
 }): Promise<EmittedBackupSpan> {

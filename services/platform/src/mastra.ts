@@ -4,12 +4,11 @@ import {
   SamplingStrategyType,
   SensitiveDataFilter,
 } from '@mastra/observability';
+import { OtelExporter } from '@mastra/otel-exporter';
 import { PostgresStore } from '@mastra/pg';
-import {
-  createLangfuseExporterFromEnv,
-  HOLOCRON_SERVICE_NAME,
-  type HolocronLangfuseExporter,
-} from './observability/langfuse-exporter.ts';
+import { HOLOCRON_SERVICE_NAME, readObservabilityConfig } from './observability/config.ts';
+import type { HolocronOtelBridge } from './observability/langfuse-exporter.ts';
+import { HolocronRedactionProcessor } from './observability/redaction.ts';
 
 // ── environment ──────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/postgres';
@@ -26,30 +25,44 @@ export function createStorage(): PostgresStore {
   });
 }
 
+function createCollectorExporter(): OtelExporter {
+  const cfg = readObservabilityConfig();
+  return new OtelExporter({
+    provider: {
+      custom: {
+        endpoint: cfg.otelCollectorUrl,
+        protocol: 'http/json',
+        headers: {},
+      },
+    },
+    timeout: 10_000,
+    batchSize: 16,
+    signals: { traces: true, logs: false },
+    logLevel: 'error',
+  });
+}
+
 // ── observability ─────────────────────────────────────────────
 /**
- * Mastra Observability composition root.
- * - serviceName: holocron-platform (obs-1)
- * - Parallel exporters: Postgres MastraStorageExporter + self-hosted Langfuse
+ * Mastra Observability composition root (OBS-02).
+ * - serviceName: holocron-platform
+ * - Parallel exporters: Postgres MastraStorageExporter + @mastra/otel-exporter → Collector
  * - SensitiveDataFilter redacts secrets before export
+ * - External sink failure is soft (failOnExportError stays false)
  */
 export function createObservability(options?: {
-  langfuseExporter?: HolocronLangfuseExporter;
+  otelExporter?: OtelExporter | HolocronOtelBridge;
 }): Observability {
-  const langfuseExporter =
-    options?.langfuseExporter ??
-    createLangfuseExporterFromEnv({
-      serviceName: HOLOCRON_SERVICE_NAME,
-      failOnExportError: true,
-    });
+  const external = options?.otelExporter ?? createCollectorExporter();
 
   return new Observability({
     configs: {
       default: {
         serviceName: HOLOCRON_SERVICE_NAME,
         sampling: { type: SamplingStrategyType.ALWAYS },
-        exporters: [new MastraStorageExporter(), langfuseExporter],
+        exporters: [new MastraStorageExporter(), external],
         spanOutputProcessors: [
+          new HolocronRedactionProcessor(),
           new SensitiveDataFilter({
             sensitiveFields: [
               'password',
