@@ -185,10 +185,7 @@ function writeIsolatedCompose(
     copyFileSync(CANARY_OTEL_CONFIG, join(workDir, 'otel-collector-config.yaml'));
   }
   if (evidenceDir) {
-    writeFileSync(
-      join(evidenceDir, 'isolated-restore-web-port.txt'),
-      `${ports.web}\n`
-    );
+    writeFileSync(join(evidenceDir, 'isolated-restore-web-port.txt'), `${ports.web}\n`);
   }
   return { composePath, webPort: ports.web };
 }
@@ -455,11 +452,7 @@ export async function runIsolatedLangfuseRestore(input: {
   const volumesBefore = new Set(volumeNames());
   const manifest = JSON.parse(readFileSync(input.manifestPath, 'utf8')) as BackupManifest;
   const workDir = mkdtempSync(join(tmpdir(), 'obs04-restore-compose-'));
-  const { composePath } = writeIsolatedCompose(
-    input.restoreProject,
-    workDir,
-    input.evidenceDir
-  );
+  const { composePath } = writeIsolatedCompose(input.restoreProject, workDir, input.evidenceDir);
   const restoreStage = mkdtempSync(join(tmpdir(), 'obs04-restore-stage-'));
 
   try {
