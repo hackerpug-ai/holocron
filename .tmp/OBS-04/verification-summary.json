@@ -1,7 +1,7 @@
 {
   "task_id": "OBS-04",
   "timestamp": "2026-08-21T08:43:13Z",
-  "commit_sha": "c9d3eedad337da746440f4446e6fbe11d12d458c",
+  "commit_sha": "b70668e8855c1628948f2961c661832730da2b55",
   "typecheck": {
     "exit_code": 0
   },
@@ -120,7 +120,9 @@
         "compatibleRollbackMismatchCount": 0,
         "incompatibleRollbackExitCode": 2,
         "incompatibleApplyCount": 0,
-        "stateVolumeRecreated": false
+        "stateVolumeRecreated": false,
+        "publicApiWitnessMismatchCount": 0,
+        "probeMethod": "previous-image-prisma-migrations"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-4-green.txt"
@@ -234,7 +236,9 @@
         "compatibleRollbackMismatchCount": 0,
         "incompatibleRollbackExitCode": 2,
         "incompatibleApplyCount": 0,
-        "stateVolumeRecreated": false
+        "stateVolumeRecreated": false,
+        "publicApiWitnessMismatchCount": 0,
+        "probeMethod": "previous-image-prisma-migrations"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-4-green.txt"
