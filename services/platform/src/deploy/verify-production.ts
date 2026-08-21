@@ -776,7 +776,8 @@ export async function verifyPortableDeploymentReceipt(options: {
   );
   push(
     'receipt_services',
-    record.services.length === REQUIRED_SERVICES.length && [...record.services].sort().join(',') === [...REQUIRED_SERVICES].sort().join(','),
+    record.services.length === REQUIRED_SERVICES.length &&
+      [...record.services].sort().join(',') === [...REQUIRED_SERVICES].sort().join(','),
     `service_count=${record.services.length}`
   );
   push(
