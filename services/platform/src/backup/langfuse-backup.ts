@@ -33,6 +33,7 @@ export type LangfuseBackupResult = {
   manifestPath: string;
   witnesses: LangfuseBackupWitnesses;
   productionVolumeMountCount: number;
+  otelQueueBackedUp: boolean;
   redisDisposition: 'ephemeral-not-restored';
   errors: string[];
 };
@@ -98,6 +99,147 @@ function basicAuth(publicKey: string, secretKey: string): string {
   return `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString('base64')}`;
 }
 
+async function waitForObservation(
+  source: SourceEndpoints,
+  traceId: string,
+  spanId: string
+): Promise<void> {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
+    const response = await fetch(
+      `${source.webBaseUrl}/api/public/v2/observations?traceId=${traceId}`,
+      { headers: { Authorization: basicAuth(source.publicKey, source.secretKey) } }
+    );
+    if (response.ok) {
+      const payload = (await response.json()) as { data?: Array<{ id?: string }> };
+      if ((payload.data ?? []).some((row) => row.id === spanId)) return;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+  }
+  throw new Error(`seeded observation ${spanId} never appeared via public API`);
+}
+
+async function seedScore(source: SourceEndpoints, traceId: string): Promise<string> {
+  const response = await fetch(`${source.webBaseUrl}/api/public/scores`, {
+    method: 'POST',
+    headers: {
+      Authorization: basicAuth(source.publicKey, source.secretKey),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'obs04-backup-score',
+      value: 0.91,
+      dataType: 'NUMERIC',
+      traceId,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`score seed failed with HTTP ${response.status}: ${await response.text()}`);
+  }
+  const payload = (await response.json()) as { id?: string };
+  if (!payload.id) throw new Error('score seed response missing id');
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const listed = await fetch(
+      `${source.webBaseUrl}/api/public/v3/scores?limit=50&name=obs04-backup-score`,
+      { headers: { Authorization: basicAuth(source.publicKey, source.secretKey) } }
+    );
+    if (listed.ok) {
+      const body = (await listed.json()) as { data?: Array<{ id?: string }> };
+      if ((body.data ?? []).some((row) => row.id === payload.id)) return payload.id;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+  }
+  throw new Error(`seeded score ${payload.id} never appeared via public v3 scores API`);
+}
+
+async function seedMediaObject(
+  source: SourceEndpoints,
+  traceId: string,
+  observationId: string
+): Promise<string> {
+  const bytes = randomBytes(68);
+  const sha256Hash = createHash('sha256').update(bytes).digest('base64');
+  const create = await fetch(`${source.webBaseUrl}/api/public/media`, {
+    method: 'POST',
+    headers: {
+      Authorization: basicAuth(source.publicKey, source.secretKey),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      traceId,
+      observationId,
+      contentType: 'application/octet-stream',
+      contentLength: bytes.length,
+      sha256Hash,
+      field: 'input',
+    }),
+  });
+  if (!create.ok) {
+    throw new Error(`media create failed HTTP ${create.status}: ${await create.text()}`);
+  }
+  const created = (await create.json()) as { mediaId?: string; uploadUrl?: string | null };
+  if (!created.mediaId) throw new Error('media create response missing mediaId');
+
+  const pathQuery = run('docker', [
+    'exec',
+    source.postgresContainer,
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-tAc',
+    `SELECT bucket_path FROM media WHERE id = '${created.mediaId}' LIMIT 1`,
+  ]);
+  const objectKey = pathQuery.stdout.trim();
+  if (pathQuery.status !== 0 || !objectKey) {
+    throw new Error(
+      `media bucket_path missing for ${created.mediaId}: ${pathQuery.stderr || pathQuery.stdout}`
+    );
+  }
+  const remotePath = `/data/langfuse/${objectKey}`;
+  const parent = remotePath.slice(0, remotePath.lastIndexOf('/'));
+  const mkdir = run('docker', ['exec', source.minioContainer, 'mkdir', '-p', parent]);
+  if (mkdir.status !== 0) {
+    throw new Error(`minio mkdir failed: ${mkdir.stderr}`);
+  }
+  const localTmp = join(tmpdir(), `obs04-media-${created.mediaId}.bin`);
+  writeFileSync(localTmp, bytes);
+  try {
+    const copied = run('docker', ['cp', localTmp, `${source.minioContainer}:${remotePath}`]);
+    if (copied.status !== 0) {
+      throw new Error(`minio object docker cp failed: ${copied.stderr}`);
+    }
+  } finally {
+    rmSync(localTmp, { force: true });
+  }
+
+  const patch = await fetch(`${source.webBaseUrl}/api/public/media/${created.mediaId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: basicAuth(source.publicKey, source.secretKey),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      uploadedAt: new Date().toISOString(),
+      uploadHttpStatus: 200,
+      uploadHttpUrl: 'internal',
+      uploadHttpMethod: 'PUT',
+    }),
+  });
+  if (!patch.ok) {
+    throw new Error(`media patch failed HTTP ${patch.status}: ${await patch.text()}`);
+  }
+
+  const get = await fetch(`${source.webBaseUrl}/api/public/media/${created.mediaId}`, {
+    headers: { Authorization: basicAuth(source.publicKey, source.secretKey) },
+  });
+  if (!get.ok) {
+    throw new Error(`media GET failed HTTP ${get.status}`);
+  }
+  return objectKey;
+}
+
 async function seedWitness(source: SourceEndpoints): Promise<LangfuseBackupWitnesses> {
   const traceId = randomBytes(16).toString('hex');
   const spanId = randomBytes(8).toString('hex');
@@ -141,14 +283,10 @@ async function seedWitness(source: SourceEndpoints): Promise<LangfuseBackupWitne
   if (!response.ok) {
     throw new Error(`OTLP seed failed with HTTP ${response.status}`);
   }
-  const payload = (await response.json()) as {
-    data?: { payload?: { data?: { fileKey?: string } } };
-  };
-  const objectKey = payload.data?.payload?.data?.fileKey;
 
   // Wait for ClickHouse first-party events table to observe the span.
   let eventId: string | undefined;
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
     const query = `SELECT span_id FROM events_full WHERE trace_id = '${traceId}' AND name = 'obs04-backup-witness' LIMIT 1`;
     const ch = run('docker', [
       'exec',
@@ -172,9 +310,14 @@ async function seedWitness(source: SourceEndpoints): Promise<LangfuseBackupWitne
     throw new Error('seeded OTLP witness never appeared in ClickHouse events_full');
   }
 
+  await waitForObservation(source, traceId, spanId);
+  const scoreId = await seedScore(source, traceId);
+  const objectKey = await seedMediaObject(source, traceId, spanId);
+
   return {
     traceId,
     observationId: spanId,
+    scoreId,
     eventId,
     objectKey,
     spanName: 'obs04-backup-witness',
@@ -239,6 +382,53 @@ function stageDockerPath(
   return out;
 }
 
+/** Distroless collectors reject `docker cp`; stage via the named volume instead. */
+function stageOtelQueueFromVolume(
+  otelContainer: string,
+  stageDir: string
+): { path: string; backedUp: true } {
+  const out = join(stageDir, 'otel-queue');
+  mkdirSync(out, { recursive: true });
+  const inspect = run('docker', [
+    'inspect',
+    otelContainer,
+    '--format',
+    '{{range .Mounts}}{{if eq .Destination "/var/lib/otelcol/queue"}}{{.Name}}{{end}}{{end}}',
+  ]);
+  const volumeName = inspect.stdout.trim();
+  if (!volumeName) {
+    throw new Error(
+      `otel-queue volume missing on ${otelContainer} — refuse silent skip (fail closed)`
+    );
+  }
+  const staged = run(
+    'docker',
+    [
+      'run',
+      '--rm',
+      '-v',
+      `${volumeName}:/queue:ro`,
+      '-v',
+      `${out}:/out`,
+      'alpine:3.20',
+      'sh',
+      '-c',
+      'cp -a /queue/. /out/; touch /out/.otel-queue-staged',
+    ],
+    { timeout: 180_000 }
+  );
+  if (staged.status !== 0) {
+    throw new Error(
+      `otel-queue volume stage failed for ${volumeName}: ${staged.stderr || staged.stdout}`
+    );
+  }
+  // Drained queues may be empty; the stage marker proves fail-closed backup ran.
+  if (!existsSync(join(out, '.otel-queue-staged'))) {
+    throw new Error(`otel-queue stage for ${volumeName} missing stage marker`);
+  }
+  return { path: out, backedUp: true };
+}
+
 function dumpPostgres(container: string, stageDir: string): string {
   const out = join(stageDir, 'langfuse-postgres.dump');
   const dump = run(
@@ -269,10 +459,15 @@ function dumpPostgres(container: string, stageDir: string): string {
   return out;
 }
 
-function dumpClickHouse(container: string, stageDir: string): string {
+function dumpClickHouseTable(
+  container: string,
+  stageDir: string,
+  table: string,
+  fileName: string
+): string {
   // Native format preserves Array/Map/Decimal columns for restore parity.
-  const remote = '/tmp/obs04-events.native';
-  const out = join(stageDir, 'clickhouse-events.native');
+  const remote = `/tmp/obs04-${table}.native`;
+  const out = join(stageDir, fileName);
   const dump = run(
     'docker',
     [
@@ -284,18 +479,28 @@ function dumpClickHouse(container: string, stageDir: string): string {
       '--password',
       'clickhouse',
       '-q',
-      `SELECT * FROM events_full INTO OUTFILE '${remote}' TRUNCATE FORMAT Native`,
+      `SELECT * FROM ${table} INTO OUTFILE '${remote}' TRUNCATE FORMAT Native`,
     ],
     { timeout: 180_000 }
   );
   if (dump.status !== 0) {
-    throw new Error(`clickhouse dump failed: ${dump.stderr}`);
+    throw new Error(`clickhouse dump ${table} failed: ${dump.stderr}`);
   }
   const copied = run('docker', ['cp', `${container}:${remote}`, out], { timeout: 60_000 });
   if (copied.status !== 0) {
-    throw new Error(`clickhouse docker cp failed: ${copied.stderr}`);
+    throw new Error(`clickhouse docker cp ${table} failed: ${copied.stderr}`);
   }
   return out;
+}
+
+function dumpClickHouse(container: string, stageDir: string): {
+  events: string;
+  scores: string;
+} {
+  return {
+    events: dumpClickHouseTable(container, stageDir, 'events_full', 'clickhouse-events.native'),
+    scores: dumpClickHouseTable(container, stageDir, 'scores', 'clickhouse-scores.native'),
+  };
 }
 
 function resticBackup(stageDir: string, repoDir: string, password: string): number {
@@ -372,13 +577,12 @@ export async function runLangfuseConsistentBackup(input: {
     if (!minioStage) {
       throw new Error('minio staging failed');
     }
-    if (source.otelContainer) {
-      // Distroless collector + bind-mounted config can make docker cp flaky;
-      // queue is best-effort and must never fail a consistent Langfuse backup.
-      stageDockerPath(source.otelContainer, '/var/lib/otelcol/queue', stageDir, 'otel-queue', {
-        required: false,
-      });
+    let otelQueueBackedUp = false;
+    if (!source.otelContainer) {
+      throw new Error('otel-collector container required for fail-closed otel-queue backup');
     }
+    stageOtelQueueFromVolume(source.otelContainer, stageDir);
+    otelQueueBackedUp = true;
 
     // Redis is ephemeral cache — record disposition only.
     const redisDisposition = 'ephemeral-not-restored' as const;
@@ -387,7 +591,8 @@ export async function runLangfuseConsistentBackup(input: {
 
     const checksums = {
       postgres: sha256File(postgresDump),
-      clickhouse: sha256File(clickhouseDump),
+      clickhouse: sha256File(clickhouseDump.events),
+      clickhouseScores: sha256File(clickhouseDump.scores),
       minioTree: sha256Text(
         readdirSync(minioStage, { recursive: true }).map(String).sort().join('\n')
       ),
@@ -407,6 +612,7 @@ export async function runLangfuseConsistentBackup(input: {
       resticSnapshotCount,
       redisDisposition,
       productionVolumeMountCount,
+      otelQueueBackedUp,
       witnesses,
       checksums,
       releaseLock,
@@ -430,12 +636,17 @@ export async function runLangfuseConsistentBackup(input: {
     const expectedWitnessMismatchCount = count >= 1 ? 0 : 1;
 
     return {
-      ok: expectedWitnessMismatchCount === 0 && resticSnapshotCount >= 1,
+      ok:
+        expectedWitnessMismatchCount === 0 &&
+        resticSnapshotCount >= 1 &&
+        otelQueueBackedUp &&
+        Boolean(witnesses.scoreId && witnesses.objectKey && witnesses.eventId),
       resticSnapshotCount,
       expectedWitnessMismatchCount,
       manifestPath,
       witnesses,
       productionVolumeMountCount,
+      otelQueueBackedUp,
       redisDisposition,
       errors,
     };

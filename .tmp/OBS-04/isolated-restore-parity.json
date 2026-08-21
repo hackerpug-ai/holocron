@@ -1,8 +1,13 @@
 {
   "expectedWitnessMismatchCount": 0,
+  "publicApiWitnessMismatchCount": 0,
+  "eventSqlWitnessMismatchCount": 0,
   "restoreProjectDistinct": true,
-  "resticSnapshotCount": 4,
+  "resticSnapshotCount": 6,
   "productionVolumeMountCount": 0,
-  "restoreProject": "obs04-restore-mt2mk6b6",
-  "sourceProject": "obs01-canary"
+  "restoreProject": "obs04-restore-mt2nvsoy",
+  "sourceProject": "obs01-canary",
+  "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+  "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+  "otelQueueBackedUp": true
 }

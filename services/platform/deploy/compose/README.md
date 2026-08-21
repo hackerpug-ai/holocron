@@ -2,10 +2,14 @@
 
 # Holocron portable production Compose contract
 
-`compose.yaml` is the v1 twelve-service production contract: `postgres`,
-`mastra`, `scheduler`, and `zero-cache`. `compose.dev.yaml` only changes laptop
-labels and durable volume names; it must never add a service or replace either
-application image.
+`compose.yaml` is the v1 twelve-service / eight-volume production contract:
+`postgres`, `mastra`, `scheduler`, `zero-cache`, `edge`, `langfuse-web`,
+`langfuse-worker`, `langfuse-postgres`, `langfuse-clickhouse`, `langfuse-redis`,
+`langfuse-minio`, and `otel-collector`. Durable volumes are `postgres-data`,
+`zero-cache-data`, `langfuse-postgres-data`, `clickhouse-data`, `clickhouse-logs`,
+`minio-data`, `redis-data`, and `otel-queue`. `compose.dev.yaml` only changes
+laptop labels and durable volume names; it must never add a service or replace
+either application image.
 
 ## Cold-host bootstrap (Apple silicon) — IMP-AC-16
 
@@ -68,10 +72,10 @@ holo deploy:verify --portable --json
 | Observation | Required value |
 |-------------|----------------|
 | `host_architecture` | `arm64` |
-| `running_service_count` | `4` (`postgres`, `mastra`, `scheduler`, `zero-cache`) |
+| `running_service_count` | `12` (Holocron core + Langfuse + otel-collector) |
 | `client_asset_count` | `0` (server-only image; no Expo/mobile client assets) |
 | `serve_https_port` | `44111` (private Tailscale Serve → loopback) |
-| Named volumes | `holocron-postgres`, `holocron-blobs` |
+| Named volumes | `8` (`postgres-data` … `otel-queue`; runtime names include `holocron-postgres`, `otel-collector-queue`, …) |
 | Funnel endpoints | `0` |
 
 No client/web/mobile build step is part of cold-host bootstrap.
@@ -138,10 +142,11 @@ Backup binary + config digests are recorded in `release-manifest.json`.
 
 ### Volume-preserving deploy / rollback
 
-`holo deploy:apply --authorize --release <image-lock.json>` recreates the four
+`holo deploy:apply --authorize --release <image-lock.json>` recreates the twelve
 services from an immutable digest lock. It must never run
-`docker compose down -v` and must preserve named volumes `holocron-postgres`
-and `holocron-blobs`. Independent container inspection (not `/health` alone)
+`docker compose down -v` and must preserve the eight named volumes (runtime
+names include `holocron-postgres`, `otel-collector-queue`, Langfuse state, and
+MinIO/Redis/ClickHouse). Independent container inspection (not `/health` alone)
 proves observed digests/source revision match the staged release while
 `data_plane=convex` and durable `HOLO_MIGRATION_READ_ONLY=1`.
 
@@ -166,8 +171,8 @@ Mastra is published only on the host loopback interface:
 
 - Backend: `127.0.0.1:44111` → container `4111`
 - Documented external HTTPS port: **44111**
-- Documented service count: **4** (`postgres`, `mastra`, `scheduler`, `zero-cache`)
-- Documented named volumes: **2** (`holocron-postgres`, `holocron-blobs`)
+- Documented service count: **12** (Holocron core + Langfuse + otel-collector)
+- Documented named volumes: **8** (`postgres-data` … `otel-queue`)
 
 After authorization, private Serve fronts the backend (never Funnel, never LAN):
 
@@ -253,7 +258,7 @@ holo deploy:verify --portable --json
 
 The non-secret deployment receipt records host, loopback port 44111, private
 Serve URL, immutable image digest/revision/generation, exactly twelve services,
-two named volumes, selected memory limits, and zero credential values.
+eight named volumes, selected memory limits, and zero credential values.
 
 ## Real deployment verification section
 
@@ -301,7 +306,7 @@ tailscale serve status --json   # expect empty Funnel; HTTPS 44111 → http://12
 # Equivalent private form only (never Funnel):
 #   tailscale serve --bg --https=44111 http://127.0.0.1:44111
 
-# Four healthy services + receipt verify (no volume delete/recreate):
+# Twelve healthy services + receipt verify (no volume delete/recreate):
 docker compose -f services/platform/deploy/compose/compose.yaml ps
 holo deploy:verify --portable --json
 
@@ -312,7 +317,7 @@ holo deploy:verify --release path/to/image-lock.json \
   --restart-probe --negative-controls --mcp-discovery --json
 ```
 
-Observations required on node A: `healthy_service_count=4`,
+Observations required on node A: `healthy_service_count=12`,
 `postgres_down_health_status=503`, `recovered_health_status=200`,
 `mastra_restart_count>=1`, `postgres_sentinel_rows=1`, `blob_sentinel_objects=1`,
 `funnel_endpoint_count=0`, `missing_dependency_rejection_count=1`,
@@ -376,7 +381,7 @@ Schema `holo.deploy.cross-tailnet-drill.v1`. Required fields (non-empty):
 | `serve_https_port` | `44111` |
 | `second_device_health_status` | `200` |
 | `funnel_enabled` / `funnel_endpoint_count` | `false` / `0` |
-| `healthy_service_count` | `4` |
+| `healthy_service_count` | `12` |
 | `postgres_down_health_status` / `recovered_health_status` | `503` / `200` |
 | `mcp_tool_count` | `44` |
 | `mastra_restart_count` | `≥1` |

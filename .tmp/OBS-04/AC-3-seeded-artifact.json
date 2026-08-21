@@ -1,8 +1,12 @@
 {
+  "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+  "observationId": "1896038da8fd800c",
+  "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+  "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+  "eventId": "1896038da8fd800c",
+  "otelQueueBackedUp": true,
+  "publicApiWitnessMismatchCount": 0,
+  "eventSqlWitnessMismatchCount": 0,
   "expectedWitnessMismatchCount": 0,
-  "restoreProjectDistinct": true,
-  "resticSnapshotCount": 4,
-  "productionVolumeMountCount": 0,
-  "restoreProject": "obs04-restore-mt2mk6b6",
-  "sourceProject": "obs01-canary"
+  "restoreProject": "obs04-restore-mt2nvsoy"
 }

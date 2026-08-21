@@ -373,14 +373,15 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     expect(() => assertComposeContract(candidate)).toThrow(/DATABASE_URL must remain runtime-only/);
   });
 
-  it('TC-3: laptop topology parity preserves the exact four services and application identity', () => {
+  it('TC-3: laptop topology parity preserves the exact twelve services and application identity', () => {
     const productionServices = Object.keys(compose().services as Record<string, unknown>).sort();
     const laptop = parseYaml(
       readFileSync(resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.dev.yaml'), 'utf8')
     ) as Record<string, unknown>;
     const laptopServices = Object.keys(laptop.services as Record<string, unknown>).sort();
     expect(laptopServices).toEqual(productionServices);
-    expect(productionServices).toEqual(['mastra', 'postgres', 'scheduler', 'zero-cache']);
+    expect(productionServices).toEqual([...REQUIRED_SERVICES].sort());
+    expect(productionServices).toHaveLength(12);
     expect(
       readFileSync(resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.dev.yaml'), 'utf8')
     ).not.toMatch(/^\s*image:/m);
@@ -716,12 +717,24 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
   it('IMP-AC-8 exact graph persistence migration', () => {
     const candidate = compose();
     const services = Object.keys(candidate.services as Record<string, unknown>);
-    expect(services.length, 'service_count').toBe(4);
+    expect(services.length, 'service_count').toBe(12);
     expect([...services].sort().join(',')).toBe([...REQUIRED_SERVICES].sort().join(','));
     expect(`services='${REQUIRED_SERVICES.join(',')}'`).toContain('postgres');
+    expect(`services='${REQUIRED_SERVICES.join(',')}'`).toContain('otel-collector');
     const volumes = Object.keys((candidate.volumes as Record<string, unknown>) ?? {});
-    expect(volumes.length, 'named_volume_count').toBe(2);
-    expect(volumes.sort()).toEqual(['blob-data', 'postgres-data'].sort());
+    expect(volumes.length, 'named_volume_count').toBe(8);
+    expect(volumes.sort()).toEqual(
+      [
+        'postgres-data',
+        'zero-cache-data',
+        'langfuse-postgres-data',
+        'clickhouse-data',
+        'clickhouse-logs',
+        'minio-data',
+        'redis-data',
+        'otel-queue',
+      ].sort()
+    );
     expect(() => assertComposeContract(candidate)).not.toThrow();
 
     const mastra = (candidate.services as Record<string, Record<string, unknown>>).mastra;

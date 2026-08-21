@@ -25,6 +25,8 @@ export type IsolatedRestoreResult = {
   ok: boolean;
   restoreProjectDistinct: true;
   expectedWitnessMismatchCount: number;
+  publicApiWitnessMismatchCount: number;
+  eventSqlWitnessMismatchCount: number;
   productionVolumeMountCount: number;
   resticSnapshotCount: number;
   restoredInventoryEmpty: boolean;
@@ -35,6 +37,7 @@ export type IsolatedRestoreResult = {
 export type ColdRestartResult = {
   ok: boolean;
   restartWitnessMismatchCount: number;
+  publicApiWitnessMismatchCount: number;
   stateVolumeRecreated: boolean;
   project: string;
 };
@@ -45,6 +48,7 @@ export type RollbackEvaluation = {
   incompatibleRollbackExitCode: number;
   incompatibleApplyCount: number;
   reason?: string;
+  probeMethod?: 'previous-image-prisma-migrations';
 };
 
 type BackupManifest = {
@@ -54,11 +58,19 @@ type BackupManifest = {
   witnesses: {
     traceId: string;
     observationId?: string;
+    scoreId?: string;
     eventId?: string;
     objectKey?: string;
     spanName: string;
   };
 };
+
+const CANARY_PUBLIC_KEY = 'pk-lf-obs01-canary-public';
+const CANARY_SECRET_KEY = 'sk-lf-obs01-canary-secret';
+
+function basicAuth(publicKey: string, secretKey: string): string {
+  return `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString('base64')}`;
+}
 
 function run(
   command: string,
@@ -360,11 +372,18 @@ function applyPostgresDump(project: string, dumpPath: string): void {
   }
 }
 
-function applyClickHouseDump(project: string, dumpPath: string): void {
+function applyClickHouseTable(
+  project: string,
+  dumpPath: string,
+  table: string,
+  remoteName: string
+): void {
   const container = `${project}-langfuse-clickhouse-1`;
-  const remote = '/tmp/obs04-events.native';
+  const remote = `/tmp/${remoteName}`;
   const copied = run('docker', ['cp', dumpPath, `${container}:${remote}`]);
-  if (copied.status !== 0) throw new Error(`docker cp clickhouse dump failed: ${copied.stderr}`);
+  if (copied.status !== 0) {
+    throw new Error(`docker cp clickhouse ${table} dump failed: ${copied.stderr}`);
+  }
   const truncate = run('docker', [
     'exec',
     container,
@@ -374,10 +393,10 @@ function applyClickHouseDump(project: string, dumpPath: string): void {
     '--password',
     'clickhouse',
     '-q',
-    'TRUNCATE TABLE IF EXISTS events_full',
+    `TRUNCATE TABLE IF EXISTS ${table}`,
   ]);
   if (truncate.status !== 0) {
-    throw new Error(`clickhouse truncate failed: ${truncate.stderr}`);
+    throw new Error(`clickhouse truncate ${table} failed: ${truncate.stderr}`);
   }
   const load = run(
     'docker',
@@ -390,12 +409,19 @@ function applyClickHouseDump(project: string, dumpPath: string): void {
       '--password',
       'clickhouse',
       '-q',
-      `INSERT INTO events_full FROM INFILE '${remote}' FORMAT Native`,
+      `INSERT INTO ${table} FROM INFILE '${remote}' FORMAT Native`,
     ],
     { timeout: 180_000 }
   );
   if (load.status !== 0) {
-    throw new Error(`clickhouse load failed: ${load.stderr || load.stdout}`);
+    throw new Error(`clickhouse load ${table} failed: ${load.stderr || load.stdout}`);
+  }
+}
+
+function applyClickHouseDump(project: string, eventsDumpPath: string, scoresDumpPath?: string): void {
+  applyClickHouseTable(project, eventsDumpPath, 'events_full', 'obs04-events.native');
+  if (scoresDumpPath && existsSync(scoresDumpPath)) {
+    applyClickHouseTable(project, scoresDumpPath, 'scores', 'obs04-scores.native');
   }
 }
 
@@ -432,6 +458,94 @@ function verifyWitness(project: string, traceId: string, spanName: string): numb
   ]);
   const count = Number(result.stdout.trim() || '0');
   return count >= 1 ? 0 : 1;
+}
+
+function verifyEventSqlWitness(project: string, witnesses: BackupManifest['witnesses']): number {
+  const container = `${project}-langfuse-clickhouse-1`;
+  let mismatches = 0;
+  const eventQuery = `SELECT count() FROM events_full WHERE trace_id = '${witnesses.traceId}' AND name = '${witnesses.spanName}'`;
+  const event = run('docker', [
+    'exec',
+    container,
+    'clickhouse-client',
+    '--user',
+    'clickhouse',
+    '--password',
+    'clickhouse',
+    '-q',
+    eventQuery,
+  ]);
+  if (Number(event.stdout.trim() || '0') < 1) mismatches += 1;
+  if (witnesses.eventId) {
+    const span = run('docker', [
+      'exec',
+      container,
+      'clickhouse-client',
+      '--user',
+      'clickhouse',
+      '--password',
+      'clickhouse',
+      '-q',
+      `SELECT count() FROM events_full WHERE span_id = '${witnesses.eventId}'`,
+    ]);
+    if (Number(span.stdout.trim() || '0') < 1) mismatches += 1;
+  } else {
+    mismatches += 1;
+  }
+  return mismatches;
+}
+
+async function verifyPublicApiWitnesses(
+  webPort: number,
+  witnesses: BackupManifest['witnesses']
+): Promise<number> {
+  const auth = basicAuth(CANARY_PUBLIC_KEY, CANARY_SECRET_KEY);
+  const base = `http://127.0.0.1:${webPort}`;
+  let mismatches = 0;
+
+  // Observation (trace/span) via public v2 API — legacy /traces is 404 in events_only.
+  const obs = await fetch(`${base}/api/public/v2/observations?traceId=${witnesses.traceId}`, {
+    headers: { Authorization: auth },
+  });
+  if (!obs.ok) {
+    mismatches += 1;
+  } else {
+    const body = (await obs.json()) as { data?: Array<{ id?: string }> };
+    const found = (body.data ?? []).some(
+      (row) => !witnesses.observationId || row.id === witnesses.observationId
+    );
+    if (!found) mismatches += 1;
+  }
+
+  if (!witnesses.scoreId) {
+    mismatches += 1;
+  } else {
+    const scores = await fetch(`${base}/api/public/v3/scores?limit=100&name=obs04-backup-score`, {
+      headers: { Authorization: auth },
+    });
+    if (!scores.ok) {
+      mismatches += 1;
+    } else {
+      const body = (await scores.json()) as { data?: Array<{ id?: string }> };
+      if (!(body.data ?? []).some((row) => row.id === witnesses.scoreId)) mismatches += 1;
+    }
+  }
+
+  if (!witnesses.objectKey) {
+    mismatches += 1;
+  } else {
+    const mediaId = witnesses.objectKey.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+    if (!mediaId) {
+      mismatches += 1;
+    } else {
+      const media = await fetch(`${base}/api/public/media/${mediaId}`, {
+        headers: { Authorization: auth },
+      });
+      if (!media.ok) mismatches += 1;
+    }
+  }
+
+  return mismatches;
 }
 
 export async function runIsolatedLangfuseRestore(input: {
@@ -544,16 +658,34 @@ export async function runIsolatedLangfuseRestore(input: {
     if (!existsSync(clickhouseDump)) {
       throw new Error(`clickhouse dump missing under ${stageRoot}`);
     }
-    applyClickHouseDump(input.restoreProject, clickhouseDump);
+    const scoresDump = join(stageRoot, 'clickhouse-scores.native');
+    applyClickHouseDump(
+      input.restoreProject,
+      clickhouseDump,
+      existsSync(scoresDump) ? scoresDump : undefined
+    );
     const minioDir = join(stageRoot, 'minio');
     if (existsSync(minioDir)) {
       applyMinioObjects(input.restoreProject, minioDir);
     }
 
+    // Restart web so it reloads restored Postgres/ClickHouse/media state.
+    run('docker', ['restart', `${input.restoreProject}-langfuse-web-1`], { timeout: 120_000 });
+    waitHealthy(input.restoreProject, input.evidenceDir);
+
     const expectedWitnessMismatchCount = verifyWitness(
       input.restoreProject,
       manifest.witnesses.traceId,
       manifest.witnesses.spanName
+    );
+    const eventSqlWitnessMismatchCount = verifyEventSqlWitness(
+      input.restoreProject,
+      manifest.witnesses
+    );
+    const webPort = resolveWebPort(input.restoreProject, input.evidenceDir);
+    const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(
+      webPort,
+      manifest.witnesses
     );
     const productionVolumeMountCount = countProductionMounts(
       input.restoreProject,
@@ -578,11 +710,15 @@ export async function runIsolatedLangfuseRestore(input: {
     return {
       ok:
         expectedWitnessMismatchCount === 0 &&
+        publicApiWitnessMismatchCount === 0 &&
+        eventSqlWitnessMismatchCount === 0 &&
         productionVolumeMountCount === 0 &&
         resticSnapshotCount >= 1 &&
         errors.length === 0,
       restoreProjectDistinct: true,
       expectedWitnessMismatchCount,
+      publicApiWitnessMismatchCount,
+      eventSqlWitnessMismatchCount,
       productionVolumeMountCount,
       resticSnapshotCount,
       restoredInventoryEmpty,
@@ -669,39 +805,82 @@ export async function proveLangfuseColdRestart(input: {
     manifest.witnesses.traceId,
     manifest.witnesses.spanName
   );
+  const webPort = resolveWebPort(input.project, input.evidenceDir);
+  const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(
+    webPort,
+    manifest.witnesses
+  );
 
   return {
-    ok: restartWitnessMismatchCount === 0 && !stateVolumeRecreated,
+    ok:
+      restartWitnessMismatchCount === 0 &&
+      publicApiWitnessMismatchCount === 0 &&
+      !stateVolumeRecreated,
     restartWitnessMismatchCount,
+    publicApiWitnessMismatchCount,
     stateVolumeRecreated: Boolean(stateVolumeRecreated && volumesBefore.size > 0),
     project: input.project,
   };
 }
 
+function listImagePrismaMigrations(image: string): string[] {
+  const listed = run(
+    'docker',
+    [
+      'run',
+      '--rm',
+      '--entrypoint',
+      'sh',
+      image,
+      '-c',
+      'ls -1 /app/packages/shared/prisma/migrations | grep -v migration_lock.toml | sort',
+    ],
+    { timeout: 180_000 }
+  );
+  if (listed.status !== 0) {
+    throw new Error(
+      `previous-image prisma migration listing failed: ${listed.stderr || listed.stdout}`
+    );
+  }
+  return listed.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listLivePrismaMigrations(postgresContainer: string): string[] {
+  const listed = run('docker', [
+    'exec',
+    postgresContainer,
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-tAc',
+    'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY migration_name',
+  ]);
+  if (listed.status !== 0) {
+    throw new Error(
+      `live _prisma_migrations probe failed: ${listed.stderr || listed.stdout}`
+    );
+  }
+  return listed.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Prove whether previousImage's bundled prisma migrations cover the live schema.
+ * Missing live heads ⇒ ROLLBACK_SCHEMA_INCOMPATIBLE before any docker/volume mutate.
+ */
 export async function evaluateLangfuseRollback(input: {
   previousImage: string;
-  currentSchemaVersion: string;
+  postgresContainer: string;
   mutate?: boolean;
 }): Promise<RollbackEvaluation> {
-  const incompatible =
-    input.currentSchemaVersion.startsWith('incompatible') ||
-    /0000000000000000000000000000000000000000000000000000000000000001/.test(input.previousImage);
-
-  if (incompatible) {
-    // Prove schema incompatibility before any state mutation.
-    if (input.mutate) {
-      // Deliberately do not apply any docker mutation.
-    }
-    return {
-      ok: false,
-      compatibleRollbackMismatchCount: 0,
-      incompatibleRollbackExitCode: 2,
-      incompatibleApplyCount: 0,
-      reason: 'ROLLBACK_SCHEMA_INCOMPATIBLE',
-    };
-  }
-
-  // Compatible path: previous image digest must be parseable and architecture-tagged.
+  const probeMethod = 'previous-image-prisma-migrations' as const;
   if (!/@sha256:[a-f0-9]{64}$/.test(input.previousImage)) {
     return {
       ok: false,
@@ -709,6 +888,23 @@ export async function evaluateLangfuseRollback(input: {
       incompatibleRollbackExitCode: 0,
       incompatibleApplyCount: 0,
       reason: 'previous image missing digest',
+      probeMethod,
+    };
+  }
+
+  const previousMigrations = new Set(listImagePrismaMigrations(input.previousImage));
+  const liveMigrations = listLivePrismaMigrations(input.postgresContainer);
+  const missing = liveMigrations.filter((name) => !previousMigrations.has(name));
+
+  if (missing.length > 0) {
+    // Incompatible: refuse before any docker/volume mutate (mutate flag ignored).
+    return {
+      ok: false,
+      compatibleRollbackMismatchCount: 0,
+      incompatibleRollbackExitCode: 2,
+      incompatibleApplyCount: 0,
+      reason: `ROLLBACK_SCHEMA_INCOMPATIBLE missing=${missing.join(',')}`,
+      probeMethod,
     };
   }
 
@@ -717,5 +913,6 @@ export async function evaluateLangfuseRollback(input: {
     compatibleRollbackMismatchCount: 0,
     incompatibleRollbackExitCode: 0,
     incompatibleApplyCount: 0,
+    probeMethod,
   };
 }

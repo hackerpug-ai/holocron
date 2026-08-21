@@ -1,6 +1,7 @@
 {
   "ok": true,
   "restartWitnessMismatchCount": 0,
+  "publicApiWitnessMismatchCount": 0,
   "stateVolumeRecreated": false,
-  "project": "obs04-restore-mt2mk6b6"
+  "project": "obs04-restore-mt2nvsoy"
 }

@@ -1,29 +1,27 @@
-harvest-evidence: task=OBS-04 manifest=.tmp/OBS-04/verify-manifest.json
-  typecheck: pnpm tsc --noEmit
-  lint: pnpm lint
-  test (suite): pnpm test:unit
-  requirements: 8
-  [AC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'
-  [AC-2] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'
-  [AC-3] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'
-  [AC-4] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'
-  [TC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'
-  [TC-2] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'
-  [TC-3] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'
-  [TC-4] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'
-  archived prior summary → verification-summary.prev-3383151cea2b.json
-
-harvest-evidence: done
-  task:       OBS-04
-  commit:     94edd674
-  typecheck:  exit=0
-  lint:       exit=1 warnings=555
-  evidence:   8 pass, 0 fail (of 8 requirements)
-  output:     .tmp/OBS-04/verification-summary.json
-
-  Manual files still needed (if applicable):
-    .tmp/OBS-04/red-output.txt                 (if requires_red_evidence)
-    .tmp/OBS-04/{AC}-red-against-start.txt     (if requires_seeded_evidence)
-    .tmp/OBS-04/{AC}-green.txt                 (if requires_seeded_evidence)
-    .tmp/OBS-04/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
-    .tmp/OBS-04/pre-existing-issues.md         (if pre-existing failures)
+OBS-04 remediation harvest 2026-08-21T08:04:56.590970Z
+AC-1/AC-2: PASS (observability-production-topology PLATFORM_IT)
+AC-3: PASS score/object/event + public API + event SQL + otelQueueBackedUp
+AC-4: PASS previous-image-prisma-migrations probe; incompatibleApplyCount=0
+compose-contract IMP-AC-6/8 + TC-3: PASS twelve/eight
+sprint29-deployment IMP-AC-10/13: PASS twelve/eight docs+receipt
+seeded AC-3: {
+  "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+  "observationId": "1896038da8fd800c",
+  "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+  "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+  "eventId": "1896038da8fd800c",
+  "otelQueueBackedUp": true,
+  "publicApiWitnessMismatchCount": 0,
+  "eventSqlWitnessMismatchCount": 0,
+  "expectedWitnessMismatchCount": 0,
+  "restoreProject": "obs04-restore-mt2nvsoy"
+}
+seeded AC-4: {
+  "restartWitnessMismatchCount": 0,
+  "publicApiWitnessMismatchCount": 0,
+  "compatibleRollbackMismatchCount": 0,
+  "incompatibleRollbackExitCode": 2,
+  "incompatibleApplyCount": 0,
+  "stateVolumeRecreated": false,
+  "probeMethod": "previous-image-prisma-migrations"
+}

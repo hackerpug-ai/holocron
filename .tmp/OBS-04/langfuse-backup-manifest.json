@@ -2,22 +2,25 @@
   "schemaVersion": 1,
   "task": "OBS-04",
   "sourceProject": "obs01-canary",
-  "createdAt": "2026-08-21T07:25:22.959Z",
+  "createdAt": "2026-08-21T08:02:24.813Z",
   "resticRepository": "restic-repo",
-  "resticSnapshotCount": 4,
+  "resticSnapshotCount": 6,
   "redisDisposition": "ephemeral-not-restored",
   "productionVolumeMountCount": 0,
+  "otelQueueBackedUp": true,
   "witnesses": {
-    "traceId": "35df335283f889cf8811c6e4e5581a10",
-    "observationId": "83aa844f1514f3e6",
-    "eventId": "83aa844f1514f3e6",
-    "objectKey": "events/otel/obs01-project/2026/08/21/07/25/5e6c683d-b5c7-4f04-bbbc-5fed48ab4f08.json",
+    "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+    "observationId": "1896038da8fd800c",
+    "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+    "eventId": "1896038da8fd800c",
+    "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
     "spanName": "obs04-backup-witness"
   },
   "checksums": {
-    "postgres": "0aacd0b2e947c9e9aeb26d45cee8e242784c6c5b7d4a40348a6242426d49ad36",
-    "clickhouse": "8c2e074e122f85bbc415119dfc2ea5108a5b8184bf14a6d08c9e73ffa006f185",
-    "minioTree": "d3699d421dcd1db224a3f409b2aa9a0173131c269136b327500f1c284d08ab58"
+    "postgres": "8c258363e8d2c336cb8ada3acfa4bb4d2ba2bf0677208e6fdb9347a988955021",
+    "clickhouse": "79a300e3feacb139e805fb1e2104e49ee0627bf79ea8a3d37c376b0da1ab0e62",
+    "clickhouseScores": "6c162f1493cd9eec02aa8239f076e6b1b5f356c923c982f4402b871ffbb89707",
+    "minioTree": "4a54f1331b0c16787d4210dfe7b41b5d1187619eca5b8318fbfff84dbea497aa"
   },
   "releaseLock": {
     "schemaVersion": 2,
