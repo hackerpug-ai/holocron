@@ -2,8 +2,8 @@
   "queueMetricSourceCount": 1,
   "terminalFailureCodeCount": 2,
   "terminalFailureCodes": [
-    "LANGFUSE_UNREACHABLE",
-    "EXPORT_FLUSH_TIMEOUT"
+    "EXPORT_FLUSH_TIMEOUT",
+    "LANGFUSE_UNREACHABLE"
   ],
   "queueDepth": 2,
   "queueCapacity": 1000,

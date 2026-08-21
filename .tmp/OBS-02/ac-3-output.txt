@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-02
+
+ ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 17508ms
+     ✓ AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence  17472ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 3 skipped (4)
+   Start at  22:43:32
+   Duration  17.72s (transform 196ms, setup 131ms, import 12ms, tests 17.51s, environment 0ms)
+
