@@ -9,7 +9,7 @@
   },
   "green": {
     "file": "green-output.txt",
-    "sha": "8c9dc6c4c8c22868d779b003ee3d119f9f733888",
+    "sha": "a18bc21b7e805043bad2f851920fb9b3dcd73971",
     "mtime": 1787280996,
     "sha256": "a52d9466334f5faf39ba6d0e334faa1fa63c51af54f1a67d83331959fbe4c086"
   },
@@ -17,11 +17,11 @@
   "waiver": false,
   "ok": true,
   "failure_codes": [],
-  "checked_at": "2026-08-21T03:31:57Z",
+  "checked_at": "2026-08-21T03:35:47Z",
   "generator": {
     "tool": "verify-tdd-lineage.sh",
     "version": "1.1",
-    "generated_at": "2026-08-21T03:31:57Z",
+    "generated_at": "2026-08-21T03:35:47Z",
     "inputs": [
       {
         "path": "red-output.txt",
