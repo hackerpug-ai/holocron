@@ -1,0 +1,7 @@
+{
+  "task_id": "OBS-01",
+  "mode": "red_first",
+  "red_sha": "86eb5a92eab3faf4ef7b2c4d4648c744f48f0344",
+  "green_sha": "d5966d513a8e38ea762257c34ac68a01bf26a580",
+  "distinct": true
+}
