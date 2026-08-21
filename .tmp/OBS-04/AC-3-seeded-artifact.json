@@ -1,12 +1,13 @@
 {
-  "traceId": "dfeacb32f006662175e0ba3d81d200c6",
-  "observationId": "1896038da8fd800c",
-  "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
-  "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
-  "eventId": "1896038da8fd800c",
-  "otelQueueBackedUp": true,
+  "expectedWitnessMismatchCount": 0,
   "publicApiWitnessMismatchCount": 0,
   "eventSqlWitnessMismatchCount": 0,
-  "expectedWitnessMismatchCount": 0,
-  "restoreProject": "obs04-restore-mt2nvsoy"
+  "restoreProjectDistinct": true,
+  "resticSnapshotCount": 12,
+  "productionVolumeMountCount": 0,
+  "restoreProject": "obs04-restore-mt2pa36e",
+  "sourceProject": "obs01-canary",
+  "scoreId": "b68fb26c-db90-4a6e-9356-d29bdde88a72",
+  "objectKey": "media/obs01-project/6aSJfPJ4Ir_XWqJ4MmKmEk.bin",
+  "otelQueueBackedUp": true
 }

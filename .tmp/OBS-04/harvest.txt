@@ -1,27 +1,8 @@
-OBS-04 remediation harvest 2026-08-21T08:04:56.590970Z
-AC-1/AC-2: PASS (observability-production-topology PLATFORM_IT)
-AC-3: PASS score/object/event + public API + event SQL + otelQueueBackedUp
-AC-4: PASS previous-image-prisma-migrations probe; incompatibleApplyCount=0
-compose-contract IMP-AC-6/8 + TC-3: PASS twelve/eight
-sprint29-deployment IMP-AC-10/13: PASS twelve/eight docs+receipt
-seeded AC-3: {
-  "traceId": "dfeacb32f006662175e0ba3d81d200c6",
-  "observationId": "1896038da8fd800c",
-  "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
-  "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
-  "eventId": "1896038da8fd800c",
-  "otelQueueBackedUp": true,
-  "publicApiWitnessMismatchCount": 0,
-  "eventSqlWitnessMismatchCount": 0,
-  "expectedWitnessMismatchCount": 0,
-  "restoreProject": "obs04-restore-mt2nvsoy"
-}
-seeded AC-4: {
-  "restartWitnessMismatchCount": 0,
-  "publicApiWitnessMismatchCount": 0,
-  "compatibleRollbackMismatchCount": 0,
-  "incompatibleRollbackExitCode": 2,
-  "incompatibleApplyCount": 0,
-  "stateVolumeRecreated": false,
-  "probeMethod": "previous-image-prisma-migrations"
-}
+OBS-04 technical remediation harvest 2026-08-21T08:43:53Z
+HEAD product: 1b5f4603cb2be7f740a018af162ae22d3b7e326a
+RED lineage: 97c7d636 (tests) / 59020c24 (red-output)
+GREEN product: a43942bf (12/8 verify + schemaVersion 2 + launchd/holo)
+AC-1..AC-4 / TC-1..TC-4: all exit 0 via harvest-evidence.sh
+portable verify: REQUIRED_SERVICES.length / REQUIRED_VOLUME_NAMES.length (12/8)
+readDeploymentRecord: schemaVersion === 2
+No AC-3/AC-4 regression.

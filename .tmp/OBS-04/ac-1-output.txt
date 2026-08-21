@@ -1,10 +1,10 @@
 
  RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
 
- ✓ |integration| services/platform/tests/integration/observability-production-topology.test.ts (2 tests | 1 skipped) 17ms
+ ✓ |integration| services/platform/tests/integration/observability-production-topology.test.ts (3 tests | 1 skipped) 42ms
 
  Test Files  1 passed (1)
-      Tests  1 passed | 1 skipped (2)
-   Start at  02:17:23
-   Duration  319ms (transform 100ms, setup 166ms, import 62ms, tests 17ms, environment 0ms)
+      Tests  2 passed | 1 skipped (3)
+   Start at  02:39:15
+   Duration  342ms (transform 141ms, setup 135ms, import 90ms, tests 42ms, environment 0ms)
 

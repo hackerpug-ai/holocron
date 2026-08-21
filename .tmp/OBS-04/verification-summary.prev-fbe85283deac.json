@@ -1,12 +1,12 @@
 {
   "task_id": "OBS-04",
-  "timestamp": "2026-08-21T08:43:13Z",
-  "commit_sha": "1b5f4603cb2be7f740a018af162ae22d3b7e326a",
+  "timestamp": "2026-08-21T08:20:54Z",
+  "commit_sha": "eca2056839f93c86e952ff408b934d1d5f0a6cae",
   "typecheck": {
     "exit_code": 0
   },
   "lint": {
-    "exit_code": 0,
+    "exit_code": 1,
     "warnings": 555
   },
   "pre_existing_issues": true,
@@ -60,13 +60,7 @@
         ],
         "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
         "platform": "linux/arm64",
-        "otelCanaryComposePresent": true,
-        "portableVerify": {
-          "serviceCount": 12,
-          "namedVolumeCount": 8,
-          "schemaVersion": 2,
-          "ok": true
-        }
+        "otelCanaryComposePresent": true
       },
       "red_against_start_file": ".tmp/OBS-04/AC-1-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-1-green.txt"
@@ -95,17 +89,16 @@
       "exit_code": 0,
       "output_file": ".tmp/OBS-04/ac-3-output.txt",
       "seeded_value": {
-        "expectedWitnessMismatchCount": 0,
+        "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+        "observationId": "1896038da8fd800c",
+        "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+        "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+        "eventId": "1896038da8fd800c",
+        "otelQueueBackedUp": true,
         "publicApiWitnessMismatchCount": 0,
         "eventSqlWitnessMismatchCount": 0,
-        "restoreProjectDistinct": true,
-        "resticSnapshotCount": 12,
-        "productionVolumeMountCount": 0,
-        "restoreProject": "obs04-restore-mt2pa36e",
-        "sourceProject": "obs01-canary",
-        "scoreId": "b68fb26c-db90-4a6e-9356-d29bdde88a72",
-        "objectKey": "media/obs01-project/6aSJfPJ4Ir_XWqJ4MmKmEk.bin",
-        "otelQueueBackedUp": true
+        "expectedWitnessMismatchCount": 0,
+        "restoreProject": "obs04-restore-mt2nvsoy"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-3-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-3-green.txt"
@@ -117,10 +110,12 @@
       "output_file": ".tmp/OBS-04/ac-4-output.txt",
       "seeded_value": {
         "restartWitnessMismatchCount": 0,
+        "publicApiWitnessMismatchCount": 0,
         "compatibleRollbackMismatchCount": 0,
         "incompatibleRollbackExitCode": 2,
         "incompatibleApplyCount": 0,
-        "stateVolumeRecreated": false
+        "stateVolumeRecreated": false,
+        "probeMethod": "previous-image-prisma-migrations"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-4-green.txt"
@@ -174,13 +169,7 @@
         ],
         "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
         "platform": "linux/arm64",
-        "otelCanaryComposePresent": true,
-        "portableVerify": {
-          "serviceCount": 12,
-          "namedVolumeCount": 8,
-          "schemaVersion": 2,
-          "ok": true
-        }
+        "otelCanaryComposePresent": true
       },
       "red_against_start_file": ".tmp/OBS-04/AC-1-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-1-green.txt"
@@ -209,17 +198,16 @@
       "exit_code": 0,
       "output_file": ".tmp/OBS-04/tc-3-output.txt",
       "seeded_value": {
-        "expectedWitnessMismatchCount": 0,
+        "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+        "observationId": "1896038da8fd800c",
+        "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+        "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+        "eventId": "1896038da8fd800c",
+        "otelQueueBackedUp": true,
         "publicApiWitnessMismatchCount": 0,
         "eventSqlWitnessMismatchCount": 0,
-        "restoreProjectDistinct": true,
-        "resticSnapshotCount": 12,
-        "productionVolumeMountCount": 0,
-        "restoreProject": "obs04-restore-mt2pa36e",
-        "sourceProject": "obs01-canary",
-        "scoreId": "b68fb26c-db90-4a6e-9356-d29bdde88a72",
-        "objectKey": "media/obs01-project/6aSJfPJ4Ir_XWqJ4MmKmEk.bin",
-        "otelQueueBackedUp": true
+        "expectedWitnessMismatchCount": 0,
+        "restoreProject": "obs04-restore-mt2nvsoy"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-3-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-3-green.txt"
@@ -231,10 +219,12 @@
       "output_file": ".tmp/OBS-04/tc-4-output.txt",
       "seeded_value": {
         "restartWitnessMismatchCount": 0,
+        "publicApiWitnessMismatchCount": 0,
         "compatibleRollbackMismatchCount": 0,
         "incompatibleRollbackExitCode": 2,
         "incompatibleApplyCount": 0,
-        "stateVolumeRecreated": false
+        "stateVolumeRecreated": false,
+        "probeMethod": "previous-image-prisma-migrations"
       },
       "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
       "green_file": ".tmp/OBS-04/AC-4-green.txt"
@@ -246,7 +236,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.2",
-    "generated_at": "2026-08-21T08:43:13Z",
+    "generated_at": "2026-08-21T08:20:54Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -254,7 +244,7 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "9c9573b730a3f20dfd7de89f3c2eb30f8d8bef60812313603287526bf28df027"
+        "sha256": "372dafa532123a02eeebfc30364a0df68ff93cf06c0b7032797f711dc162085a"
       },
       {
         "path": "test-output.txt",
@@ -262,35 +252,35 @@
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "42366a74fc01b73e4a16a574fef23446cf824cfe64e2ac39e0cd94ab689b48ab"
+        "sha256": "d748fd5a530c49684d2da792b140f075315ce53e1ebff0605cf0911f27af84e2"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "5f48df1b51446f0ba26c6a081342cf5b5a48b8eaa800c4113f4640e7047cbfdd"
+        "sha256": "200f3cfbc262ade4ed21771b9c4e7e7e0c3b2d2a477abeecbede29a68569b58b"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "38b40f958b2a4d164eaad58df6400c234706022882339c3ccd754cca714fcb0b"
+        "sha256": "b49e6caed910291479c413fafe1c56d135e6af42c723a0372546393632c16e13"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "9afcb410c74b9d44c4526417aed44aee3d5148ff9168d409f6b851ae1347c10f"
+        "sha256": "4e4154d90795e4044a51d74cb64242855b9ec7fb0739f80682a892ffe4d0fef0"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "931e7338abdad5a54980b432c7536e1b9afd537b95c8d24c41a38af5a8c64968"
+        "sha256": "3dcedeecdc090d13a586b5af2547b3d228c2604c96b6616a2235cd45eee70f32"
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "91400ee488151cc978121100cc00d75fa3facbe5b7e48b764d1c99ddb30edc33"
+        "sha256": "b393ee65629d5b93ad1c75406c61ad7ff2225a454db5e72327348e557cad4b53"
       },
       {
         "path": "tc-3-output.txt",
-        "sha256": "0c7d4aa12fd7d475adec9acb02c9ecffb14c761a37a9ece183cff721296a3d04"
+        "sha256": "c06d75d48f644ba0db949b3c0f5201d763501ef4454a119cfcc7559157d6ec7d"
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "6d7e65ebe175dd7ce02087f48da5eeee022c678bcdcbe47a3310f37131c65fc9"
+        "sha256": "10b2e24ee2b7dbb3d758fb5913364e9f6b36a7766393ebdb8feb45b2a3142ae1"
       },
       {
         "path": "pre-existing-issues.md",
