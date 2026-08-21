@@ -273,6 +273,150 @@ tailscale serve status --json   # identical before/after; funnel_endpoint_count=
 holo deploy:preflight --target holocron --port 44111 --json   # tailscale_serve ok
 ```
 
+## Public MCP remote access (Cloudflare Access login)
+
+Public MCP is `https://mcp.holocrnlib.com/mcp` (and `https://mcp.holocrnlib.com/mcp/*` only). The existing docs-share tunnel (`holocron-article-origin`) proxies that path to the private Mastra origin `http://127.0.0.1:44111`. **No Worker** on this path (MCP is POST JSON-RPC plus an optional long-lived SSE `GET /mcp`, not a cacheable GET). **Do not** enable Tailscale Funnel. **Do not** add `cloudflared` to Compose. **Do not** reuse or pattern-match the docs-share Access application.
+
+This hostname is gated by a Cloudflare Access **Self-hosted identity/login** policy (allow-listed operator email, or emails-ending-in the operator's domain — the operator's identity only). That is a different Access **policy type** than Public document share reader, which uses a **service-token** policy (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` held only by the Worker). Login here issues a **login JWT** (`Cf-Access-Jwt-Assertion`) after browser SSO. A service token will not satisfy this application, and this application's login JWT will not satisfy origin-docs.
+
+`HOLO_KEY_MCP` stays an independent second layer at the origin. Access JWT without that bearer is origin **401**. A foreign `Origin` header is still origin **403** `MCP_ORIGIN_REJECTED`. The all-or-nothing 45-tool MCP key model does not change.
+
+Value-free names: `HOLO_KEY_MCP`, `MCP_ACCESS_AUD_TAG`, `ZERO_TRUST_TEAM_NAME`. Never put JWT values, tunnel tokens, or Access AUD/team values in git, argv, or logs.
+
+Known SLA: Access session duration is **30 days** (the Access maximum). `cloudflared access login` is once per device per session; refresh the cached JWT when that session expires. The mini asleep is a client-visible connection error (no origin data). Unauthenticated requests must be an Access redirect/deny, never MCP JSON.
+
+### 1. DNS (zone must be on Cloudflare)
+
+Zone `holocrnlib.com` is on Cloudflare (status `active`). `dig mcp.holocrnlib.com` must return Cloudflare, not `*.ts.net`. Create the Access application on `mcp.holocrnlib.com` (identity/login policy only — not a service-token policy).
+
+- `mcp.holocrnlib.com` → Tunnel CNAME to
+  `<tunnel-id>.cfargotunnel.com` (proxied). Reuse the existing
+  `holocron-article-origin` tunnel; do not create a second tunnel.
+
+Do **not** add this CNAME until step 2 (Access app) and step 3 (Protect with Access on the ingress rule) are in place. A public hostname that hits `/mcp` without Access JWT validation would expose the origin to the internet behind only `HOLO_KEY_MCP`.
+
+### 2. Access identity/login application (not a service token)
+
+Enable Zero Trust Access on the account. Create a **Self-hosted** Access application covering `mcp.holocrnlib.com`:
+
+- Policy type: allow the operator's own identity (specific allow-listed email, or emails-ending-in the operator's domain). Use the IdP already configured for the account (Google/GitHub SSO). **Do not** add a service-auth / service-token include. **Do not** copy the `holocron-docs-reader` service-token application.
+- Session duration: **30 days** (`720h` — Access maximum).
+- Copy the application's AUD tag. That value is `MCP_ACCESS_AUD_TAG`. The Zero Trust team name is `ZERO_TRUST_TEAM_NAME` (the `teamName` in `cloudflared` origin parameters, not the zone name).
+
+Without a login JWT, `curl -si https://mcp.holocrnlib.com/mcp` must be Access **302** (login redirect) or **403** deny — never Mastra / MCP JSON, never `tools/list`.
+
+### 3. Tunnel on host `holocron` (`/mcp` and `/mcp/*` only, deny-all)
+
+Reuse the existing user LaunchAgent `com.holocron.cloudflared` (ancillary-guard slot) and operator-local `~/.cloudflared/config.yml` on holocron (not in git). Add MCP ingress **alongside** the existing `origin-docs.holocrnlib.com` `/article/*` rules. Enable **Protect with Access** so `cloudflared` validates `Cf-Access-Jwt-Assertion` **before** proxying. Official origin parameters require Access **AUD tag** + **teamName**, not only `required: true`. Do not set `disableChunkedEncoding: true` (SSE `GET /mcp` must stream).
+
+```yml
+ingress:
+  - hostname: origin-docs.holocrnlib.com
+    path: ^/article/[^/]+$
+    service: http://127.0.0.1:44111
+  - hostname: origin-docs.holocrnlib.com
+    service: http_status:404
+  - hostname: mcp.holocrnlib.com
+    path: ^/mcp(/.*)?$
+    service: http://127.0.0.1:44111
+    originRequest:
+      access:
+        required: true
+        teamName: <ZERO_TRUST_TEAM_NAME>
+        audTag:
+          - <MCP_ACCESS_AUD_TAG>
+  - hostname: mcp.holocrnlib.com
+    service: http_status:404
+  - service: http_status:404
+```
+
+Reload the LaunchAgent after editing (`launchctl kickstart -k gui/$(id -u)/com.holocron.cloudflared`). Confirm the process still uses `--config ~/.cloudflared/config.yml`. Adjacent paths (`/api/*`, `/blobs/*`, `/mcp/../..`) must hit the hostname deny-all **404** (or Access deny) — not Mastra JSON.
+
+### 4. Per-device client (login JWT, then MCP bearer)
+
+Access login is a browser-redirect flow. A plain JSON-RPC MCP client cannot complete it. Once per device, then monthly when the 30-day session expires:
+
+```sh
+# one-time (opens a browser for SSO against the identity policy)
+cloudflared access login mcp.holocrnlib.com
+
+# print the cached login JWT (do not commit, log, or paste into git)
+cloudflared access token -app=mcp.holocrnlib.com
+```
+
+Put that JWT on requests as custom header `Cf-Access-Jwt-Assertion`. This works for MCP clients that support custom headers on HTTP / streamable-HTTP transport config. Clients that cannot set custom headers cannot use the public hostname.
+
+Then send `Authorization: Bearer $HOLO_KEY_MCP` as today. Load the key from the operator secret store (`HOLO_SECRETS_PATH` / `secrets.yaml`); never echo it.
+
+`cloudflared access curl https://mcp.holocrnlib.com/mcp` is a convenience wrapper for ad-hoc curls; production MCP client config should still set `Cf-Access-Jwt-Assertion` explicitly so Protect with Access can validate it.
+
+### 5. Serve must stay private (Funnel-zero)
+
+```sh
+tailscale serve status --json   # identical before/after; funnel_endpoint_count=0
+# Private tailnet MCP is unchanged:
+#   https://holocron.tail011a51.ts.net:44111/mcp
+```
+
+### Live checks
+
+Expect refuse (Access challenge, not origin data) + expect success. Run unauthenticated curls twice (consistent). Run the authenticated `tools/list` success path twice.
+
+```sh
+# Unauthenticated — Access 302/403, NOT MCP JSON / tools/list / Mastra body
+curl -si https://mcp.holocrnlib.com/mcp
+curl -si https://mcp.holocrnlib.com/mcp
+
+# Adjacent / adversarial — tunnel/Access deny, not Mastra JSON
+curl -si https://mcp.holocrnlib.com/api/missions
+curl -si https://mcp.holocrnlib.com/blobs/x
+curl -si https://mcp.holocrnlib.com/mcp/../health
+curl -si https://mcp.holocrnlib.com/mcp/../..
+
+# Access JWT, no HOLO_KEY_MCP — origin 401
+JWT="$(cloudflared access token -app=mcp.holocrnlib.com)"
+curl -si https://mcp.holocrnlib.com/mcp \
+  -H "Cf-Access-Jwt-Assertion: ${JWT}" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"mcp-public-check","version":"1"}}}'
+
+# Access JWT + HOLO_KEY_MCP — 200 tools/list (non-empty tools, not an error envelope)
+# Use Authorization from env — do not put the key on the command line.
+python3 - <<'PY'
+import json, os, urllib.request
+jwt = os.environ["JWT"]
+key = os.environ["HOLO_KEY_MCP"]
+url = "https://mcp.holocrnlib.com/mcp"
+headers = {
+    "Cf-Access-Jwt-Assertion": jwt,
+    "Authorization": f"Bearer {key}",
+    "Accept": "application/json, text/event-stream",
+    "Content-Type": "application/json",
+}
+def post(body):
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        print("status", r.status)
+        return json.loads(r.read().decode())
+post({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"mcp-public-check","version":"1"}}})
+listed = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}})
+tools = (listed.get("result") or {}).get("tools") or []
+print("tools_count", len(tools))
+print("error_envelope", bool(listed.get("error")))
+PY
+
+# GET /mcp SSE must stream (not buffered/dropped)
+curl -sN --max-time 5 \
+  -H "Cf-Access-Jwt-Assertion: ${JWT}" \
+  -H "Authorization: Bearer ${HOLO_KEY_MCP}" \
+  -H "Accept: text/event-stream" \
+  https://mcp.holocrnlib.com/mcp
+
+# Funnel-zero
+tailscale serve status --json
+```
+
 ## Host preflight (non-mutating)
 
 ```sh
