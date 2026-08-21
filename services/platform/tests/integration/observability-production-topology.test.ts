@@ -10,11 +10,23 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
-import { REQUIRED_PLATFORM, REQUIRED_SERVICES } from '../../src/deploy/production-release.ts';
+import {
+  buildPortableDeploymentReceipt,
+  DEFAULT_LOOPBACK_PORT,
+  DEFAULT_MEMORY_LIMITS_GIB,
+  readDeploymentRecord,
+} from '../../src/deploy/production-deploy.ts';
+import {
+  REQUIRED_PLATFORM,
+  REQUIRED_SERVICES,
+  REQUIRED_VOLUME_NAMES,
+} from '../../src/deploy/production-release.ts';
+import { verifyPortableDeploymentReceipt } from '../../src/deploy/verify-production.ts';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
@@ -523,4 +535,185 @@ describe('OBS-04 production topology', () => {
     writeEvidence('capacity-decision.json', capacity);
     writeEvidence('AC-2-seeded-artifact.json', matrix);
   }, 300_000);
+
+  it('AC-1: portable receipt verify accepts twelve-service schemaVersion 2 receipts', async () => {
+    requirePlatformIt();
+    const verifySource = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/src/deploy/verify-production.ts'),
+      'utf8'
+    );
+    expect(
+      verifySource,
+      'verifyPortableDeploymentReceipt must not hardcode live_service_count===4'
+    ).not.toMatch(/liveServiceCount === 4/);
+    expect(
+      verifySource,
+      'verifyPortableDeploymentReceipt must not hardcode live_volume_count===2'
+    ).not.toMatch(/liveVolumeCount === 2/);
+    expect(
+      verifySource,
+      'receipt_volumes check must use REQUIRED_VOLUME_NAMES.length'
+    ).toMatch(/durableVolumes\.length === REQUIRED_VOLUME_NAMES\.length|REQUIRED_VOLUME_NAMES\.length/);
+
+    const deploySource = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/src/deploy/production-deploy.ts'),
+      'utf8'
+    );
+    expect(
+      deploySource,
+      'readDeploymentRecord must accept schemaVersion 2 written by apply/buildPortableDeploymentReceipt'
+    ).toMatch(/value\.schemaVersion !== 2/);
+    expect(deploySource).not.toMatch(/value\.schemaVersion !== 1/);
+
+    const digest = `sha256:${'a1'.repeat(32)}`;
+    const revision = 'b2'.repeat(20);
+    const composeSha = 'c3'.repeat(32);
+    const generation = 'holocron-0123456789abcdef01234567';
+    const host = 'holocron';
+    const baseUrl = 'https://holocron.tail011a51.ts.net:44111';
+    const serveUrl = baseUrl;
+    const containers = Object.fromEntries(
+      REQUIRED_SERVICES.map((service, index) => [service, `${(index + 1).toString(16).padStart(2, '0')}`.repeat(32)])
+    ) as Record<(typeof REQUIRED_SERVICES)[number], string>;
+    const memoryBytes = Object.fromEntries(
+      REQUIRED_SERVICES.map((service) => [
+        service,
+        Math.round(Number(DEFAULT_MEMORY_LIMITS_GIB[service]) * 1024 ** 3),
+      ])
+    ) as Record<string, number>;
+
+    const root = mkdtempSync(resolve(tmpdir(), 'obs04-portable-verify-'));
+    const recordPath = resolve(root, 'deployment-record.json');
+    try {
+      const receipt = buildPortableDeploymentReceipt({
+        authorizationScope: `${host}:${digest}`,
+        host,
+        baseUrl,
+        loopbackPort: DEFAULT_LOOPBACK_PORT,
+        serveHttpsPort: DEFAULT_LOOPBACK_PORT,
+        serveUrl,
+        privateServeTarget: 'http://127.0.0.1:44111',
+        project: 'holocron-production',
+        image: `registry.local/holocron-platform@${digest}`,
+        imageDigest: digest,
+        sourceRevision: revision,
+        composeSha256: composeSha,
+        composeGeneration: generation,
+        deployedAt: '2026-08-21T00:00:00.000Z',
+        containers,
+        previousImage: `registry.local/holocron-platform@sha256:${'e5'.repeat(32)}`,
+        previousDigest: `sha256:${'e5'.repeat(32)}`,
+        memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
+        releasePath: resolve(root, 'release.json'),
+        composePath: resolve(root, 'compose.yaml'),
+        overridePath: resolve(root, 'override.yaml'),
+      });
+      expect(receipt.schemaVersion).toBe(2);
+      expect(receipt.services.length).toBe(REQUIRED_SERVICES.length);
+      expect(receipt.durableVolumes.length).toBe(REQUIRED_VOLUME_NAMES.length);
+      writeFileSync(recordPath, `${JSON.stringify(receipt, null, 2)}\n`);
+
+      const roundTrip = readDeploymentRecord(recordPath);
+      expect(roundTrip.schemaVersion, 'readDeploymentRecord must accept schemaVersion 2').toBe(2);
+      expect(roundTrip.services.length).toBe(12);
+      expect(roundTrip.durableVolumes.length).toBe(8);
+
+      const idToService = Object.fromEntries(
+        Object.entries(containers).map(([service, id]) => [id, service])
+      );
+      const runner = (
+        command: string,
+        args: string[],
+        _options: { cwd: string; env: NodeJS.ProcessEnv }
+      ) => {
+        if (command === 'docker' && args[0] === 'inspect') {
+          const id = args.at(-1) ?? '';
+          const service = idToService[id];
+          if (service) {
+            return {
+              status: 0,
+              stdout: `true|${service}|${memoryBytes[service]}\n`,
+              stderr: '',
+            };
+          }
+          return { status: 1, stdout: '', stderr: 'Error: No such object' };
+        }
+        if (command === 'docker' && args[0] === 'volume' && args[1] === 'inspect') {
+          const name = args.at(-1) ?? '';
+          if ((REQUIRED_VOLUME_NAMES as readonly string[]).includes(name)) {
+            return { status: 0, stdout: `${name}\n`, stderr: '' };
+          }
+          return { status: 1, stdout: '', stderr: '' };
+        }
+        if (command === 'tailscale' && args[0] === 'serve') {
+          return { status: 0, stdout: '{}\n', stderr: '' };
+        }
+        if (command === 'tailscale' && args[0] === 'status') {
+          return {
+            status: 0,
+            stdout: `${JSON.stringify({
+              Self: { DNSName: 'holocron.tail011a51.ts.net.', HostName: 'holocron' },
+            })}\n`,
+            stderr: '',
+          };
+        }
+        return { status: 1, stdout: '', stderr: 'unexpected command in OBS-04 portable verify' };
+      };
+
+      const healthBody = {
+        status: 'ok',
+        postgres: { ready: true },
+        fleet: { ready: true },
+        queue: { ready: true },
+        zeroCache: { ready: true },
+        deployment: {
+          ready: true,
+          identity: {
+            host,
+            runtime: 'container',
+            imageDigest: digest,
+            sourceRevision: revision,
+            composeGeneration: generation,
+            composeSha256: composeSha,
+            deployedAt: receipt.deployedAt,
+            pid: 1,
+            uptimeMs: 1000,
+          },
+        },
+      };
+      const fetchImpl: typeof fetch = Object.assign(
+        async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes('/health')) {
+            return Response.json(healthBody, { status: 200 });
+          }
+          return new Response('missing', { status: 404 });
+        },
+        { preconnect: () => undefined }
+      );
+
+      const report = await verifyPortableDeploymentReceipt({
+        recordPath,
+        cwd: root,
+        runner,
+        fetchImpl,
+      });
+      expect(report.ok).toBe(true);
+      expect(report.receipt.serviceCount).toBe(REQUIRED_SERVICES.length);
+      expect(report.receipt.namedVolumeCount).toBe(REQUIRED_VOLUME_NAMES.length);
+      expect(report.dimensions.find((d) => d.name === 'receipt_services')?.ok).toBe(true);
+      expect(report.dimensions.find((d) => d.name === 'receipt_volumes')?.ok).toBe(true);
+      expect(report.dimensions.find((d) => d.name === 'live_services')?.ok).toBe(true);
+      expect(report.dimensions.find((d) => d.name === 'live_volumes')?.ok).toBe(true);
+
+      writeEvidence('AC-1-portable-verify-seeded.json', {
+        serviceCount: report.receipt.serviceCount,
+        namedVolumeCount: report.receipt.namedVolumeCount,
+        schemaVersion: roundTrip.schemaVersion,
+        ok: report.ok,
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

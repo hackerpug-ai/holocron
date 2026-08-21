@@ -609,6 +609,16 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(documentedNamedVolumeCount, 'documented_named_volume_count').toBe(8);
     expect(runbook).toMatch(/twelve-service|12/);
     expect(runbook).toMatch(/eight-volume|8/);
+
+    const launchdReadme = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/launchd/README.md'),
+      'utf8'
+    );
+    expect(launchdReadme, 'launchd README must document twelve-service Docker production').toMatch(
+      /twelve-service|12 services|running_service_count=12/
+    );
+    expect(launchdReadme).not.toMatch(/running_service_count=4/);
+    expect(launchdReadme).not.toMatch(/Exactly \*\*four\*\* runtime services/);
     expect(
       documentedRollbackPreflightCount,
       'documented_rollback_preflight_count'
