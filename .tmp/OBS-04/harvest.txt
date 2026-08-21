@@ -1,0 +1,29 @@
+harvest-evidence: task=OBS-04 manifest=.tmp/OBS-04/verify-manifest.json
+  typecheck: pnpm tsc --noEmit
+  lint: pnpm lint
+  test (suite): pnpm test:unit
+  requirements: 8
+  [AC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'
+  [AC-2] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'
+  [AC-3] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'
+  [AC-4] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'
+  [TC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'
+  [TC-2] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'
+  [TC-3] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'
+  [TC-4] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'
+  archived prior summary → verification-summary.prev-3383151cea2b.json
+
+harvest-evidence: done
+  task:       OBS-04
+  commit:     94edd674
+  typecheck:  exit=0
+  lint:       exit=1 warnings=555
+  evidence:   8 pass, 0 fail (of 8 requirements)
+  output:     .tmp/OBS-04/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/OBS-04/red-output.txt                 (if requires_red_evidence)
+    .tmp/OBS-04/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/OBS-04/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/OBS-04/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/OBS-04/pre-existing-issues.md         (if pre-existing failures)

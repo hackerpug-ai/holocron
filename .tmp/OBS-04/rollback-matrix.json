@@ -1,0 +1,7 @@
+{
+  "restartWitnessMismatchCount": 0,
+  "compatibleRollbackMismatchCount": 0,
+  "incompatibleRollbackExitCode": 2,
+  "incompatibleApplyCount": 0,
+  "stateVolumeRecreated": false
+}

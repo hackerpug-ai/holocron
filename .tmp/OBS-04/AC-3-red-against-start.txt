@@ -1,0 +1,27 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ❯ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 failed | 1 skipped) 5ms
+     × AC-3: consistent backup restores witnesses into an isolated project 4ms
+     ↓ AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-backup-restore.test.ts > OBS-04 backup restore lifecycle > AC-3: consistent backup restores witnesses into an isolated project
+Error: Cannot find module '/services/platform/src/backup/langfuse-backup.ts' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04/services/platform/tests/integration/observability-backup-restore.test.ts
+ ❯ services/platform/tests/integration/observability-backup-restore.test.ts:53:26
+     51|     requirePlatformIt();
+     52|
+     53|     const backupModule = await import('../../src/backup/langfuse-backu…
+       |                          ^
+     54|     expect(
+     55|       'runLangfuseConsistentBackup' in backupModule,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  00:54:14
+   Duration  282ms (transform 77ms, setup 196ms, import 8ms, tests 5ms, environment 0ms)
+

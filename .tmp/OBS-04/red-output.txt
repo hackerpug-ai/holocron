@@ -1,0 +1,131 @@
+=== OBS-04 RED against start (aggregate) ===
+
+----- AC-1 -----
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ❯ |integration| services/platform/tests/integration/observability-production-topology.test.ts (1 test | 1 failed) 16ms
+     × AC-1: canonical Compose + ReleaseLock v2 match OBS-01's exact ARM64 topology 14ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-production-topology.test.ts > OBS-04 production topology > AC-1: canonical Compose + ReleaseLock v2 match OBS-01's exact ARM64 topology
+AssertionError: REQUIRED_SERVICES must be the twelve-service topology: expected 4 to be 12 // Object.is equality
+
+- Expected
++ Received
+
+- 12
++ 4
+
+ ❯ services/platform/tests/integration/observability-production-topology.test.ts:161:95
+    159|       (volumeKeys.join(',') === [...EXPECTED_VOLUME_KEYS].sort().join(…
+    160|
+    161|     expect(REQUIRED_SERVICES.length, 'REQUIRED_SERVICES must be the tw…
+       |                                                                                               ^
+    162|       12
+    163|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  23:55:10
+   Duration  359ms (transform 93ms, setup 208ms, import 61ms, tests 16ms, environment 0ms)
+
+
+----- AC-2 -----
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ❯ |integration| services/platform/tests/integration/observability-production-topology.test.ts (2 tests | 1 failed | 1 skipped) 101ms
+     ↓ AC-1: canonical Compose + ReleaseLock v2 match OBS-01's exact ARM64 topology
+     × AC-2: missing secrets fail closed and capacity accounts for twelve services 92ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-production-topology.test.ts > OBS-04 production topology > AC-2: missing secrets fail closed and capacity accounts for twelve services
+AssertionError: production-deploy must export REQUIRED_OBSERVABILITY_SECRET_NAMES: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/observability-production-topology.test.ts:344:7
+    342|       'REQUIRED_OBSERVABILITY_SECRET_NAMES' in deployModule,
+    343|       'production-deploy must export REQUIRED_OBSERVABILITY_SECRET_NAM…
+    344|     ).toBe(true);
+       |       ^
+    345|     expect(
+    346|       'preflightObservabilitySecrets' in deployModule,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  00:09:01
+   Duration  1.18s (transform 337ms, setup 693ms, import 202ms, tests 101ms, environment 0ms)
+
+
+----- AC-3 -----
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ❯ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 failed | 1 skipped) 5ms
+     × AC-3: consistent backup restores witnesses into an isolated project 4ms
+     ↓ AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-backup-restore.test.ts > OBS-04 backup restore lifecycle > AC-3: consistent backup restores witnesses into an isolated project
+Error: Cannot find module '/services/platform/src/backup/langfuse-backup.ts' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04/services/platform/tests/integration/observability-backup-restore.test.ts
+ ❯ services/platform/tests/integration/observability-backup-restore.test.ts:53:26
+     51|     requirePlatformIt();
+     52|
+     53|     const backupModule = await import('../../src/backup/langfuse-backu…
+       |                          ^
+     54|     expect(
+     55|       'runLangfuseConsistentBackup' in backupModule,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  00:54:14
+   Duration  282ms (transform 77ms, setup 196ms, import 8ms, tests 5ms, environment 0ms)
+
+
+----- AC-4 -----
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ❯ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 failed | 1 skipped) 5ms
+     ↓ AC-3: consistent backup restores witnesses into an isolated project
+     × AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-backup-restore.test.ts > OBS-04 backup restore lifecycle > AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation
+Error: Cannot find module '/services/platform/src/backup/langfuse-restore.ts' imported from /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04/services/platform/tests/integration/observability-backup-restore.test.ts
+ ❯ services/platform/tests/integration/observability-backup-restore.test.ts:163:27
+    161|     requirePlatformIt();
+    162|
+    163|     const restoreModule = await import('../../src/backup/langfuse-rest…
+       |                           ^
+    164|     expect(
+    165|       'proveLangfuseColdRestart' in restoreModule,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  00:54:14
+   Duration  194ms (transform 68ms, setup 116ms, import 8ms, tests 5ms, environment 0ms)
+
+

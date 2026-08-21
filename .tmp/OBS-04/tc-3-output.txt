@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ✓ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 skipped) 55008ms
+     ✓ AC-3: consistent backup restores witnesses into an isolated project  55007ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  01:25:18
+   Duration  55.27s (transform 102ms, setup 158ms, import 8ms, tests 55.01s, environment 0ms)
+

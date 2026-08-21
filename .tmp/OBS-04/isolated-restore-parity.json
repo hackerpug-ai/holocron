@@ -1,0 +1,8 @@
+{
+  "expectedWitnessMismatchCount": 0,
+  "restoreProjectDistinct": true,
+  "resticSnapshotCount": 4,
+  "productionVolumeMountCount": 0,
+  "restoreProject": "obs04-restore-mt2mk6b6",
+  "sourceProject": "obs01-canary"
+}
