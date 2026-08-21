@@ -121,27 +121,57 @@ function countProductionMounts(project: string, denyList: string[]): number {
   return count;
 }
 
-function writeIsolatedCompose(project: string, workDir: string): string {
+function projectPortBase(project: string): number {
+  // Stable unique host-port window per restore project (avoids harvest re-run collisions).
+  let hash = 0;
+  for (let i = 0; i < project.length; i += 1) {
+    hash = (hash * 33 + project.charCodeAt(i)) >>> 0;
+  }
+  return 25000 + (hash % 4000);
+}
+
+function writeIsolatedCompose(
+  project: string,
+  workDir: string,
+  evidenceDir?: string
+): { composePath: string; webPort: number } {
   mkdirSync(workDir, { recursive: true });
   if (!existsSync(CANARY_COMPOSE)) {
     throw new Error(`canary compose missing at ${CANARY_COMPOSE}`);
   }
+  const base = projectPortBase(project);
+  const ports = {
+    pg: base + 1,
+    redis: base + 2,
+    chHttp: base + 3,
+    chNative: base + 4,
+    minio: base + 5,
+    minioConsole: base + 6,
+    worker: base + 7,
+    web: base + 8,
+    otlp: base + 9,
+    metrics: base + 10,
+    health: base + 11,
+  };
   const raw = readFileSync(CANARY_COMPOSE, 'utf8');
-  // Remap published ports away from obs01-canary / production listeners.
+  // Remap published ports away from obs01-canary / production / sibling restores.
   const remapped = raw
     .replace(/^name:\s*.+$/m, `name: ${project}`)
-    .replace(/127\.0\.0\.1:15432:5432/g, '127.0.0.1:25432:5432')
-    .replace(/127\.0\.0\.1:16379:6379/g, '127.0.0.1:26379:6379')
-    .replace(/127\.0\.0\.1:18123:8123/g, '127.0.0.1:28123:8123')
-    .replace(/127\.0\.0\.1:19000:9000/g, '127.0.0.1:29000:9000')
-    .replace(/127\.0\.0\.1:19090:9000/g, '127.0.0.1:29090:9000')
-    .replace(/127\.0\.0\.1:19091:9001/g, '127.0.0.1:29091:9001')
-    .replace(/127\.0\.0\.1:13030:3030/g, '127.0.0.1:23030:3030')
-    .replace(/127\.0\.0\.1:13100:3000/g, '127.0.0.1:23100:3000')
-    .replace(/127\.0\.0\.1:14318:4318/g, '127.0.0.1:24318:4318')
-    .replace(/127\.0\.0\.1:18888:8888/g, '127.0.0.1:28888:8888')
-    .replace(/127\.0\.0\.1:13133:13133/g, '127.0.0.1:23133:13133')
-    .replace(/NEXTAUTH_URL:\s*http:\/\/127\.0\.0\.1:13100/g, 'NEXTAUTH_URL: http://127.0.0.1:23100')
+    .replace(/127\.0\.0\.1:15432:5432/g, `127.0.0.1:${ports.pg}:5432`)
+    .replace(/127\.0\.0\.1:16379:6379/g, `127.0.0.1:${ports.redis}:6379`)
+    .replace(/127\.0\.0\.1:18123:8123/g, `127.0.0.1:${ports.chHttp}:8123`)
+    .replace(/127\.0\.0\.1:19000:9000/g, `127.0.0.1:${ports.chNative}:9000`)
+    .replace(/127\.0\.0\.1:19090:9000/g, `127.0.0.1:${ports.minio}:9000`)
+    .replace(/127\.0\.0\.1:19091:9001/g, `127.0.0.1:${ports.minioConsole}:9001`)
+    .replace(/127\.0\.0\.1:13030:3030/g, `127.0.0.1:${ports.worker}:3030`)
+    .replace(/127\.0\.0\.1:13100:3000/g, `127.0.0.1:${ports.web}:3000`)
+    .replace(/127\.0\.0\.1:14318:4318/g, `127.0.0.1:${ports.otlp}:4318`)
+    .replace(/127\.0\.0\.1:18888:8888/g, `127.0.0.1:${ports.metrics}:8888`)
+    .replace(/127\.0\.0\.1:13133:13133/g, `127.0.0.1:${ports.health}:13133`)
+    .replace(
+      /NEXTAUTH_URL:\s*http:\/\/127\.0\.0\.1:13100/g,
+      `NEXTAUTH_URL: http://127.0.0.1:${ports.web}`
+    )
     .replace(/obs01_pg/g, `${project}_pg`)
     .replace(/obs01_redis/g, `${project}_redis`)
     .replace(/obs01_ch_data/g, `${project}_ch_data`)
@@ -154,7 +184,36 @@ function writeIsolatedCompose(project: string, workDir: string): string {
   if (existsSync(CANARY_OTEL_CONFIG)) {
     copyFileSync(CANARY_OTEL_CONFIG, join(workDir, 'otel-collector-config.yaml'));
   }
-  return composePath;
+  if (evidenceDir) {
+    writeFileSync(
+      join(evidenceDir, 'isolated-restore-web-port.txt'),
+      `${ports.web}\n`
+    );
+  }
+  return { composePath, webPort: ports.web };
+}
+
+function stopSiblingRestoreProjects(exceptProject: string): void {
+  const listed = run('docker', [
+    'ps',
+    '-a',
+    '--filter',
+    'label=com.docker.compose.project',
+    '--format',
+    '{{.Label "com.docker.compose.project"}}',
+  ]);
+  const projects = [
+    ...new Set(
+      listed.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((name) => name.startsWith('obs04-restore-') && name !== exceptProject)
+    ),
+  ];
+  for (const project of projects) {
+    // Stop only — never down -v.
+    run('docker', ['compose', '-p', project, 'stop'], { timeout: 180_000 });
+  }
 }
 
 function waitClickHouseNative(project: string, timeoutMs = 120_000): void {
@@ -182,15 +241,34 @@ function waitClickHouseNative(project: string, timeoutMs = 120_000): void {
   throw new Error(`clickhouse native not ready for ${project}`);
 }
 
-function waitHealthy(project: string, timeoutMs = 240_000): void {
+function resolveWebPort(project: string, evidenceDir?: string): number {
+  if (evidenceDir) {
+    const hint = join(evidenceDir, 'isolated-restore-web-port.txt');
+    if (existsSync(hint)) {
+      const parsed = Number(readFileSync(hint, 'utf8').trim());
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return projectPortBase(project) + 8;
+}
+
+function waitHealthy(project: string, evidenceDir?: string, timeoutMs = 240_000): void {
   waitClickHouseNative(project);
+  const webPort = resolveWebPort(project, evidenceDir);
   const web = `${project}-langfuse-web-1`;
   const started = Date.now();
   let restarted = false;
   while (Date.now() - started < timeoutMs) {
     const health = run(
       'curl',
-      ['-sS', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:23100/api/public/health'],
+      [
+        '-sS',
+        '-o',
+        '/dev/null',
+        '-w',
+        '%{http_code}',
+        `http://127.0.0.1:${webPort}/api/public/health`,
+      ],
       { timeout: 10_000 }
     );
     if (health.stdout.trim() === '200') return;
@@ -377,7 +455,11 @@ export async function runIsolatedLangfuseRestore(input: {
   const volumesBefore = new Set(volumeNames());
   const manifest = JSON.parse(readFileSync(input.manifestPath, 'utf8')) as BackupManifest;
   const workDir = mkdtempSync(join(tmpdir(), 'obs04-restore-compose-'));
-  const composePath = writeIsolatedCompose(input.restoreProject, workDir);
+  const { composePath } = writeIsolatedCompose(
+    input.restoreProject,
+    workDir,
+    input.evidenceDir
+  );
   const restoreStage = mkdtempSync(join(tmpdir(), 'obs04-restore-stage-'));
 
   try {
@@ -404,7 +486,8 @@ export async function runIsolatedLangfuseRestore(input: {
       });
     }
 
-    // Free Docker Desktop memory headroom: stop canary web/worker only (no -v).
+    // Free Docker Desktop memory headroom: stop canary web/worker and sibling restores (no -v).
+    stopSiblingRestoreProjects(input.restoreProject);
     run('docker', ['stop', 'obs01-canary-langfuse-web-1', 'obs01-canary-langfuse-worker-1'], {
       timeout: 120_000,
     });
@@ -457,7 +540,7 @@ export async function runIsolatedLangfuseRestore(input: {
       throw new Error(`isolated compose app up failed: ${upApp.stderr || upApp.stdout}`);
     }
 
-    waitHealthy(input.restoreProject);
+    waitHealthy(input.restoreProject, input.evidenceDir);
 
     const resticSnapshotCount = restoreResticSnapshot(input.evidenceDir, restoreStage);
     const stageRoot = findStageRoot(restoreStage);
@@ -530,7 +613,7 @@ export async function proveLangfuseColdRestart(input: {
     ? dirname(composePath)
     : mkdtempSync(join(tmpdir(), 'obs04-restart-'));
   if (!composePath || !existsSync(composePath)) {
-    composePath = writeIsolatedCompose(input.project, workDir);
+    ({ composePath } = writeIsolatedCompose(input.project, workDir, input.evidenceDir));
   }
 
   const volumesBefore = new Set(
@@ -543,15 +626,23 @@ export async function proveLangfuseColdRestart(input: {
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as BackupManifest;
 
+  stopSiblingRestoreProjects(input.project);
+  run('docker', ['stop', 'obs01-canary-langfuse-web-1', 'obs01-canary-langfuse-worker-1'], {
+    timeout: 120_000,
+  });
+
   // Ensure project is up.
   const up = run('docker', ['compose', '-p', input.project, '-f', composePath, 'up', '-d'], {
     cwd: workDir,
     timeout: 300_000,
   });
   if (up.status !== 0) {
+    run('docker', ['start', 'obs01-canary-langfuse-web-1', 'obs01-canary-langfuse-worker-1'], {
+      timeout: 120_000,
+    });
     throw new Error(`restart compose up failed: ${up.stderr || up.stdout}`);
   }
-  waitHealthy(input.project);
+  waitHealthy(input.project, input.evidenceDir);
 
   // Cold restart: stop then start (no recreate / no -v).
   run('docker', ['compose', '-p', input.project, '-f', composePath, 'stop'], {
@@ -563,9 +654,15 @@ export async function proveLangfuseColdRestart(input: {
     timeout: 180_000,
   });
   if (start.status !== 0) {
+    run('docker', ['start', 'obs01-canary-langfuse-web-1', 'obs01-canary-langfuse-worker-1'], {
+      timeout: 120_000,
+    });
     throw new Error(`compose start failed: ${start.stderr || start.stdout}`);
   }
-  waitHealthy(input.project);
+  waitHealthy(input.project, input.evidenceDir);
+  run('docker', ['start', 'obs01-canary-langfuse-web-1', 'obs01-canary-langfuse-worker-1'], {
+    timeout: 120_000,
+  });
 
   const volumesAfter = new Set(
     volumeNames().filter((name) => name.startsWith(`${input.project}_`))
