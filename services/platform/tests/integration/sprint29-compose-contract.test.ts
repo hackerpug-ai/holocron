@@ -622,23 +622,52 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
 
   it('IMP-AC-6 configurable 50 GiB memory ceiling', () => {
     expect(MAX_MEMORY_LIMIT_SUM_GIB).toBe(50);
+    const baseTwelve = {
+      edge: 0.5,
+      'langfuse-web': 2,
+      'langfuse-worker': 2,
+      'langfuse-postgres': 2,
+      'langfuse-clickhouse': 4,
+      'langfuse-redis': 0.5,
+      'langfuse-minio': 0.5,
+      'otel-collector': 0.5,
+    } as const;
     const valid = assertMemoryLimitPlan({
       postgres: 16,
       mastra: 16,
-      scheduler: 8,
-      'zero-cache': 10,
+      scheduler: 3,
+      'zero-cache': 3,
+      ...baseTwelve,
     });
     const sum = Object.values(valid).reduce((a, b) => a + b, 0);
     expect(sum, 'memory_limit_sum_gib').toBe(50);
 
     expect(() =>
-      assertMemoryLimitPlan({ postgres: 20, mastra: 20, scheduler: 6, 'zero-cache': 5 })
-    ).toThrow(/50|budget|memory/i); // 51 GiB
+      assertMemoryLimitPlan({
+        postgres: 20,
+        mastra: 20,
+        scheduler: 6,
+        'zero-cache': 5,
+        ...baseTwelve,
+      })
+    ).toThrow(/50|budget|memory/i); // >50 GiB
     expect(() =>
-      assertMemoryLimitPlan({ postgres: 0, mastra: 16, scheduler: 8, 'zero-cache': 10 })
+      assertMemoryLimitPlan({
+        postgres: 0,
+        mastra: 16,
+        scheduler: 8,
+        'zero-cache': 10,
+        ...baseTwelve,
+      })
     ).toThrow(/positive|memory|non-?positive|zero/i);
     expect(() =>
-      assertMemoryLimitPlan({ postgres: -1, mastra: 16, scheduler: 8, 'zero-cache': 10 })
+      assertMemoryLimitPlan({
+        postgres: -1,
+        mastra: 16,
+        scheduler: 8,
+        'zero-cache': 10,
+        ...baseTwelve,
+      })
     ).toThrow(/positive|memory|negative/i);
     expect(() => assertMemoryLimitPlan({} as never)).toThrow(/memory|missing|required/i);
     expect(() =>
@@ -647,6 +676,7 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
         mastra: 16,
         scheduler: 8,
         'zero-cache': 10,
+        ...baseTwelve,
       })
     ).toThrow(/memory|malformed|finite|number/i);
 

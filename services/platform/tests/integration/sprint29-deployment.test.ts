@@ -643,6 +643,14 @@ describe('D06-07 inference1 deployment contract', () => {
           mastra: 1,
           scheduler: 1,
           'zero-cache': 1,
+          edge: 1,
+          'langfuse-web': 1,
+          'langfuse-worker': 1,
+          'langfuse-postgres': 1,
+          'langfuse-clickhouse': 1,
+          'langfuse-redis': 1,
+          'langfuse-minio': 1,
+          'otel-collector': 1,
         },
       });
 
@@ -786,7 +794,20 @@ describe('D06-07 inference1 deployment contract', () => {
     const preflight = runHostPreflight({
       target: 'holocron',
       port: 44_111,
-      memoryLimits: { postgres: 1, mastra: 1, scheduler: 1, 'zero-cache': 1 },
+      memoryLimits: {
+        postgres: 1,
+        mastra: 1,
+        scheduler: 1,
+        'zero-cache': 1,
+        edge: 1,
+        'langfuse-web': 1,
+        'langfuse-worker': 1,
+        'langfuse-postgres': 1,
+        'langfuse-clickhouse': 1,
+        'langfuse-redis': 1,
+        'langfuse-minio': 1,
+        'otel-collector': 1,
+      },
     });
     const scanBlob = JSON.stringify({
       preflight,

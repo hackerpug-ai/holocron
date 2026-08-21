@@ -40,20 +40,130 @@ export const MIN_DOCKER_VM_OVERHEAD_GIB = 4;
 /** Minimum free physical RAM after the Docker VM allocation. */
 export const MIN_HOST_HEADROOM_GIB = 8;
 export const MAX_MEMORY_LIMIT_SUM_GIB = 50;
+/**
+ * Twelve-service portable plan sized for the inference1 Docker VM envelope.
+ * Langfuse components alone are ~11.5 GiB; Holocron core + Collector fill the rest
+ * under the 50 GiB aggregate ceiling (OBS-01 capacity evidence).
+ */
 export const DEFAULT_MEMORY_LIMITS_GIB = {
-  postgres: 16,
-  mastra: 16,
-  scheduler: 8,
-  'zero-cache': 10,
+  postgres: 8,
+  mastra: 6,
+  scheduler: 2,
+  'zero-cache': 3,
   edge: 0.5,
-  'langfuse-web': 4,
-  'langfuse-worker': 4,
-  'langfuse-postgres': 4,
-  'langfuse-clickhouse': 8,
-  'langfuse-redis': 1,
-  'langfuse-minio': 1,
-  'otel-collector': 1,
+  'langfuse-web': 2,
+  'langfuse-worker': 2,
+  'langfuse-postgres': 2,
+  'langfuse-clickhouse': 4,
+  'langfuse-redis': 0.5,
+  'langfuse-minio': 0.5,
+  'otel-collector': 0.5,
 } as const satisfies ServiceMemoryLimits;
+
+/** Credential-bearing observability names that must fail closed when absent. */
+export const REQUIRED_OBSERVABILITY_SECRET_NAMES = [
+  'LANGFUSE_DATABASE_URL',
+  'LANGFUSE_POSTGRES_PASSWORD',
+  'LANGFUSE_CLICKHOUSE_PASSWORD',
+  'LANGFUSE_REDIS_AUTH',
+  'LANGFUSE_S3_ACCESS_KEY_ID',
+  'LANGFUSE_S3_SECRET_ACCESS_KEY',
+  'LANGFUSE_NEXTAUTH_SECRET',
+  'LANGFUSE_SALT',
+  'LANGFUSE_ENCRYPTION_KEY',
+  'LANGFUSE_PUBLIC_KEY',
+  'LANGFUSE_SECRET_KEY',
+  'LANGFUSE_INIT_USER_PASSWORD',
+  'LANGFUSE_AUTH_HEADER',
+] as const;
+
+export type ObservabilitySecretPreflight = {
+  ok: boolean;
+  missing: string[];
+  requiredSecretCount: number;
+};
+
+export type ObservabilityCapacityDecision = {
+  decision: 'GO' | 'BLOCKED_CAPACITY';
+  expectedServiceCount: number;
+  expectedVolumeCount: number;
+  requiredReserveBytes: number;
+  containerLimitSumGib: number;
+  dockerMemTotalBytes: number;
+  diskAvailBytes: number;
+  physMemBytes: number;
+  reasons: string[];
+};
+
+const GIB_BYTES = 1024 ** 3;
+
+/** Fail closed when any required observability secret name is missing or blank. */
+export function preflightObservabilitySecrets(
+  env: NodeJS.ProcessEnv = process.env
+): ObservabilitySecretPreflight {
+  const missing: string[] = [];
+  for (const name of REQUIRED_OBSERVABILITY_SECRET_NAMES) {
+    const value = env[name];
+    if (typeof value !== 'string' || value.trim() === '') {
+      missing.push(name);
+    }
+  }
+  return {
+    ok: missing.length === 0,
+    missing,
+    requiredSecretCount: REQUIRED_OBSERVABILITY_SECRET_NAMES.length,
+  };
+}
+
+/**
+ * Capacity gate for the twelve-service / eight-volume observability topology.
+ * Uses OBS-01-style measurements; insufficient Docker VM or disk reserve blocks apply.
+ */
+export function evaluateObservabilityCapacity(input: {
+  dockerMemTotalBytes: number;
+  diskAvailBytes: number;
+  physMemBytes: number;
+  memoryLimits?: ServiceMemoryLimits;
+}): ObservabilityCapacityDecision {
+  const limits = assertMemoryLimitPlan(input.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
+  const containerLimitSumGib = REQUIRED_SERVICES.reduce((sum, name) => sum + limits[name], 0);
+  const requiredReserveBytes = Math.ceil(
+    (containerLimitSumGib + MIN_DOCKER_VM_OVERHEAD_GIB) * GIB_BYTES
+  );
+  const reasons: string[] = [];
+  if (
+    !Number.isFinite(input.dockerMemTotalBytes) ||
+    input.dockerMemTotalBytes < requiredReserveBytes
+  ) {
+    reasons.push(
+      `dockerMemTotalBytes ${input.dockerMemTotalBytes} < requiredReserveBytes ${requiredReserveBytes}`
+    );
+  }
+  if (!Number.isFinite(input.diskAvailBytes) || input.diskAvailBytes < requiredReserveBytes) {
+    reasons.push(
+      `diskAvailBytes ${input.diskAvailBytes} < requiredReserveBytes ${requiredReserveBytes}`
+    );
+  }
+  if (
+    !Number.isFinite(input.physMemBytes) ||
+    input.physMemBytes < requiredReserveBytes + MIN_HOST_HEADROOM_GIB * GIB_BYTES
+  ) {
+    reasons.push(
+      `physMemBytes ${input.physMemBytes} insufficient for reserve plus ${MIN_HOST_HEADROOM_GIB} GiB host headroom`
+    );
+  }
+  return {
+    decision: reasons.length === 0 ? 'GO' : 'BLOCKED_CAPACITY',
+    expectedServiceCount: REQUIRED_SERVICES.length,
+    expectedVolumeCount: REQUIRED_VOLUME_NAMES.length,
+    requiredReserveBytes,
+    containerLimitSumGib,
+    dockerMemTotalBytes: input.dockerMemTotalBytes,
+    diskAvailBytes: input.diskAvailBytes,
+    physMemBytes: input.physMemBytes,
+    reasons,
+  };
+}
 
 /** Nine named non-mutating preflight dimensions (IMP-AC-12). Absent names cannot pass. */
 export const PREFLIGHT_CHECK_NAMES = [

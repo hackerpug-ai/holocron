@@ -6,7 +6,7 @@
   "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "repoDigest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "sourceRevision": "0000000000000000000000000000000000000000",
-  "composeSha256": "169bb4395aa2cb380fda6b6625c52c6adc6e9455ddaa3e517cb5504b4cd0c288",
+  "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
   "previousImage": "registry.example/holocron-platform@sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
   "previousDigest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
   "previousRepoDigest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",

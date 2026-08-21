@@ -51,7 +51,7 @@ services:
     # 18.4, whose built-in uuidv7() is required by the platform schema).
     image: pgvector/pgvector@sha256:691673308c99d2161ba298736f3147f1f22d79de2fb7ec93ae9b4afcab870b62
     restart: unless-stopped
-    mem_limit: ${HOLO_POSTGRES_MEM_LIMIT:-16g}
+    mem_limit: ${HOLO_POSTGRES_MEM_LIMIT:-8g}
     logging: *bounded-logging
     labels: *contract
     environment:
@@ -82,7 +82,7 @@ services:
   mastra:
     image: ${HOLO_PLATFORM_IMAGE:?HOLO_PLATFORM_IMAGE must use @sha256:<64-hex>}
     restart: unless-stopped
-    mem_limit: ${HOLO_MASTRA_MEM_LIMIT:-16g}
+    mem_limit: ${HOLO_MASTRA_MEM_LIMIT:-6g}
     logging: *bounded-logging
     labels:
       <<: *contract
@@ -132,7 +132,7 @@ services:
   scheduler:
     image: ${HOLO_PLATFORM_IMAGE:?HOLO_PLATFORM_IMAGE must use @sha256:<64-hex>}
     restart: unless-stopped
-    mem_limit: ${HOLO_SCHEDULER_MEM_LIMIT:-8g}
+    mem_limit: ${HOLO_SCHEDULER_MEM_LIMIT:-2g}
     logging: *bounded-logging
     labels:
       <<: *contract
@@ -177,7 +177,7 @@ services:
     # Pinned from the GHCR rociCorp/zero:1.8.0 OCI index.
     image: ghcr.io/rocicorp/zero@sha256:9be2d9303b076f2aef29cbcc629350dbc40cf0531ead59a7f61572eeb65fef72
     restart: unless-stopped
-    mem_limit: ${HOLO_ZERO_CACHE_MEM_LIMIT:-10g}
+    mem_limit: ${HOLO_ZERO_CACHE_MEM_LIMIT:-3g}
     logging: *bounded-logging
     labels: *contract
     environment:
@@ -242,12 +242,14 @@ services:
   langfuse-postgres:
     image: docker.io/library/postgres@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_POSTGRES_MEM_LIMIT:-4g}
+    mem_limit: ${HOLO_LANGFUSE_POSTGRES_MEM_LIMIT:-2g}
     logging: *bounded-logging
     labels: *contract
     environment:
       POSTGRES_USER: ${LANGFUSE_POSTGRES_USER:?LANGFUSE_POSTGRES_USER is required}
       POSTGRES_DB: ${LANGFUSE_POSTGRES_DB:?LANGFUSE_POSTGRES_DB is required}
+      # Fail-closed at compose-config time; runtime auth still uses the secret file.
+      HOLO_LANGFUSE_POSTGRES_PASSWORD_CHECK: ${LANGFUSE_POSTGRES_PASSWORD:?LANGFUSE_POSTGRES_PASSWORD is required}
       POSTGRES_PASSWORD_FILE: /run/secrets/langfuse_postgres_password
       TZ: UTC
       PGTZ: UTC
@@ -266,7 +268,7 @@ services:
   langfuse-clickhouse:
     image: docker.io/clickhouse/clickhouse-server@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_CLICKHOUSE_MEM_LIMIT:-8g}
+    mem_limit: ${HOLO_LANGFUSE_CLICKHOUSE_MEM_LIMIT:-4g}
     logging: *bounded-logging
     labels: *contract
     user: "101:101"
@@ -287,7 +289,7 @@ services:
   langfuse-redis:
     image: docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_REDIS_MEM_LIMIT:-1g}
+    mem_limit: ${HOLO_LANGFUSE_REDIS_MEM_LIMIT:-512m}
     logging: *bounded-logging
     labels: *contract
     # Auth is written to a mode-0600 tmpfs redis.conf so the password never
@@ -318,7 +320,7 @@ services:
   langfuse-minio:
     image: cgr.dev/chainguard/minio@sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_MINIO_MEM_LIMIT:-1g}
+    mem_limit: ${HOLO_LANGFUSE_MINIO_MEM_LIMIT:-512m}
     logging: *bounded-logging
     labels: *contract
     entrypoint: ["/bin/sh", "-ec"]
@@ -345,7 +347,7 @@ services:
   langfuse-worker:
     image: docker.io/langfuse/langfuse-worker@sha256:37a7c4251b602e60fd39451e6c252195908bf61837d4e252adbd752c0809e835
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_WORKER_MEM_LIMIT:-4g}
+    mem_limit: ${HOLO_LANGFUSE_WORKER_MEM_LIMIT:-2g}
     logging: *bounded-logging
     labels: *contract
     environment: *langfuse-env
@@ -373,7 +375,7 @@ services:
     # OBS-01 pin; OBS-05 rebuilds with NEXT_PUBLIC_BASE_PATH=/observability.
     image: docker.io/langfuse/langfuse@sha256:c2350a95d710f726f6466ffd47675eb704d0ff77fa1df1b9e6751ada6134ef75
     restart: unless-stopped
-    mem_limit: ${HOLO_LANGFUSE_WEB_MEM_LIMIT:-4g}
+    mem_limit: ${HOLO_LANGFUSE_WEB_MEM_LIMIT:-2g}
     logging: *bounded-logging
     labels: *contract
     environment:
@@ -414,7 +416,7 @@ services:
   otel-collector:
     image: docker.io/otel/opentelemetry-collector-contrib@sha256:13b685dc9f68fbbb0fce06d3be84e9d70ba5b90085d79dcbd4c4c0d909ee2d6e
     restart: unless-stopped
-    mem_limit: ${HOLO_OTEL_COLLECTOR_MEM_LIMIT:-1g}
+    mem_limit: ${HOLO_OTEL_COLLECTOR_MEM_LIMIT:-512m}
     logging: *bounded-logging
     labels: *contract
     user: "0:0"

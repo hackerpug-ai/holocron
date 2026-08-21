@@ -8,6 +8,7 @@
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/observability-production-topology.test.ts
  */
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -378,6 +379,23 @@ describe('OBS-04 production topology', () => {
       MASTRA_API_KEY: sentinel,
       FLEET_KEY: sentinel,
       ZERO_ADMIN_PASSWORD: sentinel,
+      // Non-secret compose config required by ${NAME:?} (names/values are placeholders).
+      LANGFUSE_POSTGRES_USER: 'langfuse',
+      LANGFUSE_POSTGRES_DB: 'langfuse',
+      LANGFUSE_CLICKHOUSE_DB: 'default',
+      LANGFUSE_CLICKHOUSE_USER: 'clickhouse',
+      LANGFUSE_CLICKHOUSE_MIGRATION_URL: 'clickhouse://langfuse-clickhouse:9000',
+      LANGFUSE_CLICKHOUSE_URL: 'http://langfuse-clickhouse:8123',
+      LANGFUSE_S3_BUCKET: 'langfuse',
+      LANGFUSE_S3_ENDPOINT: 'http://langfuse-minio:9000',
+      LANGFUSE_NEXTAUTH_URL: 'http://127.0.0.1:44111',
+      LANGFUSE_OTLP_ENDPOINT: 'http://langfuse-web:3000/api/public/otel',
+      LANGFUSE_INIT_ORG_ID: 'holocron-observability',
+      LANGFUSE_INIT_ORG_NAME: 'Holocron',
+      LANGFUSE_INIT_PROJECT_ID: 'holocron',
+      LANGFUSE_INIT_PROJECT_NAME: 'Holocron',
+      LANGFUSE_INIT_USER_EMAIL: 'ops@example.invalid',
+      LANGFUSE_INIT_USER_NAME: 'ops',
     };
     for (const name of requiredSecrets) {
       baseEnv[name] = sentinel;
@@ -403,10 +421,7 @@ describe('OBS-04 production topology', () => {
           timeout: 60_000,
         }
       );
-      expect(
-        rendered.status,
-        `compose config must reject missing ${omitted}`
-      ).not.toBe(0);
+      expect(rendered.status, `compose config must reject missing ${omitted}`).not.toBe(0);
       expect(`${rendered.stdout}\n${rendered.stderr}`).not.toContain(sentinel);
     }
 
@@ -462,19 +477,25 @@ describe('OBS-04 production topology', () => {
       }
     ).evaluateObservabilityCapacity({
       dockerMemTotalBytes: Number(
-        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
-          | Record<string, number>
-          | undefined)?.dockerMemTotalBytes ?? 0
+        (
+          readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+            | Record<string, number>
+            | undefined
+        )?.dockerMemTotalBytes ?? 0
       ),
       diskAvailBytes: Number(
-        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
-          | Record<string, number>
-          | undefined)?.diskAvailBytes ?? 0
+        (
+          readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+            | Record<string, number>
+            | undefined
+        )?.diskAvailBytes ?? 0
       ),
       physMemBytes: Number(
-        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
-          | Record<string, number>
-          | undefined)?.physMemBytes ?? 0
+        (
+          readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+            | Record<string, number>
+            | undefined
+        )?.physMemBytes ?? 0
       ),
     });
     expect(capacity.expectedServiceCount).toBe(12);
