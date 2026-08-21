@@ -333,4 +333,173 @@ describe('OBS-04 production topology', () => {
       undeclaredWriterCount,
     });
   }, 180_000);
+
+  it('AC-2: missing secrets fail closed and capacity accounts for twelve services', async () => {
+    requirePlatformIt();
+
+    const deployModule = await import('../../src/deploy/production-deploy.ts');
+    expect(
+      'REQUIRED_OBSERVABILITY_SECRET_NAMES' in deployModule,
+      'production-deploy must export REQUIRED_OBSERVABILITY_SECRET_NAMES'
+    ).toBe(true);
+    expect(
+      'preflightObservabilitySecrets' in deployModule,
+      'production-deploy must export preflightObservabilitySecrets'
+    ).toBe(true);
+    expect(
+      'evaluateObservabilityCapacity' in deployModule,
+      'production-deploy must export evaluateObservabilityCapacity'
+    ).toBe(true);
+
+    const requiredSecrets = (
+      deployModule as { REQUIRED_OBSERVABILITY_SECRET_NAMES: readonly string[] }
+    ).REQUIRED_OBSERVABILITY_SECRET_NAMES;
+    expect(requiredSecrets.length).toBeGreaterThanOrEqual(12);
+
+    const preflight = (
+      deployModule as {
+        preflightObservabilitySecrets: (env: NodeJS.ProcessEnv) => {
+          ok: boolean;
+          missing: string[];
+          requiredSecretCount: number;
+        };
+      }
+    ).preflightObservabilitySecrets;
+
+    const sentinel = 'OBS04-SECRET-SENTINEL-DO-NOT-LEAK';
+    const baseEnv: NodeJS.ProcessEnv = {
+      HOLO_PLATFORM_IMAGE:
+        'registry.example/holocron-platform@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      FLEET_URL: 'http://host.docker.internal:4545',
+      POSTGRES_DB: 'holocron',
+      POSTGRES_USER: 'holocron',
+      POSTGRES_PASSWORD: sentinel,
+      DATABASE_URL: 'postgres://holocron@127.0.0.1:44112/holocron',
+      MASTRA_API_KEY: sentinel,
+      FLEET_KEY: sentinel,
+      ZERO_ADMIN_PASSWORD: sentinel,
+    };
+    for (const name of requiredSecrets) {
+      baseEnv[name] = sentinel;
+    }
+
+    let missingSecretRejectedCount = 0;
+    for (const omitted of requiredSecrets) {
+      const env = { ...baseEnv };
+      delete env[omitted];
+      const result = preflight(env);
+      expect(result.ok, `omitting ${omitted} must fail closed`).toBe(false);
+      expect(result.missing).toContain(omitted);
+      missingSecretRejectedCount += 1;
+
+      // Compose render must also fail closed without starting containers.
+      const rendered = spawnSync(
+        'docker',
+        ['compose', '-f', COMPOSE_PATH, 'config', '--format', 'json'],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          env: { ...process.env, ...env },
+          timeout: 60_000,
+        }
+      );
+      expect(
+        rendered.status,
+        `compose config must reject missing ${omitted}`
+      ).not.toBe(0);
+      expect(`${rendered.stdout}\n${rendered.stderr}`).not.toContain(sentinel);
+    }
+
+    expect(missingSecretRejectedCount).toBe(requiredSecrets.length);
+
+    // Full render with sentinel values: values must not appear in argv-like
+    // redis command/healthcheck text or evidence artifacts.
+    const full = spawnSync(
+      'docker',
+      ['compose', '-f', COMPOSE_PATH, 'config', '--format', 'json'],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, ...baseEnv },
+        timeout: 60_000,
+      }
+    );
+    expect(full.status, 'compose config with all secrets must succeed').toBe(0);
+    const renderedJson = full.stdout;
+    const redis = JSON.parse(renderedJson).services['langfuse-redis'] as {
+      command?: unknown;
+      healthcheck?: { test?: unknown };
+    };
+    const redisArgv = JSON.stringify(redis.command ?? '') + JSON.stringify(redis.healthcheck ?? '');
+    expect(redisArgv.includes(sentinel), 'redis argv/healthcheck must not embed secret').toBe(
+      false
+    );
+
+    // Scan evidence dir for sentinel leaks (names-only artifacts).
+    const evidenceText = [
+      existsSync(resolve(EVIDENCE_DIR, 'release-lock-v2.json'))
+        ? readFileSync(resolve(EVIDENCE_DIR, 'release-lock-v2.json'), 'utf8')
+        : '',
+      existsSync(resolve(EVIDENCE_DIR, 'redacted-compose-and-listeners.json'))
+        ? readFileSync(resolve(EVIDENCE_DIR, 'redacted-compose-and-listeners.json'), 'utf8')
+        : '',
+    ].join('\n');
+    const sentinelMatchCount = evidenceText.includes(sentinel) ? 1 : 0;
+    expect(sentinelMatchCount, 'sentinelMatchCount:0').toBe(0);
+
+    const capacity = (
+      deployModule as {
+        evaluateObservabilityCapacity: (input: {
+          dockerMemTotalBytes: number;
+          diskAvailBytes: number;
+          physMemBytes: number;
+        }) => {
+          decision: 'GO' | 'BLOCKED_CAPACITY';
+          expectedServiceCount: number;
+          expectedVolumeCount: number;
+          requiredReserveBytes: number;
+        };
+      }
+    ).evaluateObservabilityCapacity({
+      dockerMemTotalBytes: Number(
+        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+          | Record<string, number>
+          | undefined)?.dockerMemTotalBytes ?? 0
+      ),
+      diskAvailBytes: Number(
+        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+          | Record<string, number>
+          | undefined)?.diskAvailBytes ?? 0
+      ),
+      physMemBytes: Number(
+        (readJson(resolve(REPO_ROOT, '.tmp/OBS-01/target-capacity.json')).measured as
+          | Record<string, number>
+          | undefined)?.physMemBytes ?? 0
+      ),
+    });
+    expect(capacity.expectedServiceCount).toBe(12);
+    expect(capacity.expectedVolumeCount).toBe(8);
+    expect(['GO', 'BLOCKED_CAPACITY']).toContain(capacity.decision);
+
+    // Memory plan must include every service without exceeding the documented envelope.
+    const limits = deployModule.DEFAULT_MEMORY_LIMITS_GIB;
+    for (const service of REQUIRED_SERVICES) {
+      expect(Number((limits as Record<string, number>)[service]) > 0).toBe(true);
+    }
+    deployModule.assertMemoryLimitPlan(limits);
+
+    const matrix = {
+      missingSecretRejectedCount,
+      requiredSecretCount: requiredSecrets.length,
+      sentinelMatchCount,
+      containerStartedWithoutSecret: false,
+      capacityDecision: capacity.decision,
+      expectedServiceCount: capacity.expectedServiceCount,
+      expectedVolumeCount: capacity.expectedVolumeCount,
+      requiredReserveBytes: capacity.requiredReserveBytes,
+    };
+    writeEvidence('secret-negative-matrix.json', matrix);
+    writeEvidence('capacity-decision.json', capacity);
+    writeEvidence('AC-2-seeded-artifact.json', matrix);
+  }, 300_000);
 });
