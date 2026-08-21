@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-01
+
+ ✓ |integration| services/platform/tests/integration/observability-compatibility-gate.test.ts (2 tests | 1 skipped) 8ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  21:17:58
+   Duration  1.11s (transform 246ms, setup 762ms, import 21ms, tests 8ms, environment 0ms)
+
