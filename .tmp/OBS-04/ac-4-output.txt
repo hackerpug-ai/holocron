@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
 
- ✓ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 skipped) 28548ms
-     ✓ AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation  28545ms
+ ✓ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 skipped) 29680ms
+     ✓ AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation  29678ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 1 skipped (2)
-   Start at  01:24:43
-   Duration  28.94s (transform 130ms, setup 247ms, import 13ms, tests 28.55s, environment 0ms)
+   Start at  02:18:38
+   Duration  29.97s (transform 100ms, setup 182ms, import 12ms, tests 29.68s, environment 0ms)
 

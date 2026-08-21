@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
 
- ✓ |integration| services/platform/tests/integration/observability-production-topology.test.ts (2 tests | 1 skipped) 2280ms
-     ✓ AC-2: missing secrets fail closed and capacity accounts for twelve services  2279ms
+ ✓ |integration| services/platform/tests/integration/observability-production-topology.test.ts (2 tests | 1 skipped) 2103ms
+     ✓ AC-2: missing secrets fail closed and capacity accounts for twelve services  2102ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 1 skipped (2)
-   Start at  01:25:14
-   Duration  2.59s (transform 144ms, setup 166ms, import 51ms, tests 2.28s, environment 0ms)
+   Start at  02:19:10
+   Duration  2.37s (transform 121ms, setup 137ms, import 45ms, tests 2.10s, environment 0ms)
 

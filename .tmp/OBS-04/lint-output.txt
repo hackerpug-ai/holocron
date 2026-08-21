@@ -404,25 +404,25 @@ components/ToolCard.tsx:148:24 lint/suspicious/noArrayIndexKey ━━━━━�
   i Check the React documentation. 
   
 
-components/cards/RecommendationSources.tsx:26:38 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━
+components/cards/RecommendationListCard.tsx:34:30 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━
 
   ! Avoid using the index of an array as key property in an element.
   
-    24 │           return (
-    25 │             <Pressable
-  > 26 │               key={`${source.name}-${i}`}
-       │                                      ^
-    27 │               testID={`recommendation-source-${i}`}
-    28 │               accessibilityRole="link"
+    32 │       {data.items.map((item, i) => (
+    33 │         <RecommendationItem
+  > 34 │           key={`${item.id}-${i}`}
+       │                              ^
+    35 │           item={item}
+    36 │           index={i}
   
   i This is the source of the key value.
   
-    13 │       <Text className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Sources</Text>
-    14 │       <View className="flex-row flex-wrap gap-2">
-  > 15 │         {sources.map((source, i) => {
-       │                               ^
-    16 │           const handlePress = () => {
-    17 │             if (onSourcePress) {
+    30 │       )}
+    31 │ 
+  > 32 │       {data.items.map((item, i) => (
+       │                              ^
+    33 │         <RecommendationItem
+    34 │           key={`${item.id}-${i}`}
   
   i The order of the items may change, and this also affects performances and component state.
   
@@ -555,7 +555,7 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 606.
-Checked 1305 files in 345ms. No fixes applied.
+Checked 1305 files in 449ms. No fixes applied.
 Found 1 error.
 Found 555 warnings.
 Found 70 infos.

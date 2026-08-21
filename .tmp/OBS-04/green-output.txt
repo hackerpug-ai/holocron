@@ -1,0 +1,32 @@
+OBS-04 TDD GREEN lineage (red_first)
+RED commit: 8ad2647cbbe7eea80e5dbca9d872185c8aa67dea
+GREEN commit: 355eec32cdb9aa9fffea79c82f9b0ba6b70aaf82
+
+===== AC-3 GREEN =====
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ✓ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 skipped) 58821ms
+     ✓ AC-3: consistent backup restores witnesses into an isolated project  58820ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  02:02:13
+   Duration  59.04s (transform 99ms, setup 138ms, import 8ms, tests 58.82s, environment 0ms)
+
+
+===== AC-4 GREEN =====
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ✓ |integration| services/platform/tests/integration/observability-backup-restore.test.ts (2 tests | 1 skipped) 39769ms
+     ✓ AC-4: cold restart retains witnesses and incompatible rollback refuses before mutation  39768ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  02:03:17
+   Duration  40.09s (transform 112ms, setup 200ms, import 11ms, tests 39.77s, environment 0ms)
+
+
+PASS
+EXIT_CODE:0

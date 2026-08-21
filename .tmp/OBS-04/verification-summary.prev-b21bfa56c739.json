@@ -1,6 +1,6 @@
 {
   "task_id": "OBS-04",
-  "timestamp": "2026-08-21T08:20:54Z",
+  "timestamp": "2026-08-21T08:13:28Z",
   "commit_sha": "eca2056839f93c86e952ff408b934d1d5f0a6cae",
   "typecheck": {
     "exit_code": 0
@@ -236,7 +236,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.2",
-    "generated_at": "2026-08-21T08:20:54Z",
+    "generated_at": "2026-08-21T08:13:28Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -244,43 +244,43 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "372dafa532123a02eeebfc30364a0df68ff93cf06c0b7032797f711dc162085a"
+        "sha256": "0d75fb0dcd2d949902705bbf6f2c973e6467dc4360b343d12615f18a766ba1b1"
       },
       {
         "path": "test-output.txt",
-        "sha256": "6680eb548de873b9a5371ab93f014c791701997f426422056bd4817c94e8c65e"
+        "sha256": "e84f727ae9360dfb75eac09f0b4567db3724f18e9be59309bffb936d6a774b97"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "d748fd5a530c49684d2da792b140f075315ce53e1ebff0605cf0911f27af84e2"
+        "sha256": "0876017d876179d4ddc2dd109f824fc9fb7d1b093fac2860d5b6b3566fb1160f"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "200f3cfbc262ade4ed21771b9c4e7e7e0c3b2d2a477abeecbede29a68569b58b"
+        "sha256": "e6a42522d141e81840e3028a7770334588f010680cf1bcca51f575bf7463b184"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "b49e6caed910291479c413fafe1c56d135e6af42c723a0372546393632c16e13"
+        "sha256": "f7627c86dbd082d37d1cb01d7f1aefc5165071463e77bca757ded2f1a7b19be2"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "4e4154d90795e4044a51d74cb64242855b9ec7fb0739f80682a892ffe4d0fef0"
+        "sha256": "151281839522aaa3b35cdca218aec7def9cc4a2f08baff135ab90da629e503ac"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "3dcedeecdc090d13a586b5af2547b3d228c2604c96b6616a2235cd45eee70f32"
+        "sha256": "a3b55b576e828e937264cf2e922f6e5319469d5248a4705ea23944288bd5caf7"
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "b393ee65629d5b93ad1c75406c61ad7ff2225a454db5e72327348e557cad4b53"
+        "sha256": "e5f4b3a6ac33c14317b9598c3b50825f8156fbc10dbcfb5eb82986c54d2546e0"
       },
       {
         "path": "tc-3-output.txt",
-        "sha256": "c06d75d48f644ba0db949b3c0f5201d763501ef4454a119cfcc7559157d6ec7d"
+        "sha256": "9350ddc2046d466b84af3822848ea92f3cf2a03b4bd4fbea2671a0aa96ba16e7"
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "10b2e24ee2b7dbb3d758fb5913364e9f6b36a7766393ebdb8feb45b2a3142ae1"
+        "sha256": "473328082f2e8b3a1082bbc593a604cc0b90088ccb1bb3d0956ea7523c223434"
       },
       {
         "path": "pre-existing-issues.md",
