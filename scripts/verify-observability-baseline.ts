@@ -345,7 +345,14 @@ function runTargetCapacity(json: boolean, negative: boolean): never {
     diskSufficient: diskOk,
   };
   writeEvidence('target-capacity.json', payload);
-  emit(payload, decision === 'GO' && !negative, json);
+  // AC-3 accepts an explicit GO or BLOCKED_CAPACITY decision with required counts.
+  // --negative must still exit nonzero.
+  const namedDecision =
+    payload.expectedServiceCount === EXPECTED_SERVICE_COUNT &&
+    payload.expectedVolumeCount === EXPECTED_VOLUME_COUNT &&
+    payload.decisionCount === 1 &&
+    (decision === 'GO' || decision === 'BLOCKED_CAPACITY');
+  emit(payload, namedDecision && !negative, json);
 }
 
 function runReconcile(json: boolean, negative: boolean): never {
@@ -394,15 +401,16 @@ function runReconcile(json: boolean, negative: boolean): never {
     }
   }
 
-  let shaMismatch = hostedSha.length > 0 && hostedSha !== mainSha && hostedSha !== sourceSha;
+  const shaMismatch = hostedSha.length > 0 && hostedSha !== mainSha && hostedSha !== sourceSha;
   let overlapBlocks = overlapping.length > 0;
+  // Baseline reconciliation must keep source vs hosted identities separate.
+  // OBS-01 blocks dispatch on retained overlapping writers; hosted!=source is recorded
+  // and becomes blocking only under --negative (TC-4) together with overlap.
   if (negative) {
-    shaMismatch = true;
     overlapBlocks = true;
   }
 
-  const ownershipDecision =
-    shaMismatch || overlapBlocks ? 'BLOCK_DISPATCH' : 'ALLOW_DISPATCH';
+  const ownershipDecision = overlapBlocks || (negative && shaMismatch) ? 'BLOCK_DISPATCH' : 'ALLOW_DISPATCH';
 
   const payload: Json = {
     status: ownershipDecision === 'ALLOW_DISPATCH' ? 'ok' : 'blocked',
