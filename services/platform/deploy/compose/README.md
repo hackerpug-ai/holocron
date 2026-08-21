@@ -196,15 +196,21 @@ The mini asleep is a reader-visible error (no R2 fallback).
 
 ### 1. DNS (zone must be on Cloudflare)
 
-Copy existing Namecheap records first (apex A `76.76.21.21`, `www` CNAME
-Vercel, Google MX, site-verification TXT). Create the Cloudflare zone, point
-Namecheap NS at the Cloudflare pair, then:
+Zone `hackerpug.ai` is already in the Cloudflare account (pending nameserver
+cutover). Apex A `76.76.21.21`, `www` CNAME Vercel, Google MX, and the
+site-verification TXT are already copied. Remaining operator step: at
+Namecheap, set nameservers to:
 
-- `docs.hackerpug.ai` → Worker custom domain (`holocron-docs-reader`)
-- `origin-docs.hackerpug.ai` → Cloudflare Tunnel hostname (Access on the
-  **whole** hostname)
+- `etienne.ns.cloudflare.com`
+- `shaz.ns.cloudflare.com`
 
-`dig docs.hackerpug.ai` must return Cloudflare, not `*.ts.net`.
+Then `dig docs.hackerpug.ai` must return Cloudflare, not `*.ts.net`. After the
+zone is `active`, create the Access application on `origin-docs.hackerpug.ai`
+(service-token policy only) — Access rejects the hostname until NS is live.
+
+- `docs.hackerpug.ai` → Worker custom domain (`holocron-docs-reader`, already
+  attached)
+- `origin-docs.hackerpug.ai` → Tunnel CNAME (already in the zone)
 
 ### 2. Access service token (Worker is the only holder)
 
@@ -229,8 +235,8 @@ cloudflared tunnel create holocron-article-origin
 # store the install token as CF_TUNNEL_TOKEN (operator .env only)
 ```
 
-Operator-local config (not in git), then install as a user LaunchAgent
-(`holocron-cloudflared` in the ancillary-guard slot):
+Operator-local config lives at `~/.cloudflared/config.yml` on holocron (not in
+git). User LaunchAgent `com.holocron.cloudflared` (ancillary-guard slot):
 
 ```yml
 ingress:
@@ -256,8 +262,7 @@ curl -i https://origin-docs.hackerpug.ai/blobs/<hash>
 cd services/worker-docs-reader
 npx wrangler secret put CF_ACCESS_CLIENT_ID
 npx wrangler secret put CF_ACCESS_CLIENT_SECRET
-npx wrangler deploy
-npx wrangler custom-domains add docs.hackerpug.ai   # or routes in wrangler.jsonc once the zone exists
+npx wrangler deploy   # wrangler.jsonc already binds docs.hackerpug.ai
 ```
 
 `ORIGIN_BASE_URL` is `https://origin-docs.hackerpug.ai` (var, not a secret).
