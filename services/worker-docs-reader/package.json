@@ -1,0 +1,9 @@
+{
+  "name": "holocron-docs-reader",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  }
+}

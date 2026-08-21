@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.81.0/config-schema.json",
+  "name": "holocron-docs-reader",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-12",
+  "account_id": "d5110b1895ee190e145c0c8756f49879",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "docs.holocrnlib.com", "custom_domain": true }
+  ],
+  "vars": {
+    "ORIGIN_BASE_URL": "https://origin-docs.holocrnlib.com"
+  }
+}

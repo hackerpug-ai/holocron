@@ -186,6 +186,93 @@ Verification uses the MagicDNS Serve URL
 `https://<node>.tailnet.ts.net:44111` — never a derived LAN IP and never a
 public Funnel hostname.
 
+## Public document share reader (Cloudflare) — operator procedure
+
+Public share links are `https://docs.holocrnlib.com/d/<token>`. A Worker is the
+only public face: edge cache (~60s) then origin `GET /article/<token>`. Origin
+stays on holocron loopback `:44111`. **Do not** enable Tailscale Funnel. **Do
+not** add `cloudflared` to Compose (same ancillary slot as Serve). Setup is this
+procedure, not a deploy command.
+
+Value-free secret names: `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`,
+`CF_TUNNEL_TOKEN`. `CLOUDFLARE_API_TOKEN` deploys the Worker. Never put values
+in git, `wrangler.jsonc`, argv, or logs (never echo the Access header).
+
+Known SLA: a just-unshared token may still serve cached HTML for up to ~60s.
+The mini asleep is a reader-visible error (no R2 fallback).
+
+### 1. DNS (zone must be on Cloudflare)
+
+Zone `holocrnlib.com` is on Cloudflare Registrar (status `active`).
+`dig docs.holocrnlib.com` must return Cloudflare, not `*.ts.net`. Create the
+Access application on `origin-docs.holocrnlib.com` (service-token policy only).
+
+- `docs.holocrnlib.com` → Worker custom domain (`holocron-docs-reader`)
+- `origin-docs.holocrnlib.com` → Tunnel CNAME to
+  `<tunnel-id>.cfargotunnel.com` (proxied)
+
+### 2. Access service token (Worker is the only holder)
+
+Enable Zero Trust Access on the account. Create an Access application covering
+`origin-docs.holocrnlib.com` (service-auth policy for the service token only).
+Create a service token named `holocron-docs-reader`. Store client id/secret as
+`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` in the operator `.env` and as
+Worker secrets (`wrangler secret put` — never in `wrangler.jsonc`).
+
+Without the token, `curl -i https://origin-docs.holocrnlib.com/article/<token>`
+must be **403** from Access. With the token headers, a shared token must be
+**200**.
+
+### 3. Tunnel on host `holocron` (`/article/*` only, deny-all)
+
+```sh
+# on holocron — install once, do not touch tailscale serve
+brew install cloudflared
+cloudflared tunnel login
+cloudflared tunnel create holocron-article-origin
+# credentials-file lands under ~/.cloudflared/<TUNNEL_ID>.json
+# store the install token as CF_TUNNEL_TOKEN (operator .env only)
+```
+
+Operator-local config lives at `~/.cloudflared/config.yml` on holocron (not in
+git). User LaunchAgent `com.holocron.cloudflared` (ancillary-guard slot):
+
+```yml
+ingress:
+  - hostname: origin-docs.holocrnlib.com
+    path: ^/article/[^/]+$
+    service: http://127.0.0.1:44111
+  - hostname: origin-docs.holocrnlib.com
+    service: http_status:404
+  - service: http_status:404
+```
+
+Live checks (expect refuse + tunnel log deny, not Mastra JSON):
+
+```sh
+curl -i https://origin-docs.holocrnlib.com/api/documents
+curl -i https://origin-docs.holocrnlib.com/mcp
+curl -i https://origin-docs.holocrnlib.com/blobs/<hash>
+```
+
+### 4. Worker
+
+```sh
+cd services/worker-docs-reader
+npx wrangler secret put CF_ACCESS_CLIENT_ID
+npx wrangler secret put CF_ACCESS_CLIENT_SECRET
+npx wrangler deploy   # wrangler.jsonc already binds docs.holocrnlib.com
+```
+
+`ORIGIN_BASE_URL` is `https://origin-docs.holocrnlib.com` (var, not a secret).
+
+### 5. Serve must stay private
+
+```sh
+tailscale serve status --json   # identical before/after; funnel_endpoint_count=0
+holo deploy:preflight --target holocron --port 44111 --json   # tailscale_serve ok
+```
+
 ## Host preflight (non-mutating)
 
 ```sh
