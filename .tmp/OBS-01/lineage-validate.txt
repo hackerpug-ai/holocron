@@ -1,1 +1,36 @@
-  ✓ stamp: all 12 input hash(es) match on-disk bytes
+{
+  "task_id": "OBS-01",
+  "tdd_mode": "red_first",
+  "red": {
+    "file": "red-output.txt",
+    "sha": "ab9a11bb017e779870aafb1b1656ad893e7b9781",
+    "mtime": 1787278843,
+    "sha256": "0ea833aba309c22e15ab44b4e2e5feda7f9b3efe09b6646b4c421c603c72f173"
+  },
+  "green": {
+    "file": "green-output.txt",
+    "sha": "8c9dc6c4c8c22868d779b003ee3d119f9f733888",
+    "mtime": 1787280996,
+    "sha256": "a52d9466334f5faf39ba6d0e334faa1fa63c51af54f1a67d83331959fbe4c086"
+  },
+  "distinct_commits": true,
+  "waiver": false,
+  "ok": true,
+  "failure_codes": [],
+  "checked_at": "2026-08-21T03:31:57Z",
+  "generator": {
+    "tool": "verify-tdd-lineage.sh",
+    "version": "1.1",
+    "generated_at": "2026-08-21T03:31:57Z",
+    "inputs": [
+      {
+        "path": "red-output.txt",
+        "sha256": "0ea833aba309c22e15ab44b4e2e5feda7f9b3efe09b6646b4c421c603c72f173"
+      },
+      {
+        "path": "green-output.txt",
+        "sha256": "a52d9466334f5faf39ba6d0e334faa1fa63c51af54f1a67d83331959fbe4c086"
+      }
+    ]
+  }
+}

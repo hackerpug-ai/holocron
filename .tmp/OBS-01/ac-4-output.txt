@@ -4,7 +4,7 @@
   "hostedIdentityCount": 1,
   "ownershipDecisionCount": 1,
   "source": {
-    "sha": "d5966d513a8e38ea762257c34ac68a01bf26a580",
+    "sha": "ab9a11bb017e779870aafb1b1656ad893e7b9781",
     "branch": "kb-run-sprint/holocron-observability-console/OBS-01",
     "mainSha": "24fa192288120501cc5dd75cd628d8f483dbf6fe"
   },
@@ -17,7 +17,7 @@
     "composeSha256": "f1787175b4931f88c9ed4188a0ecc5358e09867464f8cc7769c3af36ec8a13ee",
     "deployedAt": "2026-08-05T17:52:21.133Z",
     "pid": 1,
-    "uptimeMs": 896837149
+    "uptimeMs": 898760635
   },
   "hostedShaMismatch": true,
   "retainedOverlaps": [],

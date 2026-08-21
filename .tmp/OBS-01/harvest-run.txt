@@ -11,10 +11,11 @@ harvest-evidence: task=OBS-01 manifest=.tmp/OBS-01/verify-manifest.json
   [TC-2] bun scripts/verify-observability-baseline.ts --supply-chain --negative --json
   [TC-3] bun scripts/verify-observability-baseline.ts --target-capacity --negative --json
   [TC-4] bun scripts/verify-observability-baseline.ts --reconcile --negative --json
+  archived prior summary → verification-summary.prev-c5a45ba06378.json
 
 harvest-evidence: done
   task:       OBS-01
-  commit:     d5966d51
+  commit:     ab9a11bb
   typecheck:  exit=0
   lint:       exit=0 warnings=526
   evidence:   5 pass, 3 fail (of 8 requirements)

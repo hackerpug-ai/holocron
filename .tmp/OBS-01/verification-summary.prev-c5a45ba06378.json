@@ -1,7 +1,7 @@
 {
   "task_id": "OBS-01",
-  "timestamp": "2026-08-21T03:19:42Z",
-  "commit_sha": "8c9dc6c4c8c22868d779b003ee3d119f9f733888",
+  "timestamp": "2026-08-21T02:47:49Z",
+  "commit_sha": "f5b3bcfb360efc7744c87bb56a99ef735b992e58",
   "typecheck": {
     "exit_code": 0
   },
@@ -15,25 +15,54 @@
       "id": "AC-1",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-compatibility-gate.test.ts -t 'AC-1'",
       "exit_code": 0,
-      "output_file": ".tmp/OBS-01/ac-1-output.txt"
+      "output_file": ".tmp/OBS-01/ac-1-output.txt",
+      "seeded_value": {
+        "expectedObservationCount": 1,
+        "failureClassCount": 3,
+        "recoveryObservationCount": 1,
+        "expectedSecretSentinelCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/OBS-01/AC-1-green.txt"
     },
     {
       "id": "AC-2",
       "verify": "bun scripts/verify-observability-baseline.ts --supply-chain --json",
       "exit_code": 0,
-      "output_file": ".tmp/OBS-01/ac-2-output.txt"
+      "output_file": ".tmp/OBS-01/ac-2-output.txt",
+      "seeded_value": {
+        "floatingTagCount": 0,
+        "deniedVersionCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/OBS-01/AC-2-green.txt"
     },
     {
       "id": "AC-3",
       "verify": "bun scripts/verify-observability-baseline.ts --target-capacity --json",
       "exit_code": 0,
-      "output_file": ".tmp/OBS-01/ac-3-output.txt"
+      "output_file": ".tmp/OBS-01/ac-3-output.txt",
+      "seeded_value": {
+        "expectedServiceCount": 12,
+        "expectedVolumeCount": 8,
+        "decisionCount": 1,
+        "decision": "BLOCKED_CAPACITY"
+      },
+      "red_against_start_file": ".tmp/OBS-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/OBS-01/AC-3-green.txt"
     },
     {
       "id": "AC-4",
       "verify": "bun scripts/verify-observability-baseline.ts --reconcile --json",
       "exit_code": 0,
-      "output_file": ".tmp/OBS-01/ac-4-output.txt"
+      "output_file": ".tmp/OBS-01/ac-4-output.txt",
+      "seeded_value": {
+        "sourceIdentityCount": 1,
+        "hostedIdentityCount": 1,
+        "ownershipDecisionCount": 1
+      },
+      "red_against_start_file": ".tmp/OBS-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/OBS-01/AC-4-green.txt"
     },
     {
       "id": "TC-1",
@@ -61,12 +90,15 @@
     }
   ],
   "red_evidence": {
-    "required": true
+    "required": true,
+    "file": ".tmp/OBS-01/red-output.txt",
+    "red_sha": "86eb5a92eab3faf4ef7b2c4d4648c744f48f0344",
+    "green_sha": "d5966d513a8e38ea762257c34ac68a01bf26a580"
   },
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.2",
-    "generated_at": "2026-08-21T03:19:42Z",
+    "generated_at": "2026-08-21T02:47:49Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -74,15 +106,15 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "f97d12652e3afeb8e60211c1ff191140f7298e9aa60ed1d0b9357baaa1c1d130"
+        "sha256": "d75e3cc5ab9b3a63bfcdfe6b31fc993d575e47dc2536d77f30cf695dcb897a2b"
       },
       {
         "path": "test-output.txt",
-        "sha256": "60e8042bc1046c43630addd47419da4f0784881bf563bf7d2b34784063cfe92c"
+        "sha256": "7c8ff95499ea4a85f7df569ae46f2aac9d041843ac5c95f6812b622e993a8a39"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "d72c6b1c0f0e5a702cad336c4a251a21302a96c83780443792aac154d48f5910"
+        "sha256": "2e89f937b83251b805acfc0c94ba66123abe618e5dcea18b8a21e35a8b9ce57e"
       },
       {
         "path": "ac-2-output.txt",
@@ -90,15 +122,15 @@
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "2d42ecdd2a134399f52a7f330724bd9610aa95bc786d645e948a5c3a0e10176c"
+        "sha256": "ac383912f045c32bc5e996215a81cc73ae06d3ac91dd7928d6fdef07a8b83184"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "0d37959514c512a1bcfffa237d1d971c4270281a3fb02cad18c3c3ef6c04e354"
+        "sha256": "bae65be547f41ea0770777aa9ecf9b2b66e18b5720c1209a930cb1722b62b5e6"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "1bb805c2a8085b5e55abd8a8795c09a53e2b3df44ca21c5678c89a1ef8989245"
+        "sha256": "a2ec19ed23e5fbc79c24a3275ff18d8e152174df5a6706ff00ad321e8dc51e23"
       },
       {
         "path": "tc-2-output.txt",
@@ -106,11 +138,11 @@
       },
       {
         "path": "tc-3-output.txt",
-        "sha256": "3225897a0e18d4d3cf28287bd4da0c8ae5b53785d713743c2a3d543da6dea6dc"
+        "sha256": "45a4cc76ad49512c5c2ae4ffba97bb981b10b5ea3947c737f301051c6149aba6"
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "eb911937a5a3e119f2f33b4a9cc6889e15c4e4dc37570bba2b9a076e58c262e3"
+        "sha256": "1be103388adb30c0b99c8e9b046da729e0be88c44718237af7ed2eee84aa08ed"
       },
       {
         "path": "pre-existing-issues.md",

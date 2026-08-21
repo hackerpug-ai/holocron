@@ -555,6 +555,6 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ‚îÅ‚
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 576.
-Checked 1297 files in 405ms. No fixes applied.
+Checked 1297 files in 346ms. No fixes applied.
 Found 526 warnings.
 Found 70 infos.

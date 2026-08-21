@@ -9,8 +9,8 @@
     "host": "inference1",
     "arch": "arm64",
     "physMemBytes": 68719476736,
-    "approxFreeMemBytes": 1615446016,
-    "diskAvailBytes": 29623881728,
+    "approxFreeMemBytes": 2641461248,
+    "diskAvailBytes": 29396168704,
     "dockerMemTotalBytes": 8320954368
   },
   "liveMeasurementUnchanged": false,
