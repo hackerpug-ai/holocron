@@ -9,13 +9,13 @@
     "host": "inference1",
     "arch": "arm64",
     "physMemBytes": 68719476736,
-    "approxFreeMemBytes": 2641461248,
-    "diskAvailBytes": 29396168704,
+    "approxFreeMemBytes": 1916698624,
+    "diskAvailBytes": 29249761280,
     "dockerMemTotalBytes": 8320954368
   },
-  "liveMeasurementUnchanged": false,
-  "negativeFixtureBytes": 38117834751,
-  "headroomBytes": -1,
+  "liveMeasurementUnchanged": true,
+  "negativeFixtureBytes": null,
+  "headroomBytes": -36201136128,
   "dockerMemSufficient": false,
   "diskSufficient": false
 }

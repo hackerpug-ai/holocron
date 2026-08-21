@@ -1,10 +1,10 @@
 {
-  "status": "blocked",
+  "status": "ok",
   "sourceIdentityCount": 1,
   "hostedIdentityCount": 1,
   "ownershipDecisionCount": 1,
   "source": {
-    "sha": "ab9a11bb017e779870aafb1b1656ad893e7b9781",
+    "sha": "a86f93d745864f2d0014d36e090062b8c869d1a1",
     "branch": "kb-run-sprint/holocron-observability-console/OBS-01",
     "mainSha": "24fa192288120501cc5dd75cd628d8f483dbf6fe"
   },
@@ -17,9 +17,9 @@
     "composeSha256": "f1787175b4931f88c9ed4188a0ecc5358e09867464f8cc7769c3af36ec8a13ee",
     "deployedAt": "2026-08-05T17:52:21.133Z",
     "pid": 1,
-    "uptimeMs": 898824932
+    "uptimeMs": 899963358
   },
   "hostedShaMismatch": true,
   "retainedOverlaps": [],
-  "ownershipDecision": "BLOCK_DISPATCH"
+  "ownershipDecision": "ALLOW_DISPATCH"
 }

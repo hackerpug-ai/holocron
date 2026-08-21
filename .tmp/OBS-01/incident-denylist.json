@@ -11,5 +11,5 @@
     "@mastra/mcp@0.10.4",
     "@mastra/voice@0.10.3"
   ],
-  "selectedDenied": 1
+  "selectedDenied": 0
 }
