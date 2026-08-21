@@ -493,7 +493,10 @@ function dumpClickHouseTable(
   return out;
 }
 
-function dumpClickHouse(container: string, stageDir: string): {
+function dumpClickHouse(
+  container: string,
+  stageDir: string
+): {
   events: string;
   scores: string;
 } {

@@ -418,7 +418,11 @@ function applyClickHouseTable(
   }
 }
 
-function applyClickHouseDump(project: string, eventsDumpPath: string, scoresDumpPath?: string): void {
+function applyClickHouseDump(
+  project: string,
+  eventsDumpPath: string,
+  scoresDumpPath?: string
+): void {
   applyClickHouseTable(project, eventsDumpPath, 'events_full', 'obs04-events.native');
   if (scoresDumpPath && existsSync(scoresDumpPath)) {
     applyClickHouseTable(project, scoresDumpPath, 'scores', 'obs04-scores.native');
@@ -534,7 +538,11 @@ async function verifyPublicApiWitnesses(
   if (!witnesses.objectKey) {
     mismatches += 1;
   } else {
-    const mediaId = witnesses.objectKey.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+    const mediaId =
+      witnesses.objectKey
+        .split('/')
+        .pop()
+        ?.replace(/\.[^.]+$/, '') ?? '';
     if (!mediaId) {
       mismatches += 1;
     } else {
@@ -806,10 +814,7 @@ export async function proveLangfuseColdRestart(input: {
     manifest.witnesses.spanName
   );
   const webPort = resolveWebPort(input.project, input.evidenceDir);
-  const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(
-    webPort,
-    manifest.witnesses
-  );
+  const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(webPort, manifest.witnesses);
 
   return {
     ok:
@@ -861,9 +866,7 @@ function listLivePrismaMigrations(postgresContainer: string): string[] {
     'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY migration_name',
   ]);
   if (listed.status !== 0) {
-    throw new Error(
-      `live _prisma_migrations probe failed: ${listed.stderr || listed.stdout}`
-    );
+    throw new Error(`live _prisma_migrations probe failed: ${listed.stderr || listed.stdout}`);
   }
   return listed.stdout
     .split('\n')

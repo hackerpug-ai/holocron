@@ -2,8 +2,8 @@
   "task": "OBS-04",
   "verdict": "REMEDIATED",
   "commit_lineage": {
-    "red": "8ad2647c",
-    "note": "GREEN pending this commit"
+    "red": "8ad2647cbbe7eea80e5dbca9d872185c8aa67dea",
+    "green": "355eec32cdb9aa9fffea79c82f9b0ba6b70aaf82"
   },
   "requirements": {
     "AC-1": "PASS",
@@ -19,5 +19,28 @@
     "AC-4-green": ".tmp/OBS-04/AC-4-green-remediation.txt",
     "AC-4-seeded": ".tmp/OBS-04/AC-4-seeded-artifact.json",
     "AC-1-2-green": ".tmp/OBS-04/AC-1-and-2-green-remediation.txt"
+  },
+  "seeded_value": {
+    "AC-3": {
+      "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+      "observationId": "1896038da8fd800c",
+      "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+      "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+      "eventId": "1896038da8fd800c",
+      "otelQueueBackedUp": true,
+      "publicApiWitnessMismatchCount": 0,
+      "eventSqlWitnessMismatchCount": 0,
+      "expectedWitnessMismatchCount": 0,
+      "restoreProject": "obs04-restore-mt2nvsoy"
+    },
+    "AC-4": {
+      "restartWitnessMismatchCount": 0,
+      "publicApiWitnessMismatchCount": 0,
+      "compatibleRollbackMismatchCount": 0,
+      "incompatibleRollbackExitCode": 2,
+      "incompatibleApplyCount": 0,
+      "stateVolumeRecreated": false,
+      "probeMethod": "previous-image-prisma-migrations"
+    }
   }
 }
