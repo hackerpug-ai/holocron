@@ -1,84 +1,97 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # API Design
 
-> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** "Per ADR-001 the loop is local … thin Convex publish surface" below is superseded by [`mk6-migration`](../../mk6-migration/README.md) + [ADR-006](./00-architecture-decisions.md) — the surface is now a **Mastra mission-template API** on the Mission Engine, not a local CLI + Convex publish hop. The pure Gate-module contract carries forward unchanged. Re-derive before consuming.
+The operator surface is (a) generated Markdown, (b) the `holo fulcrum` CLI over existing mission HTTP APIs, and (c) the pure Gate module. There is no `prospect *` CLI. There is no Convex `createWithEmbedding`. There is no `scheduler.tick()`. There is no unnamed "minimal verdict entry point."
 
-Per ADR-001 the loop is local; the surface is (a) the local ledger module + CLI (the Prospector `prospect` interface), (b) the pure Gate module, and (c) a thin Convex publish surface. No public HTTP API in scope.
+## Reads — generated Markdown
 
-## Local — Missions & Gate (the `prospect` CLI / ledger module, SQLite-backed)
+| Artifact | Path | How it is produced |
+|----------|------|--------------------|
+| Daily brief | `.holocron/fulcrum/briefs/{YYYY-MM-DD}.md` (in-repo) and a `documents` row via `publishDocumentForRun` | Deterministic renderer over the evidence graph. Contains a section titled **Loop health**. |
+| Candidate dossier | `.holocron/fulcrum/dossiers/{candidateId}.md` (in-repo) and a `documents` row | Same renderer. Linked from the brief by **Markdown path**, not by in-app navigation. |
 
-Reused from the Prospector core; these operate directly on the local SQLite ledger.
+CLI read helpers (print the file; they do not "navigate"):
 
-| Command / function | Contract |
-|--------------------|----------|
-| `prospect mission create` | `{ rootQuestion, type, contract }` → `missionId` (writes `missions` + contract version) |
-| `prospect mission publish-contract` | `{ missionId, contract }` → `{ version }` (append-only; sets active; triggers re-score) |
-| `prospect mission publish-tiers` | `{ missionId, domains[] }` → `{ version }` |
-| `prospect mission seed` | `{ missionId, seeds[] }` → `{ candidateIds[] }` |
-| `prospect verdict` | `{ candidateId, verdict, citedClaimId?, kind }` → enforces WIP=1, probe-gate, cited-kill; writes verdict + touch |
-| `prospect probe` | `{ candidateId, kind, result }` → `probeId` |
-| `prospect judge` | `{ candidateId, component, value, rationale }` → judgment score |
-| `prospect ack` | `{ missionId, briefId }` → writes an explicit touch (resets ceiling) |
-| `prospect brief` | `{ missionId }` → Markdown brief (repo file) + triggers publish of movers |
-| `prospect dossier` | `{ candidateId }` → Markdown dossier with full evidence chain |
+```
+holo fulcrum brief [--mission <id>]
+holo fulcrum dossier <candidateId>
+```
 
-## Local — Loop internals (in the worker)
+## Writes — named CLI over mission APIs
+
+| Command | HTTP | Contract |
+|---------|------|----------|
+| `holo fulcrum '<goal>' [--claims <json>] [--json]` | `POST /api/missions` (existing on-demand path) | Instantiates the `fulcrum` alias of `evidence-research`. Already shipped. |
+| `holo fulcrum verdict <runId> <kill\|advance\|redirect\|boost> [--cite <claimId>] [--kind fit\|validity]` | **`POST /api/missions/:id/verdicts`** (already exists) | Writes a `mission_verdicts` row. Enforces WIP=1, cited-kill, probe-gated `→validated`. |
+| `holo fulcrum ack-brief <runId> <briefId>` | **`POST /api/missions/:id/touches`** (new endpoint) | Named mutation **`ackBrief`**. Inserts a `touches` row with `touch_type='brief_ack'`. A file read of the brief does **not** write a touch. |
+| `holo fulcrum probe <candidateId> --kind <calls\|smoke_test\|pilot> --result <text>` | `POST /api/missions/:id/probes` (new endpoint) | Records a `probes` row. Probe *tooling* (outreach, smoke-test scaffolding) is out of scope; **recording** is in scope. |
+| `holo fulcrum seed <missionId> --from <path>` | `POST /api/missions` args | Bootstrap `candidates` from existing material. |
+
+`ackBrief` is the mutation name. The CLI verb is `holo fulcrum ack-brief`. The HTTP path is `POST /api/missions/:id/touches`. T-GATE-017 asserts this named path, not an undefined symbol.
+
+## Loop internals (Mastra service — not a worker tick)
 
 | Function | Contract |
 |----------|----------|
-| `scheduler.tick()` | the worker's own loop: checks budget/breaker/ceiling/fleet; selects a work item |
-| `selector.next(missionId)` | → `{ workItemType, workItemId, phase }` by the EVoI rule (+ starvation floor), a SQLite query |
-| `cycle.commit(idempotencyKey, {...})` | one append-only SQLite transaction (evidence, claims, score, lineage, cycle row); replay-safe via unique `idempotencyKey`; kill-9 all-or-nothing |
-| `fleet.report({endpoint, role, state})` | updates the local `fleet_health` table |
+| `fulcrum:cycle` (`MIGRATED_JOBS` row) | Cadence from the mission contract (default `interval 15m`). Lease owner = `scheduler-worker` via `mission_runs.lease_owner`. Checks daily budget, breaker, ceiling, per-role fleet availability; then selects a work item and dispatches `mission:execute`. |
+| `selector.next(missionId)` | Pure Postgres query → `{ workItemType, workItemId, phase }` by the EVoI rule + challenge-starvation floor. |
+| `mission:execute` | Existing job handler path. Runs the compiled `evidence-research` template (Fulcrum alias) through GENERATE + MAP once those stages are registered. Commit is one transaction under `mission_runs.idempotency_key`. |
+| Gate module | See below. Called from the `gate` stage executor (`evidence-gate`), not from an agent tool. |
 
-## Convex — publish surface (the only cross-machine calls)
+## Mission HTTP (already shipped)
 
-| Function | Kind | Contract |
-|----------|------|----------|
-| `documents/storage:createWithEmbedding` (existing) | action | `{ title, content, category, source:'fulcrum', candidateRef }` → publishes a finding (Cohere 1024-dim embed, idempotent upsert) |
-| `fulcrum/runs:upsertProjection` (new, optional) | mutation | `{ missionId, leaderboard[] }` → thin read-only projection for the app |
+| Route | Kind | Contract |
+|-------|------|----------|
+| `POST /api/missions` | create/execute | Compile + run a template. Fulcrum uses `templateKey=evidence-research` with instantiation tag `fulcrum`. |
+| `GET /api/missions/:id` | status | Run row + stages + usage. |
+| `POST /api/missions/:id/verdicts` | **existing** | `{ verdict, rationale?, requestKey, payloadJson? }` → `{ ok, replay, runId, verdict, event, run }`. Fulcrum maps `kill` / `advance` / `redirect` / `boost` onto this body. |
+| `POST /api/missions/:id/steer` | existing | Free-form steering; not the verdict machine. |
+| `POST /api/missions/:id/touches` | **new** | `{ briefId, requestKey }` → `touches` row. CLI: `holo fulcrum ack-brief`. |
+| `POST /api/missions/:id/probes` | **new** | `{ candidateId, kind, result, requestKey }` → `probes` row. |
 
-## Worker — main loop (Bun)
-
-Fully local; the only network calls are retrieval (SENSE) and publish (post-COMMIT).
-
-```
-loop:
-  if budgetExhausted() || breakerOpen() || ceilingTripped(): sleepOrSenseOnly(); continue
-  fleet = checkLocalEndpoints(); ledger.fleet.report(fleet)    // laptop:4545 / mini:8000
-  if fleet.offline && !fallbackEnabled: senseOnly(); continue
-  item = ledger.selector.next(missionId)                       // local SQLite query
-  cycleKey = idempotencyKeyFor(item)
-  result = runCyclePhases(item, provider, gate)                // local inference + local Gate
-  ledger.cycle.commit(cycleKey, result)                        // local SQLite, replay-safe, kill-9 safe
-  publishIfMaterial(result) -> convex documents (queues if Convex down)
-```
-
-- **Idempotency & crash-safety**: `cycleKey` is derived deterministically per work item; `cycle.commit` is unique on it and returns the stored result on replay. A kill-9 mid-cycle leaves at most the in-flight cycle and never a partial commit (the Prospector SIGKILL durability guarantee).
-- **No Convex dependency in the hot loop**: selection, cycle, gate, and commit are all local; Convex is touched only to publish a finished finding, and a publish failure queues without stalling the loop.
-
-## Local Inference Provider (worker-side)
-
-```ts
-// createOpenAI from @ai-sdk/openai, pointed at a LOCAL base URL
-const provider = createOpenAI({ baseURL: cfg.baseUrl /* laptop:4545/v1 | mini */, apiKey: cfg.key ?? 'local' });
-export function modelFor(role: 'divergent' | 'convergent'): LanguageModel;  // resolves cfg.roleMap
-// invariant: assertDistinct(modelFor('convergent' /*ASSAY*/), modelFor('divergent' /*CHALLENGE*/))
-```
-
-## Evidence Gate — pure module (no I/O, no model)
+## Evidence Gate — pure module (no I/O, no model, no fleet role)
 
 ```ts
 gradeEvidence(tierValue: number | null, retrievedAt: number, halfLifeDays: number, now: number): number | null
-verifyQuote(quote: string, normalizedSource: string): boolean                       // deterministic substring
+verifyQuote(quote: string, normalizedText: string): boolean   // substring of the fetch artifact, never RRF sourceText
 evaluateAdmission(claim, gradedEvidence[], policy, now): { status, passesGate, qualifyingGrade, reasons }
-provenanceSweep(candidateClaims): demotions[]                                        // syndication + self-sourced
-computeScore(claims, judgments, contract): { score, disconfirmationTotal, components[] }  // top-3 mean, ×m, UNKNOWN
+provenanceSweep(candidateClaims): demotions[]
+computeScore(claims, judgments, contract): { score, disconfirmationTotal, components[] }
 ```
 
-The Gate runs entirely in the worker against the local ledger — admission at ASSAY time and deterministic recompute on re-score. One implementation, identical results; no model, no network. (Reused verbatim from the Prospector core.)
+Invariant: **no `generateText` and no fleet role inside gate or score modules.** Reviewer greps for both. `judge` never appears.
+
+## Perpetual loop (scheduler-worker, not `scheduler.tick()`)
+
+```
+loop (scheduler-worker over MIGRATED_JOBS):
+  lease due job named fulcrum:cycle
+  if dailyBudgetExhausted() || breakerOpen() || ceilingTripped(): record reason on mission_runs; continue
+  item = selector.next(missionId)                 // Postgres
+  cycleKey = idempotencyKeyFor(item)
+  dispatch mission:execute(template=evidence-research, tag=fulcrum, idempotencyKey=cycleKey)
+  on commit: publishDocumentForRun if the synthesis changed
+```
+
+- **Idempotency & crash-safety**: `cycleKey` is unique on `mission_runs`; replay returns the stored commit. A kill-9 of the Mastra service or scheduler-worker leaves at most the in-flight lease; resume is from Postgres `lease_owner` / `lease_expires_at`.
+- **Daily budget**: mission `budgets` (wallMs, tokens, cost, maxSteps) plus a daily cycle ceiling on the mission contract. The job must not launch a new cycle once either is hit.
+
+## Retrieval contract (SENSE)
+
+Mastra registry tool IDs (live today; **no Exa/Jina**):
+
+- `hybrid_search`
+- `search_fts`
+- `search_vector`
+- `search_research`
+- `get_research_session`
+- `get_document`
+
+The Fulcrum template's `toolGrants` MUST list the tools SENSE is allowed to call (today the alias ships `toolGrants: []` — Fulcrum fills this). Ban-list and per-domain courtesy delays are **Zod fields on the mission contract** and are enforced in the retrieval client (filter by `source_domain`; delay before any outbound host — today there is no outbound host, so the fields still validate and corpus hits on banned domains are dropped).
+
+SENSE is **corpus-only**. The problem statement is: find and grade evidence already in holocron (`documents` / `passages` / prior `sources`). It is not "fetch the live web via `convex/research/tools.ts`."

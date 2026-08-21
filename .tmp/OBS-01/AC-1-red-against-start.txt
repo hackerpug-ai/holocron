@@ -1,0 +1,34 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-01
+
+ ❯ |integration| services/platform/tests/integration/observability-compatibility-gate.test.ts (2 tests | 1 failed | 1 skipped) 6ms
+     × AC-1: Candidate A real export success, visible failure, recovery, and redaction 4ms
+     ↓ AC-2 supply-chain lock exists with zero floating tags and denied versions
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/observability-compatibility-gate.test.ts > OBS-01 observability compatibility gate > AC-1: Candidate A real export success, visible failure, recovery, and redaction
+AssertionError: Candidate A requires @mastra/otel-exporter@1.3.9: expected undefined to be '1.3.9' // Object.is equality
+
+- Expected:
+"1.3.9"
+
++ Received:
+undefined
+
+ ❯ services/platform/tests/integration/observability-compatibility-gate.test.ts:57:95
+     55|
+     56|     const deps = packageDeps();
+     57|     expect(deps['@mastra/otel-exporter'], 'Candidate A requires @mastr…
+       |                                                                                               ^
+     58|       '1.3.9'
+     59|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  20:20:43
+   Duration  351ms (transform 96ms, setup 229ms, import 8ms, tests 6ms, environment 0ms)
+

@@ -591,7 +591,7 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(runbook).toMatch(/44111/);
     expect(runbook).toMatch(/tailscale serve/i);
     expect(runbook).toMatch(/holocron-postgres/);
-    expect(runbook).toMatch(/holocron-blobs/);
+    expect(runbook).toMatch(/otel-queue|otel-collector-queue/);
     expect(runbook).toMatch(/50 GiB|container limit/i);
     expect(runbook).toMatch(/Docker (Desktop )?VM|headroom/i);
     expect(runbook).toMatch(/deploy:rollback-preflight/);
@@ -599,14 +599,26 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(runbook).not.toMatch(/ipconfig getifaddr|192\.168\.\d+\.\d+/);
 
     const documentedExternalHttpsPort = 44_111;
-    const documentedServiceCount = 4;
-    const documentedNamedVolumeCount = 2;
+    const documentedServiceCount = 12;
+    const documentedNamedVolumeCount = 8;
     const documentedRollbackPreflightCount = (
       runbook.match(/deploy:rollback-preflight|non-destructive rollback/gi) ?? []
     ).length;
     expect(documentedExternalHttpsPort, 'documented_external_https_port').toBe(44_111);
-    expect(documentedServiceCount, 'documented_service_count').toBe(4);
-    expect(documentedNamedVolumeCount, 'documented_named_volume_count').toBe(2);
+    expect(documentedServiceCount, 'documented_service_count').toBe(12);
+    expect(documentedNamedVolumeCount, 'documented_named_volume_count').toBe(8);
+    expect(runbook).toMatch(/twelve-service|12/);
+    expect(runbook).toMatch(/eight-volume|8/);
+
+    const launchdReadme = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/launchd/README.md'),
+      'utf8'
+    );
+    expect(launchdReadme, 'launchd README must document twelve-service Docker production').toMatch(
+      /twelve-service|12 services|running_service_count=12/
+    );
+    expect(launchdReadme).not.toMatch(/running_service_count=4/);
+    expect(launchdReadme).not.toMatch(/Exactly \*\*four\*\* runtime services/);
     expect(
       documentedRollbackPreflightCount,
       'documented_rollback_preflight_count'
@@ -643,6 +655,14 @@ describe('D06-07 inference1 deployment contract', () => {
           mastra: 1,
           scheduler: 1,
           'zero-cache': 1,
+          edge: 1,
+          'langfuse-web': 1,
+          'langfuse-worker': 1,
+          'langfuse-postgres': 1,
+          'langfuse-clickhouse': 1,
+          'langfuse-redis': 1,
+          'langfuse-minio': 1,
+          'otel-collector': 1,
         },
       });
 
@@ -716,8 +736,8 @@ describe('D06-07 inference1 deployment contract', () => {
 
     expect(receipt.host, 'receipt_host').toBe('holocron');
     expect(receipt.loopbackPort, 'receipt_loopback_port').toBe(44_111);
-    expect(receipt.services.length, 'receipt_service_count').toBe(4);
-    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(2);
+    expect(receipt.services.length, 'receipt_service_count').toBe(12);
+    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(8);
     expect(receipt.imageDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(receipt.composeGeneration).toBeTruthy();
     expect(receipt.memoryLimitsGib).toEqual(DEFAULT_MEMORY_LIMITS_GIB);
@@ -730,22 +750,55 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(text).not.toContain(canary);
     expect(text).not.toMatch(/process\.env/);
 
-    // Receipt must bind the exact two durable volume names (never empty / always-true).
-    expect(receipt.durableVolumes).toEqual(['holocron-postgres', 'holocron-blobs']);
-    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(2);
-    expect(receipt.services).toEqual(['postgres', 'mastra', 'scheduler', 'zero-cache']);
+    // Receipt must bind the exact eight durable volume runtime names.
+    expect(receipt.durableVolumes).toEqual([
+      'holocron-postgres',
+      'zero-cache',
+      'langfuse-postgres',
+      'clickhouse-data',
+      'clickhouse-logs',
+      'minio-data',
+      'redis-data',
+      'otel-collector-queue',
+    ]);
+    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(8);
+    expect(receipt.services).toEqual([
+      'postgres',
+      'mastra',
+      'scheduler',
+      'zero-cache',
+      'edge',
+      'langfuse-web',
+      'langfuse-worker',
+      'langfuse-postgres',
+      'langfuse-clickhouse',
+      'langfuse-redis',
+      'langfuse-minio',
+      'otel-collector',
+    ]);
     expect(receipt.imageDigest, 'empty image digest').toMatch(/^sha256:[a-f0-9]{64}$/);
 
-    // Live Docker volume API is reachable (read-only). When the named volumes exist
-    // on the engine they must both be present; absence is allowed on cold hosts.
+    // Live Docker volume API is reachable (read-only). When any of the canonical
+    // runtime names exist on the engine they must all be present; absence is
+    // allowed on cold hosts.
     const volumes = spawnSync('docker', ['volume', 'ls', '-q'], { encoding: 'utf8' });
     expect(volumes.status).toBe(0);
     const volumeNames = (volumes.stdout ?? '').split(/\n/).filter(Boolean);
-    const named = ['holocron-postgres', 'holocron-blobs'].filter((name) =>
+    const expected = [
+      'holocron-postgres',
+      'zero-cache',
+      'langfuse-postgres',
+      'clickhouse-data',
+      'clickhouse-logs',
+      'minio-data',
+      'redis-data',
+      'otel-collector-queue',
+    ];
+    const named = expected.filter((name) =>
       volumeNames.some((v) => v === name || v.endsWith(`_${name}`) || v.endsWith(name))
     );
     if (named.length > 0) {
-      expect(named.length, 'live holocron named volumes must be complete when any exist').toBe(2);
+      expect(named.length, 'live holocron named volumes must be complete when any exist').toBe(8);
     }
   });
 
@@ -786,7 +839,20 @@ describe('D06-07 inference1 deployment contract', () => {
     const preflight = runHostPreflight({
       target: 'holocron',
       port: 44_111,
-      memoryLimits: { postgres: 1, mastra: 1, scheduler: 1, 'zero-cache': 1 },
+      memoryLimits: {
+        postgres: 1,
+        mastra: 1,
+        scheduler: 1,
+        'zero-cache': 1,
+        edge: 1,
+        'langfuse-web': 1,
+        'langfuse-worker': 1,
+        'langfuse-postgres': 1,
+        'langfuse-clickhouse': 1,
+        'langfuse-redis': 1,
+        'langfuse-minio': 1,
+        'otel-collector': 1,
+      },
     });
     const scanBlob = JSON.stringify({
       preflight,

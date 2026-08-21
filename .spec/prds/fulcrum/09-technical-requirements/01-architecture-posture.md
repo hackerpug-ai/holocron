@@ -1,38 +1,65 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Architecture Posture
 
-> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** Fulcrum is now sequenced after [`mk6-migration`](../../mk6-migration/README.md). **Stance #1 (tailnet worker) and stance #5 (local SQLite ledger) are contradicted by [ADR-004 / ADR-006](./00-architecture-decisions.md)** — the backend runs on the mini, so there is no cloud runtime to escape and no sidecar worker; the ledger is Postgres append-only tables. Stances #2 (deterministic seam), #3 (two model roles), #4 (evolve not fork), and #6 (human done-bit) carry forward unchanged. Re-derive this file against the live mk6 platform before consuming it.
+Six architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit. They match [ADR-004](./00-architecture-decisions.md), [ADR-006](./00-architecture-decisions.md), [ADR-007](./00-architecture-decisions.md), and [ADR-008](./00-architecture-decisions.md).
 
-Six architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit.
+## 1. Local inference is a first-class requirement, consumed as a loopback fleet client
 
-## 1. Local inference is a first-class requirement, resolved by a tailnet worker
+All Fulcrum cycle inference runs on **local** Apple-Silicon models via the Virtual Device Fleet's packaged router on **loopback**, pinned to `inference1` + `inference2`. There is **no tailnet sidecar worker**. There is **no Convex store**. Fulcrum is a Mastra mission template running in the same process as the rest of the MK-VI platform; it dials `http://127.0.0.1:{router_port}/v1` on whichever node hosts the Mastra service.
 
-All Fulcrum cycle inference runs on **local** Apple-Silicon models, never cloud, unless the operator explicitly enables a fallback. The binding constraint: holocron's research today runs `generateText({ model: claudeFlash() })` **inside Convex actions**, and Convex's runtime cannot reach tailnet-local endpoints (LiteLLM `laptop:4545`, `inference1/2:8000`). Therefore the inference-bearing phases of a cycle execute in a **tailnet-resident worker process** (dev: the M5 Max laptop; prod: a Mac mini) that holds the local-model connection and reads/writes durable state through the Convex client. Convex remains the durable store, scheduler, and app surface; it dispatches cycle work to the worker and receives committed results.
+- Fulcrum declares **no** base URL, host, port, model identifier, or device (`FULCRUM_INFERENCE_BASE_URL` is deleted).
+- The laptop is **not** a dependency. A perpetual loop cannot depend on a machine that sleeps.
+- Cloud fallback for research requires an explicit operator opt-in (`FULCRUM_CLOUD_FALLBACK`, default off).
+- Historical v1.0.1 workaround (a tailnet worker + `bun:sqlite` + Cohere publish) is retired. The v1.0.1 "self-hosted Convex on the minis" north star is **not** the current topology; mk6 delivered Mastra + Postgres instead.
 
-- **MVP**: the worker owns the loop **and its durable ledger, locally** (see stance #5 / ADR-001); **cloud-hosted Convex is the publish + search substrate**, receiving only published findings over HTTPS.
-- **North star (out of scope, non-breaking)**: **self-hosted Convex on the Mac minis**, at which point Convex is itself tailnet-resident, the local ledger and Convex co-locate, and the publish hop becomes local. Fulcrum is designed so this migration requires no redesign — it is the literal meaning of "migrate holocron to the minis and run all research locally."
+## 2. The deterministic/agentic seam is absolute — agents produce claims; they do not judge
 
-## 2. The deterministic/agentic seam is absolute
+Anything that must *always* be true is code. Agents **read, write, and generate claims**. They do **not** judge, score, admit, or terminate.
 
-Anything that must *always* be true is code; agents only read, write, judge, and generate. The **Evidence Gate** (grading, admission, provenance, quote-check, scoring) contains **no LLM call** and is a set of pure functions that yield identical output for identical ledger state. The **Loop Engine** never computes a score; the **Gate** never calls a model. This seam is the direct replacement for holocron's `runRalphLoop`, which terminates on an LLM's self-assessed confidence (`coverage ≥ 4 && confidence ≥ 70`) — the reward-hackable pattern Fulcrum exists to remove. The model can write any narrative; the number only moves when a cited claim clears the code gate.
+- The **Evidence Gate** (grading, admission, provenance, quote-check, scoring) contains **no `generateText` and no fleet role**. It is a set of pure functions that yield identical output for identical ledger state.
+- The **Loop Engine** never computes a score; the **Gate** never calls a model.
+- The fleet role `judge` **never appears on the Fulcrum path**, the same way coder roles never appear.
+- This seam replaces holocron's `runRalphLoop`, which terminated on an LLM's self-assessed confidence (`coverage ≥ 4 && confidence ≥ 70`). The model can write any narrative; the number only moves when a cited claim clears the code gate.
 
-## 3. Local models serve two *roles*, mapped by config
+## 3. Two *research* roles, bound by fleet config, chosen by measurement
 
-The cycle needs a **divergent** role (fast generation, query planning, mutation) and a **convergent** role (precise claim extraction, challenge). These map onto the existing coder fleet — divergent → the fast MoE `implementer` (35B-A3B), convergent → the precise dense `reviewer` (27B) — via configuration, through the same LiteLLM router. This reuse is the lowest-friction way to satisfy "local inference for all research" today; swapping in a research-specific pair (e.g. a fast generator + a strong reasoner) is a config change, not a rebuild. **ASSAY and CHALLENGE must resolve to different models** — a property the two-role split provides for free and the substrate enforces (fail-closed if identical).
+The cycle needs a **claim-extraction** role and an **adversarial** role, and they must be different models so the critic does not inherit the extractor's blind spots. Fulcrum addresses the live `FLEET_ROLE_NAMES`:
 
-## 4. Evolve `convex/research/`, do not fork it
+| Live role | Fulcrum use | Optional `fleet.json` alias (1:1) |
+|-----------|-------------|-----------------------------------|
+| `divergent` | ASSAY / extract | `fulcrum-assay` |
+| `convergent` | SENSE-plan / GENERATE / CHALLENGE | `fulcrum-challenge` |
+| `embed` | 1024-dim Qwen3-Embedding | (served as `qwen3-embedding`) |
 
-Fulcrum reuses holocron's existing research machinery wherever it fits: the retrieval tools (`convex/research/tools.ts` — Exa/Jina via the AI SDK), embeddings, the phase decomposition (search/synthesize/review in `scheduled.ts`), and the extracted `termination.ts` criteria. It **replaces** the termination's LLM-confidence exit with the evidence gate, and **adds** the perpetual scheduler, the ledger, the local-inference substrate, and the human gate. The existing on-demand path (`startSmartResearch`) is untouched and runs alongside.
+`judge` is forbidden. Coder roles (`reviewer`, `implementer`, `orchestrator`, `qwen-coder`, `verifier`) are forbidden. `rerank` is unused on this path.
 
-## 5. Durable, append-only, idempotent state in a LOCAL SQLite ledger (ADR-001)
+The binding from role to model is a `fleet.json` edit: fleet-wide, digest-protected, identical on every node, and changeable with no Fulcrum code change. Which model belongs in which role is settled by **measurement, not preference**, because the Evidence Gate already emits deterministic quality signals — quote-check pass rate for extraction, refuting-claim gate-pass rate for challenge, and whether a queued kill-question later yields an *admitted* disconfirming claim.
 
-The ledger (evidence, claims, scores, lineage, cycles, verdicts, touches) is a **local `bun:sqlite` database** — the Prospector v1.1 schema, already implemented to 31/37 ACs on branch `task/prospector-schema`. It is **append-only** (SQLite UPDATE/DELETE-blocking triggers give DB-level immutability Convex cannot), and every cycle commits under an **idempotency key** with WAL durability, so a kill-9 leaves at most the in-flight cycle and never a partial commit. This is the loop's source of truth; Convex holds only *published findings* (a projection). The reason the ledger is local, not Convex: local inference forces an on-machine process (stance #1), and Convex action time-limits suit "schedule next cycle," not a long-lived worker — so co-locating the ledger with the inference is both necessary and free (it reuses working code).
+> Historical stance 3 (v1.0.x coder map: divergent → `implementer`, convergent → `reviewer`) is superseded. The two-role split survives; the names are the live research roles.
+
+## 4. Mine holocron's research *design*; re-implement execution on Mastra (ADR-003)
+
+Fulcrum does **not** evolve `convex/research/` as an execution plan. ADR-003 already says: mine the design (phase decomposition, 5-factor credibility signals, citation model), **re-implement on Mastra**, and replace LLM-confidence termination with the evidence gate.
+
+- Retrieval uses **named Mastra registry tools** (today: `hybrid_search`, `search_fts`, `search_vector`, `search_research`, `get_research_session`, `get_document`). There is no Exa/Jina registry tool. SENSE is **corpus-only** against ingested `documents` / `passages` until the platform registers an outbound fetch tool.
+- The existing on-demand path (`startSmartResearch` / the `research` alias of `evidence-research`) is untouched and runs alongside.
+- Fulcrum **adds** MAP/niche, the work-item selector, scoring, the perpetual `fulcrum:cycle` job, and briefs/dossiers. mk6 did not ship those.
+
+## 5. Durable, append-only, idempotent state in the live Postgres evidence graph (ADR-004)
+
+The ledger of record is the **live Postgres evidence graph** — `sources`, `passages`, `claims`, `entities`, `relations`, `beliefs` — plus named Drizzle extensions for candidates, `belief_scores`, weight versions, domain tiers, touches, and probes. Cycle log is `mission_runs` (idempotency key + lease). Verdicts are `mission_verdicts`.
+
+It is **not** a sidecar `bun:sqlite` database. It is **not** a Prospector port (`prospects`, `cycles`, `scores`, `fulcrumCycles` do not exist). Deterministic guarantees (append-only, idempotent commit keys, all-or-nothing cycles) are enforced at the Postgres layer: blocking UPDATE/DELETE on immutable tables, one transaction per cycle under `mission_runs.idempotency_key`.
+
+Publish is `publishDocumentForRun` into `documents` (local Qwen3 1024-dim embed). Convex is not in the path.
 
 ## 6. The human gate owns the done-bit; the loop never self-certifies
 
-Stage advancement (`contender → validated`) and active-build promotion are human-only, gated on a recorded reality-probe and a WIP=1 limit. Autonomous *retirement* is allowed but symmetric-visible (every kill surfaces in the brief with its cited reason). Fulcrum is honestly scoped as an evidence-**triage** engine: it nominates well-cited candidates; it never declares one validated.
+Stage advancement (`contender → validated`) and active-build promotion are human-only, gated on a recorded reality-probe and a WIP=1 limit. Autonomous *retirement* is allowed but symmetric-visible (every kill surfaces in the daily brief with its cited reason). Fulcrum is honestly scoped as an evidence-**triage** engine: it nominates well-cited candidates; it never declares one validated.
+
+Writes are CLI: `holo fulcrum verdict` wrapping `POST /api/missions/:id/verdicts`, and `holo fulcrum ack-brief` writing a `touches` row. There is no RN screen and no "navigates."

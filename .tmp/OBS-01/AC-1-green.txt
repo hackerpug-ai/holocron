@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "candidate": "A",
+  "pins": {
+    "ok": true,
+    "mismatches": []
+  },
+  "canaryReady": true,
+  "expectedObservationCount": 1,
+  "failureClassCount": 3,
+  "recoveryObservationCount": 1,
+  "expectedSecretSentinelCount": 0,
+  "unreachableFailed": true,
+  "wrongAuthFailed": true,
+  "lastSuccessAdvancedOnFailure": false,
+  "decision": "GO"
+}

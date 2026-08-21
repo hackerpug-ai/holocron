@@ -1,0 +1,194 @@
+{
+  "task_id": "OBS-02",
+  "timestamp": "2026-08-21T05:08:05Z",
+  "commit_sha": "cda72b91a5304c4d81d69887c61fe0d9659c377f",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 526
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/ac-1-output.txt",
+      "seeded_value": {
+        "expectedLocalTraceCount": 1,
+        "expectedLangfuseTraceCount": 1,
+        "traceIdentityMismatchCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-1-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-1-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-1-seeded-artifact.json"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/ac-2-output.txt",
+      "seeded_value": {
+        "expectedMissionSuccessCount": 1,
+        "expectedDegradedCount": 1,
+        "localTraceCount": 1,
+        "missionFailureCount": 0,
+        "externalState": "degraded"
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-2-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-2-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-2-seeded-artifact.json"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/ac-3-output.txt",
+      "seeded_value": {
+        "sentinelMatchCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-3-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-3-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-3-seeded-artifact.json"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/ac-4-output.txt",
+      "seeded_value": {
+        "queueMetricSourceCount": 1,
+        "terminalFailureCodeCount": 2,
+        "terminalFailureCodes": [
+          "EXPORT_FLUSH_TIMEOUT",
+          "LANGFUSE_UNREACHABLE"
+        ],
+        "queueDepth": 2,
+        "queueCapacity": 1000,
+        "flushCode": "EXPORT_FLUSH_TIMEOUT"
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-4-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-4-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-4-seeded-artifact.json"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/tc-1-output.txt",
+      "seeded_value": {
+        "expectedLocalTraceCount": 1,
+        "expectedLangfuseTraceCount": 1,
+        "traceIdentityMismatchCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-1-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-1-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-1-seeded-artifact.json"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/tc-2-output.txt",
+      "seeded_value": {
+        "expectedMissionSuccessCount": 1,
+        "expectedDegradedCount": 1,
+        "localTraceCount": 1,
+        "missionFailureCount": 0,
+        "externalState": "degraded"
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-2-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-2-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-2-seeded-artifact.json"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/tc-3-output.txt",
+      "seeded_value": {
+        "sentinelMatchCount": 0
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-3-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-3-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-3-seeded-artifact.json"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 OBS02_EVIDENCE=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron LANGFUSE_BASE_URL=http://127.0.0.1:13100 LANGFUSE_PUBLIC_KEY=pk-lf-obs01-canary-public LANGFUSE_SECRET_KEY=sk-lf-obs01-canary-secret OTEL_COLLECTOR_URL=http://127.0.0.1:14318/v1/traces OTEL_COLLECTOR_METRICS_URL=http://127.0.0.1:18888/metrics FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/observability-otel-v4.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-02/tc-4-output.txt",
+      "seeded_value": {
+        "queueMetricSourceCount": 1,
+        "terminalFailureCodeCount": 2,
+        "terminalFailureCodes": [
+          "EXPORT_FLUSH_TIMEOUT",
+          "LANGFUSE_UNREACHABLE"
+        ],
+        "queueDepth": 2,
+        "queueCapacity": 1000,
+        "flushCode": "EXPORT_FLUSH_TIMEOUT"
+      },
+      "red_against_start_file": ".tmp/OBS-02/AC-4-red-against-start.txt",
+      "green_file": ".tmp/OBS-02/AC-4-green.txt",
+      "seeded_artifact_file": ".tmp/OBS-02/AC-4-seeded-artifact.json"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-21T05:08:05Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "b1ed75e26c0b0164a3e4308fc4c7bf7576c22288a848d4fa76fd185a94b7d397"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "c39adfe719e21794ff5dd3bb4692792c33dfad89f9395cb52bb761129777cd2b"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "2045771322716abc25db604104db1782387c5807ff5c07347699ba7218fed648"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "4555934fc8f905bb5d530a5b4a675de3e04d7f52a8ac5d50d21792c4cadf0d3f"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "f165588ae3583e0eb4d66c7f183dd29e4cc3bb6ef6f917958695dcb3ba1b067c"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "4ab528cbf90ec0ff54c2643634dbdb6ef8c6b56af51c6af8c8229de6757b3314"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "2a6511a525e7670f930c306efdae382ea288bb12d573ce653a4414d0cbfe3fe3"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "05f2512f662fab6a5ce28837a480beb2adad28ab23f1ac73b5886cf799b8a335"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "776a9582d85b35b3e959159dd23546f8e17af4ad70210ce719a6237145f83ce0"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "670552aa3af5cf4a5d0d6d4a24f367575ffa73f6c2dd19be83bca32e57630af9"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "f5f13b970b52f52b79b06e6f1d69916e7d7c5e8658ad068c29cd5065c0f7bf8c"
+      }
+    ]
+  },
+  "head_commit_sha": "ed05a650a3c4b6ae087f0265cd29d3ddec011c64"
+}

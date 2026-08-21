@@ -1,0 +1,6 @@
+{
+  "expectedObservationCount": 1,
+  "failureClassCount": 3,
+  "recoveryObservationCount": 1,
+  "expectedSecretSentinelCount": 0
+}

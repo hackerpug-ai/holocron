@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-02
+
+ ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 23279ms
+     ✓ AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities  23192ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 3 skipped (4)
+   Start at  23:28:13
+   Duration  23.52s (transform 210ms, setup 159ms, import 15ms, tests 23.28s, environment 0ms)
+

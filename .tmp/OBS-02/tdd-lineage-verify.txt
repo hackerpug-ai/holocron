@@ -1,0 +1,36 @@
+{
+  "task_id": "OBS-02",
+  "tdd_mode": "red_first",
+  "red": {
+    "file": "red-output.txt",
+    "sha": "5f49bb4f81765f868e0697bd275f48736b21237d",
+    "mtime": 1787285633,
+    "sha256": "bd7633594283c38e36bd87f34abf6e1203e3f6eb3fa61f0a5b6927dbc740385e"
+  },
+  "green": {
+    "file": "test-output.txt",
+    "sha": "dd77c30bb4eae2eed6d851cf2dcdb205d7f989f2",
+    "mtime": 1787290347,
+    "sha256": "299bf8c8f92002aad19b346a1e0e1b5cd570a6a360f28e41428134d8b53c599e"
+  },
+  "distinct_commits": true,
+  "waiver": false,
+  "ok": true,
+  "failure_codes": [],
+  "checked_at": "2026-08-21T05:33:16Z",
+  "generator": {
+    "tool": "verify-tdd-lineage.sh",
+    "version": "1.1",
+    "generated_at": "2026-08-21T05:33:16Z",
+    "inputs": [
+      {
+        "path": "red-output.txt",
+        "sha256": "bd7633594283c38e36bd87f34abf6e1203e3f6eb3fa61f0a5b6927dbc740385e"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "299bf8c8f92002aad19b346a1e0e1b5cd570a6a360f28e41428134d8b53c599e"
+      }
+    ]
+  }
+}

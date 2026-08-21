@@ -31,14 +31,21 @@ import {
   advanceResearchSessionIteration,
   ensureResearchSessionIterationBaseline,
 } from '../research/progress.ts';
+import { HOLOCRON_SERVICE_NAME } from './config.ts';
 import {
-  createLangfuseExporterFromEnv,
-  HOLOCRON_SERVICE_NAME,
-  type HolocronLangfuseExporter,
+  classifyExportError,
+  ExportFailureCode,
+  recordExportFailure,
+  recordExportSuccess,
+} from './export-health.ts';
+import {
+  createOtelBridgeFromEnv,
+  type HolocronOtelBridge,
   LANGFUSE_EXPORT_FAILED,
   LangfuseExportError,
   type LangfuseExportStatus,
 } from './langfuse-exporter.ts';
+import { HolocronRedactionProcessor, redactForExport } from './redaction.ts';
 
 export type ResearchMissionResult = {
   ok: boolean;
@@ -85,8 +92,8 @@ export type RunResearchMissionOptions = {
   langfusePublicKey?: string;
   langfuseSecretKey?: string;
   /**
-   * When true (default for CLI), Langfuse export failure throws LangfuseExportError
-   * carrying `missionResult` so the CLI can print JSON and exit 1.
+   * When true, external export failure throws LangfuseExportError carrying
+   * `missionResult`. Default false — sink outage must not fail the mission.
    */
   throwOnExportFailure?: boolean;
   /** Optional deterministic fixture used by the Sprint 17 gate seam. */
@@ -103,15 +110,15 @@ function toHexTraceId(seed: string): string {
  * Build Observability with Postgres storage exporter + Holocron Langfuse exporter.
  * serviceName is always holocron-platform (obs-1 contract).
  */
-export function createMissionObservability(args?: { langfuse?: HolocronLangfuseExporter }): {
+export function createMissionObservability(args?: { langfuse?: HolocronOtelBridge }): {
   observability: Observability;
-  langfuseExporter: HolocronLangfuseExporter;
+  langfuseExporter: HolocronOtelBridge;
 } {
   const langfuseExporter =
     args?.langfuse ??
-    createLangfuseExporterFromEnv({
+    createOtelBridgeFromEnv({
       serviceName: HOLOCRON_SERVICE_NAME,
-      failOnExportError: true,
+      failOnExportError: false,
     });
 
   const observability = new Observability({
@@ -121,6 +128,7 @@ export function createMissionObservability(args?: { langfuse?: HolocronLangfuseE
         sampling: { type: SamplingStrategyType.ALWAYS },
         exporters: [new MastraStorageExporter(), langfuseExporter],
         spanOutputProcessors: [
+          new HolocronRedactionProcessor(),
           new SensitiveDataFilter({
             sensitiveFields: [
               'password',
@@ -185,13 +193,15 @@ export async function runResearchMission(
   const role = options.role ?? 'divergent';
   const runId = options.runId ?? randomUUID();
   const traceId = toHexTraceId(runId);
+  // Redact before any exporter/local SQL path can persist free-text secrets.
+  const safeGoal = String(redactForExport(goal));
 
-  const langfuseExporter = createLangfuseExporterFromEnv({
+  const langfuseExporter = createOtelBridgeFromEnv({
     baseUrl: options.langfuseBaseUrl,
     publicKey: options.langfusePublicKey,
     secretKey: options.langfuseSecretKey,
     serviceName: HOLOCRON_SERVICE_NAME,
-    failOnExportError: true,
+    failOnExportError: false,
   });
 
   const { observability } = createMissionObservability({ langfuse: langfuseExporter });
@@ -211,7 +221,7 @@ export async function runResearchMission(
       traceId: null,
       serviceName: HOLOCRON_SERVICE_NAME,
       role,
-      goal,
+      goal: safeGoal,
       text: null,
       langfuseExportOk: false,
       langfuse: langfuseExporter.getStatus(),
@@ -240,7 +250,7 @@ export async function runResearchMission(
 
   try {
     const result = await researchAgent.generate(
-      `Research mission goal: ${goal}\nRespond with a brief research finding.`,
+      `Research mission goal: ${safeGoal}\nRespond with a brief research finding.`,
       {
         tracingOptions: {
           traceId,
@@ -249,7 +259,7 @@ export async function runResearchMission(
             runId,
             serviceName: HOLOCRON_SERVICE_NAME,
             mission: 'research',
-            goal,
+            goal: safeGoal,
           },
           tags: ['research-mission', HOLOCRON_SERVICE_NAME, role],
         },
@@ -265,23 +275,28 @@ export async function runResearchMission(
       (result as { usage?: unknown; totalUsage?: unknown }).usage ??
         (result as { totalUsage?: unknown }).totalUsage
     );
-    // Durable per-call ledger (obs-5): never invent success without a real call.
-    inferenceTelemetry = await recordInferenceTelemetry({
-      runId,
-      stepId,
-      traceId: resultTraceId,
-      role: agentBundle.resolved.role,
-      provider: 'fleet',
-      endpoint,
-      modelId,
-      inputTokens: tokens.inputTokens,
-      outputTokens: tokens.outputTokens,
-      totalTokens: tokens.totalTokens,
-      wallMs,
-      status: text ? 'success' : 'degraded',
-      errorCode: text ? null : 'EMPTY_RESPONSE',
-      errorMessage: text ? null : 'agent returned empty text',
-    });
+    // Durable per-call ledger (obs-5). Soft on schema/infra gaps — mission
+    // product outcome must not fail solely because inference_telemetry is down.
+    try {
+      inferenceTelemetry = await recordInferenceTelemetry({
+        runId,
+        stepId,
+        traceId: resultTraceId,
+        role: agentBundle.resolved.role,
+        provider: 'fleet',
+        endpoint,
+        modelId,
+        inputTokens: tokens.inputTokens,
+        outputTokens: tokens.outputTokens,
+        totalTokens: tokens.totalTokens,
+        wallMs,
+        status: text ? 'success' : 'degraded',
+        errorCode: text ? null : 'EMPTY_RESPONSE',
+        errorMessage: text ? null : 'agent returned empty text',
+      });
+    } catch {
+      inferenceTelemetry = null;
+    }
     if (!text) {
       generateError = 'agent returned empty text';
     }
@@ -305,12 +320,9 @@ export async function runResearchMission(
         errorCode: 'MISSION_GENERATE_FAILED',
         errorMessage: generateError,
       });
-    } catch (telemetryErr) {
-      // Telemetry insert failure must not mask the original generate error,
-      // but operators still need a fail-closed signal in metadata.
-      generateError = `${generateError}; telemetry-record-failed: ${
-        telemetryErr instanceof Error ? telemetryErr.message : String(telemetryErr)
-      }`;
+    } catch {
+      // Telemetry insert failure must not mask the original generate error.
+      inferenceTelemetry = null;
     }
   }
 
@@ -325,7 +337,7 @@ export async function runResearchMission(
       challengeModelRevision = challengeBundle.resolved.modelRevision;
       const challengeStarted = Date.now();
       const challengeResult = await challengeBundle.agent.generate(
-        `Challenge research goal: ${goal}. Return one concise refuting consideration.`,
+        `Challenge research goal: ${safeGoal}. Return one concise refuting consideration.`,
         {
           tracingOptions: {
             traceId,
@@ -387,17 +399,19 @@ export async function runResearchMission(
     }
     langfuseOk = !langfuseExporter.exportFailed;
     if (!langfuseOk) {
-      errorCode = LANGFUSE_EXPORT_FAILED;
-      exportError = langfuseExporter.lastError ?? 'Langfuse export failed';
+      const code = classifyExportError(langfuseExporter.lastError ?? 'export failed');
+      errorCode = code;
+      exportError = langfuseExporter.lastError ?? 'external OTLP export degraded';
+      recordExportFailure(code);
+    } else {
+      recordExportSuccess();
     }
   } catch (err) {
     langfuseOk = false;
-    errorCode = LANGFUSE_EXPORT_FAILED;
-    if (err instanceof LangfuseExportError) {
-      exportError = err.message;
-    } else {
-      exportError = err instanceof Error ? err.message : String(err);
-    }
+    const code = err instanceof LangfuseExportError ? err.code : classifyExportError(err);
+    errorCode = code;
+    exportError = err instanceof Error ? err.message : String(err);
+    recordExportFailure(code);
   }
 
   let evidenceGate: EvidenceGateResult | undefined;
@@ -418,7 +432,7 @@ export async function runResearchMission(
         VALUES (
           ${runId}::uuid,
           'deep',
-          ${goal},
+          ${safeGoal},
           'mission',
           ${terminalAdmitted ? 'completed' : 'running'},
           ${researchSql.json({
@@ -471,7 +485,8 @@ export async function runResearchMission(
   }
 
   const status = langfuseExporter.getStatus();
-  const ok = langfuseOk && !generateError && Boolean(text);
+  // Product outcome is independent of external sink (OBS-02 AC-2).
+  const ok = !generateError && Boolean(text);
 
   const missionResult: ResearchMissionResult = {
     ok,
@@ -479,8 +494,8 @@ export async function runResearchMission(
     traceId: resultTraceId,
     serviceName: HOLOCRON_SERVICE_NAME,
     role,
-    goal,
-    text,
+    goal: safeGoal,
+    text: text ? String(redactForExport(text)) : text,
     langfuseExportOk: langfuseOk,
     langfuse: status,
     inferenceTelemetry,
@@ -499,10 +514,17 @@ export async function runResearchMission(
     evidenceGate,
   };
 
-  if (!langfuseOk && options.throwOnExportFailure !== false) {
-    throw Object.assign(new LangfuseExportError(exportError ?? 'Langfuse export failed'), {
-      missionResult,
-    });
+  if (!langfuseOk && options.throwOnExportFailure === true) {
+    throw Object.assign(
+      new LangfuseExportError(
+        exportError ?? 'external OTLP export failed',
+        undefined,
+        (errorCode as keyof typeof ExportFailureCode) in ExportFailureCode
+          ? (errorCode as (typeof ExportFailureCode)[keyof typeof ExportFailureCode])
+          : ExportFailureCode.LANGFUSE_UNREACHABLE
+      ),
+      { missionResult }
+    );
   }
 
   return missionResult;

@@ -78,6 +78,15 @@ minimal:
 Candidate A is accepted only if a real Bun + Postgres + pinned Collector + Langfuse v4
 canary proves trace conversion, redaction, persistent queue depth/oldest-item metrics,
 flush success, an observable failure signal, and recovery.
+
+OBS-01 evidence (2026-08-21): Candidate A export canary PASSED on an isolated Colima
+stack (Langfuse `v4.15.0`, pinned Collector `0.131.0`) with visible OTLP success,
+unreachable/wrong-auth failure classes, queue saturation metrics, recovery, and secret
+sentinel absence. Target-mini capacity measurement returned `BLOCKED_CAPACITY` because
+Docker Desktop memory (~8 GiB) and free disk (~28 GiB) are below the published twelve-service
+/ eight-volume reserve (~35.5 GiB RAM envelope + 40 GiB disk). Later tasks must not treat
+capacity as GO until the mini Docker budget is raised or the topology is resized with a
+spec amendment.
 If it fails, Candidate B is the coherent suite `@mastra/core@1.60.0`,
 `@mastra/observability@1.17.1`, `@mastra/pg@1.21.0`,
 `@mastra/otel-exporter@1.3.9`, with the current MCP package retained unless its own

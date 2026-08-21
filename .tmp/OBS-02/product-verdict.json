@@ -1,0 +1,31 @@
+{
+  "lens": "product",
+  "verdict": "APPROVED",
+  "commit_sha": "9907ba3b88e76d554d5ce8e1196811faec331ecc",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "satisfied": true,
+      "evidence": "local-langfuse-parity.json identity match",
+      "remediation": null
+    },
+    {
+      "id": "AC-2",
+      "satisfied": true,
+      "evidence": "outage-timeline.json missionSuccess=1 degraded",
+      "remediation": null
+    },
+    {
+      "id": "AC-3",
+      "satisfied": true,
+      "evidence": "redaction-scan.json sentinelMatchCount=0",
+      "remediation": null
+    },
+    {
+      "id": "AC-4",
+      "satisfied": true,
+      "evidence": "queue-and-flush.json depth>baseline real flushWithDeadline",
+      "remediation": null
+    }
+  ]
+}

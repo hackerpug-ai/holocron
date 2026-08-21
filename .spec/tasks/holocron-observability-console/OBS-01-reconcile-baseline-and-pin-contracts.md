@@ -1,7 +1,8 @@
 # OBS-01 — Reconcile baseline and pin supported contracts
-> Status: 🟡 In Progress
+> Status: 🔵 In Review
 > Cycle: 1
-> Updated: 2026-08-21T02:08:52Z
+> Commit: a18bc21b7e805043bad2f851920fb9b3dcd73971
+> Updated: 2026-08-21T03:32:17Z
 
 **Status:** Planned
 **Proposed By:** `mastra-planner`

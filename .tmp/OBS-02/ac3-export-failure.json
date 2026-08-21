@@ -1,0 +1,34 @@
+{
+  "payload": {
+    "ok": true,
+    "runId": "d003fdcf-61b8-4a52-8dcd-e4c7aa2fd428",
+    "traceId": "d003fdcf61b84a528dcde4c7aa2fd428",
+    "serviceName": "holocron-platform",
+    "role": "divergent",
+    "goal": "Observability trace failure fixture",
+    "text": "Injectable span-drop fixtures reliably simulate trace failures, reducing test flakiness by 35%.",
+    "langfuseExportOk": false,
+    "langfuse": {
+      "ok": false,
+      "errorCode": "LANGFUSE_UNREACHABLE",
+      "errorMessage": "Langfuse Observations API v2 unreachable (status=fetch-failed)",
+      "exportedEvents": 6,
+      "lastFlushAt": "2026-08-21T05:27:49.518Z",
+      "baseUrl": "http://127.0.0.1:3999",
+      "collectorUrl": "http://127.0.0.1:14318/v1/traces"
+    },
+    "inferenceTelemetry": null,
+    "errorCode": "LANGFUSE_UNREACHABLE",
+    "error": "Langfuse Observations API v2 unreachable (status=fetch-failed)",
+    "metadata": {
+      "role": "divergent",
+      "runId": "d003fdcf-61b8-4a52-8dcd-e4c7aa2fd428",
+      "serviceName": "holocron-platform",
+      "mission": "research",
+      "model": "implementer",
+      "endpoint": "http://127.0.0.1:4545",
+      "inferenceTelemetryId": null,
+      "evidenceGate": null
+    }
+  }
+}

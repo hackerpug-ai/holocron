@@ -1,0 +1,50 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-compatibility-gate.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-01/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "bun scripts/verify-observability-baseline.ts --supply-chain --json",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-01/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "bun scripts/verify-observability-baseline.ts --target-capacity --json",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-01/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "bun scripts/verify-observability-baseline.ts --reconcile --json",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-01/ac-4-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-compatibility-gate.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/OBS-01/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "bun scripts/verify-observability-baseline.ts --supply-chain --negative --json",
+    "exit_code": 1,
+    "output_file": ".tmp/OBS-01/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "bun scripts/verify-observability-baseline.ts --target-capacity --negative --json",
+    "exit_code": 1,
+    "output_file": ".tmp/OBS-01/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "bun scripts/verify-observability-baseline.ts --reconcile --negative --json",
+    "exit_code": 1,
+    "output_file": ".tmp/OBS-01/tc-4-output.txt"
+  }
+]

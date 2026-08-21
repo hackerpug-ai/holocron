@@ -165,10 +165,9 @@ function makeSchedulerStatus(cfg: StackConfig): SchedulerStatus {
   return status;
 }
 
-const LANGFUSE_LABEL = 'holocron-langfuse';
-
 function langfuseBaseUrl(): string {
-  return (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/+$/, '');
+  // OBS-04 folds Langfuse into the canonical compose; edge publishes 44111.
+  return (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:44111').replace(/\/+$/, '');
 }
 
 function probeLangfuseHealth(): {
@@ -206,12 +205,11 @@ function probeLangfuseHealth(): {
   }
 }
 
-function langfuseComposePath(cfg: StackConfig): string {
-  return resolve(cfg.repoRoot, 'services/platform/deploy/compose/langfuse.compose.yaml');
-}
-
-/** Bring up self-hosted Langfuse from in-repo compose (S31-07). */
-function ensureLangfuseUp(cfg: StackConfig): { ok: boolean; detail: string } {
+/**
+ * OBS-04: Langfuse is part of the canonical production Compose project.
+ * Supervisor only probes health; it must not start a competing writer.
+ */
+function ensureLangfuseUp(_cfg: StackConfig): { ok: boolean; detail: string } {
   const existing = probeLangfuseHealth();
   if (existing.ok) {
     return {
@@ -219,74 +217,10 @@ function ensureLangfuseUp(cfg: StackConfig): { ok: boolean; detail: string } {
       detail: `langfuse already healthy — ${existing.detail}`,
     };
   }
-
-  const compose = langfuseComposePath(cfg);
-  if (!existsSync(compose)) {
-    return {
-      ok: false,
-      detail: `langfuse compose missing: ${compose} (expected in-repo artifact)`,
-    };
-  }
-
-  // Materialize LaunchAgent template so git-tracked plist is installed for operators.
-  try {
-    const template = resolve(cfg.templateDir, `${LANGFUSE_LABEL}.plist`);
-    if (existsSync(template)) {
-      mkdirSync(cfg.launchAgentsDir, { recursive: true });
-      mkdirSync(cfg.logDir, { recursive: true });
-      const bunDir = resolve(cfg.bunBin, '..');
-      const body = readFileSync(template, 'utf8')
-        .replaceAll('@HOME@', cfg.home)
-        .replaceAll('@HOLO_ROOT@', cfg.holoRoot)
-        .replaceAll('@BUN_BIN@', cfg.bunBin)
-        .replaceAll('@BUN_DIR@', bunDir)
-        .replaceAll('@PG_BIN@', cfg.pgBin)
-        .replaceAll('@PGDATA@', cfg.pgData)
-        .replaceAll('@DATABASE_URL@', cfg.databaseUrl);
-      writeFileSync(resolve(cfg.launchAgentsDir, `${LANGFUSE_LABEL}.plist`), body, 'utf8');
-    }
-  } catch {
-    // Non-fatal — compose up is the source of truth for health.
-  }
-
-  const r = spawnSync(
-    'docker',
-    [
-      'compose',
-      '-f',
-      compose,
-      '--project-name',
-      'holocron-langfuse',
-      'up',
-      '-d',
-      '--remove-orphans',
-    ],
-    {
-      encoding: 'utf8',
-      timeout: 180_000,
-      env: process.env,
-      cwd: cfg.repoRoot,
-    }
-  );
-  if (r.status !== 0) {
-    return {
-      ok: false,
-      detail: `docker compose langfuse up failed (status=${r.status}): ${(r.stderr ?? r.stdout ?? '').slice(0, 400)}`,
-    };
-  }
-
-  // Poll health for up to 90s
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    const health = probeLangfuseHealth();
-    if (health.ok) {
-      return { ok: true, detail: `langfuse started — ${health.detail}` };
-    }
-    sleepSync(2000);
-  }
   return {
     ok: false,
-    detail: 'langfuse compose up completed but health probe never returned 200/401 within 90s',
+    detail:
+      'langfuse is unhealthy; start the canonical production compose (services/platform/deploy/compose/compose.yaml) — standalone Langfuse lifecycle is retired',
   };
 }
 

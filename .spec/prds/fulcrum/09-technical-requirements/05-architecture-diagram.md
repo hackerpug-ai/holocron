@@ -1,57 +1,77 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-13
-prd_version: 1.0.1
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Architecture Diagram
 
-> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The diagram below is drawn around the v1.0.x "local loop + local ledger + Convex publish target" topology (ADR-001). Per [ADR-004 / ADR-006](./00-architecture-decisions.md) and [`mk6-migration`](../../mk6-migration/README.md), redraw against the mk6 topology (RN app ↔ Zero ↔ Postgres ↔ Mastra Mission Engine ↔ local fleet; no sidecar worker, no Convex publish hop). The two defining seams (deterministic gate, append-only commit) carry forward.
+MVP topology: optional RN/Zero is **not** a Fulcrum surface. The loop is Postgres → Mastra Mission Engine → loopback router → `inference1` / `inference2`. There is no sidecar worker, no Convex cloud box, and no "self-hosted Convex north star."
 
-## Cycle data flow (MVP: local loop + local ledger; Convex is a publish target — ADR-001)
+## Cycle data flow
 
 ```
    OPERATOR (human gate)
-     │  reads brief (Markdown) / issues verdicts / edits mission / records probe
-     ▼  (all against the LOCAL ledger — CLI / files)
-┌──────────────── FULCRUM WORKER (Bun, on the machine / tailnet: laptop dev → Mac mini prod) ────────────────┐
-│                                                                                                             │
-│  Scheduler(own loop) ─► Work-Item Selector ─► Cycle:  SENSE ─► GENERATE ─► ASSAY ─► CHALLENGE ─► MAP ─► COMMIT │
-│    budget/breaker/ceiling      │ EVoI (SQLite)          │(div)   │(div)     │(conv)   │(the OTHER model)   │   │
-│                                │                        ▼        ▼          ▼         ▼                    │   │
-│                                │            Local Inference Provider (@ai-sdk/openai → OpenAI-compatible)   │   │
-│                                │                        │                                                  │   │
-│                                ▼                        │              Evidence Gate (PURE, no model) ◄────┤   │
-│      ┌──────────────────────────────────────────┐      │              grade·quote·admit·provenance·score  │   │
-│      │  LOCAL LEDGER  (bun:sqlite, source of      │◄─────┴── COMMIT (idempotent, append-only, kill-9 safe) ─┘   │
-│      │  truth — reused Prospector core, 31/37)    │                                                            │
-│      │  evidence·claims·scores·lineage·cycles·    │──► Brief/Dossier Generator ──► Markdown (repo files)       │
-│      │  verdicts·touches·missions·tiers           │──► Holocron Publisher ──┐                                  │
-│      └──────────────────────────────────────────┘   holocron retrieval     │ (only cross-machine hop)         │
-│                    │ SENSE fetch                     tools (Exa/Jina)        │                                  │
-└────────────────────┼───────────────────────────────────┬──────────────────┼──────────────────────────────────┘
-                     ▼ OpenAI-compatible /v1              ▼ real web           ▼ HTTPS (idempotent upsert; queues if down)
-┌──── LOCAL INFERENCE FLEET (tailnet) ────┐    real sources        ┌──── HOLOCRON (Convex cloud) ────┐
-│ LiteLLM @ laptop:4545                   │                        │ documents (Cohere 1024-dim,      │
-│  ├ convergent ─► reviewer (27B, precise)│                        │   embedded, searchable)          │
-│  └ divergent  ─► implementer (35B-A3B)  │                        │ fulcrumRuns (thin read-only      │
-│ degraded → remaining node               │                        │   leaderboard projection)        │
-│ offline → sense-only (NO cloud unless   │                        │ agentTelemetry (optional)        │
-│ opted)                                  │                        └──────────────────────────────────┘
-└─────────────────────────────────────────┘                          the app READS this; it is NOT the
-                                                                       loop's source of truth
+     │  reads:  .holocron/fulcrum/briefs/{date}.md
+     │          .holocron/fulcrum/dossiers/{id}.md
+     │          (also documents via publishDocumentForRun)
+     │  writes: holo fulcrum verdict  → POST /api/missions/:id/verdicts
+     │          holo fulcrum ack-brief → POST /api/missions/:id/touches
+     │          holo fulcrum probe     → POST /api/missions/:id/probes
+     ▼
+┌──────────────── MASTRA SERVICE (Bun, on the mini) ─────────────────────────────────────────┐
+│                                                                                            │
+│  MIGRATED_JOBS fulcrum:cycle ─► selector.next (Postgres) ─► mission:execute                │
+│       cadence / daily budget / lease_owner                                                 │
+│                                                                                            │
+│  evidence-research (+ GENERATE, MAP):                                                      │
+│    plan+retrieve (SENSE) → GENERATE → extract+assay (ASSAY=extract only)                   │
+│         → challenge → MAP → gate (LED) → commit (TX)                                       │
+│                                                                                            │
+│    convergent: plan, GENERATE, CHALLENGE                                                   │
+│    divergent:  extract, assay                                                              │
+│    embed:      publish vectors (1024-dim)                                                  │
+│    judge:      FORBIDDEN                                                                   │
+│                                                                                            │
+│    Evidence Gate (PURE)  grade · quote⊆normalizedText · admit · provenance · score         │
+│         no generateText, no fleet role                                                     │
+│                                                                                            │
+│    Postgres evidence graph                                                                 │
+│      sources/passages/claims/entities/relations/beliefs                                    │
+│      + candidates, belief_scores, weight_versions, domain_tiers, touches, probes           │
+│      mission_runs (cycle log) · mission_verdicts                                           │
+│         │                                                                                  │
+│         ├── Markdown generator ──► in-repo briefs/dossiers                                 │
+│         └── publishDocumentForRun ──► documents                                            │
+│                                                                                            │
+│    retrieve: hybrid_search / search_fts / search_vector /                                  │
+│              search_research / get_research_session / get_document                         │
+│              (corpus-only; toolGrants on the Fulcrum template)                             │
+└───────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                            │ loopback http://127.0.0.1:{router_port}/v1
+                                            ▼
+┌──── PACKAGED ROUTER (loopback only) ────┐
+│ node_set: inference1, inference2        │
+│ roles: divergent, convergent, embed     │
+│ judge: never requested by Fulcrum       │
+└─────────────────┬───────────────────────┘
+                  ▼
+┌──── inference1 / inference2 (oMLX) ─────┐
+│ chat: divergent + convergent models     │
+│ embed: qwen3-embedding 1024-dim         │
+└─────────────────────────────────────────┘
+
+   RN app ──Zero──► Postgres     (optional, not a Fulcrum MVP surface)
 ```
 
-## North-star (out of scope): self-hosted Convex on the mini
+## What this diagram is not
 
-```
-   When Convex is self-hosted on a Mac mini (tailnet-resident), the "only cross-machine hop"
-   (publish) becomes a local call and the local ledger + Convex co-locate on the same box.
-   Fulcrum's boundaries are drawn so this is a deployment change, not an architecture change:
-   the loop already runs entirely locally today; self-hosting just brings the publish target home.
-```
+- Not a Fulcrum Worker (Bun sidecar) owning a `bun:sqlite` ledger.
+- Not a Convex cloud box receiving `createWithEmbedding`.
+- Not "self-hosted Convex on the mini" as a north star. mk6 delivered Mastra + Postgres; that is the topology.
+- Not coder roles (`reviewer` / `implementer`) and not `judge`.
 
 ## The two seams that define the design
 
-1. **Deterministic/agentic** (inside the worker): everything above the Gate is a model; the Gate and everything it feeds (scores, stage machine, ledger) is code. Findings cross this seam as *claims with quotes*, never as trusted prose. This is the seam that replaces holocron's LLM-confidence termination.
-2. **Machine edge** (publish only): the loop is self-contained on the machine against the local ledger; the sole boundary that leaves the machine is publishing a finding to Convex. No per-cycle network dependency — the loop runs Convex-offline and queues findings.
+1. **Deterministic/agentic** (inside the Mastra service): everything above the Gate is a model producing claims; the Gate and everything it feeds (`belief_scores`, stage machine, ledger) is code. Findings cross this seam as *claims with quotes ⊆ fetch-artifact `normalizedText`*, never as trusted prose.
+2. **Loopback inference**: the only machine-edge hop on the cycle path is the packaged router on loopback to `inference1`/`inference2`. Publish stays in-process (`publishDocumentForRun`). Retrieval stays in-process against the corpus.

@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "runId": "5653037c-6764-4ae3-8847-d3e4fed7e667",
+  "traceId": "5653037c67644ae38847d3e4fed7e667",
+  "serviceName": "holocron-platform",
+  "role": "divergent",
+  "goal": "Redaction fixture [REDACTED] email=[REDACTED]",
+  "text": "Redacted fields prevented data retrieval; no findings available.",
+  "langfuseExportOk": true,
+  "langfuse": {
+    "ok": true,
+    "errorCode": null,
+    "errorMessage": null,
+    "exportedEvents": 6,
+    "lastFlushAt": "2026-08-21T05:28:10.287Z",
+    "baseUrl": "http://127.0.0.1:13100",
+    "collectorUrl": "http://127.0.0.1:14318/v1/traces"
+  },
+  "inferenceTelemetry": null,
+  "errorCode": null,
+  "error": null,
+  "metadata": {
+    "role": "divergent",
+    "runId": "5653037c-6764-4ae3-8847-d3e4fed7e667",
+    "serviceName": "holocron-platform",
+    "mission": "research",
+    "model": "implementer",
+    "endpoint": "http://127.0.0.1:4545",
+    "inferenceTelemetryId": null,
+    "evidenceGate": null
+  }
+}

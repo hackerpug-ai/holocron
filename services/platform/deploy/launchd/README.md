@@ -2,10 +2,10 @@
 
 ## Production path (Docker Desktop + Compose) — IMP-AC-17
 
-**Portable production** for the four-service Holocron release is owned by
-**Docker Desktop / Compose**, not by the native Homebrew LaunchAgents below.
-Use this section for cold-host recovery, reboot, orderly stop, Serve restore,
-and rollback preflight. See also
+**Portable production** for the twelve-service Holocron release (core + Langfuse +
+otel-collector) is owned by **Docker Desktop / Compose**, not by the native
+Homebrew LaunchAgents below. Use this section for cold-host recovery, reboot,
+orderly stop, Serve restore, and rollback preflight. See also
 `services/platform/deploy/compose/README.md` (cold-host bootstrap + memory).
 
 ### What Docker owns
@@ -13,13 +13,21 @@ and rollback preflight. See also
 | Service | Compose name | Restart policy | Durable volume |
 |---------|--------------|----------------|----------------|
 | Postgres | `postgres` | `unless-stopped` | `holocron-postgres` |
-| Mastra | `mastra` | `unless-stopped` | `holocron-blobs` (shared) |
-| Scheduler | `scheduler` | `unless-stopped` | `holocron-blobs` (shared) |
-| Zero-cache | `zero-cache` | `unless-stopped` | — |
+| Mastra | `mastra` | `unless-stopped` | — |
+| Scheduler | `scheduler` | `unless-stopped` | — |
+| Zero-cache | `zero-cache` | `unless-stopped` | `zero-cache` |
+| Edge | `edge` | `unless-stopped` | — |
+| Langfuse web | `langfuse-web` | `unless-stopped` | — |
+| Langfuse worker | `langfuse-worker` | `unless-stopped` | — |
+| Langfuse Postgres | `langfuse-postgres` | `unless-stopped` | `langfuse-postgres` |
+| ClickHouse | `langfuse-clickhouse` | `unless-stopped` | `clickhouse-data` / `clickhouse-logs` |
+| Redis | `langfuse-redis` | `unless-stopped` | `redis-data` |
+| MinIO | `langfuse-minio` | `unless-stopped` | `minio-data` |
+| OTel collector | `otel-collector` | `unless-stopped` | `otel-collector-queue` |
 
-Exactly **four** runtime services. Do **not** create native Homebrew
-Postgres/Mastra/Zero launch agents for this production path — they would fight
-Docker for ports 5432 / 4111 / 44111 / 4848 and double-start the stack.
+Exactly **twelve** runtime services and **eight** durable volumes. Do **not**
+create native Homebrew Postgres/Mastra/Zero/Langfuse launch agents for this
+production path — they would fight Docker for ports and double-start the stack.
 
 ### Docker Desktop login / start dependency
 
@@ -30,7 +38,7 @@ containers recover under `restart: unless-stopped|always`:
 # Wait until the engine answers (operator may need to open Docker Desktop once):
 until docker info >/dev/null 2>&1; do sleep 2; done
 docker compose -f services/platform/deploy/compose/compose.yaml ps
-# Expect running_service_count=4 when the release is up
+# Expect running_service_count=12 when the release is up
 ```
 
 A static checklist without a real engine cannot satisfy reboot recovery. A full
@@ -57,7 +65,7 @@ tailscale serve status --json    # must show HTTPS 44111 → http://127.0.0.1:44
 
 ```sh
 docker compose -f services/platform/deploy/compose/compose.yaml ps -a
-docker volume inspect holocron-postgres holocron-blobs
+docker volume inspect holocron-postgres zero-cache langfuse-postgres clickhouse-data clickhouse-logs minio-data redis-data otel-collector-queue
 tailscale serve status --json
 holo deploy:verify --portable --json
 ```
@@ -71,8 +79,9 @@ docker compose -f services/platform/deploy/compose/compose.yaml stop
 # Forbidden: docker compose down -v | docker volume rm holocron-postgres | docker volume prune
 ```
 
-Expected: `volume_deletion_count=0`; named volumes `holocron-postgres` and
-`holocron-blobs` remain.
+Expected: `volume_deletion_count=0`; all eight named durable volumes remain
+(`holocron-postgres`, `zero-cache`, `langfuse-postgres`, `clickhouse-data`,
+`clickhouse-logs`, `minio-data`, `redis-data`, `otel-collector-queue`).
 
 ### Compose restart (after stop or engine recovery)
 
@@ -121,7 +130,7 @@ Only ancillary guards may install under launchd alongside Docker production:
 
 > **Warning:** The plists below are the **legacy** native Homebrew stack
 > (Sprint 06 / D01-02). They must **not** be bootstrapped on a host that runs
-> the Docker four-service production release. Enabling both double-starts
+> the Docker twelve-service production release. Enabling both double-starts
 > Postgres/Mastra and breaks the portable cold-host contract.
 
 Four LaunchAgent definitions for the MK-VI headless stack:
@@ -254,3 +263,8 @@ Holocron uses Homebrew PG18 paths (see `docs/postgres-provisioning.md`):
 
 Do **not** run `brew services start postgresql@18` in parallel with
 `holocron-postgres` — both would fight for port 5432 / the same PGDATA.
+
+
+## OBS-04
+
+`holocron-langfuse.plist` is retired. Langfuse runs inside the canonical production Compose project only.

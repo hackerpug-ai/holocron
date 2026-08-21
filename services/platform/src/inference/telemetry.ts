@@ -27,7 +27,7 @@ import { resolveDatabaseUrl } from '../db/connection';
 import {
   bufferMissionModelCall,
   createLangfuseExporterFromEnv,
-  type HolocronLangfuseExporter,
+  type HolocronOtelBridge,
 } from '../observability/langfuse-exporter';
 import { runBudgetedEscape } from './budget-ledger';
 import {
@@ -43,7 +43,7 @@ import {
  * executeRunWithLease runs stages inside this ALS so every runFleetModelCall
  * buffers spans on the same exporter that flushMissionLangfuse flushes.
  */
-const missionLangfuseAls = new AsyncLocalStorage<HolocronLangfuseExporter>();
+const missionLangfuseAls = new AsyncLocalStorage<HolocronOtelBridge>();
 
 /**
  * Request/run-scoped accounting for the public chat model boundary.
@@ -248,15 +248,15 @@ export function createModelRequestAccountingEvent(
   };
 }
 
-/** Run `fn` with a shared HolocronLangfuseExporter bound for nested fleet calls. */
+/** Run `fn` with a shared HolocronOtelBridge bound for nested fleet calls. */
 export function runWithMissionLangfuseExporter<T>(
-  exporter: HolocronLangfuseExporter,
+  exporter: HolocronOtelBridge,
   fn: () => Promise<T>
 ): Promise<T> {
   return missionLangfuseAls.run(exporter, fn);
 }
 
-export function getMissionLangfuseExporter(): HolocronLangfuseExporter | undefined {
+export function getMissionLangfuseExporter(): HolocronOtelBridge | undefined {
   return missionLangfuseAls.getStore();
 }
 
@@ -732,7 +732,7 @@ export type RunFleetModelCallOptions = {
   /** When true (default), flush Langfuse after the call if exporter is configured. */
   exportToLangfuse?: boolean;
   /** Shared exporter (mission runtime). When omitted, a one-shot env exporter is used. */
-  langfuseExporter?: HolocronLangfuseExporter;
+  langfuseExporter?: HolocronOtelBridge;
   traceId?: string;
   databaseUrl?: string;
   /** Override default 32-token cap for longer reasoning prompts (business-report). */

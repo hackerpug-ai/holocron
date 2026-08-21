@@ -1,0 +1,34 @@
+harvest-evidence: task=OBS-01 manifest=.tmp/OBS-01/verify-manifest.json
+  typecheck: pnpm tsc --noEmit
+  lint: pnpm lint
+  test (suite): pnpm test
+  requirements: 8
+  [AC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-compatibility-gate.test.ts -t 'AC-1'
+  [AC-2] bun scripts/verify-observability-baseline.ts --supply-chain --json
+  [AC-3] bun scripts/verify-observability-baseline.ts --target-capacity --json
+  [AC-4] bun scripts/verify-observability-baseline.ts --reconcile --json
+  [TC-1] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-compatibility-gate.test.ts -t 'AC-1'
+  [TC-2] bun scripts/verify-observability-baseline.ts --supply-chain --negative --json
+  [TC-3] bun scripts/verify-observability-baseline.ts --target-capacity --negative --json
+  [TC-4] bun scripts/verify-observability-baseline.ts --reconcile --negative --json
+  archived prior summary → verification-summary.prev-c5a45ba06378.json
+
+harvest-evidence: done
+  task:       OBS-01
+  commit:     ab9a11bb
+  typecheck:  exit=0
+  lint:       exit=0 warnings=526
+  evidence:   5 pass, 3 fail (of 8 requirements)
+  output:     .tmp/OBS-01/verification-summary.json
+
+  ⚠️  Failed requirements:
+    TC-2: exit=1 — bun scripts/verify-observability-baseline.ts --supply-chain 
+    TC-3: exit=1 — bun scripts/verify-observability-baseline.ts --target-capaci
+    TC-4: exit=1 — bun scripts/verify-observability-baseline.ts --reconcile --n
+
+  Manual files still needed (if applicable):
+    .tmp/OBS-01/red-output.txt                 (if requires_red_evidence)
+    .tmp/OBS-01/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/OBS-01/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/OBS-01/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/OBS-01/pre-existing-issues.md         (if pre-existing failures)

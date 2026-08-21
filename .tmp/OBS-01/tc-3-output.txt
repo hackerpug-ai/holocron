@@ -1,0 +1,21 @@
+{
+  "status": "blocked",
+  "decision": "BLOCKED_CAPACITY",
+  "expectedServiceCount": 12,
+  "expectedVolumeCount": 8,
+  "decisionCount": 1,
+  "requiredReserveBytes": 38117834752,
+  "measured": {
+    "host": "inference1",
+    "arch": "arm64",
+    "physMemBytes": 68719476736,
+    "approxFreeMemBytes": 2641461248,
+    "diskAvailBytes": 29396168704,
+    "dockerMemTotalBytes": 8320954368
+  },
+  "liveMeasurementUnchanged": false,
+  "negativeFixtureBytes": 38117834751,
+  "headroomBytes": -1,
+  "dockerMemSufficient": false,
+  "diskSufficient": false
+}

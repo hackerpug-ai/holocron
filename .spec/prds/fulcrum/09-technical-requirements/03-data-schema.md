@@ -1,60 +1,171 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-07-13
-prd_version: 1.0.1
+last_validated: 2026-08-20
+prd_version: 3.0.0
 ---
 
 # Data Schema
 
-> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The opening sentence below ("Per ADR-001 … LOCAL `bun:sqlite`") is **superseded by [ADR-004](./00-architecture-decisions.md)** — the ledger is now **Postgres append-only tables on the mk6 substrate** (Prospector v1.1 schema/logic reused; storage engine swapped SQLite → Postgres). The entity model, relationships, and invariants below carry forward; the DDL must be re-derived as Postgres against the mk6 substrate schema.
+The ledger of record is the **live Postgres evidence graph** in `services/platform/src/db/schema/evidence.ts`, plus named Drizzle extensions in the same schema family. There is no second Prospector schema. `prospects`, `cycles`, `scores`, and `fulcrumCycles` **do not exist** and must not be created under those names.
 
-**Per ADR-001, the loop's ledger of record is a LOCAL `bun:sqlite` database** — the Prospector v1.1 schema (`idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md`, already implemented to 31/37 ACs on branch `task/prospector-schema`). The tables below are that **local SQLite** schema, reused, not Convex tables. Holocron/Convex receives only *published findings* (ADR-002). Two schemas, one direction of flow: **local ledger → published documents.**
+Publish is `publishDocumentForRun` into `documents` (`services/platform/src/mission/document-publish.ts`). It is **not** Convex `createWithEmbedding` and **not** Cohere.
 
-## A. Local ledger (bun:sqlite — source of truth, reused from Prospector)
+IDs are UUIDv7 (platform `idColumn()`); timestamps `timestamptz`; grades/scores `doublePrecision` in [0,1]; enums are CHECK-constrained.
 
-Append-only ledger tables carry UPDATE/DELETE-blocking triggers (SQLite-enforced immutability — a guarantee Convex cannot give); WAL + idempotent commit provide kill-9 all-or-nothing durability. IDs are UUIDv7; timestamps INTEGER ms UTC; grades/scores REAL in [0,1]; enums are CHECK-constrained. This is the Prospector `0001_init.sql` schema, namespaced for Fulcrum missions.
+## A. Live evidence graph (already shipped — Fulcrum extends, does not replace)
 
-| Table | Mutability | Key fields | Purpose |
-|-------|-----------|-----------|---------|
-| `missions` | mutable pointer | rootQuestion, type (`outcome`\|`inquiry`), objective, activeContractVersion, degradationCeilingMs, status | One row per mission; points at active contract version |
-| `mission_weight_versions` + `mission_weights` | append-only | component (name, kind `evidence`\|`judgment`, weight, gradeFloor, recencyWindowDays, halfLifeDays, rubric?), disconfirmationMultiplier | Versioned fitness contract; scores reference the version |
-| `domain_tier_versions` + `domain_tiers` | append-only | registrableDomain, tier, tierValue | Versioned deterministic grading ladder; unknown domain = absent row = unclassified |
-| `scheduler_weight_versions` + `scheduler_weights` | append-only | term, weight | Versioned EVoI selector weights |
-| `prospects` (candidates) | mutable (stage/score-ptr/niche/closeout) | stage (`raw`\|`developing`\|`contender`\|`validated`\|`retired`\|`killed`), nicheKey, currentScore, closeoutClaimId | The candidates |
-| `evidence` | **immutable** (trigger) | sourceUrl, sourceDomain (eTLD+1), retrievedAt, extractedContent, contentHash (unique), provenanceGroup, selfSourced | Immutable evidence; content-hash dedupe; provenance group for syndication collapse |
-| `claims` | mutable (status) | component, polarity (`support`\|`refute`), assertion, status (`admitted`\|`provisional`\|`contested`\|`refuted`), passesGate, qualifyingGrade, targetClaimId | Claims about candidates |
-| `claim_evidence` | append-only | claimId, evidenceId, sourceDomain, provenanceGroup, selfSourced | n:m bindings with denormalized provenance |
-| `scores` | append-only | contractVersion, domainTierVersion, score, disconfirmationTotal, componentsJson | Score history; stamps versions used |
-| `judgment_scores` | append-only | component, contractVersion, value, rationale | Operator rubric scores for judgment-kind components |
-| `lineage` | append-only | childProspectId, parentProspectId?, operation, evidenceDeltaJson, cycleId | Candidate ancestry |
-| `cycles` | append-only | idempotencyKey (unique), workItemType/id, phase, outcome (`committed`\|`budget_exceeded`\|`failed`), spentJson (tokens, wallMs, per-role), resultJson | Experiment log + idempotency anchor + inference telemetry |
-| `verdicts` | append-only | verdict (`kill`\|`advance`\|`redirect`\|`boost`), citedClaimId?, kind (`fit`\|`validity`), stageFrom/To | Human gate decisions |
-| `touches` | append-only | touchType (`verdict`\|`brief_ack`), source, refId | Explicit human acknowledgments; drives degradation ceiling |
-| `probes` | append-only | kind (`calls`\|`smoke_test`\|`pilot`), result | Reality-probe results; required for `advance → validated` |
-| `jobs` (work queue) | mutable (lease) | kind, status, cycleKey, leaseOwner, leaseExpiresAt | Internal work queue for the worker's own scheduling |
-| `fleet_health` | mutable | endpoint, role, state, lastOkAt | Fleet reachability the loop reads for normal vs reduced mode |
+| Table | File | What Fulcrum uses it for |
+|-------|------|--------------------------|
+| `sources` | `evidence.ts` | Fetch artifacts. Live columns: `id`, `source_kind`, `document_id`, `content_hash` (unique), `title`, `url`, `metadata_json`. **Fulcrum adds:** `normalized_text`, `retrieved_at`, `source_domain`, `provenance_group`, `self_sourced`. |
+| `passages` | `evidence.ts` | Chunked source text + 1024-dim `embedding` (Qwen3). Quotes are **not** sliced from passage RRF snippets. |
+| `claims` | `evidence.ts` | Extracted assertions. Live columns: `source_id`, `passage_id`, `claim_text`, `claim_category`, `confidence`, `metadata_json`. **Fulcrum adds:** `candidate_id`, `component`, `polarity` (`support`\|`refute`), `status` (`admitted`\|`provisional`\|`contested`\|`refuted`), `quote_text`, `passes_gate`, `qualifying_grade`, `target_claim_id`. |
+| `entities` | `evidence.ts` | Named entities extracted alongside claims. |
+| `relations` | `evidence.ts` | Typed links (including candidate lineage as `relation_type` values Fulcrum introduces). Bi-temporal `valid_*` / `tx_*`. |
+| `beliefs` | `evidence.ts` | Current believed statement for a claim; `run_id`, `idempotency_key`, supersession chain. |
 
-**Deferred to a later migration (`0002_*.sql`), per the Prospector blueprint**: `provenance_clusters` (embedding near-dup — needs a local embedder, see ADR-002/R11) and a `queries` table for SENSE query-dedup. MVP provenance is exact content-hash.
+## B. Live mission runtime (already shipped — cycle log and verdicts)
 
-### Invariants (SQLite-enforced)
-- Append-only tables reject UPDATE/DELETE via triggers (DB-level, not convention).
-- `evidence.contentHash` unique per mission — exact dedupe.
-- Each score references exactly one contract version and one tier version.
-- `cycles.idempotencyKey` unique — re-dispatch collapses to one commit (stored `resultJson` returned on replay).
-- `→ validated` requires a `probes` row; only one candidate per mission in active build (WIP=1) — enforced in the verdict path.
+| Table | File | What Fulcrum uses it for |
+|-------|------|--------------------------|
+| `mission_runs` | `mission.ts` | **Cycle log.** Unique `(template_key, idempotency_key)`; `lease_owner` / `lease_token` / `lease_expires_at`; `status` includes `budget_exceeded`; `usage_json` holds per-role tokens/wall; `role_resolution_json` + `model_revisions_json` hold header-truthful identity. Template key is always `evidence-research`; alias `fulcrum` is a `mission_run_tags` tag. |
+| `mission_stage_runs` | `mission.ts` | Per-stage attempt, role, endpoint, checkpoint. |
+| `mission_verdicts` | `mission.ts` | Operator kill/advance/redirect/boost via `POST /api/missions/:id/verdicts`. |
+| `mission_commits` | `mission.ts` | Typed commit output for a run. |
+| `documents` | `documents.ts` | Published brief/dossier body. Idempotent on `source_run_id` via `publishDocumentForRun`. |
 
-## B. Published to holocron (Convex — search substrate, ADR-002)
+## C. New Fulcrum tables (Drizzle extensions of the graph)
 
-Only *findings*, not the ledger, cross to Convex. Reuses existing tables; adds no ledger tables to Convex.
+These are **new**. They are not a Prospector port. Names below are the names a sprint must ship.
 
-| Convex table | Direction | Contract |
-|--------------|-----------|----------|
-| `documents` (existing) | Fulcrum → Convex | A candidate's current synthesis published via `documents/storage:createWithEmbedding` (Cohere 1024-dim embedding, server-side); idempotent upsert keyed to the candidate; tagged `source: fulcrum` and self-referential so a later SENSE marks it self-sourced |
-| `agentTelemetry` (existing, optional) | Fulcrum → Convex | Per-cycle observability rows (intent, durations, tools, source) emulating the existing shape, for app-side visibility |
-| `fulcrumRuns` (new, optional, lightweight) | Fulcrum → Convex | A thin mirror of mission + leaderboard state (candidate titles, scores, stages) so the holocron app can *display* the loop without holding its ledger — read-only projection, never the source of truth |
+```ts
+// candidates — the work items Fulcrum scores (NOT "prospects")
+export const candidates = pgTable('candidates', {
+  id: idColumn(),
+  missionId: text('mission_id').notNull(),
+  stage: text('stage').notNull(), // raw|developing|contender|validated|retired|killed
+  nicheKey: text('niche_key'),
+  currentScoreId: text('current_score_id'),
+  closeoutClaimId: text('closeout_claim_id'),
+  title: text('title'),
+  question: text('question'),
+  metadataJson: typedJsonb('metadata_json'),
+  createdAt: createdAtColumn(),
+  updatedAt: updatedAtColumn(),
+});
 
-**Not published**: raw evidence, claim ledger, verdicts, touches — these are local. The app sees a projection; the audit trail lives in the local SQLite ledger + git.
+// belief_scores — append-only score history (NOT "scores" / "fulcrumScores")
+export const beliefScores = pgTable('belief_scores', {
+  id: idColumn(),
+  candidateId: text('candidate_id').notNull(),
+  runId: uuid('run_id'), // → mission_runs.id
+  weightVersion: integer('weight_version').notNull(),
+  domainTierVersion: integer('domain_tier_version').notNull(),
+  score: doublePrecision('score'),
+  disconfirmationTotal: doublePrecision('disconfirmation_total'),
+  componentsJson: typedJsonb('components_json'),
+  createdAt: createdAtColumn(),
+});
 
-## C. Design lineage from holocron's existing research model (ADR-003)
+// weight_versions + weight_components — versioned fitness contract
+export const weightVersions = pgTable('weight_versions', {
+  id: idColumn(),
+  missionId: text('mission_id').notNull(),
+  version: integer('version').notNull(),
+  disconfirmationMultiplier: doublePrecision('disconfirmation_multiplier').notNull().default(2),
+  createdAt: createdAtColumn(),
+});
+export const weightComponents = pgTable('weight_components', {
+  id: idColumn(),
+  weightVersionId: text('weight_version_id').notNull(),
+  component: text('component').notNull(),
+  kind: text('kind').notNull(), // evidence|judgment
+  weight: doublePrecision('weight').notNull(),
+  gradeFloor: doublePrecision('grade_floor'),
+  recencyWindowDays: integer('recency_window_days'),
+  halfLifeDays: integer('half_life_days'),
+  rubricJson: typedJsonb('rubric_json'),
+});
 
-Holocron's `researchFindings` already carries a 5-factor confidence model (`sourceCredibilityScore`, `evidenceQualityScore`, `corroborationScore`, `recencyScore`, `expertConsensusScore`) and a `citations` table (credibility-scored sources). Fulcrum **mines these as design input** for its tier ladder and recency model — but they do not become the score. The deterministic gate does. This is the deliberate break from holocron's LLM-judged confidence.
+// domain_tier_versions + domain_tiers — deterministic grading ladder
+export const domainTierVersions = pgTable('domain_tier_versions', {
+  id: idColumn(),
+  missionId: text('mission_id').notNull(),
+  version: integer('version').notNull(),
+  createdAt: createdAtColumn(),
+});
+export const domainTiers = pgTable('domain_tiers', {
+  id: idColumn(),
+  domainTierVersionId: text('domain_tier_version_id').notNull(),
+  registrableDomain: text('registrable_domain').notNull(),
+  tier: text('tier').notNull(),
+  tierValue: doublePrecision('tier_value').notNull(),
+});
+
+// touches — explicit operator ack (drives degradation ceiling)
+export const touches = pgTable('touches', {
+  id: idColumn(),
+  missionId: text('mission_id').notNull(),
+  runId: uuid('run_id'),
+  touchType: text('touch_type').notNull(), // verdict|brief_ack
+  source: text('source').notNull(), // cli
+  refId: text('ref_id'), // brief id or verdict id
+  createdAt: createdAtColumn(),
+});
+
+// probes — recorded reality-probe results (tooling is out of scope; the row is in)
+export const probes = pgTable('probes', {
+  id: idColumn(),
+  candidateId: text('candidate_id').notNull(),
+  kind: text('kind').notNull(), // calls|smoke_test|pilot
+  result: text('result').notNull(),
+  recordedBy: text('recorded_by'),
+  createdAt: createdAtColumn(),
+});
+
+// claim_evidence_bindings — n:m with denormalized provenance
+export const claimEvidenceBindings = pgTable('claim_evidence_bindings', {
+  id: idColumn(),
+  claimId: text('claim_id').notNull(),
+  sourceId: text('source_id').notNull(),
+  sourceDomain: text('source_domain'),
+  provenanceGroup: text('provenance_group'),
+  selfSourced: integer('self_sourced'),
+  createdAt: createdAtColumn(),
+});
+```
+
+Fetch artifact (written onto `sources` at retrieve time; **not** an RRF snippet):
+
+```ts
+type FetchArtifact = {
+  url: string;
+  fetchedAt: string; // timestamptz
+  raw: string;
+  normalizedText: string;
+  contentHash: string;
+};
+```
+
+`normalizedText` is the column `sources.normalized_text`. A claim's `quote_text` MUST be an exact substring of that column for the bound source. A quote sliced from the same buffer as hybrid-search `sourceText` (e.g. `sourceText.slice(0, 280)`) is a **fail**.
+
+### Invariants (Postgres-enforced)
+
+- Append-only tables (`belief_scores`, `weight_versions`, `weight_components`, `domain_tier_versions`, `domain_tiers`, `touches`, `probes`, `claim_evidence_bindings`, and immutable columns of `sources` / `claims`) reject UPDATE/DELETE via triggers.
+- `sources.content_hash` unique — exact dedupe.
+- Each `belief_scores` row references exactly one `weight_version` and one `domain_tier_version`.
+- `mission_runs` unique on `(template_key, idempotency_key)` — re-dispatch collapses to one commit.
+- `→ validated` requires a `probes` row; only one candidate per mission in active build (WIP=1) — enforced in the verdict path (`POST /api/missions/:id/verdicts`).
+
+**Deferred:** embedding near-dup clustering (`provenance_clusters`) and a `queries` table for SENSE query-dedup. MVP provenance is exact content-hash; query-dedup may live in `sources.metadata_json` until a table is justified.
+
+## D. Publish (same Postgres, not a second store)
+
+| Table | Direction | Contract |
+|-------|-----------|----------|
+| `documents` (existing) | Fulcrum → `documents` | `publishDocumentForRun(sql, { sourceRunId, title, content, category: 'fulcrum', idempotencyKey })`. Idempotent on `source_run_id`. Tagged so a later SENSE marks it self-sourced. Local Qwen3 1024-dim embed via the `embed` role. |
+
+**Not a separate projection.** There is no `fulcrumRuns` table. The app, if it ever reads Fulcrum state, reads Postgres via Zero; MVP does not ship RN screens.
+
+## E. Design lineage (ADR-003)
+
+Holocron's historical `researchFindings` 5-factor confidence model is **design input** for the tier ladder and recency model. It does not become the score. The deterministic gate does. Mine the design; do not execute `convex/research/`.

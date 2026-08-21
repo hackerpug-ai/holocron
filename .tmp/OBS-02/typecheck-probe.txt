@@ -1,0 +1,226 @@
+services/platform/src/cli/__tests__/r2-provision-maxbuffer.test.ts(42,24): error TS2339: Property 'code' does not exist on type 'Error'.
+services/platform/src/cutover/article-baseline.ts(321,5): error TS2353: Object literal may only specify known properties, and 'freezeReportPath' does not exist in type '{ cwd?: string | undefined; reportPath?: string | undefined; }'.
+services/platform/src/cutover/export-watermark.ts(316,5): error TS2353: Object literal may only specify known properties, and 'freezeReportPath' does not exist in type '{ cwd?: string | undefined; reportPath?: string | undefined; }'.
+services/platform/src/deploy/verify-production.ts(224,35): error TS18048: 'live' is possibly 'undefined'.
+services/platform/src/deploy/verify-production.ts(226,18): error TS18048: 'live' is possibly 'undefined'.
+services/platform/src/etl/composite-corpus.ts(249,61): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/etl/composite-corpus.ts(739,9): error TS2532: Object is possibly 'undefined'.
+services/platform/src/etl/composite-corpus.ts(1725,32): error TS2532: Object is possibly 'undefined'.
+services/platform/src/etl/composite-corpus.ts(1729,35): error TS2532: Object is possibly 'undefined'.
+services/platform/src/etl/run.ts(552,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+services/platform/src/mcp/verify-rehost.ts(92,22): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/observability/langfuse-exporter.ts(135,7): error TS2322: Type 'LogLevel' is not assignable to type '"debug" | "error" | "info" | "warn" | undefined'.
+  Type '"silent"' is not assignable to type '"debug" | "error" | "info" | "warn" | undefined'.
+services/platform/src/observability/langfuse-exporter.ts(364,24): error TS2352: Conversion of type '{ id: string; traceId: string; name: string; type: "span"; isRootSpan: true; startTime: Date; endTime: Date; metadata: Record<string, unknown>; tags: string[]; }' to type 'AnyExportedSpan' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'isEvent' is missing in type '{ id: string; traceId: string; name: string; type: "span"; isRootSpan: true; startTime: Date; endTime: Date; metadata: Record<string, unknown>; tags: string[]; }' but required in type 'ExportedSpan<keyof SpanTypeMap>'.
+services/platform/src/observability/mission-research.ts(176,7): error TS2741: Property 'collectorUrl' is missing in type '{ ok: false; errorCode: "LANGFUSE_UNREACHABLE"; errorMessage: string; exportedEvents: number; lastFlushAt: null; baseUrl: null; }' but required in type 'LangfuseExportStatus'.
+services/platform/src/queue/jobs-handlers/feed-builder.ts(47,17): error TS2345: Argument of type '{ id: string; source_id: string | null; title: string | null; author_handle: string | null; content_category: string | null; thumbnail_url: string | null; discovered_at: string | Date | null; }' is not assignable to parameter of type 'never'.
+services/platform/src/queue/jobs-handlers/feed-builder.ts(48,23): error TS2345: Argument of type 'never[] | RowList<{ id: string; source_id: string | null; title: string | null; author_handle: string | null; content_category: string | null; thumbnail_url: string | null; discovered_at: string | ... 1 more ... | null; }[]>' is not assignable to parameter of type 'RowList<{ id: string; source_id: string | null; title: string | null; author_handle: string | null; content_category: string | null; thumbnail_url: string | null; discovered_at: string | Date | null; }[]>'.
+  Type 'never[]' is not assignable to type 'RowList<{ id: string; source_id: string | null; title: string | null; author_handle: string | null; content_category: string | null; thumbnail_url: string | null; discovered_at: string | Date | null; }[]>'.
+    Type 'never[]' is missing the following properties from type 'ResultQueryMeta<number, "author_handle" | "content_category" | "discovered_at" | "id" | "source_id" | "thumbnail_url" | "title">': columns, count, command, statement, state
+services/platform/src/queue/schedule-parser.ts(54,20): error TS18048: 'unit' is possibly 'undefined'.
+services/platform/src/stack/supervisor.ts(328,7): error TS2322: Type '"running" | ServiceState' is not assignable to type 'ServiceState'.
+  Type '"running"' is not assignable to type 'ServiceState'.
+services/platform/tests/integration/observability-otel-v4.test.ts(276,9): error TS2352: Conversion of type 'ObservabilityInstance | undefined' to type '{ getExporters?: (() => { name?: string | undefined; constructor?: { name?: string | undefined; } | undefined; }[]) | undefined; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'ObservabilityInstance' is not comparable to type '{ getExporters?: (() => { name?: string | undefined; constructor?: { name?: string | undefined; } | undefined; }[]) | undefined; }'.
+    The types returned by 'getExporters()' are incompatible between these types.
+      The type 'readonly ObservabilityExporter[]' is 'readonly' and cannot be assigned to the mutable type '{ name?: string | undefined; constructor?: { name?: string | undefined; } | undefined; }[]'.
+services/platform/tests/integration/s33-plat-02-fleet-base-resolution.test.ts(18,8): error TS2459: Module '"../../src/fleet/manifest.ts"' declares 'FleetRoleManifest' locally, but it is not exported.
+services/platform/tests/integration/s33-plat-02-fleet-base-resolution.test.ts(128,74): error TS18046: 'entry' is of type 'unknown'.
+services/platform/tests/integration/s33-plat-02-fleet-base-resolution.test.ts(177,72): error TS2532: Object is possibly 'undefined'.
+services/platform/tests/integration/s33-plat-02-fleet-base-resolution.test.ts(255,15): error TS18046: 'entry' is of type 'unknown'.
+services/platform/tests/integration/s33-plat-03-fleet-role-readiness.test.ts(100,3): error TS2532: Object is possibly 'undefined'.
+services/platform/tests/integration/s33-plat-03-fleet-role-readiness.test.ts(153,12): error TS18048: 'body.fleet.roles.convergent' is possibly 'undefined'.
+services/platform/tests/integration/s33-plat-03-fleet-role-readiness.test.ts(154,12): error TS18048: 'body.fleet.roles.embed' is possibly 'undefined'.
+services/platform/tests/integration/s33-plat-03-fleet-role-readiness.test.ts(167,12): error TS18048: 'body.fleet.roles.divergent' is possibly 'undefined'.
+services/platform/tests/integration/s33-plat-03-fleet-role-readiness.test.ts(183,14): error TS2532: Object is possibly 'undefined'.
+services/platform/tests/integration/service/health-readiness.test.ts(266,23): error TS2552: Cannot find name 'RequestInfo'. Did you mean 'RequestInit'?
+services/platform/tests/integration/sprint29-convex-fence.test.ts(113,45): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(186,39): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(191,20): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(201,38): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(218,22): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(241,20): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(265,20): error TS2339: Property 'action' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(318,20): error TS2339: Property 'action' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(363,24): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(422,45): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(426,31): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-convex-fence.test.ts(433,32): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-cutover-etl.test.ts(313,26): error TS2304: Cannot find name 'ConvexHttpClient'.
+services/platform/tests/integration/sprint29-cutover-etl.test.ts(314,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-cutover-etl.test.ts(315,52): error TS2304: Cannot find name 'api'.
+services/platform/tests/integration/sprint29-cutover-etl.test.ts(317,31): error TS2304: Cannot find name 'api'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(176,45): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(271,45): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(275,31): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(281,32): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(324,38): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(362,9): error TS2353: Object literal may only specify known properties, and 'childEvalScript' does not exist in type 'CrossProcessProbeOptions'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(385,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts(398,11): error TS2353: Object literal may only specify known properties, and 'probe' does not exist in type '{ reason?: string | null | undefined; reportPath?: string | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(155,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(331,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(395,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(414,12): error TS18046: 'seed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(415,12): error TS18046: 'seed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(431,27): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(432,28): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(433,41): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(446,30): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(447,56): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(451,8): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(451,54): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(454,12): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(455,30): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(468,12): error TS18046: 'seedGreen' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(476,11): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(477,16): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(478,27): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(479,25): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(480,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(486,25): error TS18046: 'seedGreen' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(488,40): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(489,25): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(489,59): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(492,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(493,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(494,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(495,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(496,21): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(496,55): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(501,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(512,12): error TS18046: 'seed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(513,12): error TS18046: 'seed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(520,13): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(520,73): error TS18046: 'single' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(535,12): error TS18046: 'seedGreen' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(542,11): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(543,16): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(547,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(548,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(549,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(550,12): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(551,21): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(551,55): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(563,12): error TS18046: 'sampleFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(564,12): error TS18046: 'sampleFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(566,15): error TS18046: 'sampleFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(571,7): error TS18046: 'sampleFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(580,12): error TS18046: 'patchFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(581,12): error TS18046: 'patchFail' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(599,12): error TS18046: 'incomplete' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(600,30): error TS18046: 'incomplete' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(614,30): error TS18046: 'incomplete' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(707,14): error TS18046: 'seed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(717,42): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(718,46): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(723,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(724,32): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(725,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(726,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(727,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(728,34): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(729,14): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(731,16): error TS18046: 'full' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(753,15): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(754,18): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(755,21): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(757,16): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(758,16): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(759,16): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(760,34): error TS18046: 'res' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(771,13): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(772,16): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(773,19): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(775,14): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(776,14): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-quiet-drain.test.ts(777,14): error TS18046: 'mixed' is of type 'unknown'.
+services/platform/tests/integration/sprint29-write-fence-red.test.ts(151,49): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-write-fence-red.test.ts(415,49): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint29-write-fence-red.test.ts(795,47): error TS2353: Object literal may only specify known properties, and 'expected' does not exist in type '{ timeoutMs?: number | undefined; pollMs?: number | undefined; cwd?: string | undefined; }'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(16,3): error TS2305: Module '"../../src/cutover/convex-live-attestation.ts"' has no exported member 'canonicalTick'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(18,3): error TS2305: Module '"../../src/cutover/convex-live-attestation.ts"' has no exported member 'hashTick'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(20,3): error TS2305: Module '"../../src/cutover/convex-live-attestation.ts"' has no exported member 'sha256Hex'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(21,3): error TS2305: Module '"../../src/cutover/convex-live-attestation.ts"' has no exported member 'verifyAttestationHashChain'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(90,7): error TS2353: Object literal may only specify known properties, and 'evidencePath' does not exist in type 'AttestConvexLiveOptions'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(98,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(99,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(100,21): error TS2488: Type 'number' must have a '[Symbol.iterator]()' method that returns an iterator.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(140,7): error TS2353: Object literal may only specify known properties, and 'evidencePath' does not exist in type 'AttestConvexLiveOptions'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(150,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(151,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(152,12): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'Number'.
+  Property '0' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(165,7): error TS2353: Object literal may only specify known properties, and 'evidencePath' does not exist in type 'AttestConvexLiveOptions'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(171,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(173,12): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'Number'.
+  Property '0' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(175,12): error TS7053: Element implicitly has an 'any' type because expression of type '1' can't be used to index type 'Number'.
+  Property '1' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(175,69): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'Number'.
+  Property '0' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(176,12): error TS7053: Element implicitly has an 'any' type because expression of type '2' can't be used to index type 'Number'.
+  Property '2' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(176,69): error TS7053: Element implicitly has an 'any' type because expression of type '1' can't be used to index type 'Number'.
+  Property '1' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(178,12): error TS7053: Element implicitly has an 'any' type because expression of type '2' can't be used to index type 'Number'.
+  Property '2' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(178,54): error TS7053: Element implicitly has an 'any' type because expression of type '1' can't be used to index type 'Number'.
+  Property '1' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(198,7): error TS2353: Object literal may only specify known properties, and 'evidencePath' does not exist in type 'AttestConvexLiveOptions'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(206,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(207,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(208,21): error TS2488: Type 'number' must have a '[Symbol.iterator]()' method that returns an iterator.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(227,7): error TS2353: Object literal may only specify known properties, and 'evidencePath' does not exist in type 'AttestConvexLiveOptions'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(231,28): error TS7006: Parameter 'i' implicitly has an 'any' type.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(241,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(242,25): error TS2339: Property 'length' does not exist on type 'number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(245,12): error TS7053: Element implicitly has an 'any' type because expression of type '1' can't be used to index type 'Number'.
+  Property '1' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-convex-live-attestation.test.ts(246,12): error TS7053: Element implicitly has an 'any' type because expression of type '1' can't be used to index type 'Number'.
+  Property '1' does not exist on type 'Number'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(516,39): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(519,39): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(520,40): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(523,38): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(571,39): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-ponr-latch.test.ts(574,37): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(286,31): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(327,34): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(338,31): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(380,36): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(388,29): error TS2339: Property 'mutation' does not exist on type 'never'.
+services/platform/tests/integration/sprint30-security-review.test.ts(400,33): error TS2339: Property 'query' does not exist on type 'never'.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(183,22): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(224,47): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'Date | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(266,26): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(267,65): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(269,29): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-cron-side-effects.test.ts(270,77): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(120,26): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(128,15): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(139,25): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(147,15): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(193,30): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(197,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(199,29): error TS1320: Type of 'await' operand must either be a valid promise or must not contain a callable 'then' member.
+services/platform/tests/integration/sprint31-stuck-run-sweep.test.ts(203,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+  Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-telemetry-every-call.test.ts(123,13): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type 'undefined' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/tests/integration/sprint31-telemetry-every-call.test.ts(181,57): error TS2339: Property 'stdout' does not exist on type '{ status: number | null; combined: string; }'.

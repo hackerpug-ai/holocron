@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-21T02:22:59.361001+00:00",
+  "candidate": "A",
+  "floatingTagCount": 0,
+  "deniedVersionCount": 0,
+  "engine": {
+    "node": ">=22.13.0"
+  },
+  "packages": [
+    {
+      "name": "@mastra/core",
+      "version": "1.50.1",
+      "integrity": "registry",
+      "engine": ">=22.13.0",
+      "denied": false
+    },
+    {
+      "name": "@mastra/observability",
+      "version": "1.17.1",
+      "integrity": "sha512-Fk6tBZZMN56HFgudz+tCSH7XZkLXaHRENOybqsc5YwH3bTbmZpqoICumpoHGM3MI/0S8YYaEXdWiYKQ9MH+4kw==",
+      "engine": ">=22.13.0",
+      "denied": false,
+      "provenance": "npm-oidc"
+    },
+    {
+      "name": "@mastra/otel-exporter",
+      "version": "1.3.9",
+      "integrity": "sha512-oa9cT4ZONl9vrqz09YEb0RlOYvgbuxDBq+IgxpGNXLQ+5+Or5j+HYgCEERWzijR+BzCE9BE+F8KDaM/MdnUGag==",
+      "engine": ">=22.13.0",
+      "denied": false,
+      "provenance": "npm-oidc"
+    },
+    {
+      "name": "@mastra/langfuse",
+      "version": "1.4.9",
+      "integrity": "sha512-beXoBcu93lAeWALLGQic9rx/oPf/xyQwSpWvt1Bo+89jxK8iOVQFweWWZSSdTy0N04VU3udhAd+avIEZsSmfTQ==",
+      "engine": ">=22.13.0",
+      "denied": false,
+      "role": "compatibility-canary"
+    },
+    {
+      "name": "@mastra/mcp",
+      "version": "1.13.1",
+      "integrity": "registry",
+      "engine": ">=22.13.0",
+      "denied": false
+    },
+    {
+      "name": "@mastra/pg",
+      "version": "1.15.1",
+      "integrity": "registry",
+      "engine": ">=22.13.0",
+      "denied": false
+    }
+  ],
+  "images": [
+    {
+      "name": "langfuse-web",
+      "repository": "docker.io/langfuse/langfuse",
+      "sourceTag": "4.15.0",
+      "sourceRevision": "2371d606c4ab8882f09f6afce5b73948698552c6",
+      "ref": "docker.io/langfuse/langfuse@sha256:c2350a95d710f726f6466ffd47675eb704d0ff77fa1df1b9e6751ada6134ef75",
+      "digest": "sha256:c2350a95d710f726f6466ffd47675eb704d0ff77fa1df1b9e6751ada6134ef75",
+      "arm64Digest": "sha256:5f90bef714e529b42310e2e173d763574946ca8037adb903cb691f2ed75cf0f8",
+      "architectureVerified": true,
+      "customBuildRequired": true,
+      "note": "production web requires NEXT_PUBLIC_BASE_PATH=/observability rebuild in OBS-05"
+    },
+    {
+      "name": "langfuse-worker",
+      "repository": "docker.io/langfuse/langfuse-worker",
+      "sourceTag": "4.15.0",
+      "ref": "docker.io/langfuse/langfuse-worker@sha256:37a7c4251b602e60fd39451e6c252195908bf61837d4e252adbd752c0809e835",
+      "digest": "sha256:37a7c4251b602e60fd39451e6c252195908bf61837d4e252adbd752c0809e835",
+      "arm64Digest": "sha256:590955fe2d085fe52ad5527e097029929a3ab72e23e3d3f986641e6a2d991b59",
+      "architectureVerified": true
+    },
+    {
+      "name": "langfuse-clickhouse",
+      "repository": "docker.io/clickhouse/clickhouse-server",
+      "sourceTag": "25.12",
+      "ref": "docker.io/clickhouse/clickhouse-server@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6",
+      "digest": "sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6",
+      "arm64Digest": "sha256:0d643ec0036ceb52ae65e5d8465e155ad6069d771f33a79a9e71dc4334e029e6",
+      "architectureVerified": true
+    },
+    {
+      "name": "langfuse-redis",
+      "repository": "docker.io/library/redis",
+      "sourceTag": "7",
+      "ref": "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab",
+      "digest": "sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab",
+      "arm64Digest": "sha256:f263147977eb1178e361aba3af435b45175eb59ba136ce28a9479b163b4f8323",
+      "architectureVerified": true
+    },
+    {
+      "name": "langfuse-postgres",
+      "repository": "docker.io/library/postgres",
+      "sourceTag": "17",
+      "ref": "docker.io/library/postgres@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449",
+      "digest": "sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449",
+      "arm64Digest": "sha256:e2fddda1fea39c634dccdae58dba5448eb3efb85aaa4054cf45cbed28f35d296",
+      "architectureVerified": true
+    },
+    {
+      "name": "langfuse-minio",
+      "repository": "cgr.dev/chainguard/minio",
+      "sourceTag": "latest-resolved",
+      "ref": "cgr.dev/chainguard/minio@sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555",
+      "digest": "sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555",
+      "arm64Digest": "sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555",
+      "architectureVerified": true
+    },
+    {
+      "name": "otel-collector",
+      "repository": "docker.io/otel/opentelemetry-collector-contrib",
+      "sourceTag": "0.131.0",
+      "ref": "docker.io/otel/opentelemetry-collector-contrib@sha256:13b685dc9f68fbbb0fce06d3be84e9d70ba5b90085d79dcbd4c4c0d909ee2d6e",
+      "digest": "sha256:13b685dc9f68fbbb0fce06d3be84e9d70ba5b90085d79dcbd4c4c0d909ee2d6e",
+      "arm64Digest": "sha256:2420775c06f9088d89d80578df53a2ed543d1558e2a637cb73e6fe639fc1c5ef",
+      "architectureVerified": true
+    },
+    {
+      "name": "edge",
+      "repository": "docker.io/library/caddy",
+      "sourceTag": "2.9.1",
+      "ref": "docker.io/library/caddy@sha256:dc5640f3339bba2a36cb20392dd32d432bd88d14275cdf1f3637f3107caf7ecc",
+      "digest": "sha256:dc5640f3339bba2a36cb20392dd32d432bd88d14275cdf1f3637f3107caf7ecc",
+      "arm64Digest": "sha256:dc5640f3339bba2a36cb20392dd32d432bd88d14275cdf1f3637f3107caf7ecc",
+      "architectureVerified": true,
+      "note": "edge image pin candidate for OBS-05; not deployed by OBS-01"
+    }
+  ],
+  "services": [
+    "postgres",
+    "mastra",
+    "scheduler",
+    "zero-cache",
+    "edge",
+    "langfuse-web",
+    "langfuse-worker",
+    "langfuse-postgres",
+    "langfuse-clickhouse",
+    "langfuse-redis",
+    "langfuse-minio",
+    "otel-collector"
+  ],
+  "volumes": [
+    "holocron-postgres",
+    "zero-cache",
+    "langfuse-postgres",
+    "clickhouse-data",
+    "clickhouse-logs",
+    "minio-data",
+    "redis-data",
+    "otel-collector-queue"
+  ]
+}
