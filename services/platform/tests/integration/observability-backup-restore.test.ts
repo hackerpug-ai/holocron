@@ -19,9 +19,7 @@ const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/OBS-04');
 
 function requirePlatformIt(): void {
   if (!PLATFORM_IT) {
-    throw new Error(
-      'PLATFORM_IT=1 required for OBS-04 backup/restore — refusing skip-to-green'
-    );
+    throw new Error('PLATFORM_IT=1 required for OBS-04 backup/restore — refusing skip-to-green');
   }
 }
 
@@ -95,8 +93,7 @@ describe('OBS-04 backup restore lifecycle', () => {
     expect(existsSync(backup.manifestPath)).toBe(true);
 
     const restoreProject =
-      process.env.OBS04_RESTORE_PROJECT?.trim() ||
-      `obs04-restore-${Date.now().toString(36)}`;
+      process.env.OBS04_RESTORE_PROJECT?.trim() || `obs04-restore-${Date.now().toString(36)}`;
 
     const restore = await (
       restoreModule as {
@@ -184,10 +181,7 @@ describe('OBS-04 backup restore lifecycle', () => {
 
     const restart = await (
       restoreModule as {
-        proveLangfuseColdRestart: (input: {
-          evidenceDir: string;
-          project: string;
-        }) => Promise<{
+        proveLangfuseColdRestart: (input: { evidenceDir: string; project: string }) => Promise<{
           ok: boolean;
           restartWitnessMismatchCount: number;
           stateVolumeRecreated: boolean;

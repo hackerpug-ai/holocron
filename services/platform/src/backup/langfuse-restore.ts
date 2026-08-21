@@ -8,8 +8,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -232,11 +232,10 @@ function restoreResticSnapshot(evidenceDir: string, targetDir: string): number {
     throw new Error('no restic snapshots available for restore');
   }
   const latest = list[list.length - 1]?.id;
-  const restored = run(
-    'restic',
-    ['restore', latest!, '--target', targetDir],
-    { env, timeout: 300_000 }
-  );
+  const restored = run('restic', ['restore', latest!, '--target', targetDir], {
+    env,
+    timeout: 300_000,
+  });
   if (restored.status !== 0) {
     throw new Error(`restic restore failed: ${restored.stderr || restored.stdout}`);
   }
@@ -391,7 +390,20 @@ export async function runIsolatedLangfuseRestore(input: {
       '{{.ID}}',
     ]);
     if (existing.stdout.trim()) {
-      throw new Error(`restore project ${input.restoreProject} already exists — refuse reuse`);
+      // Tear containers/network only (never -v) so a fresh project name is preferred
+      // by callers; refuse when volumes already exist for this project name.
+      const volumes = volumeNames().filter((name) =>
+        name.startsWith(`${input.restoreProject}_`)
+      );
+      if (volumes.length > 0) {
+        throw new Error(
+          `restore project ${input.restoreProject} already has volumes — refuse reuse (pick a fresh project name)`
+        );
+      }
+      run('docker', ['compose', '-p', input.restoreProject, '-f', composePath, 'down'], {
+        cwd: workDir,
+        timeout: 180_000,
+      });
     }
 
     // Free Docker Desktop memory headroom: stop canary web/worker only (no -v).
@@ -506,10 +518,7 @@ export async function runIsolatedLangfuseRestore(input: {
   } finally {
     rmSync(restoreStage, { recursive: true, force: true });
     // Keep workDir compose for restart proofs when project persists.
-    writeFileSync(
-      join(input.evidenceDir, 'isolated-restore-compose-path.txt'),
-      `${composePath}\n`
-    );
+    writeFileSync(join(input.evidenceDir, 'isolated-restore-compose-path.txt'), `${composePath}\n`);
   }
 }
 
@@ -518,10 +527,10 @@ export async function proveLangfuseColdRestart(input: {
   project: string;
 }): Promise<ColdRestartResult> {
   const composeHint = join(input.evidenceDir, 'isolated-restore-compose-path.txt');
-  let composePath = existsSync(composeHint)
-    ? readFileSync(composeHint, 'utf8').trim()
-    : '';
-  const workDir = composePath ? dirname(composePath) : mkdtempSync(join(tmpdir(), 'obs04-restart-'));
+  let composePath = existsSync(composeHint) ? readFileSync(composeHint, 'utf8').trim() : '';
+  const workDir = composePath
+    ? dirname(composePath)
+    : mkdtempSync(join(tmpdir(), 'obs04-restart-'));
   if (!composePath || !existsSync(composePath)) {
     composePath = writeIsolatedCompose(input.project, workDir);
   }

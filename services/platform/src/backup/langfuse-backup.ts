@@ -8,8 +8,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -231,7 +231,9 @@ function stageDockerPath(
         );
         return out;
       }
-      throw new Error(`docker cp ${container}:${containerPath} failed: ${copied.stderr || alt.stderr}`);
+      throw new Error(
+        `docker cp ${container}:${containerPath} failed: ${copied.stderr || alt.stderr}`
+      );
     }
   }
   return out;
@@ -305,10 +307,7 @@ function resticBackup(stageDir: string, repoDir: string, password: string): numb
   };
   const init = run('restic', ['init'], { env, timeout: 60_000 });
   const initText = `${init.stdout}\n${init.stderr}`;
-  if (
-    init.status !== 0 &&
-    !/already initialized|config file already exists/i.test(initText)
-  ) {
+  if (init.status !== 0 && !/already initialized|config file already exists/i.test(initText)) {
     throw new Error(`restic init failed: ${init.stderr || init.stdout}`);
   }
   const backup = run('restic', ['backup', '--json', stageDir], { env, timeout: 300_000 });
@@ -347,9 +346,16 @@ export async function runLangfuseConsistentBackup(input: {
 
   const witnesses = await seedWitness(source);
   const stageDir = mkdtempSync(join(tmpdir(), 'obs04-langfuse-backup-'));
-  const password = randomBytes(24).toString('hex');
   const passwordPath = join(input.evidenceDir, '.restic-password');
-  writeFileSync(passwordPath, password, { mode: 0o600 });
+  const repoDir = join(input.evidenceDir, 'restic-repo');
+  // Reuse existing password when repo already initialized; otherwise mint one.
+  let password: string;
+  if (existsSync(join(repoDir, 'config')) && existsSync(passwordPath)) {
+    password = readFileSync(passwordPath, 'utf8').trim();
+  } else {
+    password = randomBytes(24).toString('hex');
+    writeFileSync(passwordPath, password, { mode: 0o600 });
+  }
 
   try {
     const postgresDump = dumpPostgres(source.postgresContainer, stageDir);
@@ -361,29 +367,21 @@ export async function runLangfuseConsistentBackup(input: {
     if (source.otelContainer) {
       // Distroless collector + bind-mounted config can make docker cp flaky;
       // queue is best-effort and must never fail a consistent Langfuse backup.
-      stageDockerPath(
-        source.otelContainer,
-        '/var/lib/otelcol/queue',
-        stageDir,
-        'otel-queue',
-        { required: false }
-      );
+      stageDockerPath(source.otelContainer, '/var/lib/otelcol/queue', stageDir, 'otel-queue', {
+        required: false,
+      });
     }
 
     // Redis is ephemeral cache — record disposition only.
     const redisDisposition = 'ephemeral-not-restored' as const;
 
-    const repoDir = join(input.evidenceDir, 'restic-repo');
     const resticSnapshotCount = resticBackup(stageDir, repoDir, password);
 
     const checksums = {
       postgres: sha256File(postgresDump),
       clickhouse: sha256File(clickhouseDump),
       minioTree: sha256Text(
-        readdirSync(minioStage, { recursive: true })
-          .map(String)
-          .sort()
-          .join('\n')
+        readdirSync(minioStage, { recursive: true }).map(String).sort().join('\n')
       ),
     };
 
