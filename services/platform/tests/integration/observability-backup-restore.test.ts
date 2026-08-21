@@ -79,6 +79,8 @@ describe('OBS-04 backup restore lifecycle', () => {
             eventId?: string;
           };
           productionVolumeMountCount: number;
+          otelQueueBackedUp: boolean;
+          publicApiWitnessMismatchCount: number;
         }>;
       }
     ).runLangfuseConsistentBackup({
@@ -91,6 +93,15 @@ describe('OBS-04 backup restore lifecycle', () => {
     expect(backup.expectedWitnessMismatchCount, 'expectedWitnessMismatchCount:0').toBe(0);
     expect(backup.productionVolumeMountCount, 'productionVolumeMountCount').toBe(0);
     expect(existsSync(backup.manifestPath)).toBe(true);
+    expect(backup.witnesses.traceId, 'seeded trace witness').toBeTruthy();
+    expect(backup.witnesses.observationId, 'seeded observation witness').toBeTruthy();
+    expect(backup.witnesses.scoreId, 'seeded Langfuse score witness required').toBeTruthy();
+    expect(backup.witnesses.objectKey, 'seeded object/media witness required').toBeTruthy();
+    expect(backup.witnesses.eventId, 'seeded first-party event witness').toBeTruthy();
+    expect(
+      backup.otelQueueBackedUp,
+      'otel-queue backup must succeed fail-closed (not silent skip)'
+    ).toBe(true);
 
     const restoreProject =
       process.env.OBS04_RESTORE_PROJECT?.trim() || `obs04-restore-${Date.now().toString(36)}`;
@@ -106,6 +117,8 @@ describe('OBS-04 backup restore lifecycle', () => {
           ok: boolean;
           restoreProjectDistinct: true;
           expectedWitnessMismatchCount: number;
+          publicApiWitnessMismatchCount: number;
+          eventSqlWitnessMismatchCount: number;
           productionVolumeMountCount: number;
           resticSnapshotCount: number;
           restoredInventoryEmpty: boolean;
@@ -130,6 +143,14 @@ describe('OBS-04 backup restore lifecycle', () => {
     expect(restore.ok).toBe(true);
     expect(restore.restoreProjectDistinct).toBe(true);
     expect(restore.expectedWitnessMismatchCount, 'expectedWitnessMismatchCount:0').toBe(0);
+    expect(
+      restore.publicApiWitnessMismatchCount,
+      'public API witness mismatch must be 0 (trace/observation/score/object)'
+    ).toBe(0);
+    expect(
+      restore.eventSqlWitnessMismatchCount,
+      'first-party event SQL witness mismatch must be 0'
+    ).toBe(0);
     expect(restore.productionVolumeMountCount, 'productionVolumeMountCount').toBe(0);
     expect(restore.resticSnapshotCount).toBeGreaterThanOrEqual(1);
     expect(restore.restoredInventoryEmpty, 'empty restored inventory').toBe(false);
@@ -143,11 +164,16 @@ describe('OBS-04 backup restore lifecycle', () => {
 
     const parity = {
       expectedWitnessMismatchCount: restore.expectedWitnessMismatchCount,
+      publicApiWitnessMismatchCount: restore.publicApiWitnessMismatchCount,
+      eventSqlWitnessMismatchCount: restore.eventSqlWitnessMismatchCount,
       restoreProjectDistinct: true,
       resticSnapshotCount: restore.resticSnapshotCount,
       productionVolumeMountCount: restore.productionVolumeMountCount,
       restoreProject,
       sourceProject: process.env.OBS04_SOURCE_PROJECT?.trim() || 'obs01-canary',
+      scoreId: backup.witnesses.scoreId,
+      objectKey: backup.witnesses.objectKey,
+      otelQueueBackedUp: backup.otelQueueBackedUp,
     };
     writeEvidence('backup-manifest.json', JSON.parse(readFileSync(backup.manifestPath, 'utf8')));
     writeEvidence('isolated-restore-parity.json', parity);
@@ -184,6 +210,7 @@ describe('OBS-04 backup restore lifecycle', () => {
         proveLangfuseColdRestart: (input: { evidenceDir: string; project: string }) => Promise<{
           ok: boolean;
           restartWitnessMismatchCount: number;
+          publicApiWitnessMismatchCount: number;
           stateVolumeRecreated: boolean;
         }>;
       }
@@ -194,13 +221,24 @@ describe('OBS-04 backup restore lifecycle', () => {
 
     expect(restart.ok).toBe(true);
     expect(restart.restartWitnessMismatchCount, 'restartWitnessMismatchCount:0').toBe(0);
+    expect(
+      restart.publicApiWitnessMismatchCount,
+      'cold restart must retain full public API witness set'
+    ).toBe(0);
     expect(restart.stateVolumeRecreated, 'stateVolumeRecreated').toBe(false);
+
+    const postgresContainer = `${project}-langfuse-postgres-1`;
+    const currentImage =
+      'docker.io/langfuse/langfuse@sha256:c2350a95d710f726f6466ffd47675eb704d0ff77fa1df1b9e6751ada6134ef75';
+    // Older local Langfuse image whose prisma migration set is a strict subset of current.
+    const olderImage =
+      'docker.io/langfuse/langfuse@sha256:cff59a366f9773f9e1d7060655cc63441b1e4ad27e8ad40ebdaebe2151a014cb';
 
     const compatible = await (
       restoreModule as {
         evaluateLangfuseRollback: (input: {
           previousImage: string;
-          currentSchemaVersion: string;
+          postgresContainer: string;
           mutate?: boolean;
         }) => Promise<{
           ok: boolean;
@@ -208,21 +246,24 @@ describe('OBS-04 backup restore lifecycle', () => {
           incompatibleRollbackExitCode: number;
           incompatibleApplyCount: number;
           reason?: string;
+          probeMethod?: string;
         }>;
       }
     ).evaluateLangfuseRollback({
-      previousImage:
-        'docker.io/langfuse/langfuse@sha256:37a7c4251b602e60fd39451e6c252195908bf61837d4e252adbd752c0809e835',
-      currentSchemaVersion: 'compatible',
+      previousImage: currentImage,
+      postgresContainer,
       mutate: false,
     });
     expect(compatible.compatibleRollbackMismatchCount).toBe(0);
+    expect(compatible.probeMethod, 'must use real previous-image schema probe').toBe(
+      'previous-image-prisma-migrations'
+    );
 
     const incompatible = await (
       restoreModule as {
         evaluateLangfuseRollback: (input: {
           previousImage: string;
-          currentSchemaVersion: string;
+          postgresContainer: string;
           mutate?: boolean;
         }) => Promise<{
           ok: boolean;
@@ -230,12 +271,12 @@ describe('OBS-04 backup restore lifecycle', () => {
           incompatibleRollbackExitCode: number;
           incompatibleApplyCount: number;
           reason?: string;
+          probeMethod?: string;
         }>;
       }
     ).evaluateLangfuseRollback({
-      previousImage:
-        'docker.io/langfuse/langfuse@sha256:0000000000000000000000000000000000000000000000000000000000000001',
-      currentSchemaVersion: 'incompatible-future-schema',
+      previousImage: olderImage,
+      postgresContainer,
       mutate: true,
     });
     expect(incompatible.incompatibleRollbackExitCode, 'incompatibleRollbackExitCode != 0').not.toBe(
@@ -243,6 +284,7 @@ describe('OBS-04 backup restore lifecycle', () => {
     );
     expect(incompatible.reason).toMatch(/ROLLBACK_SCHEMA_INCOMPATIBLE/);
     expect(incompatible.incompatibleApplyCount, 'incompatibleApplyCount').toBe(0);
+    expect(incompatible.probeMethod).toBe('previous-image-prisma-migrations');
 
     for (const name of volumesBefore) {
       expect(dockerVolumeNames().includes(name)).toBe(true);
