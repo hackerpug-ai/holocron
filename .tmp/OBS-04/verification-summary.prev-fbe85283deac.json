@@ -1,0 +1,291 @@
+{
+  "task_id": "OBS-04",
+  "timestamp": "2026-08-21T08:20:54Z",
+  "commit_sha": "eca2056839f93c86e952ff408b934d1d5f0a6cae",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 555
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-1-output.txt",
+      "seeded_value": {
+        "releaseLockSchema": 2,
+        "selectedTopologyCount": 1,
+        "identityMismatchCount": 0,
+        "floatingTagCount": 0,
+        "undeclaredWriterCount": 0,
+        "serviceCount": 12,
+        "volumeCount": 8,
+        "services": [
+          "edge",
+          "langfuse-clickhouse",
+          "langfuse-minio",
+          "langfuse-postgres",
+          "langfuse-redis",
+          "langfuse-web",
+          "langfuse-worker",
+          "mastra",
+          "otel-collector",
+          "postgres",
+          "scheduler",
+          "zero-cache"
+        ],
+        "volumes": [
+          "clickhouse-data",
+          "clickhouse-logs",
+          "langfuse-postgres-data",
+          "minio-data",
+          "otel-queue",
+          "postgres-data",
+          "redis-data",
+          "zero-cache-data"
+        ],
+        "volumeNames": [
+          "clickhouse-data",
+          "clickhouse-logs",
+          "holocron-postgres",
+          "langfuse-postgres",
+          "minio-data",
+          "otel-collector-queue",
+          "redis-data",
+          "zero-cache"
+        ],
+        "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
+        "platform": "linux/arm64",
+        "otelCanaryComposePresent": true
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-1-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-1-green.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-2-output.txt",
+      "seeded_value": {
+        "missingSecretRejectedCount": 13,
+        "requiredSecretCount": 13,
+        "sentinelMatchCount": 0,
+        "containerStartedWithoutSecret": false,
+        "capacityDecision": "GO",
+        "expectedServiceCount": 12,
+        "expectedVolumeCount": 8,
+        "requiredReserveBytes": 37580963840
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-2-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-2-green.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-3-output.txt",
+      "seeded_value": {
+        "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+        "observationId": "1896038da8fd800c",
+        "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+        "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+        "eventId": "1896038da8fd800c",
+        "otelQueueBackedUp": true,
+        "publicApiWitnessMismatchCount": 0,
+        "eventSqlWitnessMismatchCount": 0,
+        "expectedWitnessMismatchCount": 0,
+        "restoreProject": "obs04-restore-mt2nvsoy"
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-3-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-3-green.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-4-output.txt",
+      "seeded_value": {
+        "restartWitnessMismatchCount": 0,
+        "publicApiWitnessMismatchCount": 0,
+        "compatibleRollbackMismatchCount": 0,
+        "incompatibleRollbackExitCode": 2,
+        "incompatibleApplyCount": 0,
+        "stateVolumeRecreated": false,
+        "probeMethod": "previous-image-prisma-migrations"
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-4-green.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-1-output.txt",
+      "seeded_value": {
+        "releaseLockSchema": 2,
+        "selectedTopologyCount": 1,
+        "identityMismatchCount": 0,
+        "floatingTagCount": 0,
+        "undeclaredWriterCount": 0,
+        "serviceCount": 12,
+        "volumeCount": 8,
+        "services": [
+          "edge",
+          "langfuse-clickhouse",
+          "langfuse-minio",
+          "langfuse-postgres",
+          "langfuse-redis",
+          "langfuse-web",
+          "langfuse-worker",
+          "mastra",
+          "otel-collector",
+          "postgres",
+          "scheduler",
+          "zero-cache"
+        ],
+        "volumes": [
+          "clickhouse-data",
+          "clickhouse-logs",
+          "langfuse-postgres-data",
+          "minio-data",
+          "otel-queue",
+          "postgres-data",
+          "redis-data",
+          "zero-cache-data"
+        ],
+        "volumeNames": [
+          "clickhouse-data",
+          "clickhouse-logs",
+          "holocron-postgres",
+          "langfuse-postgres",
+          "minio-data",
+          "otel-collector-queue",
+          "redis-data",
+          "zero-cache"
+        ],
+        "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
+        "platform": "linux/arm64",
+        "otelCanaryComposePresent": true
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-1-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-1-green.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-2-output.txt",
+      "seeded_value": {
+        "missingSecretRejectedCount": 13,
+        "requiredSecretCount": 13,
+        "sentinelMatchCount": 0,
+        "containerStartedWithoutSecret": false,
+        "capacityDecision": "GO",
+        "expectedServiceCount": 12,
+        "expectedVolumeCount": 8,
+        "requiredReserveBytes": 37580963840
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-2-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-2-green.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-3-output.txt",
+      "seeded_value": {
+        "traceId": "dfeacb32f006662175e0ba3d81d200c6",
+        "observationId": "1896038da8fd800c",
+        "scoreId": "950a4f87-b9d1-434c-a8d6-dfbb32e66a91",
+        "objectKey": "media/obs01-project/cKIaT_RjiAMxd7xiClWWLH.bin",
+        "eventId": "1896038da8fd800c",
+        "otelQueueBackedUp": true,
+        "publicApiWitnessMismatchCount": 0,
+        "eventSqlWitnessMismatchCount": 0,
+        "expectedWitnessMismatchCount": 0,
+        "restoreProject": "obs04-restore-mt2nvsoy"
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-3-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-3-green.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-4-output.txt",
+      "seeded_value": {
+        "restartWitnessMismatchCount": 0,
+        "publicApiWitnessMismatchCount": 0,
+        "compatibleRollbackMismatchCount": 0,
+        "incompatibleRollbackExitCode": 2,
+        "incompatibleApplyCount": 0,
+        "stateVolumeRecreated": false,
+        "probeMethod": "previous-image-prisma-migrations"
+      },
+      "red_against_start_file": ".tmp/OBS-04/AC-4-red-against-start.txt",
+      "green_file": ".tmp/OBS-04/AC-4-green.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-21T08:20:54Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "372dafa532123a02eeebfc30364a0df68ff93cf06c0b7032797f711dc162085a"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "6680eb548de873b9a5371ab93f014c791701997f426422056bd4817c94e8c65e"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "d748fd5a530c49684d2da792b140f075315ce53e1ebff0605cf0911f27af84e2"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "200f3cfbc262ade4ed21771b9c4e7e7e0c3b2d2a477abeecbede29a68569b58b"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "b49e6caed910291479c413fafe1c56d135e6af42c723a0372546393632c16e13"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "4e4154d90795e4044a51d74cb64242855b9ec7fb0739f80682a892ffe4d0fef0"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "3dcedeecdc090d13a586b5af2547b3d228c2604c96b6616a2235cd45eee70f32"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "b393ee65629d5b93ad1c75406c61ad7ff2225a454db5e72327348e557cad4b53"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "c06d75d48f644ba0db949b3c0f5201d763501ef4454a119cfcc7559157d6ec7d"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "10b2e24ee2b7dbb3d758fb5913364e9f6b36a7766393ebdb8feb45b2a3142ae1"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "91bbc1a1d113dcd8dce4b36797af577e08effcbc1981901dcfb4a16410806152"
+      }
+    ]
+  }
+}

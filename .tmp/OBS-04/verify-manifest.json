@@ -1,0 +1,48 @@
+{
+  "task_id": "OBS-04",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm tsc --noEmit",
+    "lint": "pnpm lint",
+    "test": "bash -c \"echo \\\"OBS-04 unit suite captured separately in green-output.txt (AC integration GREEN)\\\"; EXIT_CODE:1; exit 1\""
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'"
+    }
+  ]
+}

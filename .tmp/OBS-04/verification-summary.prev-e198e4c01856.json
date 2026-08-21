@@ -1,0 +1,117 @@
+{
+  "task_id": "OBS-04",
+  "timestamp": "2026-08-21T07:15:15Z",
+  "commit_sha": "42d0d9a7ad343a81dfa93dcc4cdc067e9218c56c",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 555
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'",
+      "exit_code": 1,
+      "output_file": ".tmp/OBS-04/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-production-topology.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-3'",
+      "exit_code": 1,
+      "output_file": ".tmp/OBS-04/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/observability-backup-restore.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/OBS-04/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-21T07:15:15Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "9a4971c2279cb60f95a6a9d266907b78fed54096fb972d4cccc2cdcfb136c4b4"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "a0ca41891020fb308c43f363b596dd9051e8ddf21f01821c804b34ab768f9327"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "2b07dde12aff9ae1573d5836ecd324ece076dd92315643ac81f359d1bf61d866"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "b36cc2c34674e36240d9e936b1071a07fd08686c8dafce53be6e5d31ae482f61"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "30336966e0a4a41aeba60e8fbf43b0c25b57c8e70e14d77a3f676b453cbe70d1"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "4d97b064f5450a97002f6939d6979b5492f8034e93d932b5ed7df66213ae6362"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "39aee5826d4284663cb81416196ea171f0fddd252317ba852acbe0c9ba769ce2"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "f21423da13cd0bbb100ddb45bd2b87fc370fc704b30c7d6e88294e3b830ab296"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "8ee37e41edfe018cb382c7483aed8711ae8a1e7f7e1c0ccbffef737d5d1880fb"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "463eb7a1cf432a2d87b1d45187e431f3454b0a1188c3fafe3baee42901a0e0bf"
+      }
+    ]
+  }
+}

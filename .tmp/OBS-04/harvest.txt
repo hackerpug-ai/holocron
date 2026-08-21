@@ -1,0 +1,8 @@
+OBS-04 technical remediation harvest 2026-08-21T08:43:53Z
+HEAD product: 1b5f4603cb2be7f740a018af162ae22d3b7e326a
+RED lineage: 97c7d636 (tests) / 59020c24 (red-output)
+GREEN product: a43942bf (12/8 verify + schemaVersion 2 + launchd/holo)
+AC-1..AC-4 / TC-1..TC-4: all exit 0 via harvest-evidence.sh
+portable verify: REQUIRED_SERVICES.length / REQUIRED_VOLUME_NAMES.length (12/8)
+readDeploymentRecord: schemaVersion === 2
+No AC-3/AC-4 regression.

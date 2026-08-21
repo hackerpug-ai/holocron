@@ -1,0 +1,11 @@
+{
+  "decision": "GO",
+  "expectedServiceCount": 12,
+  "expectedVolumeCount": 8,
+  "requiredReserveBytes": 37580963840,
+  "containerLimitSumGib": 31,
+  "dockerMemTotalBytes": 41989324800,
+  "diskAvailBytes": 50346283008,
+  "physMemBytes": 68719476736,
+  "reasons": []
+}

@@ -24,6 +24,7 @@ import {
   defaultComposePath,
   parseImagePlatforms,
   REQUIRED_SERVICES,
+  REQUIRED_VOLUME_NAMES,
   type ReleaseLock,
 } from './production-release.ts';
 
@@ -39,12 +40,130 @@ export const MIN_DOCKER_VM_OVERHEAD_GIB = 4;
 /** Minimum free physical RAM after the Docker VM allocation. */
 export const MIN_HOST_HEADROOM_GIB = 8;
 export const MAX_MEMORY_LIMIT_SUM_GIB = 50;
+/**
+ * Twelve-service portable plan sized for the inference1 Docker VM envelope.
+ * Langfuse components alone are ~11.5 GiB; Holocron core + Collector fill the rest
+ * under the 50 GiB aggregate ceiling (OBS-01 capacity evidence).
+ */
 export const DEFAULT_MEMORY_LIMITS_GIB = {
-  postgres: 16,
-  mastra: 16,
-  scheduler: 8,
-  'zero-cache': 10,
+  postgres: 8,
+  mastra: 6,
+  scheduler: 2,
+  'zero-cache': 3,
+  edge: 0.5,
+  'langfuse-web': 2,
+  'langfuse-worker': 2,
+  'langfuse-postgres': 2,
+  'langfuse-clickhouse': 4,
+  'langfuse-redis': 0.5,
+  'langfuse-minio': 0.5,
+  'otel-collector': 0.5,
 } as const satisfies ServiceMemoryLimits;
+
+/** Credential-bearing observability names that must fail closed when absent. */
+export const REQUIRED_OBSERVABILITY_SECRET_NAMES = [
+  'LANGFUSE_DATABASE_URL',
+  'LANGFUSE_POSTGRES_PASSWORD',
+  'LANGFUSE_CLICKHOUSE_PASSWORD',
+  'LANGFUSE_REDIS_AUTH',
+  'LANGFUSE_S3_ACCESS_KEY_ID',
+  'LANGFUSE_S3_SECRET_ACCESS_KEY',
+  'LANGFUSE_NEXTAUTH_SECRET',
+  'LANGFUSE_SALT',
+  'LANGFUSE_ENCRYPTION_KEY',
+  'LANGFUSE_PUBLIC_KEY',
+  'LANGFUSE_SECRET_KEY',
+  'LANGFUSE_INIT_USER_PASSWORD',
+  'LANGFUSE_AUTH_HEADER',
+] as const;
+
+export type ObservabilitySecretPreflight = {
+  ok: boolean;
+  missing: string[];
+  requiredSecretCount: number;
+};
+
+export type ObservabilityCapacityDecision = {
+  decision: 'GO' | 'BLOCKED_CAPACITY';
+  expectedServiceCount: number;
+  expectedVolumeCount: number;
+  requiredReserveBytes: number;
+  containerLimitSumGib: number;
+  dockerMemTotalBytes: number;
+  diskAvailBytes: number;
+  physMemBytes: number;
+  reasons: string[];
+};
+
+const GIB_BYTES = 1024 ** 3;
+
+/** Fail closed when any required observability secret name is missing or blank. */
+export function preflightObservabilitySecrets(
+  env: NodeJS.ProcessEnv = process.env
+): ObservabilitySecretPreflight {
+  const missing: string[] = [];
+  for (const name of REQUIRED_OBSERVABILITY_SECRET_NAMES) {
+    const value = env[name];
+    if (typeof value !== 'string' || value.trim() === '') {
+      missing.push(name);
+    }
+  }
+  return {
+    ok: missing.length === 0,
+    missing,
+    requiredSecretCount: REQUIRED_OBSERVABILITY_SECRET_NAMES.length,
+  };
+}
+
+/**
+ * Capacity gate for the twelve-service / eight-volume observability topology.
+ * Uses OBS-01-style measurements; insufficient Docker VM or disk reserve blocks apply.
+ */
+export function evaluateObservabilityCapacity(input: {
+  dockerMemTotalBytes: number;
+  diskAvailBytes: number;
+  physMemBytes: number;
+  memoryLimits?: ServiceMemoryLimits;
+}): ObservabilityCapacityDecision {
+  const limits = assertMemoryLimitPlan(input.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
+  const containerLimitSumGib = REQUIRED_SERVICES.reduce((sum, name) => sum + limits[name], 0);
+  const requiredReserveBytes = Math.ceil(
+    (containerLimitSumGib + MIN_DOCKER_VM_OVERHEAD_GIB) * GIB_BYTES
+  );
+  const reasons: string[] = [];
+  if (
+    !Number.isFinite(input.dockerMemTotalBytes) ||
+    input.dockerMemTotalBytes < requiredReserveBytes
+  ) {
+    reasons.push(
+      `dockerMemTotalBytes ${input.dockerMemTotalBytes} < requiredReserveBytes ${requiredReserveBytes}`
+    );
+  }
+  if (!Number.isFinite(input.diskAvailBytes) || input.diskAvailBytes < requiredReserveBytes) {
+    reasons.push(
+      `diskAvailBytes ${input.diskAvailBytes} < requiredReserveBytes ${requiredReserveBytes}`
+    );
+  }
+  if (
+    !Number.isFinite(input.physMemBytes) ||
+    input.physMemBytes < requiredReserveBytes + MIN_HOST_HEADROOM_GIB * GIB_BYTES
+  ) {
+    reasons.push(
+      `physMemBytes ${input.physMemBytes} insufficient for reserve plus ${MIN_HOST_HEADROOM_GIB} GiB host headroom`
+    );
+  }
+  return {
+    decision: reasons.length === 0 ? 'GO' : 'BLOCKED_CAPACITY',
+    expectedServiceCount: REQUIRED_SERVICES.length,
+    expectedVolumeCount: REQUIRED_VOLUME_NAMES.length,
+    requiredReserveBytes,
+    containerLimitSumGib,
+    dockerMemTotalBytes: input.dockerMemTotalBytes,
+    diskAvailBytes: input.diskAvailBytes,
+    physMemBytes: input.physMemBytes,
+    reasons,
+  };
+}
 
 /** Nine named non-mutating preflight dimensions (IMP-AC-12). Absent names cannot pass. */
 export const PREFLIGHT_CHECK_NAMES = [
@@ -78,10 +197,18 @@ export type ServiceMemoryLimits = {
   mastra: number;
   scheduler: number;
   'zero-cache': number;
+  edge: number;
+  'langfuse-web': number;
+  'langfuse-worker': number;
+  'langfuse-postgres': number;
+  'langfuse-clickhouse': number;
+  'langfuse-redis': number;
+  'langfuse-minio': number;
+  'otel-collector': number;
 };
 
 export type DeploymentRecord = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   authorized: true;
   authorizationScope: string;
   /** Validated portable deploy host (default example: holocron). */
@@ -103,11 +230,11 @@ export type DeploymentRecord = {
   composeSha256: string;
   composeGeneration: string;
   deployedAt: string;
-  services: readonly ['postgres', 'mastra', 'scheduler', 'zero-cache'];
+  services: typeof REQUIRED_SERVICES;
   containers: Record<string, string>;
   previousImage: string;
   previousDigest: string;
-  durableVolumes: readonly ['holocron-postgres', 'holocron-blobs'];
+  durableVolumes: typeof REQUIRED_VOLUME_NAMES;
   memoryLimitsGib: ServiceMemoryLimits;
   coldRecreate: true;
   cutoverActions: 0;
@@ -354,8 +481,8 @@ export function readDeployableRelease(path: string, composePath: string): Releas
     deployFail(`release lock is not valid JSON: ${path}`);
   }
   const value = asObject(parsed, 'release lock') as Partial<ReleaseLock>;
-  if (value.schemaVersion !== 1 || value.deployable !== true) {
-    deployFail('release lock must be deployable schema v1');
+  if (value.schemaVersion !== 2 || value.deployable !== true) {
+    deployFail('release lock must be deployable schema v2');
   }
   const fields = [
     'image',
@@ -376,6 +503,15 @@ export function readDeployableRelease(path: string, composePath: string): Releas
   }
   const lock = value as ReleaseLock;
   assertSourceRevision(lock.sourceRevision);
+  if (lock.platform !== 'linux/arm64') {
+    deployFail('release lock platform must be linux/arm64');
+  }
+  if (!Array.isArray(lock.services) || lock.services.length !== REQUIRED_SERVICES.length) {
+    deployFail(`release lock services must list exactly ${REQUIRED_SERVICES.length} services`);
+  }
+  if (!Array.isArray(lock.volumes) || lock.volumes.length !== REQUIRED_VOLUME_NAMES.length) {
+    deployFail(`release lock volumes must list exactly ${REQUIRED_VOLUME_NAMES.length} volumes`);
+  }
   if (assertDeployableImage(lock.image) !== lock.digest) {
     deployFail('release image and digest disagree');
   }
@@ -567,6 +703,24 @@ export function renderDeploymentOverride(options: {
     `      HOLO_DEPLOYED_AT: ${yamlString(options.deployedAt)}`,
     '      ZERO_CACHE_URL: http://zero-cache:4848',
   ].join('\n');
+  const observabilityMemLimits = (
+    [
+      'edge',
+      'langfuse-web',
+      'langfuse-worker',
+      'langfuse-postgres',
+      'langfuse-clickhouse',
+      'langfuse-redis',
+      'langfuse-minio',
+      'otel-collector',
+    ] as const
+  )
+    .map(
+      (name) => `  ${name}:
+    mem_limit: ${yamlString(memLimitYaml(memoryLimits[name]))}`
+    )
+    .join('\n');
+
   // Mastra is loopback-only on the serving host; Tailscale Serve (D08-07) fronts it.
   return `# Generated by deploy:apply. Contains no secret values.
 services:
@@ -605,6 +759,7 @@ ${identityEnvironment}
       postgres:
         condition: service_healthy
         restart: true
+${observabilityMemLimits}
 `;
 }
 
@@ -1361,7 +1516,7 @@ function reusableDeployment(options: {
   return record;
 }
 
-/** Cold-recreate the exact four-service generation without deleting volumes. */
+/** Cold-recreate the exact twelve-service generation without deleting volumes. */
 export function applyProductionDeployment(options: ApplyProductionOptions): DeploymentRecord {
   if (!options.authorized) {
     deployFail('operator authorization is required (--authorize)');
@@ -1452,7 +1607,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     ...runtime,
     HOLO_PLATFORM_IMAGE: lock.image,
     HOLO_POSTGRES_VOLUME: 'holocron-postgres',
-    HOLO_BLOB_VOLUME: 'holocron-blobs',
+    HOLO_BLOB_HOST_PATH: process.env.HOLO_BLOB_HOST_PATH || './.data/holocron-blobs',
   };
   if (!options.skipImagePreflight) {
     verifyLockedImage({
@@ -1481,7 +1636,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
   // Named volumes are created as root by Docker while the production image
   // deliberately runs as the unprivileged `bun` user. Initialize ownership in
-  // a disposable container before starting the four long-lived services. This
+  // a disposable container before starting the twelve long-lived services. This
   // retains every existing blob and never removes or recreates the volume.
   runOrFail(runner, cwd, env, 'docker', [
     'run',
@@ -1489,7 +1644,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     '--user',
     '0:0',
     '--volume',
-    'holocron-blobs:/var/lib/holocron/blobs',
+    '/var/lib/holocron/blobs',
     '--entrypoint',
     '/bin/sh',
     lock.image,
@@ -1517,7 +1672,9 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     .filter(Boolean)
     .sort();
   if (running.join(',') !== [...REQUIRED_SERVICES].sort().join(',')) {
-    deployFail(`all four services must be running; got ${running.join(',') || '(none)'}`);
+    deployFail(
+      `all ${REQUIRED_SERVICES.length} services must be running; got ${running.join(',') || '(none)'}`
+    );
   }
 
   const containers: Record<string, string> = {};
@@ -1562,7 +1719,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
 
   const record: DeploymentRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     authorized: true,
     authorizationScope: `${host}:${lock.digest}`,
     host,
@@ -1583,7 +1740,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     containers,
     previousImage: lock.previousImage,
     previousDigest: lock.previousDigest,
-    durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    durableVolumes: [...REQUIRED_VOLUME_NAMES],
     memoryLimitsGib: memoryLimits,
     coldRecreate: true,
     cutoverActions: 0,
@@ -1605,7 +1762,7 @@ export function readDeploymentRecord(path: string): DeploymentRecord {
   if (!existsSync(path)) deployFail(`deployment record is missing: ${path}`);
   const value = asObject(JSON.parse(readFileSync(path, 'utf8')), 'deployment record');
   if (
-    value.schemaVersion !== 1 ||
+    value.schemaVersion !== 2 ||
     value.authorized !== true ||
     typeof value.host !== 'string' ||
     value.runtime !== 'container' ||
@@ -1681,7 +1838,7 @@ export function buildPortableDeploymentReceipt(
   const memoryLimitsGib = assertMemoryLimitPlan(partial.memoryLimitsGib);
   const loopbackPort = partial.loopbackPort ?? DEFAULT_LOOPBACK_PORT;
   const record: DeploymentRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     authorized: true,
     authorizationScope: partial.authorizationScope || `${host}:${partial.imageDigest}`,
     host,
@@ -1702,7 +1859,7 @@ export function buildPortableDeploymentReceipt(
     containers: partial.containers,
     previousImage: partial.previousImage,
     previousDigest: partial.previousDigest,
-    durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    durableVolumes: [...REQUIRED_VOLUME_NAMES],
     memoryLimitsGib,
     coldRecreate: true,
     cutoverActions: 0,

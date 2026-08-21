@@ -1,0 +1,10 @@
+{
+  "missingSecretRejectedCount": 13,
+  "requiredSecretCount": 13,
+  "sentinelMatchCount": 0,
+  "containerStartedWithoutSecret": false,
+  "capacityDecision": "GO",
+  "expectedServiceCount": 12,
+  "expectedVolumeCount": 8,
+  "requiredReserveBytes": 37580963840
+}

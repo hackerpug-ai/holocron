@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-04
+
+ ✓ |integration| services/platform/tests/integration/sprint29-deployment.test.ts (17 tests | 16 skipped) 162ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 16 skipped (17)
+   Start at  02:36:46
+   Duration  1.82s (transform 650ms, setup 129ms, import 1.45s, tests 162ms, environment 0ms)
+

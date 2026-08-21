@@ -329,6 +329,16 @@ interface CliArgs {
   allowConvexUnreachable: boolean;
   /** cutover:fence-status --offline — skip live Convex env get (label unreachable). */
   fenceOffline: boolean;
+  /** backup:langfuse / restore:langfuse — evidence directory under .tmp/OBS-04 */
+  evidenceDir: string | null;
+  /** backup:langfuse --source-project <compose-project> */
+  sourceProject: string | null;
+  /** restore:langfuse --isolated (required) */
+  isolated: boolean;
+  /** restore:langfuse --project <compose-project> */
+  project: string | null;
+  /** restore:langfuse --manifest <langfuse-backup-manifest.json> */
+  manifest: string | null;
 }
 
 function printHelp(): void {
@@ -383,6 +393,9 @@ Usage:
                             GATE-FIX-QA2: capture+upload recovery baseline bound to a listable
                             restic snapshot + pgBackRest label (refuses ghosts / zero domain)
                             [--blob-root <path>] [--restic-snapshot <id>] [--json]
+  backup:langfuse           OBS-04: consistent Langfuse/ClickHouse/object/queue backup [--json]
+  restore:langfuse          OBS-04: isolated Langfuse restore into a fresh Compose project
+                            --isolated [--project <name>] [--json]
   restore                   D05-02: pgBackRest PITR restore --pitr <iso> --scratch <dir>
                             [--target-action promote|pause] (fail-closed on empty/corrupt/out-of-range)
   restore:pitr              Alias for restore --pitr (same flags)
@@ -791,6 +804,11 @@ function parseArgs(argv: string[]): CliArgs {
     commit: null,
     allowConvexUnreachable: false,
     fenceOffline: false,
+    evidenceDir: null,
+    sourceProject: null,
+    isolated: false,
+    project: null,
+    manifest: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -1082,7 +1100,12 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a === '--catalog') {
       args.catalogPath = resolve(argv[++i] ?? args.catalogPath);
     } else if (a === '--manifest') {
-      args.manifestPath = resolve(argv[++i] ?? args.manifestPath);
+      const next = argv[++i] ?? args.manifestPath;
+      if (commandFromArgv === 'restore:langfuse') {
+        args.manifest = resolve(next);
+      } else {
+        args.manifestPath = resolve(next);
+      }
     } else if (a === '--fixtures-dir') {
       args.fixturesDir = resolve(argv[++i] ?? '');
     } else if (a === '--expected-hash') {
@@ -1094,7 +1117,26 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a.startsWith('--catalog=')) {
       args.catalogPath = resolve(a.slice('--catalog='.length));
     } else if (a.startsWith('--manifest=')) {
-      args.manifestPath = resolve(a.slice('--manifest='.length));
+      const value = a.slice('--manifest='.length);
+      if (commandFromArgv === 'restore:langfuse') {
+        args.manifest = resolve(value);
+      } else {
+        args.manifestPath = resolve(value);
+      }
+    } else if (a === '--isolated') {
+      args.isolated = true;
+    } else if (a === '--evidence-dir') {
+      args.evidenceDir = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--evidence-dir=')) {
+      args.evidenceDir = resolve(a.slice('--evidence-dir='.length));
+    } else if (a === '--source-project') {
+      args.sourceProject = argv[++i] ?? null;
+    } else if (a.startsWith('--source-project=')) {
+      args.sourceProject = a.slice('--source-project='.length);
+    } else if (a === '--project') {
+      args.project = argv[++i] ?? null;
+    } else if (a.startsWith('--project=')) {
+      args.project = a.slice('--project='.length);
     } else if (a.startsWith('--fixtures-dir=')) {
       args.fixturesDir = resolve(a.slice('--fixtures-dir='.length));
     } else if (a === '--reset') {
@@ -1385,7 +1427,7 @@ async function main(): Promise<void> {
       if (args.json) {
         process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
       } else {
-        console.log('holo deploy:apply — portable four-service generation deployed');
+        console.log('holo deploy:apply — portable twelve-service generation deployed');
         console.log(`  host:               ${record.host}`);
         console.log(`  base URL:           ${record.baseUrl}`);
         console.log(`  serve URL:          ${record.serveUrl}`);
@@ -3210,6 +3252,78 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo backup:emit-recovery-baseline failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:langfuse': {
+      const { runLangfuseConsistentBackup } = await import('../backup/langfuse-backup.ts');
+      try {
+        const evidenceDir = args.evidenceDir ?? resolve(process.cwd(), '.tmp/OBS-04');
+        const sourceProject =
+          args.sourceProject ?? process.env.OBS04_SOURCE_PROJECT ?? 'obs01-canary';
+        const result = await runLangfuseConsistentBackup({ evidenceDir, sourceProject });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`backup:langfuse ok=${result.ok} snapshots=${result.resticSnapshotCount}`);
+          console.log(`  manifest: ${result.manifestPath}`);
+          console.log(`  witnessMismatch: ${result.expectedWitnessMismatchCount}`);
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:langfuse failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore:langfuse': {
+      const { runIsolatedLangfuseRestore } = await import('../backup/langfuse-restore.ts');
+      try {
+        if (!args.isolated) {
+          throw new Error('restore:langfuse requires --isolated');
+        }
+        const evidenceDir = args.evidenceDir ?? resolve(process.cwd(), '.tmp/OBS-04');
+        const manifestPath = args.manifest ?? resolve(evidenceDir, 'langfuse-backup-manifest.json');
+        const restoreProject =
+          args.project ??
+          process.env.OBS04_RESTORE_PROJECT ??
+          `obs04-restore-${Date.now().toString(36)}`;
+        const result = await runIsolatedLangfuseRestore({
+          evidenceDir,
+          restoreProject,
+          manifestPath,
+          productionVolumeDenyList: [
+            'holocron-postgres',
+            'holocron-blobs',
+            'holocron-production',
+            'langfuse-postgres',
+            'clickhouse-data',
+            'minio-data',
+            'redis-data',
+            'otel-collector-queue',
+          ],
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(
+            `restore:langfuse ok=${result.ok} project=${result.restoreProject} mismatch=${result.expectedWitnessMismatchCount}`
+          );
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo restore:langfuse failed: ${msg}`);
         }
         process.exit(1);
       }
