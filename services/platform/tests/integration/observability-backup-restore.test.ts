@@ -172,6 +172,16 @@ describe('OBS-04 backup restore lifecycle', () => {
 
     const volumesBefore = new Set(dockerVolumeNames());
 
+    const parityPath = resolve(EVIDENCE_DIR, 'isolated-restore-parity.json');
+    expect(existsSync(parityPath), 'AC-3 isolated-restore-parity.json required before AC-4').toBe(
+      true
+    );
+    const parity = JSON.parse(readFileSync(parityPath, 'utf8')) as { restoreProject?: string };
+    const project =
+      process.env.OBS04_RESTORE_PROJECT?.trim() ||
+      parity.restoreProject ||
+      'obs04-restore-lifecycle';
+
     const restart = await (
       restoreModule as {
         proveLangfuseColdRestart: (input: {
@@ -185,7 +195,7 @@ describe('OBS-04 backup restore lifecycle', () => {
       }
     ).proveLangfuseColdRestart({
       evidenceDir: EVIDENCE_DIR,
-      project: process.env.OBS04_RESTORE_PROJECT?.trim() || 'obs04-restore-lifecycle',
+      project,
     });
 
     expect(restart.ok).toBe(true);
