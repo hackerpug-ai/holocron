@@ -4,6 +4,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PUBLIC_DOCS_ORIGIN as RnPublicDocsOrigin } from '../../app/zero/platform';
+import {
+  buildPublicShareUrl,
+  PUBLIC_DOCS_ORIGIN,
+} from '../../services/platform/src/public-docs.ts';
 import { listTools } from '../../services/platform/src/tools/registry.ts';
 import {
   shareDocumentInputSchema,
@@ -11,10 +15,6 @@ import {
   unshareDocumentInputSchema,
   unshareDocumentOutputSchema,
 } from '../../services/platform/src/tools/schemas/documents.ts';
-import {
-  PUBLIC_DOCS_ORIGIN,
-  buildPublicShareUrl,
-} from '../../services/platform/src/public-docs.ts';
 
 describe('public share MCP tool schemas', () => {
   it('registers unshare_document and a share_document that does not require isPublic', () => {

@@ -5,10 +5,10 @@
  */
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_IT } from './service/harness';
 import { createHonoApp } from '../../services/platform/src/http/hono-app';
 import { executePostgresMcpTool } from '../../services/platform/src/mcp/executor';
 import { buildPublicShareUrl } from '../../services/platform/src/public-docs';
+import { PLATFORM_IT } from './service/harness';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
@@ -106,9 +106,7 @@ describe('public share MCP tools (live Postgres + public reader)', () => {
       expect(shared.shareUrl).toBe(buildPublicShareUrl(shared.shareToken as string));
       expect(shared.shareUrl).toMatch(/^https:\/\/docs\.holocrnlib\.com\/d\//);
 
-      const { renderPublicArticle } = await import(
-        '../../services/platform/src/http/article.ts'
-      );
+      const { renderPublicArticle } = await import('../../services/platform/src/http/article.ts');
       const originHtml = await renderPublicArticle(shared.shareToken as string, DATABASE_URL);
       expect(originHtml).toBeTruthy();
       expect(originHtml).toContain(title);

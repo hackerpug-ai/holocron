@@ -10,8 +10,8 @@ import type { Sql } from '../db/client.ts';
 import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
-import { rrfHybridSearch } from '../search/rrf.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
+import { rrfHybridSearch } from '../search/rrf.ts';
 
 function resolveJinaApiKey(): string | undefined {
   return getSecretValue('JINA_API_KEY');
