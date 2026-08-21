@@ -194,27 +194,27 @@ export async function probeQueueSaturation(): Promise<QueueSaturationProbe> {
 }
 
 /**
- * Bounded flush/shutdown probe. A too-short deadline truthfully yields
- * EXPORT_FLUSH_TIMEOUT — never a green timeout.
+ * Bounded flush/shutdown around a REAL exporter flush.
+ * Callers MUST pass `flush` (e.g. `() => bridge.flush()`). A missing flush is an
+ * error — never synthesize EXPORT_FLUSH_TIMEOUT via sleep theatre.
  */
 export async function flushWithDeadline(args: {
   deadlineMs: number;
-  flush?: () => Promise<void>;
+  flush: () => Promise<void>;
 }): Promise<FlushDeadlineResult> {
+  if (typeof args.flush !== 'function') {
+    throw new Error(
+      'FLUSH_CALLBACK_REQUIRED: flushWithDeadline requires flush: () => realExporter.flush()'
+    );
+  }
   const started = Date.now();
-  const flush =
-    args.flush ??
-    (async () => {
-      // Default probe: wait longer than the deadline so timeout is observable.
-      await new Promise((r) => setTimeout(r, Math.max(args.deadlineMs + 25, 75)));
-    });
-
   let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
-      flush(),
+      args.flush(),
       new Promise<void>((_, reject) => {
-        setTimeout(
+        timer = setTimeout(
           () => {
             timedOut = true;
             reject(new Error(ExportFailureCode.EXPORT_FLUSH_TIMEOUT));
@@ -228,16 +228,18 @@ export async function flushWithDeadline(args: {
       terminalFailureCode: ExportFailureCode.OTLP_REJECTED,
       elapsedMs: Date.now() - started,
     };
-  } catch {
+  } catch (err) {
     const code = timedOut
       ? ExportFailureCode.EXPORT_FLUSH_TIMEOUT
-      : ExportFailureCode.OTLP_REJECTED;
+      : classifyExportError(err);
     recordExportFailure(code);
     return {
       ok: false,
       terminalFailureCode: code,
       elapsedMs: Date.now() - started,
     };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

@@ -25,6 +25,7 @@ import {
   classifyExportError,
   ExportFailureCode,
   type ExportFailureCodeName,
+  flushWithDeadline,
   recordExportFailure,
   recordExportSuccess,
 } from './export-health.ts';
@@ -287,16 +288,24 @@ export class HolocronOtelBridge extends BaseExporter {
     }
   }
 
-  override async shutdown(): Promise<void> {
-    try {
-      await this.flush();
-    } catch {
-      // shutdown still completes; status retained
+  /**
+   * Process shutdown: bound the real exporter flush. Unflushed work surfaces as
+   * EXPORT_FLUSH_TIMEOUT (or another terminal code) — never a silent green.
+   */
+  override async shutdown(deadlineMs = 5_000): Promise<void> {
+    const result = await flushWithDeadline({
+      deadlineMs,
+      flush: () => this.flush(),
+    });
+    if (!result.ok) {
+      this.#exportFailed = true;
+      this.#lastFailureCode = result.terminalFailureCode;
+      this.#lastError = `shutdown flush failed: ${result.terminalFailureCode} (${result.elapsedMs}ms)`;
     }
     try {
       await this.#otel.shutdown();
     } catch {
-      // ignore
+      // ignore otel teardown errors; export status already recorded
     }
   }
 
