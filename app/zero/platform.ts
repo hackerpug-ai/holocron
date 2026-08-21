@@ -3,8 +3,13 @@ import { isRetiredCloudHost } from './legacy-alias';
 /**
  * Shared platform URL helpers + Hono command client for Zero/Hono call sites
  * (union of S-REWRITE-02 URL helpers and S-REWRITE-04 hono_command targets).
- * Share links MUST target the Mastra /article/ host — never a retired cloud host.
+ * Public share links MUST target docs.hackerpug.ai /d/<token> — never a retired
+ * cloud host and never the private Mastra /article/ URL. Blob and API URLs stay
+ * on the Mastra host.
  */
+
+/** Public Cloudflare reader origin. Blob/API hosts stay on getMastraHost(). */
+export const PUBLIC_DOCS_ORIGIN = 'https://docs.hackerpug.ai';
 
 function rawPlatformUrl(): string {
   return process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';
@@ -16,13 +21,13 @@ export function getMastraHost(): string {
   if (!trimmed) return '';
   if (isRetiredCloudHost(trimmed)) {
     console.warn(
-      '[platform] EXPO_PUBLIC_PLATFORM_* points at a retired cloud host; share URLs must use the Mastra host'
+      '[platform] EXPO_PUBLIC_PLATFORM_* points at a retired cloud host; blob/API URLs must use the Mastra host'
     );
   }
   return trimmed;
 }
 
-/** Build a public article share URL on the Mastra host. */
+/** Build a public article share URL on the Cloudflare reader host. */
 export function buildArticleShareUrl(shareToken: string): string {
   const host = getMastraHost();
   if (!host) {
@@ -30,10 +35,10 @@ export function buildArticleShareUrl(shareToken: string): string {
       'Mastra host not configured (EXPO_PUBLIC_PLATFORM_SITE_URL / EXPO_PUBLIC_PLATFORM_URL)'
     );
   }
-  if (isRetiredCloudHost(host)) {
+  if (isRetiredCloudHost(host) || isRetiredCloudHost(PUBLIC_DOCS_ORIGIN)) {
     throw new Error('Share URL host must not be a retired cloud domain');
   }
-  return `${host}/article/${shareToken}`;
+  return `${PUBLIC_DOCS_ORIGIN}/d/${shareToken}`;
 }
 
 /** Resolve a blob-backed audio URL for narration playback. */

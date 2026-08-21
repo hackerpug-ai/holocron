@@ -8,8 +8,14 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isRetiredCloudHost } from '../../app/zero/legacy-alias';
 import { mutators } from '../../app/zero/mutators';
-import { buildArticleShareUrl, buildBlobAudioUrl, getMastraHost } from '../../app/zero/platform';
+import {
+  buildArticleShareUrl,
+  buildBlobAudioUrl,
+  getMastraHost,
+  PUBLIC_DOCS_ORIGIN,
+} from '../../app/zero/platform';
 import {
   audioJobByDocument,
   audioSegmentsByDocument,
@@ -79,24 +85,31 @@ describe('S-REWRITE-02 documents cluster', () => {
     expect(detailQ).toBeTruthy();
   });
 
-  it('AC-3: share URL builder targets Mastra /article/ and rejects convex hosts', () => {
+  it('AC-3: share URL builder targets public /d/ and rejects convex hosts', () => {
     const prevSite = process.env.EXPO_PUBLIC_PLATFORM_SITE_URL;
     const prevUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
     try {
       process.env.EXPO_PUBLIC_PLATFORM_SITE_URL = 'https://mastra.example.com';
       delete process.env.EXPO_PUBLIC_PLATFORM_URL;
-      // Re-import would cache — exercise pure helpers by constructing expected shape
-      const host = 'https://mastra.example.com';
-      const url = `${host}/article/tok-abc`;
-      expect(url).toContain('/article/');
-      expect(url).not.toContain('.convex.site');
-      expect(url).not.toContain('.convex.cloud');
 
-      // live helper (uses env captured at module load — still asserts path shape)
+      expect(isRetiredCloudHost(PUBLIC_DOCS_ORIGIN)).toBe(false);
+
       const built = buildArticleShareUrl('tok-abc');
-      expect(built).toMatch(/\/article\/tok-abc$/);
+      expect(built).toBe('https://docs.hackerpug.ai/d/tok-abc');
+      expect(built).toBe(`${PUBLIC_DOCS_ORIGIN}/d/tok-abc`);
+      expect(built).not.toMatch(/\/article\//);
+      expect(built).not.toContain('mastra.example.com');
       expect(built).not.toContain('.convex.site');
       expect(built).not.toContain('.convex.cloud');
+
+      const blobId = 'a'.repeat(64);
+      const blob = buildBlobAudioUrl(blobId);
+      expect(blob).toBe(`https://mastra.example.com/blobs/${blobId}`);
+      expect(blob).not.toContain('docs.hackerpug.ai');
+      expect(blob).not.toContain(PUBLIC_DOCS_ORIGIN);
+
+      process.env.EXPO_PUBLIC_PLATFORM_SITE_URL = 'https://retired.convex.site';
+      expect(() => buildArticleShareUrl('tok-abc')).toThrow(/retired cloud domain/);
     } finally {
       if (prevSite === undefined) delete process.env.EXPO_PUBLIC_PLATFORM_SITE_URL;
       else process.env.EXPO_PUBLIC_PLATFORM_SITE_URL = prevSite;
