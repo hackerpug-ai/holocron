@@ -3,25 +3,25 @@
   "tdd_mode": "red_first",
   "red": {
     "file": "red-output.txt",
-    "sha": null,
+    "sha": "8007596b5a9608708b1f7c84f266b380a0a212d2",
     "mtime": 1787291711,
     "sha256": "2db871fb4838bc07e3a473528d5d9f9146ebaec4c9e74e14c5c5e211bae09c76"
   },
   "green": {
     "file": "green-output.txt",
-    "sha": null,
+    "sha": "bee4522ada379522cda2da6dfc631762311faa8b",
     "mtime": 1787300495,
     "sha256": "981ccb2de0db946d34a1aa5dadf69ce5bf35c06faf68aed53bf6a69e58c7db72"
   },
-  "distinct_commits": null,
+  "distinct_commits": true,
   "waiver": false,
   "ok": true,
   "failure_codes": [],
-  "checked_at": "2026-08-21T08:21:36Z",
+  "checked_at": "2026-08-21T08:21:54Z",
   "generator": {
     "tool": "verify-tdd-lineage.sh",
     "version": "1.1",
-    "generated_at": "2026-08-21T08:21:36Z",
+    "generated_at": "2026-08-21T08:21:54Z",
     "inputs": [
       {
         "path": "red-output.txt",
