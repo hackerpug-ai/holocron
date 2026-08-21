@@ -8,7 +8,7 @@ export const CACHE_MAX_AGE_SECONDS = 60; // kb: Option A freshness AND revocatio
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ORIGIN_SHARE_TOKEN_RE = new RegExp(
-  `^(?:mcp-)?${UUID}$|^share-[A-Za-z0-9]+-[A-Za-z0-9]+$`,
+  `^(?:mcp-|share-)?${UUID}$|^share-[A-Za-z0-9]+-[A-Za-z0-9]+$`,
   'i'
 );
 

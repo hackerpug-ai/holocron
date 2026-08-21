@@ -14,6 +14,7 @@ import {
 } from '../../services/worker-docs-reader/src/reader';
 
 const TOKEN = 'mcp-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const APP_PUBLISH_TOKEN = 'share-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const ORIGIN_BODY = '<!DOCTYPE html><html><body>origin-article-body</body></html>';
 
 function env(overrides: Partial<ReaderEnv> = {}): ReaderEnv {
@@ -44,6 +45,7 @@ describe('holocron-docs-reader', () => {
     expect(isOriginShareToken(TOKEN)).toBe(true);
     expect(isOriginShareToken('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toBe(true);
     expect(isOriginShareToken('share-lxyz-abcd1234')).toBe(true);
+    expect(isOriginShareToken(APP_PUBLISH_TOKEN)).toBe(true);
     expect(isOriginShareToken('tok-abc')).toBe(false);
     expect(isOriginShareToken('never-existed')).toBe(false);
   });
@@ -90,6 +92,24 @@ describe('holocron-docs-reader', () => {
     ]);
     expect(res.headers.get('CF-Access-Client-Id')).toBeNull();
     expect(res.headers.get('CF-Access-Client-Secret')).toBeNull();
+  });
+
+  it('proxies app-publish share-<uuid> tokens to origin /article/<token>', async () => {
+    const pulls: string[] = [];
+    const res = await handlePublicReaderRequest(
+      new Request(`https://docs.holocrnlib.com/d/${APP_PUBLISH_TOKEN}`),
+      env(),
+      {
+        cache: memoryCache(),
+        fetch: async (input) => {
+          pulls.push(String(input));
+          return new Response(ORIGIN_BODY, { status: 200 });
+        },
+      }
+    );
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(ORIGIN_BODY);
+    expect(pulls).toEqual([`https://origin-docs.holocrnlib.com/article/${APP_PUBLISH_TOKEN}`]);
   });
 
   it('default fetch entry serves no-longer-shared for a never-existing token', async () => {
