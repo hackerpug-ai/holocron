@@ -20,19 +20,6 @@ export {
 
 export { type BackupConfig, loadBackupConfig } from './config.ts';
 export {
-  type LangfuseBackupResult,
-  type LangfuseBackupWitnesses,
-  runLangfuseConsistentBackup,
-} from './langfuse-backup.ts';
-export {
-  type ColdRestartResult,
-  evaluateLangfuseRollback,
-  type IsolatedRestoreResult,
-  proveLangfuseColdRestart,
-  type RollbackEvaluation,
-  runIsolatedLangfuseRestore,
-} from './langfuse-restore.ts';
-export {
   assertHarnessBackupPaths,
   assertHarnessPgbackrestConfWritable,
   assertHarnessPgdataAllowed,
@@ -51,6 +38,19 @@ export {
   resolveHarnessPgbackrestConfPath,
   resolveHarnessSecretsPath,
 } from './harness-isolation.ts';
+export {
+  type LangfuseBackupResult,
+  type LangfuseBackupWitnesses,
+  runLangfuseConsistentBackup,
+} from './langfuse-backup.ts';
+export {
+  type ColdRestartResult,
+  evaluateLangfuseRollback,
+  type IsolatedRestoreResult,
+  proveLangfuseColdRestart,
+  type RollbackEvaluation,
+  runIsolatedLangfuseRestore,
+} from './langfuse-restore.ts';
 export {
   assertParity,
   compareHashSets,

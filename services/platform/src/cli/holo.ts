@@ -3261,7 +3261,8 @@ async function main(): Promise<void> {
       const { runLangfuseConsistentBackup } = await import('../backup/langfuse-backup.ts');
       try {
         const evidenceDir = args.evidenceDir ?? resolve(process.cwd(), '.tmp/OBS-04');
-        const sourceProject = args.sourceProject ?? process.env.OBS04_SOURCE_PROJECT ?? 'obs01-canary';
+        const sourceProject =
+          args.sourceProject ?? process.env.OBS04_SOURCE_PROJECT ?? 'obs01-canary';
         const result = await runLangfuseConsistentBackup({ evidenceDir, sourceProject });
         if (args.json) {
           console.log(JSON.stringify(result, null, 2));
@@ -3289,8 +3290,7 @@ async function main(): Promise<void> {
           throw new Error('restore:langfuse requires --isolated');
         }
         const evidenceDir = args.evidenceDir ?? resolve(process.cwd(), '.tmp/OBS-04');
-        const manifestPath =
-          args.manifest ?? resolve(evidenceDir, 'langfuse-backup-manifest.json');
+        const manifestPath = args.manifest ?? resolve(evidenceDir, 'langfuse-backup-manifest.json');
         const restoreProject =
           args.project ??
           process.env.OBS04_RESTORE_PROJECT ??

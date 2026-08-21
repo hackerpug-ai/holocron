@@ -305,6 +305,14 @@ function resticBackup(stageDir: string, repoDir: string, password: string): numb
     RESTIC_REPOSITORY: repoDir,
     RESTIC_PASSWORD: password,
   };
+  if (existsSync(join(repoDir, 'config'))) {
+    const unlock = run('restic', ['snapshots', '--json'], { env, timeout: 60_000 });
+    if (unlock.status !== 0) {
+      // Local evidence repo/password drift — recreate (never touches production).
+      rmSync(repoDir, { recursive: true, force: true });
+      mkdirSync(repoDir, { recursive: true });
+    }
+  }
   const init = run('restic', ['init'], { env, timeout: 60_000 });
   const initText = `${init.stdout}\n${init.stderr}`;
   if (init.status !== 0 && !/already initialized|config file already exists/i.test(initText)) {

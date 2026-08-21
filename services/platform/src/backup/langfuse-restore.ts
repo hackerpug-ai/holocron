@@ -392,9 +392,7 @@ export async function runIsolatedLangfuseRestore(input: {
     if (existing.stdout.trim()) {
       // Tear containers/network only (never -v) so a fresh project name is preferred
       // by callers; refuse when volumes already exist for this project name.
-      const volumes = volumeNames().filter((name) =>
-        name.startsWith(`${input.restoreProject}_`)
-      );
+      const volumes = volumeNames().filter((name) => name.startsWith(`${input.restoreProject}_`));
       if (volumes.length > 0) {
         throw new Error(
           `restore project ${input.restoreProject} already has volumes — refuse reuse (pick a fresh project name)`
