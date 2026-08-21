@@ -1427,7 +1427,7 @@ async function main(): Promise<void> {
       if (args.json) {
         process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
       } else {
-        console.log('holo deploy:apply — portable four-service generation deployed');
+        console.log('holo deploy:apply — portable twelve-service generation deployed');
         console.log(`  host:               ${record.host}`);
         console.log(`  base URL:           ${record.baseUrl}`);
         console.log(`  serve URL:          ${record.serveUrl}`);

@@ -1516,7 +1516,7 @@ function reusableDeployment(options: {
   return record;
 }
 
-/** Cold-recreate the exact four-service generation without deleting volumes. */
+/** Cold-recreate the exact twelve-service generation without deleting volumes. */
 export function applyProductionDeployment(options: ApplyProductionOptions): DeploymentRecord {
   if (!options.authorized) {
     deployFail('operator authorization is required (--authorize)');
@@ -1636,7 +1636,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
   // Named volumes are created as root by Docker while the production image
   // deliberately runs as the unprivileged `bun` user. Initialize ownership in
-  // a disposable container before starting the four long-lived services. This
+  // a disposable container before starting the twelve long-lived services. This
   // retains every existing blob and never removes or recreates the volume.
   runOrFail(runner, cwd, env, 'docker', [
     'run',
@@ -1672,7 +1672,9 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     .filter(Boolean)
     .sort();
   if (running.join(',') !== [...REQUIRED_SERVICES].sort().join(',')) {
-    deployFail(`all four services must be running; got ${running.join(',') || '(none)'}`);
+    deployFail(
+      `all ${REQUIRED_SERVICES.length} services must be running; got ${running.join(',') || '(none)'}`
+    );
   }
 
   const containers: Record<string, string> = {};
@@ -1760,7 +1762,7 @@ export function readDeploymentRecord(path: string): DeploymentRecord {
   if (!existsSync(path)) deployFail(`deployment record is missing: ${path}`);
   const value = asObject(JSON.parse(readFileSync(path, 'utf8')), 'deployment record');
   if (
-    value.schemaVersion !== 1 ||
+    value.schemaVersion !== 2 ||
     value.authorized !== true ||
     typeof value.host !== 'string' ||
     value.runtime !== 'container' ||

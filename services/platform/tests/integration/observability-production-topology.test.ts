@@ -550,10 +550,9 @@ describe('OBS-04 production topology', () => {
       verifySource,
       'verifyPortableDeploymentReceipt must not hardcode live_volume_count===2'
     ).not.toMatch(/liveVolumeCount === 2/);
-    expect(
-      verifySource,
-      'receipt_volumes check must use REQUIRED_VOLUME_NAMES.length'
-    ).toMatch(/durableVolumes\.length === REQUIRED_VOLUME_NAMES\.length|REQUIRED_VOLUME_NAMES\.length/);
+    expect(verifySource, 'receipt_volumes check must use REQUIRED_VOLUME_NAMES.length').toMatch(
+      /durableVolumes\.length === REQUIRED_VOLUME_NAMES\.length|REQUIRED_VOLUME_NAMES\.length/
+    );
 
     const deploySource = readFileSync(
       resolve(REPO_ROOT, 'services/platform/src/deploy/production-deploy.ts'),
@@ -573,7 +572,10 @@ describe('OBS-04 production topology', () => {
     const baseUrl = 'https://holocron.tail011a51.ts.net:44111';
     const serveUrl = baseUrl;
     const containers = Object.fromEntries(
-      REQUIRED_SERVICES.map((service, index) => [service, `${(index + 1).toString(16).padStart(2, '0')}`.repeat(32)])
+      REQUIRED_SERVICES.map((service, index) => [
+        service,
+        `${(index + 1).toString(16).padStart(2, '0')}`.repeat(32),
+      ])
     ) as Record<(typeof REQUIRED_SERVICES)[number], string>;
     const memoryBytes = Object.fromEntries(
       REQUIRED_SERVICES.map((service) => [

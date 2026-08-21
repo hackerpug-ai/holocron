@@ -781,7 +781,8 @@ export async function verifyPortableDeploymentReceipt(options: {
   );
   push(
     'receipt_volumes',
-    record.durableVolumes.length === 2,
+    record.durableVolumes.length === REQUIRED_VOLUME_NAMES.length &&
+      [...record.durableVolumes].sort().join(',') === [...REQUIRED_VOLUME_NAMES].sort().join(','),
     `named_volume_count=${record.durableVolumes.length}`
   );
   push(
@@ -800,7 +801,7 @@ export async function verifyPortableDeploymentReceipt(options: {
     `memory_plan=${JSON.stringify(record.memoryLimitsGib ?? null)}`
   );
 
-  // Live Docker service presence (read-only inspect). Exactly 4 running required.
+  // Live Docker service presence (read-only inspect). Exact REQUIRED_SERVICES set.
   let liveServiceCount = 0;
   const liveMemoryBytes: Record<string, number> = {};
   for (const service of REQUIRED_SERVICES) {
@@ -827,9 +828,13 @@ export async function verifyPortableDeploymentReceipt(options: {
       }
     }
   }
-  push('live_services', liveServiceCount === 4, `live_service_count=${liveServiceCount}`);
+  push(
+    'live_services',
+    liveServiceCount === REQUIRED_SERVICES.length,
+    `live_service_count=${liveServiceCount}`
+  );
 
-  // Named durable volumes must exist on the engine (holocron-postgres + holocron-blobs).
+  // Named durable volumes must exist on the engine (exact REQUIRED_VOLUME_NAMES set).
   const requiredVolumes = REQUIRED_VOLUME_NAMES;
   let liveVolumeCount = 0;
   for (const volumeName of requiredVolumes) {
@@ -841,13 +846,12 @@ export async function verifyPortableDeploymentReceipt(options: {
       liveVolumeCount += 1;
     }
   }
-  // Receipt must also list the same two durable names.
   const receiptVolumeOk =
-    record.durableVolumes.length === 2 &&
+    record.durableVolumes.length === REQUIRED_VOLUME_NAMES.length &&
     requiredVolumes.every((name) => record.durableVolumes.includes(name));
   push(
     'live_volumes',
-    liveVolumeCount === 2 && receiptVolumeOk,
+    liveVolumeCount === REQUIRED_VOLUME_NAMES.length && receiptVolumeOk,
     `live_volume_count=${liveVolumeCount}; receipt_named_volume_count=${record.durableVolumes.length}`
   );
 
@@ -917,7 +921,9 @@ export async function verifyPortableDeploymentReceipt(options: {
   // Memory contract: receipt plan must match live HostConfig.Memory for each service.
   // Drift rejection: a deliberately altered plan must NOT match live Docker limits.
   const receiptPlan = assertMemoryLimitPlan(record.memoryLimitsGib);
-  const liveMemoryComplete = liveServiceCount === 4 && Object.keys(liveMemoryBytes).length === 4;
+  const liveMemoryComplete =
+    liveServiceCount === REQUIRED_SERVICES.length &&
+    Object.keys(liveMemoryBytes).length === REQUIRED_SERVICES.length;
   const liveMemoryContractOk =
     liveMemoryComplete && liveMemoryMatchesPlan(liveMemoryBytes, receiptPlan);
   push(
@@ -959,8 +965,8 @@ export async function verifyPortableDeploymentReceipt(options: {
 
   const ok =
     dimensions.filter((d) => d.ok).length >= 8 &&
-    liveServiceCount === 4 &&
-    liveVolumeCount === 2 &&
+    liveServiceCount === REQUIRED_SERVICES.length &&
+    liveVolumeCount === REQUIRED_VOLUME_NAMES.length &&
     liveMemoryContractOk &&
     serveHealthStatus === 200 &&
     identityMismatchRejected &&
@@ -1257,7 +1263,7 @@ export function sealCrossTailnetDrillEvidence(options: {
   }
 
   const pass =
-    server.healthy_service_count === 4 &&
+    server.healthy_service_count === REQUIRED_SERVICES.length &&
     server.postgres_down_health_status === 503 &&
     server.recovered_health_status === 200 &&
     peer.health_status === 200 &&
