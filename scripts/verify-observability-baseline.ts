@@ -313,21 +313,22 @@ function runTargetCapacity(json: boolean, negative: boolean): never {
   const measured = measureTargetHost();
   const serviceCount = EXPECTED_SERVICE_COUNT;
   const volumeCount = EXPECTED_VOLUME_COUNT;
-  let freeMem = Number(measured.approxFreeMemBytes ?? 0);
   let disk = Number(measured.diskAvailBytes ?? 0);
   let dockerMem = Number(measured.dockerMemTotalBytes ?? 0);
   const phys = Number(measured.physMemBytes ?? 0);
 
   if (negative) {
     // One byte below reserve must block while live measurement remains recorded.
-    freeMem = REQUIRED_RESERVE_BYTES - 1;
+    dockerMem = REQUIRED_RESERVE_BYTES - 1;
   }
 
-  const headroomBytes = freeMem - REQUIRED_RESERVE_BYTES;
+  // Topology budget is Docker VM RAM (Langfuse 12-service envelope + Holocron
+  // four-service headroom), not leftover host free pages. Host free pages and a
+  // 35.5GiB Docker VM cannot both exceed 35.5GiB on a 64GiB mini.
+  const headroomBytes = dockerMem - REQUIRED_RESERVE_BYTES;
   const diskOk = disk >= REQUIRED_FREE_DISK_BYTES;
-  // Docker Desktop VM on the mini is ~8GiB today — insufficient for twelve-service envelope.
   const dockerOk = dockerMem >= REQUIRED_RESERVE_BYTES;
-  const memOk = phys >= REQUIRED_RESERVE_BYTES && headroomBytes > 0 && dockerOk;
+  const memOk = phys >= REQUIRED_RESERVE_BYTES && dockerOk;
 
   const decision = memOk && diskOk ? 'GO' : 'BLOCKED_CAPACITY';
   const payload: Json = {

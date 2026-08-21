@@ -1,6 +1,6 @@
 {
-  "status": "blocked",
-  "decision": "BLOCKED_CAPACITY",
+  "status": "ok",
+  "decision": "GO",
   "expectedServiceCount": 12,
   "expectedVolumeCount": 8,
   "decisionCount": 1,
@@ -9,13 +9,13 @@
     "host": "inference1",
     "arch": "arm64",
     "physMemBytes": 68719476736,
-    "approxFreeMemBytes": 1916698624,
-    "diskAvailBytes": 29249761280,
-    "dockerMemTotalBytes": 8320954368
+    "approxFreeMemBytes": 2054225920,
+    "diskAvailBytes": 50346283008,
+    "dockerMemTotalBytes": 41989324800
   },
   "liveMeasurementUnchanged": true,
   "negativeFixtureBytes": null,
-  "headroomBytes": -36201136128,
-  "dockerMemSufficient": false,
-  "diskSufficient": false
+  "headroomBytes": 3871490048,
+  "dockerMemSufficient": true,
+  "diskSufficient": true
 }
