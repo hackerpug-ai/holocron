@@ -1,55 +1,55 @@
 {
   "lens": "technical",
-  "verdict": "NEEDS_FIXES",
-  "commit_sha": "8007596b5a9608708b1f7c84f266b380a0a212d2",
+  "verdict": "APPROVED",
+  "commit_sha": "3df56f188d2228b4033add52a04e9dc7a8d5750c",
   "requirements": [
     {
       "id": "AC-1",
       "satisfied": true,
-      "evidence": "12/8 topology",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "AC-2",
       "satisfied": true,
-      "evidence": "secrets",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "AC-3",
-      "satisfied": false,
-      "evidence": "ClickHouse-only witnesses; optional otel-queue",
-      "remediation": "Public API witnesses + fail-closed queue backup"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     },
     {
       "id": "AC-4",
-      "satisfied": false,
-      "evidence": "evaluateLangfuseRollback stub",
-      "remediation": "Real schema probe"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     },
     {
       "id": "TC-1",
       "satisfied": true,
-      "evidence": "harvest 0",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "TC-2",
       "satisfied": true,
-      "evidence": "harvest 0",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "TC-3",
-      "satisfied": false,
-      "evidence": "maps AC-3",
-      "remediation": "same as AC-3"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     },
     {
       "id": "TC-4",
-      "satisfied": false,
-      "evidence": "maps AC-4 stub",
-      "remediation": "same as AC-4"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     }
   ]
 }

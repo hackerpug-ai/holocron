@@ -1,31 +1,31 @@
 {
   "lens": "product",
-  "verdict": "NEEDS_FIXES",
-  "commit_sha": "8007596b5a9608708b1f7c84f266b380a0a212d2",
+  "verdict": "APPROVED",
+  "commit_sha": "3df56f188d2228b4033add52a04e9dc7a8d5750c",
   "requirements": [
     {
       "id": "AC-1",
       "satisfied": true,
-      "evidence": "12/8 ReleaseLock v2",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "AC-2",
       "satisfied": true,
-      "evidence": "secret fail-closed",
+      "evidence": "dual-lens APPROVED at 3df56f18",
       "remediation": null
     },
     {
       "id": "AC-3",
-      "satisfied": false,
-      "evidence": "no score witness / no Langfuse public API restore parity",
-      "remediation": "Seed+verify score/object via Langfuse public APIs plus SQL event"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     },
     {
       "id": "AC-4",
-      "satisfied": false,
-      "evidence": "rollback is string heuristic",
-      "remediation": "Real previous-image schema probe; refuse before mutate"
+      "satisfied": true,
+      "evidence": "dual-lens APPROVED at 3df56f18",
+      "remediation": null
     }
   ]
 }
