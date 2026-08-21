@@ -3,7 +3,8 @@
   "verdict": "REMEDIATED",
   "commit_lineage": {
     "red": "8ad2647cbbe7eea80e5dbca9d872185c8aa67dea",
-    "green": "355eec32cdb9aa9fffea79c82f9b0ba6b70aaf82"
+    "green": "355eec32cdb9aa9fffea79c82f9b0ba6b70aaf82",
+    "evidence": "d2fe824f061c48aa8269e66c60f598f1487e1d4a"
   },
   "requirements": {
     "AC-1": "PASS",
@@ -42,5 +43,6 @@
       "stateVolumeRecreated": false,
       "probeMethod": "previous-image-prisma-migrations"
     }
-  }
+  },
+  "commit_sha": "d2fe824f061c48aa8269e66c60f598f1487e1d4a"
 }
