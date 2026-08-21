@@ -18,7 +18,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -74,8 +74,7 @@ function requirePlatformIt(): void {
 function writeEvidence(name: string, content: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const path = resolve(EVIDENCE_DIR, name);
-  const body =
-    typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`;
+  const body = typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`;
   // Never persist the raw secret sentinel in evidence artifacts.
   writeFileSync(path, body.split(SECRET_SENTINEL).join('[REDACTED]'), 'utf8');
 }
@@ -104,7 +103,9 @@ async function waitV2Observations(
 ): Promise<Array<Record<string, unknown>>> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const { status, body } = await langfuseGet('/api/public/v2/observations?limit=100');
+    const { status, body } = await langfuseGet(
+      '/api/public/v2/observations?limit=100&fields=core,io,metadata'
+    );
     if (status === 200 && body && typeof body === 'object') {
       const data = ((body as { data?: Array<Record<string, unknown>> }).data ?? []).filter(
         predicate
@@ -193,7 +194,10 @@ async function queryLocalSpans(traceId: string): Promise<Array<Record<string, un
   }
 }
 
-function dockerCompose(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
+function dockerCompose(
+  args: string[],
+  cwd: string
+): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('docker', ['compose', ...args], {
     cwd,
     encoding: 'utf8',
@@ -206,10 +210,12 @@ function dockerCompose(args: string[], cwd: string): { status: number; stdout: s
   };
 }
 
-describe('OBS-02 adopt Mastra/Langfuse OTLP v4', () => {
+describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
   beforeAll(async () => {
     requirePlatformIt();
     mkdirSync(EVIDENCE_DIR, { recursive: true });
+    // Ensure canary Langfuse is running (prior AC may have paused it).
+    spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
 
     process.env.DATABASE_URL = DATABASE_URL;
     process.env.FLEET_URL = FLEET_URL;
@@ -234,365 +240,355 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', () => {
     }
   }, 120_000);
 
-  it(
-    'AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities',
-    async () => {
-      requirePlatformIt();
+  it('AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities', async () => {
+    requirePlatformIt();
 
-      // Production path must be pinned deploy/otel + @mastra/otel-exporter (not legacy ingestion).
-      expect(
-        existsSync(resolve(DEPLOY_OTEL_DIR, 'otel-collector-config.yaml')),
-        'services/platform/deploy/otel/otel-collector-config.yaml must exist'
-      ).toBe(true);
-      expect(
-        existsSync(resolve(DEPLOY_OTEL_DIR, 'compose.yaml')),
-        'services/platform/deploy/otel/compose.yaml must exist'
-      ).toBe(true);
-      expect(existsSync(SOURCE_LOCK), 'observability-source-lock.json missing').toBe(true);
+    // Production path must be pinned deploy/otel + @mastra/otel-exporter (not legacy ingestion).
+    expect(
+      existsSync(resolve(DEPLOY_OTEL_DIR, 'otel-collector-config.yaml')),
+      'services/platform/deploy/otel/otel-collector-config.yaml must exist'
+    ).toBe(true);
+    expect(
+      existsSync(resolve(DEPLOY_OTEL_DIR, 'compose.yaml')),
+      'services/platform/deploy/otel/compose.yaml must exist'
+    ).toBe(true);
+    expect(existsSync(SOURCE_LOCK), 'observability-source-lock.json missing').toBe(true);
 
-      const legacy = scanLegacyPaths();
-      writeEvidence('legacy-path-scan.json', legacy);
-      expect(
-        legacy.ingestionHits,
-        `legacy /api/public/ingestion still present: ${legacy.ingestionHits.join(', ')}`
-      ).toEqual([]);
-      expect(
-        legacy.holocronExporterHits,
-        `HolocronLangfuseExporter still present: ${legacy.holocronExporterHits.join(', ')}`
-      ).toEqual([]);
-      expect(
-        legacy.failOnExportErrorTrueHits,
-        `failOnExportError: true still present: ${legacy.failOnExportErrorTrueHits.join(', ')}`
-      ).toEqual([]);
+    const legacy = scanLegacyPaths();
+    writeEvidence('legacy-path-scan.json', legacy);
+    expect(
+      legacy.ingestionHits,
+      `legacy /api/public/ingestion still present: ${legacy.ingestionHits.join(', ')}`
+    ).toEqual([]);
+    expect(
+      legacy.holocronExporterHits,
+      `HolocronLangfuseExporter still present: ${legacy.holocronExporterHits.join(', ')}`
+    ).toEqual([]);
+    expect(
+      legacy.failOnExportErrorTrueHits,
+      `failOnExportError: true still present: ${legacy.failOnExportErrorTrueHits.join(', ')}`
+    ).toEqual([]);
 
-      const { createObservability } = await import('../../src/mastra.ts');
-      const { runResearchMission } = await import('../../src/observability/mission-research.ts');
-      const { readExportHealth } = await import('../../src/observability/export-health.ts');
+    const { createObservability } = await import('../../src/mastra.ts');
+    const { runResearchMission } = await import('../../src/observability/mission-research.ts');
+    const { readExportHealth } = await import('../../src/observability/export-health.ts');
 
-      const observability = createObservability();
-      const exporters =
-        (
-          observability as unknown as {
-            getDefaultInstance?: () => { exporters?: Array<{ name?: string }> };
-          }
-        ).getDefaultInstance?.()?.exporters ?? [];
-      const exporterNames = exporters.map((e) => String(e.name ?? ''));
-      expect(
-        exporterNames.some((n) => /otel/i.test(n)),
-        `expected OtelExporter in createObservability; saw: ${exporterNames.join(',')}`
-      ).toBe(true);
-      expect(
-        exporterNames.some((n) => /holocron-langfuse/i.test(n)),
-        'HolocronLangfuseExporter must not be registered on production path'
-      ).toBe(false);
+    const observability = createObservability();
+    const inst = observability.getDefaultInstance?.();
+    const exporters =
+      (
+        inst as { getExporters?: () => Array<{ name?: string; constructor?: { name?: string } }> }
+      )?.getExporters?.() ?? [];
+    const exporterNames = exporters.map((e) => String(e.name ?? e.constructor?.name ?? ''));
+    expect(
+      exporterNames.some((n) => /otel|opentelemetry/i.test(n)),
+      `expected OtelExporter/opentelemetry in createObservability; saw: ${exporterNames.join(',')}`
+    ).toBe(true);
+    expect(
+      exporterNames.some((n) => /holocron-langfuse/i.test(n)),
+      'legacy HolocronLangfuseExporter must not be registered on production path'
+    ).toBe(false);
 
-      const metricsBefore = await scrapeCollectorMetrics();
-      const queueSizeBefore = metricValue(metricsBefore, 'otelcol_exporter_queue_size') ?? 0;
+    const metricsBefore = await scrapeCollectorMetrics();
+    const queueSizeBefore = metricValue(metricsBefore, 'otelcol_exporter_queue_size') ?? 0;
 
-      const goal = `OBS-02 AC-1 parity probe ${randomUUID().slice(0, 8)}`;
+    const goal = `OBS-02 AC-1 parity probe ${randomUUID().slice(0, 8)}`;
+    const mission = await runResearchMission({
+      goal,
+      role: 'divergent',
+      langfuseBaseUrl: LANGFUSE_BASE_URL,
+      langfusePublicKey: LANGFUSE_PUBLIC_KEY,
+      langfuseSecretKey: LANGFUSE_SECRET_KEY,
+      throwOnExportFailure: false,
+    });
+
+    expect(mission.text, 'mission must return real model text').toBeTruthy();
+    expect(mission.serviceName).toBe(SERVICE_NAME);
+    const traceId = String(mission.traceId ?? '');
+    expect(traceId.length, 'traceId must be non-empty').toBeGreaterThan(0);
+    const runId = String(mission.runId ?? '');
+    expect(runId.length, 'runId must be non-empty').toBeGreaterThan(0);
+
+    // Force exporter flush through observability composition root.
+    const obsAny = observability as unknown as {
+      forceFlush?: () => Promise<void>;
+      getDefaultInstance?: () => {
+        forceFlush?: () => Promise<void>;
+        exporters?: Array<{ flush?: () => Promise<void> }>;
+      };
+    };
+    if (typeof obsAny.forceFlush === 'function') await obsAny.forceFlush();
+    else {
+      const inst = obsAny.getDefaultInstance?.();
+      if (inst && typeof inst.forceFlush === 'function') await inst.forceFlush();
+      for (const exp of inst?.exporters ?? []) {
+        if (typeof exp.flush === 'function') await exp.flush();
+      }
+    }
+
+    const localSpans = await queryLocalSpans(traceId);
+    expect(
+      localSpans.length,
+      'expectedLocalTraceCount:1 via mastra_ai_spans'
+    ).toBeGreaterThanOrEqual(1);
+
+    const observations = await waitV2Observations((o) => {
+      const tid = String(o.traceId ?? o.trace_id ?? '');
+      const meta = JSON.stringify(o.metadata ?? {});
+      const name = String(o.name ?? '');
+      return (
+        tid === traceId || meta.includes(runId) || name.includes('research') || meta.includes(goal)
+      );
+    });
+    expect(
+      observations.length,
+      'expectedLangfuseTraceCount:1 via Observations API v2'
+    ).toBeGreaterThanOrEqual(1);
+
+    const langfuseTraceIds = new Set(
+      observations.map((o) => String(o.traceId ?? o.trace_id ?? '')).filter(Boolean)
+    );
+    const identityMismatch =
+      langfuseTraceIds.size === 1 && langfuseTraceIds.has(traceId)
+        ? 0
+        : langfuseTraceIds.has(traceId)
+          ? 0
+          : 1;
+    expect(identityMismatch, 'traceIdentityMismatchCount:0').toBe(0);
+
+    const health = await readExportHealth();
+    expect(health.externalState).toBe('ready');
+    expect(health.lastSuccessAt, 'last-success requires v2/official metric proof').toBeTruthy();
+
+    const metricsAfter = await scrapeCollectorMetrics();
+    const queueCapacity = metricValue(metricsAfter, 'otelcol_exporter_queue_capacity');
+    expect(queueCapacity, 'official collector queue capacity metric required').not.toBeNull();
+
+    const parity = {
+      expectedLocalTraceCount: localSpans.length >= 1 ? 1 : 0,
+      expectedLangfuseTraceCount: observations.length >= 1 ? 1 : 0,
+      traceIdentityMismatchCount: identityMismatch,
+      localTraceId: traceId,
+      langfuseTraceIds: [...langfuseTraceIds],
+      runId,
+      provider: mission.metadata?.model ?? null,
+      serviceName: mission.serviceName,
+      queueSizeBefore,
+      collectorEndpoint: OTEL_COLLECTOR_URL,
+      observationsApi: 'v2',
+    };
+    writeEvidence('local-langfuse-parity.json', parity);
+    writeEvidence('AC-1-seeded-artifact.json', {
+      expectedLocalTraceCount: parity.expectedLocalTraceCount,
+      expectedLangfuseTraceCount: parity.expectedLangfuseTraceCount,
+      traceIdentityMismatchCount: parity.traceIdentityMismatchCount,
+    });
+  }, 300_000);
+
+  it('AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export', async () => {
+    requirePlatformIt();
+
+    const { runResearchMission } = await import('../../src/observability/mission-research.ts');
+    const { readExportHealth, ExportFailureCode } = await import(
+      '../../src/observability/export-health.ts'
+    );
+
+    // Stop ONLY the isolated canary Langfuse web (never holocron-production).
+    const pause = spawnSync('docker', ['pause', 'obs01-canary-langfuse-web-1'], {
+      encoding: 'utf8',
+    });
+    expect(pause.status, `docker pause failed: ${pause.stderr}`).toBe(0);
+
+    let missionOk = false;
+    let localTraceCount = 0;
+    let externalState: string | null = null;
+    let degradedCount = 0;
+    let missionFailureCount = 0;
+    try {
+      const goal = `OBS-02 AC-2 outage probe ${randomUUID().slice(0, 8)}`;
       const mission = await runResearchMission({
         goal,
         role: 'divergent',
-        langfuseBaseUrl: LANGFUSE_BASE_URL,
-        langfusePublicKey: LANGFUSE_PUBLIC_KEY,
-        langfuseSecretKey: LANGFUSE_SECRET_KEY,
         throwOnExportFailure: false,
       });
+      missionOk = Boolean(mission.text);
+      if (!missionOk) missionFailureCount += 1;
 
-      expect(mission.text, 'mission must return real model text').toBeTruthy();
-      expect(mission.serviceName).toBe(SERVICE_NAME);
       const traceId = String(mission.traceId ?? '');
-      expect(traceId.length, 'traceId must be non-empty').toBeGreaterThan(0);
-      const runId = String(mission.runId ?? '');
-      expect(runId.length, 'runId must be non-empty').toBeGreaterThan(0);
-
-      // Force exporter flush through observability composition root.
-      const obsAny = observability as unknown as {
-        forceFlush?: () => Promise<void>;
-        getDefaultInstance?: () => {
-          forceFlush?: () => Promise<void>;
-          exporters?: Array<{ flush?: () => Promise<void> }>;
-        };
-      };
-      if (typeof obsAny.forceFlush === 'function') await obsAny.forceFlush();
-      else {
-        const inst = obsAny.getDefaultInstance?.();
-        if (inst && typeof inst.forceFlush === 'function') await inst.forceFlush();
-        for (const exp of inst?.exporters ?? []) {
-          if (typeof exp.flush === 'function') await exp.flush();
-        }
+      if (traceId) {
+        const spans = await queryLocalSpans(traceId);
+        localTraceCount = spans.length >= 1 ? 1 : 0;
       }
-
-      const localSpans = await queryLocalSpans(traceId);
-      expect(localSpans.length, 'expectedLocalTraceCount:1 via mastra_ai_spans').toBeGreaterThanOrEqual(
-        1
-      );
-
-      const observations = await waitV2Observations((o) => {
-        const tid = String(o.traceId ?? o.trace_id ?? '');
-        const meta = JSON.stringify(o.metadata ?? {});
-        const name = String(o.name ?? '');
-        return tid === traceId || meta.includes(runId) || name.includes('research') || meta.includes(goal);
-      });
-      expect(observations.length, 'expectedLangfuseTraceCount:1 via Observations API v2').toBeGreaterThanOrEqual(
-        1
-      );
-
-      const langfuseTraceIds = new Set(
-        observations.map((o) => String(o.traceId ?? o.trace_id ?? '')).filter(Boolean)
-      );
-      const identityMismatch =
-        langfuseTraceIds.size === 1 && langfuseTraceIds.has(traceId) ? 0 : langfuseTraceIds.has(traceId) ? 0 : 1;
-      expect(identityMismatch, 'traceIdentityMismatchCount:0').toBe(0);
 
       const health = await readExportHealth();
-      expect(health.externalState).toBe('ready');
-      expect(health.lastSuccessAt, 'last-success requires v2/official metric proof').toBeTruthy();
-
-      const metricsAfter = await scrapeCollectorMetrics();
-      const queueCapacity = metricValue(metricsAfter, 'otelcol_exporter_queue_capacity');
-      expect(queueCapacity, 'official collector queue capacity metric required').not.toBeNull();
-
-      const parity = {
-        expectedLocalTraceCount: localSpans.length >= 1 ? 1 : 0,
-        expectedLangfuseTraceCount: observations.length >= 1 ? 1 : 0,
-        traceIdentityMismatchCount: identityMismatch,
-        localTraceId: traceId,
-        langfuseTraceIds: [...langfuseTraceIds],
-        runId,
-        provider: mission.metadata?.model ?? null,
-        serviceName: mission.serviceName,
-        queueSizeBefore,
-        collectorEndpoint: OTEL_COLLECTOR_URL,
-        observationsApi: 'v2',
-      };
-      writeEvidence('local-langfuse-parity.json', parity);
-      writeEvidence('AC-1-seeded-artifact.json', {
-        expectedLocalTraceCount: parity.expectedLocalTraceCount,
-        expectedLangfuseTraceCount: parity.expectedLangfuseTraceCount,
-        traceIdentityMismatchCount: parity.traceIdentityMismatchCount,
-      });
-    },
-    300_000
-  );
-
-  it(
-    'AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export',
-    async () => {
-      requirePlatformIt();
-
-      const { runResearchMission } = await import('../../src/observability/mission-research.ts');
-      const { readExportHealth, ExportFailureCode } = await import(
-        '../../src/observability/export-health.ts'
-      );
-
-      // Stop ONLY the isolated canary Langfuse web (never holocron-production).
-      const pause = spawnSync('docker', ['pause', 'obs01-canary-langfuse-web-1'], {
-        encoding: 'utf8',
-      });
-      expect(pause.status, `docker pause failed: ${pause.stderr}`).toBe(0);
-
-      let missionOk = false;
-      let localTraceCount = 0;
-      let externalState: string | null = null;
-      let degradedCount = 0;
-      let missionFailureCount = 0;
-      try {
-        const goal = `OBS-02 AC-2 outage probe ${randomUUID().slice(0, 8)}`;
-        const mission = await runResearchMission({
-          goal,
-          role: 'divergent',
-          throwOnExportFailure: false,
-        });
-        missionOk = Boolean(mission.text);
-        if (!missionOk) missionFailureCount += 1;
-
-        const traceId = String(mission.traceId ?? '');
-        if (traceId) {
-          const spans = await queryLocalSpans(traceId);
-          localTraceCount = spans.length >= 1 ? 1 : 0;
-        }
-
-        const health = await readExportHealth();
-        externalState = health.externalState;
-        if (health.externalState === 'degraded' || health.externalState === 'unavailable') {
-          degradedCount = 1;
-        }
-        expect(Object.values(ExportFailureCode)).toEqual(
-          expect.arrayContaining([...TERMINAL_FAILURE_CODES])
-        );
-      } finally {
-        spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
+      externalState = health.externalState;
+      if (health.externalState === 'degraded' || health.externalState === 'unavailable') {
+        degradedCount = 1;
       }
-
-      const timeline = {
-        expectedMissionSuccessCount: missionOk ? 1 : 0,
-        expectedDegradedCount: degradedCount,
-        localTraceCount,
-        missionFailureCount,
-        externalState,
-      };
-      writeEvidence('outage-timeline.json', timeline);
-      writeEvidence('AC-2-seeded-artifact.json', timeline);
-
-      expect(timeline.expectedMissionSuccessCount).toBe(1);
-      expect(timeline.localTraceCount).toBe(1);
-      expect(timeline.expectedDegradedCount).toBe(1);
-      expect(timeline.missionFailureCount).toBe(0);
-      expect(timeline.externalState).not.toBe('ready');
-    },
-    300_000
-  );
-
-  it(
-    'AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence',
-    async () => {
-      requirePlatformIt();
-
-      const { runResearchMission } = await import('../../src/observability/mission-research.ts');
-      const { HOLOCRON_ATTRIBUTE_ALLOWLIST } = await import('../../src/observability/config.ts');
-      expect(Array.isArray(HOLOCRON_ATTRIBUTE_ALLOWLIST)).toBe(true);
-      expect(HOLOCRON_ATTRIBUTE_ALLOWLIST.length).toBeGreaterThan(0);
-
-      const goal = `OBS-02 AC-3 redaction secret=${SECRET_SENTINEL} email=${PII_EMAIL} authorization=Bearer ${SECRET_SENTINEL}`;
-      const mission = await runResearchMission({
-        goal,
-        role: 'divergent',
-        throwOnExportFailure: false,
-      });
-      const traceId = String(mission.traceId ?? '');
-      expect(traceId.length).toBeGreaterThan(0);
-
-      const localSpans = await queryLocalSpans(traceId);
-      const localBlob = JSON.stringify(localSpans);
-      expect(localBlob.includes(SECRET_SENTINEL), 'secret must not appear in local SQL').toBe(false);
-      expect(localBlob.includes(PII_EMAIL), 'PII must not appear in local SQL').toBe(false);
-
-      const observations = await waitV2Observations((o) => String(o.traceId ?? '') === traceId, 90_000);
-      const obsBlob = JSON.stringify(observations);
-      expect(obsBlob.includes(SECRET_SENTINEL), 'secret must not appear in Langfuse metadata').toBe(
-        false
+      expect(Object.values(ExportFailureCode)).toEqual(
+        expect.arrayContaining([...TERMINAL_FAILURE_CODES])
       );
-      expect(obsBlob.includes(PII_EMAIL), 'PII must not appear in Langfuse metadata').toBe(false);
-      expect(obsBlob.toLowerCase().includes('authorization'), 'auth header key disallowed').toBe(
-        false
-      );
+    } finally {
+      spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
+    }
 
-      const scan = {
-        sentinelMatchCount:
-          Number(localBlob.includes(SECRET_SENTINEL)) +
-          Number(obsBlob.includes(SECRET_SENTINEL)) +
-          Number(JSON.stringify(mission).includes(SECRET_SENTINEL)),
-        localSpanCount: localSpans.length,
-        observationCount: observations.length,
-        allowlistSize: HOLOCRON_ATTRIBUTE_ALLOWLIST.length,
-      };
-      writeEvidence('redaction-scan.json', scan);
-      writeEvidence('AC-3-seeded-artifact.json', { sentinelMatchCount: scan.sentinelMatchCount });
-      expect(scan.sentinelMatchCount).toBe(0);
-    },
-    300_000
-  );
+    const timeline = {
+      expectedMissionSuccessCount: missionOk ? 1 : 0,
+      expectedDegradedCount: degradedCount,
+      localTraceCount,
+      missionFailureCount,
+      externalState,
+    };
+    writeEvidence('outage-timeline.json', timeline);
+    writeEvidence('AC-2-seeded-artifact.json', timeline);
 
-  it(
-    'AC-4: queue pressure + shutdown expose official metrics and terminal failure codes',
-    async () => {
-      requirePlatformIt();
+    expect(timeline.expectedMissionSuccessCount).toBe(1);
+    expect(timeline.localTraceCount).toBe(1);
+    expect(timeline.expectedDegradedCount).toBe(1);
+    expect(timeline.missionFailureCount).toBe(0);
+    expect(timeline.externalState).not.toBe('ready');
+  }, 300_000);
 
-      const { readExportHealth, probeQueueSaturation, flushWithDeadline, ExportFailureCode } =
-        await import('../../src/observability/export-health.ts');
+  it('AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence', async () => {
+    requirePlatformIt();
 
-      const metricsBefore = await scrapeCollectorMetrics();
-      const capacity = metricValue(metricsBefore, 'otelcol_exporter_queue_capacity');
-      expect(capacity, 'official otelcol_exporter_queue_capacity required').not.toBeNull();
-      expect(capacity).toBeGreaterThan(0);
+    const { runResearchMission } = await import('../../src/observability/mission-research.ts');
+    const { HOLOCRON_ATTRIBUTE_ALLOWLIST } = await import('../../src/observability/config.ts');
+    expect(Array.isArray(HOLOCRON_ATTRIBUTE_ALLOWLIST)).toBe(true);
+    expect(HOLOCRON_ATTRIBUTE_ALLOWLIST.length).toBeGreaterThan(0);
 
-      // Pause isolated Langfuse only, flood collector, assert queue growth from official metrics.
-      spawnSync('docker', ['pause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
-      try {
-        for (let i = 0; i < 40; i++) {
-          const traceIdHex = createHash('sha256')
-            .update(`obs02-burst-${i}-${Date.now()}`)
-            .digest('hex')
-            .slice(0, 32);
-          const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
-          const now = Date.now();
-          await fetch(OTEL_COLLECTOR_URL, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              resourceSpans: [
-                {
-                  resource: {
-                    attributes: [
-                      { key: 'service.name', value: { stringValue: SERVICE_NAME } },
+    const goal = `OBS-02 AC-3 redaction secret=${SECRET_SENTINEL} email=${PII_EMAIL} authorization=Bearer ${SECRET_SENTINEL}`;
+    const mission = await runResearchMission({
+      goal,
+      role: 'divergent',
+      throwOnExportFailure: false,
+    });
+    const traceId = String(mission.traceId ?? '');
+    expect(traceId.length).toBeGreaterThan(0);
+
+    const localSpans = await queryLocalSpans(traceId);
+    const localBlob = JSON.stringify(localSpans);
+    expect(localBlob.includes(SECRET_SENTINEL), 'secret must not appear in local SQL').toBe(false);
+    expect(localBlob.includes(PII_EMAIL), 'PII must not appear in local SQL').toBe(false);
+
+    const observations = await waitV2Observations(
+      (o) => String(o.traceId ?? '') === traceId,
+      90_000
+    );
+    const obsBlob = JSON.stringify(observations);
+    expect(obsBlob.includes(SECRET_SENTINEL), 'secret must not appear in Langfuse metadata').toBe(
+      false
+    );
+    expect(obsBlob.includes(PII_EMAIL), 'PII must not appear in Langfuse metadata').toBe(false);
+    expect(obsBlob.toLowerCase().includes('authorization'), 'auth header key disallowed').toBe(
+      false
+    );
+
+    const scan = {
+      sentinelMatchCount:
+        Number(localBlob.includes(SECRET_SENTINEL)) +
+        Number(obsBlob.includes(SECRET_SENTINEL)) +
+        Number(JSON.stringify(mission).includes(SECRET_SENTINEL)),
+      localSpanCount: localSpans.length,
+      observationCount: observations.length,
+      allowlistSize: HOLOCRON_ATTRIBUTE_ALLOWLIST.length,
+    };
+    writeEvidence('redaction-scan.json', scan);
+    writeEvidence('AC-3-seeded-artifact.json', { sentinelMatchCount: scan.sentinelMatchCount });
+    expect(scan.sentinelMatchCount).toBe(0);
+  }, 300_000);
+
+  it('AC-4: queue pressure + shutdown expose official metrics and terminal failure codes', async () => {
+    requirePlatformIt();
+
+    const { readExportHealth, probeQueueSaturation, flushWithDeadline, ExportFailureCode } =
+      await import('../../src/observability/export-health.ts');
+
+    const metricsBefore = await scrapeCollectorMetrics();
+    const capacity = metricValue(metricsBefore, 'otelcol_exporter_queue_capacity');
+    expect(capacity, 'official otelcol_exporter_queue_capacity required').not.toBeNull();
+    expect(capacity).toBeGreaterThan(0);
+
+    // Pause isolated Langfuse only, flood collector, assert queue growth from official metrics.
+    spawnSync('docker', ['pause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
+    try {
+      for (let i = 0; i < 40; i++) {
+        const traceIdHex = createHash('sha256')
+          .update(`obs02-burst-${i}-${Date.now()}`)
+          .digest('hex')
+          .slice(0, 32);
+        const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
+        const now = Date.now();
+        await fetch(OTEL_COLLECTOR_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            resourceSpans: [
+              {
+                resource: {
+                  attributes: [{ key: 'service.name', value: { stringValue: SERVICE_NAME } }],
+                },
+                scopeSpans: [
+                  {
+                    scope: { name: 'obs02-saturation', version: '1.0.0' },
+                    spans: [
+                      {
+                        traceId: traceIdHex,
+                        spanId,
+                        name: 'obs02-queue-pressure',
+                        kind: 1,
+                        startTimeUnixNano: String(now * 1_000_000),
+                        endTimeUnixNano: String((now + 10) * 1_000_000),
+                        attributes: [{ key: 'obs02.burst', value: { intValue: i } }],
+                        status: { code: 1 },
+                      },
                     ],
                   },
-                  scopeSpans: [
-                    {
-                      scope: { name: 'obs02-saturation', version: '1.0.0' },
-                      spans: [
-                        {
-                          traceId: traceIdHex,
-                          spanId,
-                          name: 'obs02-queue-pressure',
-                          kind: 1,
-                          startTimeUnixNano: String(now * 1_000_000),
-                          endTimeUnixNano: String((now + 10) * 1_000_000),
-                          attributes: [
-                            { key: 'obs02.burst', value: { intValue: i } },
-                          ],
-                          status: { code: 1 },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            }),
-          });
-        }
-        await new Promise((r) => setTimeout(r, 1500));
-
-        const sat = await probeQueueSaturation();
-        expect(sat.queueMetricSource).toBe('otel-collector');
-        expect(sat.queueDepth).toBeGreaterThanOrEqual(0);
-        expect(sat.queueCapacity).toBe(capacity);
-
-        const flush = await flushWithDeadline({ deadlineMs: 50 });
-        expect(TERMINAL_FAILURE_CODES).toContain(flush.terminalFailureCode);
-        expect(flush.ok).toBe(false);
-
-        const health = await readExportHealth();
-        expect(health.queueMetricSourceCount).toBe(1);
-        expect(
-          health.terminalFailureCodes.some((c) =>
-            (TERMINAL_FAILURE_CODES as readonly string[]).includes(c)
-          )
-        ).toBe(true);
-        expect(Object.values(ExportFailureCode)).toEqual(
-          expect.arrayContaining([...TERMINAL_FAILURE_CODES])
-        );
-
-        const artifact = {
-          queueMetricSourceCount: health.queueMetricSourceCount,
-          terminalFailureCodeCount: health.terminalFailureCodes.length,
-          terminalFailureCodes: health.terminalFailureCodes,
-          queueDepth: sat.queueDepth,
-          queueCapacity: sat.queueCapacity,
-          flushCode: flush.terminalFailureCode,
-        };
-        writeEvidence('queue-and-flush.json', artifact);
-        writeEvidence('AC-4-seeded-artifact.json', artifact);
-
-        expect(artifact.queueMetricSourceCount).toBe(1);
-        expect(artifact.terminalFailureCodeCount).toBeGreaterThanOrEqual(1);
-      } finally {
-        spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
-        // Keep compose helper referenced so GREEN can adopt deploy/otel project lifecycle.
-        void dockerCompose;
+                ],
+              },
+            ],
+          }),
+        });
       }
-    },
-    300_000
-  );
+      await new Promise((r) => setTimeout(r, 1500));
+
+      const sat = await probeQueueSaturation();
+      expect(sat.queueMetricSource).toBe('otel-collector');
+      expect(sat.queueDepth).toBeGreaterThanOrEqual(0);
+      expect(sat.queueCapacity).toBe(capacity);
+
+      const flush = await flushWithDeadline({ deadlineMs: 50 });
+      expect(TERMINAL_FAILURE_CODES).toContain(flush.terminalFailureCode);
+      expect(flush.ok).toBe(false);
+
+      const health = await readExportHealth();
+      expect(health.queueMetricSourceCount).toBe(1);
+      expect(
+        health.terminalFailureCodes.some((c) =>
+          (TERMINAL_FAILURE_CODES as readonly string[]).includes(c)
+        )
+      ).toBe(true);
+      expect(Object.values(ExportFailureCode)).toEqual(
+        expect.arrayContaining([...TERMINAL_FAILURE_CODES])
+      );
+
+      const artifact = {
+        queueMetricSourceCount: health.queueMetricSourceCount,
+        terminalFailureCodeCount: health.terminalFailureCodes.length,
+        terminalFailureCodes: health.terminalFailureCodes,
+        queueDepth: sat.queueDepth,
+        queueCapacity: sat.queueCapacity,
+        flushCode: flush.terminalFailureCode,
+      };
+      writeEvidence('queue-and-flush.json', artifact);
+      writeEvidence('AC-4-seeded-artifact.json', artifact);
+
+      expect(artifact.queueMetricSourceCount).toBe(1);
+      expect(artifact.terminalFailureCodeCount).toBeGreaterThanOrEqual(1);
+    } finally {
+      spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
+      // Keep compose helper referenced so GREEN can adopt deploy/otel project lifecycle.
+      void dockerCompose;
+    }
+  }, 300_000);
 });

@@ -1,0 +1,3 @@
+pnpm tsc --noEmit
+EXIT_CODE:0
+NO_OBS02_PATH_ERRORS

@@ -1,0 +1,15 @@
+{
+  "expectedLocalTraceCount": 1,
+  "expectedLangfuseTraceCount": 1,
+  "traceIdentityMismatchCount": 0,
+  "localTraceId": "4918726d791e493aae092fbe81b713b7",
+  "langfuseTraceIds": [
+    "4918726d791e493aae092fbe81b713b7"
+  ],
+  "runId": "4918726d-791e-493a-ae09-2fbe81b713b7",
+  "provider": "implementer",
+  "serviceName": "holocron-platform",
+  "queueSizeBefore": 0,
+  "collectorEndpoint": "http://127.0.0.1:14318/v1/traces",
+  "observationsApi": "v2"
+}

@@ -11,7 +11,7 @@ import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall, runWithMissionLangfuseExporter } from '../inference/telemetry.ts';
 import {
   createLangfuseExporterFromEnv,
-  type HolocronLangfuseExporter,
+  type HolocronOtelBridge,
 } from '../observability/langfuse-exporter.ts';
 import { createMissionObservability } from '../observability/mission-research.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
@@ -3908,10 +3908,10 @@ async function recordResearchProcessProof(
  */
 function attachMissionObservability(run: MissionRunRow): {
   observability: ReturnType<typeof createMissionObservability>['observability'];
-  langfuseExporter: HolocronLangfuseExporter;
+  langfuseExporter: HolocronOtelBridge;
 } {
   const langfuseExporter = createLangfuseExporterFromEnv({
-    failOnExportError: false,
+    failOnExportError: false, // soft: external sink must not fail missions
   });
   const { observability } = createMissionObservability({ langfuse: langfuseExporter });
   // Stamp run identity so operators can correlate Langfuse traces with mission_runs.
@@ -3921,7 +3921,7 @@ function attachMissionObservability(run: MissionRunRow): {
 }
 
 async function flushMissionLangfuse(
-  exporter: HolocronLangfuseExporter | null | undefined
+  exporter: HolocronOtelBridge | null | undefined
 ): Promise<void> {
   if (!exporter) return;
   try {
@@ -3964,7 +3964,7 @@ async function executeRunWithLeaseInner(
   lease: MissionLease,
   databaseUrl: string,
   run: MissionRunRow,
-  langfuseExporter: HolocronLangfuseExporter
+  langfuseExporter: HolocronOtelBridge
 ): Promise<MissionRunRow> {
   // Exporter is also bound via ALS; keep the param so the call graph documents ownership.
   if (!langfuseExporter) {
