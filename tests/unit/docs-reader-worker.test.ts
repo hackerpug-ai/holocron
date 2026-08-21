@@ -93,7 +93,10 @@ describe('holocron-docs-reader', () => {
   });
 
   it('default fetch entry serves no-longer-shared for a never-existing token', async () => {
-    const res = await worker.fetch(new Request('https://docs.holocrnlib.com/d/never-existed'), env());
+    const res = await worker.fetch(
+      new Request('https://docs.holocrnlib.com/d/never-existed'),
+      env()
+    );
     expect(res.status).toBe(404);
     expect(await res.text()).toBe(noLongerSharedHtml());
   });
