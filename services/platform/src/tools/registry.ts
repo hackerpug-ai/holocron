@@ -121,7 +121,7 @@ function register(
   return { id, description, inputSchema, outputSchema, tool };
 }
 
-// ── the ONE registry (44 MCP-compat tools) ───────────────────────────
+// ── the ONE registry (MCP-compat tools) ───────────────────────────
 
 const ENTRIES: RegisteredTool[] = [
   // Research
@@ -171,9 +171,15 @@ const ENTRIES: RegisteredTool[] = [
   ),
   register(
     'share_document',
-    'Share a document publicly or revoke sharing',
+    'Share a document at https://docs.holocrnlib.com/d/<token>. Returns shareUrl. Revoke with unshare_document.',
     S.shareDocumentInputSchema,
     S.shareDocumentOutputSchema
+  ),
+  register(
+    'unshare_document',
+    'Revoke a public document share link. The public reader 404s after the ~60s edge cache.',
+    S.unshareDocumentInputSchema,
+    S.unshareDocumentOutputSchema
   ),
   register(
     'get_document',

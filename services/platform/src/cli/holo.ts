@@ -353,7 +353,7 @@ Usage:
   catalog:merges        Business 12→3 + research 5→3 collapse proof
   catalog:reconcile     Per-table source vs expected-target; unexplained variance
   catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
-  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:verify-manifest   45/45 tool completeness gate (manifest ↔ live registry cross-check)
   mcp:verify-rehost     Verify Postgres MCP registry parity, zero throw-only cases, zero Convex imports
                             [--executor <path>] [--json]
   mcp:stdio              Start the MCP gateway over stdio

@@ -235,7 +235,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
   );
 
   itLive(
-    'AC-4: built MCP stdio distribution initializes and lists exactly 44 tools',
+    'AC-4: built MCP stdio distribution initializes and lists exactly 45 tools',
     async () => {
       const build = run('pnpm', ['--dir', 'holocron-mcp', 'build'], 180_000);
       expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0);
@@ -275,7 +275,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
         );
         const listed = await toolsListResponse;
         expect(listed.error).toBeUndefined();
-        expect(listed.result?.tools).toHaveLength(44);
+        expect(listed.result?.tools).toHaveLength(45);
       } finally {
         reader.close();
         await stopChild(child);

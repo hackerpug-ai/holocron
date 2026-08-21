@@ -1861,7 +1861,9 @@ export function buildVerifyToolArgs(
     case 'update_document':
       return { documentId, content: `updated-${runId}` };
     case 'share_document':
-      return { documentId, isPublic: true };
+      return { documentId };
+    case 'unshare_document':
+      return { documentId };
     case 'get_document':
       return { documentId };
     case 'list_documents':

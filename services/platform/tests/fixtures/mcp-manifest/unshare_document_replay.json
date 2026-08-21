@@ -1,0 +1,13 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["documentId"],
+  "stored_result": "documentId",
+  "first_call_result": {
+    "documentId": "kg_doc_store_001",
+    "isPublic": false
+  },
+  "second_call_result": {
+    "documentId": "kg_doc_store_001",
+    "isPublic": false
+  }
+}

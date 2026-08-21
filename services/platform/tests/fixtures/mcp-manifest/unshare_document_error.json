@@ -1,0 +1,8 @@
+{
+  "representative_example": true,
+  "code": "NOT_FOUND",
+  "message": "Document ID does not exist",
+  "details": {
+    "documentId": "kg_doc_missing_001"
+  }
+}

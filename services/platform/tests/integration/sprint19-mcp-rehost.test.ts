@@ -114,8 +114,9 @@ function sampleArgsForSweepTool(toolId: string, inputSchema: unknown, seed: Swee
     case 'update_document':
       return { ...base, documentId: seed.documentId };
     case 'share_document':
-      // isPublic:false yields shareToken:null which fails the shared output schema.
-      return { documentId: seed.documentId, isPublic: true };
+      return { documentId: seed.documentId };
+    case 'unshare_document':
+      return { documentId: seed.documentId };
     case 'remove_subscription':
       return { subscriptionId: seed.removableSubscriptionId };
     case 'get_subscription_content':
@@ -372,13 +373,13 @@ describe('Sprint 19 MCP rehost gateway', () => {
       result?: { tools?: Array<{ name: string }> };
     };
     expect(list.status).toBe(200);
-    expect(listed.result?.tools).toHaveLength(44);
+    expect(listed.result?.tools).toHaveLength(45);
     const listedTools = listed.result?.tools;
     if (!listedTools) throw new Error('tools/list response omitted tools');
     expect(new Set(listedTools.map((tool) => tool.name))).toEqual(
       new Set(Object.keys(toolsAsRecord()))
     );
-    expect(loadManifest(defaultManifestPath()).tools).toHaveLength(44);
+    expect(loadManifest(defaultManifestPath()).tools).toHaveLength(45);
   });
 
   it('fails closed on missing key and foreign origin', async () => {
@@ -423,7 +424,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
     const successFixtures = readdirSync(fixtureDir).filter((name) =>
       name.endsWith('_success.json')
     );
-    expect(successFixtures).toHaveLength(44);
+    expect(successFixtures).toHaveLength(45);
     for (const fixture of successFixtures) {
       const id = fixture.slice(0, -'_success.json'.length);
       const value = JSON.parse(readFileSync(`${fixtureDir}/${fixture}`, 'utf8'));
@@ -696,7 +697,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
         })}\n`
       );
       const listed = await nextMessage('tools/list');
-      expect((listed.result as { tools: unknown[] }).tools).toHaveLength(44);
+      expect((listed.result as { tools: unknown[] }).tools).toHaveLength(45);
       child.stdin.write(
         `${JSON.stringify({
           jsonrpc: '2.0',
@@ -756,8 +757,8 @@ describe('Sprint 19 MCP rehost gateway', () => {
         }
       }
       stdioStrictlyJudgedIds = [...judged].sort();
-      expect(tools).toHaveLength(44);
-      expect(judged).toHaveLength(42);
+      expect(tools).toHaveLength(45);
+      expect(judged).toHaveLength(43);
       expect(exempted).toBe(2);
       expect(stdioFailures, JSON.stringify(stdioFailures, null, 2)).toEqual([]);
       const expectedJudged = tools.filter((id) => !isSweepAllowlisted(id)).sort();
@@ -819,12 +820,12 @@ describe('Sprint 19 MCP rehost gateway', () => {
       }
     }
     httpStrictlyJudgedIds = [...judged].sort();
-    expect(tools).toHaveLength(44);
-    expect(judged).toHaveLength(42);
+    expect(tools).toHaveLength(45);
+    expect(judged).toHaveLength(43);
     expect(exempted).toBe(2);
     expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
-    // A judged count of 44 would mean the allowlist was not applied.
-    expect(judged).not.toHaveLength(44);
+    // A judged count of 45 would mean the allowlist was not applied.
+    expect(judged).not.toHaveLength(45);
     const expectedJudged = tools.filter((id) => !isSweepAllowlisted(id)).sort();
     expect(httpStrictlyJudgedIds).toEqual(expectedJudged);
     if (stdioStrictlyJudgedIds.length > 0) {

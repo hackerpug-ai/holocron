@@ -358,7 +358,9 @@ export function buildMcpMinInputs(
     },
     share_document: {
       documentId: seeds.documentId,
-      isPublic: true,
+    },
+    unshare_document: {
+      documentId: seeds.documentId,
     },
     add_subscription: {
       sourceType: 'github',
