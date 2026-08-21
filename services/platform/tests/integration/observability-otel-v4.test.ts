@@ -503,11 +503,30 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
 
     const { readExportHealth, probeQueueSaturation, flushWithDeadline, ExportFailureCode } =
       await import('../../src/observability/export-health.ts');
+    const { createOtelBridgeFromEnv } = await import(
+      '../../src/observability/langfuse-exporter.ts'
+    );
 
     const metricsBefore = await scrapeCollectorMetrics();
     const capacity = metricValue(metricsBefore, 'otelcol_exporter_queue_capacity');
+    const baselineDepth = metricValue(metricsBefore, 'otelcol_exporter_queue_size') ?? 0;
     expect(capacity, 'official otelcol_exporter_queue_capacity required').not.toBeNull();
     expect(capacity).toBeGreaterThan(0);
+
+    // Missing flush must hard-fail — sleep-default theatre is forbidden.
+    await expect(flushWithDeadline({ deadlineMs: 50 })).rejects.toThrow(
+      /flush callback required|FLUSH_CALLBACK_REQUIRED/i
+    );
+
+    const bridge = createOtelBridgeFromEnv({
+      baseUrl: LANGFUSE_BASE_URL,
+      publicKey: LANGFUSE_PUBLIC_KEY,
+      secretKey: LANGFUSE_SECRET_KEY,
+      collectorUrl: OTEL_COLLECTOR_URL,
+      serviceName: SERVICE_NAME,
+      failOnExportError: false,
+    });
+    bridge.init({ config: { serviceName: SERVICE_NAME } } as never);
 
     // Pause isolated Langfuse only, flood collector, assert queue growth from official metrics.
     spawnSync('docker', ['pause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
@@ -550,16 +569,46 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
           }),
         });
       }
+
+      // Enqueue bridge work so shutdown flush has real exporter work while Langfuse is paused.
+      for (let i = 0; i < 8; i++) {
+        const now = new Date();
+        bridge.enqueueSpan({
+          id: randomUUID().replace(/-/g, '').slice(0, 16),
+          traceId: createHash('sha256')
+            .update(`obs02-bridge-${i}-${Date.now()}`)
+            .digest('hex')
+            .slice(0, 32),
+          name: 'obs02-bridge-flush-pressure',
+          type: 'generic',
+          startTime: now,
+          endTime: new Date(now.getTime() + 5),
+          isRootSpan: i === 0,
+          input: { burst: i },
+          output: { ok: true },
+          metadata: { 'obs02.burst': i },
+        } as never);
+      }
       await new Promise((r) => setTimeout(r, 1500));
 
       const sat = await probeQueueSaturation();
       expect(sat.queueMetricSource).toBe('otel-collector');
-      expect(sat.queueDepth).toBeGreaterThanOrEqual(0);
       expect(sat.queueCapacity).toBe(capacity);
+      // Official pressure: depth must grow past the pre-flood baseline (not merely >= 0).
+      expect(sat.queueDepth).toBeGreaterThan(baselineDepth);
+      expect(sat.saturated).toBe(true);
 
-      const flush = await flushWithDeadline({ deadlineMs: 50 });
-      expect(TERMINAL_FAILURE_CODES).toContain(flush.terminalFailureCode);
+      // Timeout must come from the real exporter flush racing the deadline — not a sleeper.
+      const flush = await flushWithDeadline({
+        deadlineMs: 150,
+        flush: () => bridge.flush(),
+      });
       expect(flush.ok).toBe(false);
+      expect(flush.terminalFailureCode).toBe(ExportFailureCode.EXPORT_FLUSH_TIMEOUT);
+      expect(TERMINAL_FAILURE_CODES).toContain(flush.terminalFailureCode);
+
+      // Production shutdown path must also use the bounded flush helper.
+      await bridge.shutdown();
 
       const health = await readExportHealth();
       expect(health.queueMetricSourceCount).toBe(1);
@@ -568,6 +617,7 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
           (TERMINAL_FAILURE_CODES as readonly string[]).includes(c)
         )
       ).toBe(true);
+      expect(health.terminalFailureCodes).toContain(ExportFailureCode.EXPORT_FLUSH_TIMEOUT);
       expect(Object.values(ExportFailureCode)).toEqual(
         expect.arrayContaining([...TERMINAL_FAILURE_CODES])
       );
@@ -578,6 +628,8 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
         terminalFailureCodes: health.terminalFailureCodes,
         queueDepth: sat.queueDepth,
         queueCapacity: sat.queueCapacity,
+        queueDepthBaseline: baselineDepth,
+        saturated: sat.saturated,
         flushCode: flush.terminalFailureCode,
       };
       writeEvidence('queue-and-flush.json', artifact);
@@ -585,6 +637,7 @@ describe('OBS-02 adopt Mastra/Langfuse OTLP v4', { sequential: true }, () => {
 
       expect(artifact.queueMetricSourceCount).toBe(1);
       expect(artifact.terminalFailureCodeCount).toBeGreaterThanOrEqual(1);
+      expect(artifact.queueDepth).toBeGreaterThan(artifact.queueDepthBaseline);
     } finally {
       spawnSync('docker', ['unpause', 'obs01-canary-langfuse-web-1'], { encoding: 'utf8' });
       // Keep compose helper referenced so GREEN can adopt deploy/otel project lifecycle.
