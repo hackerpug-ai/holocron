@@ -317,7 +317,7 @@ function buildToolCases(): ToolCase[] {
     {
       toolId: 'share_document',
       kind: 'idempotent',
-      buildArgs: (seed) => ({ documentId: seed.shareDocumentId, isPublic: true }),
+      buildArgs: (seed) => ({ documentId: seed.shareDocumentId }),
       countRows: async (sql, seed) => {
         const rows = await sql`
           SELECT count(*)::int AS n FROM documents WHERE id = ${seed.shareDocumentId}::uuid

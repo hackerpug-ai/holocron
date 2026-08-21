@@ -33,7 +33,7 @@ export interface UpdateDocumentOutput {
 
 export interface ShareDocumentInput {
   documentId: string;
-  isPublic: boolean;
+  isPublic?: boolean;
 }
 
 export interface ShareDocumentOutput {
@@ -41,6 +41,15 @@ export interface ShareDocumentOutput {
   isPublic: boolean;
   shareToken?: string;
   shareUrl?: string;
+}
+
+export interface UnshareDocumentInput {
+  documentId: string;
+}
+
+export interface UnshareDocumentOutput {
+  documentId: string;
+  isPublic: false;
 }
 
 export async function storeDocument(
@@ -72,6 +81,15 @@ export async function shareDocument(
 ): Promise<ShareDocumentOutput> {
   return client.callTool<ShareDocumentOutput>("share_document", {
     documentId: input.documentId,
-    isPublic: input.isPublic,
+    ...(input.isPublic !== undefined && { isPublic: input.isPublic }),
+  });
+}
+
+export async function unshareDocument(
+  client: PlatformMcpClient,
+  input: UnshareDocumentInput
+): Promise<UnshareDocumentOutput> {
+  return client.callTool<UnshareDocumentOutput>("unshare_document", {
+    documentId: input.documentId,
   });
 }

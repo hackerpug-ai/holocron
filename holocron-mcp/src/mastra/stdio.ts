@@ -39,7 +39,12 @@ import { getDocument, listDocuments } from "../tools/retrieval.ts";
 import { searchFts, searchVector } from "../tools/search.ts";
 import { getResearchSession, searchResearch } from "../tools/session.ts";
 import { getShopListings, getShopSession, shopProducts } from "../tools/shop.ts";
-import { shareDocument, storeDocument, updateDocument } from "../tools/storage.ts";
+import {
+  shareDocument,
+  storeDocument,
+  unshareDocument,
+  updateDocument,
+} from "../tools/storage.ts";
 import {
   addSubscription,
   checkSubscriptions,
@@ -166,10 +171,21 @@ const updateDocumentTool = createTool({
 
 const shareDocumentTool = createTool({
   id: "share_document",
-  description: "Publish or unpublish a document for public sharing via URL",
+  description:
+    "Share a document at https://docs.holocrnlib.com/d/<token>. Returns shareUrl. Revoke with unshare_document.",
   inputSchema: AnyObject,
   execute: wrapExecute("share_document", (input) =>
-    shareDocument(platformClient, input as { documentId: string; isPublic: boolean })
+    shareDocument(platformClient, input as { documentId: string; isPublic?: boolean })
+  ),
+});
+
+const unshareDocumentTool = createTool({
+  id: "unshare_document",
+  description:
+    "Revoke a public document share link. The public reader 404s after the ~60s edge cache.",
+  inputSchema: AnyObject,
+  execute: wrapExecute("unshare_document", (input) =>
+    unshareDocument(platformClient, input as { documentId: string })
   ),
 });
 
@@ -557,6 +573,7 @@ const server = new MCPServer({
     store_document: storeDocumentTool,
     update_document: updateDocumentTool,
     share_document: shareDocumentTool,
+    unshare_document: unshareDocumentTool,
     get_document: getDocumentTool,
     list_documents: listDocumentsTool,
     hybrid_search: hybridSearchTool,

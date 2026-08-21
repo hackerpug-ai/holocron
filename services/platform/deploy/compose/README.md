@@ -424,7 +424,7 @@ export HOLO_KEY_MCP  # from peer keychain/secret store; never echo
 curl -fsS -o /tmp/d08-09-health.json -w '%{http_code}\n' \
   "https://${TARGET_FQDN}:44111/health"
 
-# Positive: authenticated MCP discovery (exactly 44 tools; never tools/call)
+# Positive: authenticated MCP discovery (registry tool count; never tools/call)
 # Use Authorization from env — do not put the key on the command line.
 python3 - <<'PY'
 import json, os, urllib.request

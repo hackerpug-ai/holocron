@@ -11,6 +11,7 @@ import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
+import { buildPublicShareUrl } from '../public-docs.ts';
 
 function resolveJinaApiKey(): string | undefined {
   return getSecretValue('JINA_API_KEY');
@@ -1242,22 +1243,64 @@ export async function executePostgresMcpTool(
       }
       case 'share_document': {
         const documentId = String(input.documentId);
-        const isPublic = Boolean(input.isPublic);
-        // Idempotent by (documentId, isPublic) — already at target visibility is a no-op.
+        if (input.isPublic === false) {
+          throw new Error('INVALID_ARGUMENT: revoke a public link with unshare_document');
+        }
         const existing = await sql`
           SELECT id::text AS "documentId", is_public AS "isPublic", share_token AS "shareToken"
           FROM documents WHERE id = ${documentId}::uuid LIMIT 1
         `;
-        if (existing[0] && Boolean(existing[0].isPublic) === isPublic) {
-          return existing[0];
+        const row = existing[0] as
+          | { documentId: string; isPublic: boolean; shareToken: string | null }
+          | undefined;
+        if (!row) {
+          throw new Error('NOT_FOUND: document does not exist');
         }
-        const shareToken = isPublic ? `mcp-${randomUUID()}` : null;
+        const keepToken =
+          typeof row.shareToken === 'string' && row.shareToken.length > 0 ? row.shareToken : null;
+        if (Boolean(row.isPublic) && keepToken) {
+          return {
+            documentId: row.documentId,
+            isPublic: true as const,
+            shareToken: keepToken,
+            shareUrl: buildPublicShareUrl(keepToken),
+          };
+        }
+        const shareToken = keepToken ?? `mcp-${randomUUID()}`;
         const rows = await sql`
-          UPDATE documents SET is_public = ${isPublic}, share_token = ${shareToken}
+          UPDATE documents SET is_public = true, share_token = ${shareToken}
           WHERE id = ${documentId}::uuid
-          RETURNING id::text AS "documentId", is_public AS "isPublic", share_token AS "shareToken"
+          RETURNING id::text AS "documentId", share_token AS "shareToken"
         `;
-        return rows[0] ?? { documentId, isPublic };
+        const updated = rows[0] as { documentId: string; shareToken: string } | undefined;
+        if (!updated?.shareToken) {
+          throw new Error('INTERNAL_SERVER_ERROR: Postgres share_document update failed');
+        }
+        return {
+          documentId: updated.documentId,
+          isPublic: true as const,
+          shareToken: updated.shareToken,
+          shareUrl: buildPublicShareUrl(updated.shareToken),
+        };
+      }
+      case 'unshare_document': {
+        const documentId = String(input.documentId);
+        const existing = await sql`
+          SELECT id::text AS "documentId", is_public AS "isPublic"
+          FROM documents WHERE id = ${documentId}::uuid LIMIT 1
+        `;
+        const row = existing[0] as { documentId: string; isPublic: boolean } | undefined;
+        if (!row) {
+          throw new Error('NOT_FOUND: document does not exist');
+        }
+        if (!row.isPublic) {
+          return { documentId: row.documentId, isPublic: false as const };
+        }
+        await sql`
+          UPDATE documents SET is_public = false, share_token = null
+          WHERE id = ${documentId}::uuid
+        `;
+        return { documentId, isPublic: false as const };
       }
       default:
         throw new Error(`MCP tool '${id}' has no Postgres executor yet`);

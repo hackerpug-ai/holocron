@@ -29,16 +29,36 @@ export const updateDocumentOutputSchema = z.object({
   embeddingDimensions: z.number().int().optional(),
 });
 
-export const shareDocumentInputSchema = z.object({
-  documentId: z.string().min(1),
-  isPublic: z.boolean(),
-});
+export const shareDocumentInputSchema = z
+  .object({
+    documentId: z.string().min(1),
+    /** @deprecated Use unshare_document. true is ignored; false is rejected. */
+    isPublic: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isPublic === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'INVALID_ARGUMENT: revoke a public link with unshare_document',
+        path: ['isPublic'],
+      });
+    }
+  });
 
 export const shareDocumentOutputSchema = z.object({
   documentId: z.string(),
-  isPublic: z.boolean(),
-  shareToken: z.string().optional(),
-  shareUrl: z.string().optional(),
+  isPublic: z.literal(true),
+  shareToken: z.string().min(1),
+  shareUrl: z.string().url(),
+});
+
+export const unshareDocumentInputSchema = z.object({
+  documentId: z.string().min(1),
+});
+
+export const unshareDocumentOutputSchema = z.object({
+  documentId: z.string(),
+  isPublic: z.literal(false),
 });
 
 export const getDocumentInputSchema = z.object({

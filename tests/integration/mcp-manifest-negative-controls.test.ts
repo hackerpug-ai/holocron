@@ -52,12 +52,12 @@ describe('MCP manifest negative controls (RED teeth)', () => {
     );
   });
 
-  it('44/44 completeness: verify-manifest passes against the real committed manifest', () => {
-    // would fail if verify-manifest reported fewer than 44 tools or exited non-zero
+  it('45/45 completeness: verify-manifest passes against the real committed manifest', () => {
+    // would fail if verify-manifest reported fewer than 45 tools or exited non-zero
     const r = runHolo(['mcp:verify-manifest', '--manifest', MANIFEST]);
     const out = `${r.stdout}\n${r.stderr}`;
     expect(r.status, out).toBe(0);
-    expect(out).toMatch(/44\/44/);
+    expect(out).toMatch(/45\/45/);
   });
 
   it('fixture-missing control: verify-manifest exits non-zero naming store_document when its entry is removed', () => {
@@ -320,8 +320,8 @@ describe('MCP manifest negative control suite shape', () => {
     );
   });
 
-  it('frozen fixture directory has exactly 44 success fixtures', () => {
+  it('frozen fixture directory has exactly 45 success fixtures', () => {
     const files = readdirSync(FIXTURES_DIR).filter((f: string) => f.endsWith('_success.json'));
-    expect(files.length, `expected 44 success fixtures, got ${files.length}`).toBe(44);
+    expect(files.length, `expected 45 success fixtures, got ${files.length}`).toBe(45);
   });
 });

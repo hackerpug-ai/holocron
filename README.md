@@ -185,18 +185,44 @@ In the app, open a document's action sheet and choose **Share**. Holocron publis
 needed, builds the public URL, and opens the native share sheet. The explicit copy action copies the
 same URL.
 
-MCP clients use the existing `share_document` tool:
+MCP clients share and revoke through two tools on the Holocron MCP server (`POST /mcp` or
+`bun services/platform/src/cli/holo.ts mcp:stdio`).
+
+**Share** (`share_document`) — input is only the document id. The tool mints (or reuses) a
+`mcp-<uuid>` token, sets the row public, and returns the public URL:
+
+```json
+{ "documentId": "<document-uuid>" }
+```
 
 ```json
 {
   "documentId": "<document-uuid>",
-  "isPublic": true
+  "isPublic": true,
+  "shareToken": "mcp-<uuid>",
+  "shareUrl": "https://docs.holocrnlib.com/d/mcp-<uuid>"
 }
 ```
 
-The current executor returns `documentId`, `isPublic`, and `shareToken`; clients construct the URL
-as `https://docs.holocrnlib.com/d/<shareToken>`. Revoke the link with the same tool and
-`"isPublic": false`.
+Calling `share_document` again on the same document is a no-op and returns the same `shareUrl`.
+Do not pass `"isPublic": false`; that is rejected. Use `unshare_document`.
+
+**Unshare** (`unshare_document`):
+
+```json
+{ "documentId": "<document-uuid>" }
+```
+
+```json
+{ "documentId": "<document-uuid>", "isPublic": false }
+```
+
+The success payload does not include `shareToken`. The public page becomes a 404 “no longer shared”
+response within about 60 seconds (Worker edge cache). The Holocron host must be awake; there is no
+R2 fallback.
+
+App **Share** in the action sheet still uses `POST /api/documents/:id/publish` (`share-<uuid>`
+tokens). Both token shapes are valid on the public reader.
 
 The public path is deliberately narrow:
 

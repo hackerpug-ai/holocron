@@ -1,17 +1,17 @@
 {
   "representative_example": true,
-  "idempotency_key": ["documentId", "isPublic"],
-  "stored_result": "shareToken",
+  "idempotency_key": ["documentId"],
+  "stored_result": "shareUrl",
   "first_call_result": {
     "documentId": "kg_doc_store_001",
     "isPublic": true,
     "shareToken": "kg_share_token_001",
-    "shareUrl": "https://holocron.app/d/kg_share_token_001"
+    "shareUrl": "https://docs.holocrnlib.com/d/kg_share_token_001"
   },
   "second_call_result": {
     "documentId": "kg_doc_store_001",
     "isPublic": true,
     "shareToken": "kg_share_token_001",
-    "shareUrl": "https://holocron.app/d/kg_share_token_001"
+    "shareUrl": "https://docs.holocrnlib.com/d/kg_share_token_001"
   }
 }

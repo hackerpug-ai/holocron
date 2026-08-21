@@ -312,28 +312,57 @@ tools:
         documentId:
           type: string
           minLength: 1
-        isPublic:
-          type: boolean
-      required: [documentId, isPublic]
+      required: [documentId]
     output_schema:
       type: object
       properties:
         documentId: { type: string }
-        isPublic: { type: boolean }
+        isPublic: { type: boolean, const: true }
         shareToken: { type: string }
         shareUrl: { type: string }
+      required: [documentId, isPublic, shareToken, shareUrl]
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: "Document ID does not exist"
+      - code: INVALID_ARGUMENT
+        description: "isPublic:false is rejected; call unshare_document"
+      - code: INTERNAL_SERVER_ERROR
+        description: "Postgres share_document update failed"
+    pagination: null
+    side_effects: "UPDATES documents is_public/share_token via executePostgresMcpTool share_document (documents table)"
+    idempotency: "Idempotent by documentId — sharing an already-public document returns the existing shareUrl."
+    replay:
+      idempotency_key: [documentId]
+      stored_result: shareUrl
+    transports: [stdio, streamable-http]
+
+  - id: unshare_document
+    input_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+          minLength: 1
+      required: [documentId]
+    output_schema:
+      type: object
+      properties:
+        documentId: { type: string }
+        isPublic: { type: boolean, const: false }
+      required: [documentId, isPublic]
     defaults: {}
     errors:
       - code: NOT_FOUND
         description: "Document ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Postgres share_document update failed"
+        description: "Postgres unshare_document update failed"
     pagination: null
-    side_effects: "UPDATES documents is_public/share_token via executePostgresMcpTool share_document (documents table)"
-    idempotency: "Idempotent by (documentId, isPublic) — publishing an already-published doc or unpublishing an already-private doc is a safe no-op."
+    side_effects: "UPDATES documents is_public=false and share_token=null via executePostgresMcpTool unshare_document (documents table)"
+    idempotency: "Idempotent by documentId — unsharing an already-private document is a safe no-op."
     replay:
-      idempotency_key: [documentId, isPublic]
-      stored_result: shareToken
+      idempotency_key: [documentId]
+      stored_result: documentId
     transports: [stdio, streamable-http]
 
   - id: get_document
