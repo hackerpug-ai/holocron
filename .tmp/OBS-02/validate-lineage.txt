@@ -1,0 +1,1 @@
+  ✓ stamp: all 11 input hash(es) match on-disk bytes

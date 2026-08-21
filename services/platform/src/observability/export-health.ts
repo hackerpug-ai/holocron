@@ -229,9 +229,7 @@ export async function flushWithDeadline(args: {
       elapsedMs: Date.now() - started,
     };
   } catch (err) {
-    const code = timedOut
-      ? ExportFailureCode.EXPORT_FLUSH_TIMEOUT
-      : classifyExportError(err);
+    const code = timedOut ? ExportFailureCode.EXPORT_FLUSH_TIMEOUT : classifyExportError(err);
     recordExportFailure(code);
     return {
       ok: false,

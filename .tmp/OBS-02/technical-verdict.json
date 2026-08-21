@@ -1,0 +1,10 @@
+{
+  "lens": "technical",
+  "verdict": "NEEDS_FIXES",
+  "commit_sha": "a7817e0a9fd8ef717058cafbccf101064027cf03",
+  "stop_reason": "fakeability_gate",
+  "unsatisfied": [
+    "AC-4",
+    "TC-4"
+  ]
+}

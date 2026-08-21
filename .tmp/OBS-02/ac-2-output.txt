@@ -4,11 +4,11 @@
 stderr | services/platform/tests/integration/observability-otel-v4.test.ts > OBS-02 adopt Mastra/Langfuse OTLP v4 > AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export
 This storage provider does not support batch creating metrics
 
- ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 58666ms
-     ✓ AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export  58589ms
+ ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 59819ms
+     ✓ AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export  59783ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 3 skipped (4)
-   Start at  23:05:12
-   Duration  58.87s (transform 202ms, setup 123ms, import 11ms, tests 58.67s, environment 0ms)
+   Start at  23:28:38
+   Duration  60.06s (transform 188ms, setup 159ms, import 13ms, tests 59.82s, environment 0ms)
 

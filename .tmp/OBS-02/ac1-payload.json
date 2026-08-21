@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "runId": "f3434391-fe1a-4eeb-9dec-177b899654ce",
+  "traceId": "f3434391fe1a4eeb9dec177b899654ce",
+  "serviceName": "holocron-platform",
+  "role": "divergent",
+  "goal": "Observability trace fixture",
+  "text": "Trace fixtures leverage mock span generators and context propagators to deterministically validate propagation, sampling, and exporter behavior without live backend dependencies.",
+  "langfuseExportOk": true,
+  "langfuse": {
+    "ok": true,
+    "errorCode": null,
+    "errorMessage": null,
+    "exportedEvents": 6,
+    "lastFlushAt": "2026-08-21T05:27:16.272Z",
+    "baseUrl": "http://127.0.0.1:13100",
+    "collectorUrl": "http://127.0.0.1:14318/v1/traces"
+  },
+  "inferenceTelemetry": null,
+  "errorCode": null,
+  "error": null,
+  "metadata": {
+    "role": "divergent",
+    "runId": "f3434391-fe1a-4eeb-9dec-177b899654ce",
+    "serviceName": "holocron-platform",
+    "mission": "research",
+    "model": "implementer",
+    "endpoint": "http://127.0.0.1:4545",
+    "inferenceTelemetryId": null,
+    "evidenceGate": null
+  }
+}

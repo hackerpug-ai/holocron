@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/OBS-02
 
- ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 4758ms
-     ✓ AC-4: queue pressure + shutdown expose official metrics and terminal failure codes  4679ms
+ ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests | 3 skipped) 7915ms
+     ✓ AC-4: queue pressure + shutdown expose official metrics and terminal failure codes  7881ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 3 skipped (4)
-   Start at  23:06:29
-   Duration  4.95s (transform 72ms, setup 121ms, import 11ms, tests 4.76s, environment 0ms)
+   Start at  23:29:52
+   Duration  8.14s (transform 81ms, setup 141ms, import 14ms, tests 7.92s, environment 0ms)
 
