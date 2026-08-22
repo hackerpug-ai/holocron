@@ -339,16 +339,32 @@ Access login is a browser-redirect flow. A plain JSON-RPC MCP client cannot comp
 ```sh
 # one-time (opens a browser for SSO against the identity policy)
 cloudflared access login mcp.holocrnlib.com
-
-# print the cached login JWT (do not commit, log, or paste into git)
-cloudflared access token -app=mcp.holocrnlib.com
 ```
 
-Put that JWT on requests as custom header `Cf-Access-Jwt-Assertion`. This works for MCP clients that support custom headers on HTTP / streamable-HTTP transport config. Clients that cannot set custom headers cannot use the public hostname.
+**Do not `eval "$(cf-access-mcp-env)"` and expect GUI / cmux harnesses to pick it up.** Those processes were already launched without `CF_ACCESS_JWT`, and Grok expands `${CF_ACCESS_JWT}` once at config load. An empty header becomes an Access login page (302/HTML 200) and the MCP handshake fails.
 
-Then send `Authorization: Bearer $HOLO_KEY_MCP` as today. Load the key from the operator secret store (`HOLO_SECRETS_PATH` / `secrets.yaml`); never echo it.
+Harnesses on this laptop talk to a **loopback Access proxy** that fetches `cloudflared access token` itself, injects `Cf-Access-Jwt-Assertion`, and strips `Origin` (a foreign `Origin` is origin **403** `MCP_ORIGIN_REJECTED` even with a valid JWT, because the tunnel presents the request as `http://127.0.0.1:44111`).
 
-`cloudflared access curl https://mcp.holocrnlib.com/mcp` is a convenience wrapper for ad-hoc curls; production MCP client config should still set `Cf-Access-Jwt-Assertion` explicitly so Protect with Access can validate it.
+```sh
+# LaunchAgent (KeepAlive): com.justinrich.holocron-mcp-access-proxy
+# Script: ~/bin/holocron-mcp-access-proxy.ts
+curl -sS http://127.0.0.1:44113/healthz
+bun ~/bin/holocron-mcp-access-proxy.ts --check   # initialize + tools/list, needs HOLO_KEY_MCP
+```
+
+Point HTTP MCP configs at `http://127.0.0.1:44113/mcp` with **only** `Authorization: Bearer $HOLO_KEY_MCP`. Do not put `CF_ACCESS_JWT` in harness config. Do not `brew services start cloudflared` on the laptop.
+
+Private Tailscale MCP (`https://holocron.tail011a51.ts.net:44111/mcp`) is unchanged and does not need Access.
+
+Ad-hoc curls against the public hostname still set the JWT header themselves:
+
+```sh
+# print the cached login JWT (do not commit, log, or paste into git)
+cloudflared access token -app=mcp.holocrnlib.com
+# or: eval "$(cf-access-mcp-env)"   # this shell only
+```
+
+`cloudflared access curl https://mcp.holocrnlib.com/mcp` is a convenience wrapper for those ad-hoc curls. The proxy is what Protect-with-Access actually sees from the harnesses.
 
 ### 5. Serve must stay private (Funnel-zero)
 
