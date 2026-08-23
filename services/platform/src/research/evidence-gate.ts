@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { verifyQuote } from './quote-match.ts';
 
 export const EvidenceItemSchema = z
   .object({
@@ -63,7 +64,7 @@ export function evaluateEvidenceGate(raw: EvidenceGateInput): EvidenceGateResult
       input.requiredComponents.includes(item.component) &&
       item.grade >= input.gradeFloor &&
       item.entailment >= input.entailmentFloor &&
-      item.sourceText.includes(item.quote) &&
+      verifyQuote(item.quote, item.sourceText, { allowLines: false }).ok &&
       item.disconfirmationResolved
     );
   });

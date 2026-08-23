@@ -54,8 +54,8 @@ export const projects: TestProjectConfiguration[] = [
         'services/platform/src/cli/__tests__/**/*.{test,spec}.ts',
         // Sprint 24 — verify:no-convex-client gate
         'services/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts',
-        // Sprint 22 pipes-1 — pure-TS evidence-gate
-        'services/platform/src/research/evidence-gate.test.ts',
+        // Sprint 22 pipes-1 — pure-TS evidence-gate + shared quote-match / components
+        'services/platform/src/research/*.test.ts',
         // Sprint 25 / F1 — chat pre-flight gate truth table (pure predicate, no infra)
         'services/platform/src/http/chat-stream-gate.test.ts',
         // Assimilate crawl gates (real git + filesystem, no Postgres)

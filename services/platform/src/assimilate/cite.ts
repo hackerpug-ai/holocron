@@ -4,20 +4,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { MIN_QUOTE_CHARS, normalizeQuote, verifyQuote } from '../research/quote-match.ts';
 import type { AssimilateManifest, CiteDropCode, CiteResult, WorkerReturn } from './types.ts';
 
-const MIN_QUOTE_CHARS = 12;
-
-export function normalizeQuote(s: string | undefined): string {
-  return (s ?? '').replace(/\s+/g, ' ').trim();
-}
-
-function substantiveLines(quote: string): string[] {
-  return quote
-    .split('\n')
-    .map((l) => normalizeQuote(l))
-    .filter((n) => n.replace(/ /g, '').length >= MIN_QUOTE_CHARS);
-}
+export { MIN_QUOTE_CHARS, normalizeQuote };
 
 class PathResolver {
   private readonly exact: Set<string>;
@@ -96,10 +86,10 @@ function checkQuote(
   }
   const body = cache.get(resolved);
   if (body === null) return { ok: false, code: 'file_unreadable', resolved };
-  if (body.includes(nq)) return { ok: true, mode: 'exact', resolved };
-  const parts = substantiveLines(quote);
-  if (parts.length >= 2 && parts.every((p) => body.includes(p))) {
-    return { ok: true, mode: 'lines', resolved };
+  // FileCache stores normalizeQuote(text); pass through verifyQuote with allowLines.
+  const match = verifyQuote(quote, body, { allowLines: true });
+  if (match.ok && match.mode) {
+    return { ok: true, mode: match.mode, resolved };
   }
   return { ok: false, code: 'unverified_quote', resolved };
 }
