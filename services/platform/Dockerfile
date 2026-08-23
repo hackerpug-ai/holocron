@@ -38,6 +38,11 @@ USER root
 COPY --from=backup-restic /usr/bin/restic /usr/local/bin/restic
 COPY --from=backup-pgbackrest /usr/bin/pgbackrest /usr/local/bin/pgbackrest
 COPY --from=opencode /usr/local/bin/opencode /usr/local/bin/opencode
+# OpenCode's published image is Alpine/musl. Copy the loader + C++ runtime so the
+# binary can exec on oven/bun (Debian glibc) instead of dying with ENOENT.
+COPY --from=opencode /lib/ld-musl-aarch64.so.1 /lib/ld-musl-aarch64.so.1
+COPY --from=opencode /usr/lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
+COPY --from=opencode /usr/lib/libstdc++.so.6.0.34 /usr/lib/libstdc++.so.6.0.34
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     git \
@@ -50,11 +55,14 @@ RUN apt-get update \
     libzstd1 \
     zlib1g \
   && rm -rf /var/lib/apt/lists/* \
+  && ln -sf /lib/ld-musl-aarch64.so.1 /lib/libc.musl-aarch64.so.1 \
+  && ln -sf /usr/lib/libstdc++.so.6.0.34 /usr/lib/libstdc++.so.6 \
   && chmod 0755 /usr/local/bin/restic /usr/local/bin/pgbackrest /usr/local/bin/opencode \
   && mkdir -p /home/bun/.config/opencode \
   && chown -R bun:bun /home/bun/.config \
   && /usr/local/bin/restic version \
-  && /usr/local/bin/pgbackrest version
+  && /usr/local/bin/pgbackrest version \
+  && /usr/local/bin/opencode --version
 COPY --chown=bun:bun services/platform/deploy/docker/opencode.json /home/bun/.config/opencode/opencode.json
 
 # The upstream Bun image supplies the unprivileged `bun` user. Do not run a

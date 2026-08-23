@@ -605,6 +605,18 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     expect(() => assertLinuxArm64Platforms(platforms)).not.toThrow();
   });
 
+  it('ships a musl-runnable OpenCode binary and proves it at image build', () => {
+    const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf8');
+    expect(dockerfile).toContain('FROM ghcr.io/anomalyco/opencode:1.18.17 AS opencode');
+    expect(dockerfile).toContain(
+      'COPY --from=opencode /usr/local/bin/opencode /usr/local/bin/opencode'
+    );
+    expect(dockerfile).toContain(
+      'COPY --from=opencode /lib/ld-musl-aarch64.so.1 /lib/ld-musl-aarch64.so.1'
+    );
+    expect(dockerfile).toContain('/usr/local/bin/opencode --version');
+  });
+
   it('requires the committed fleet role manifest at the runtime path in the production image', () => {
     const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf8');
     expect(dockerfile).toContain(
