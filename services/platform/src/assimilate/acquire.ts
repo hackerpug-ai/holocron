@@ -3,7 +3,7 @@
  * git clone / reuse + git ls-files. Root tripwire is load-bearing.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, extname, join, resolve } from 'node:path';
 import { AssimilateError } from './errors.ts';
@@ -192,12 +192,14 @@ function acquireGit(value: string, kind: 'local' | 'git-url', options: AcquireOp
   if (kind === 'local') return value;
   if (options.reuse) {
     if (!isDir(options.reuse)) {
-      throw new AssimilateError('ASSIMILATE_UNREACHABLE', `reuse path '${options.reuse}' is not a directory`);
+      throw new AssimilateError(
+        'ASSIMILATE_UNREACHABLE',
+        `reuse path '${options.reuse}' is not a directory`
+      );
     }
     return realpath(options.reuse);
   }
-  const slug =
-    basename(value.replace(/\.git$/, '')).replace(/[^A-Za-z0-9._-]/g, '') || 'target';
+  const slug = basename(value.replace(/\.git$/, '')).replace(/[^A-Za-z0-9._-]/g, '') || 'target';
   const dest = mkdtempSync(join(scratchRoot(options.scratchRoot), `assimilate-${slug}.`));
   const repo = join(dest, 'repo');
   const clone = runGit(['clone', '--depth', '1', '--filter=blob:none', '--quiet', value, repo]);
@@ -222,10 +224,13 @@ function classify(path: string, depth: AssimilateDepth, focus: string[]): string
 
   if (LOCKFILES.has(base) || ext === '.lock') return 'lockfile';
   if (BINARY_EXT.has(ext)) return 'binary';
-  if (dirs.some((p) => ['vendor', 'third_party', 'thirdparty', 'node_modules', 'Pods'].includes(p))) {
+  if (
+    dirs.some((p) => ['vendor', 'third_party', 'thirdparty', 'node_modules', 'Pods'].includes(p))
+  ) {
     return 'vendored';
   }
-  if (base.endsWith('.min.js') || base.endsWith('.min.css') || base.endsWith('.map')) return 'minified';
+  if (base.endsWith('.min.js') || base.endsWith('.min.css') || base.endsWith('.map'))
+    return 'minified';
   if (focus.length > 0 && !focus.some((f) => path === f || path.startsWith(`${f}/`))) {
     return 'out-of-focus';
   }
@@ -233,20 +238,42 @@ function classify(path: string, depth: AssimilateDepth, focus: string[]): string
 
   if (
     dirs.some((p) =>
-      ['dist', 'build', 'out', 'target', '.next', '.nuxt', '__pycache__', '.venv', 'coverage'].includes(p)
+      [
+        'dist',
+        'build',
+        'out',
+        'target',
+        '.next',
+        '.nuxt',
+        '__pycache__',
+        '.venv',
+        'coverage',
+      ].includes(p)
     )
   ) {
     return 'generated';
   }
   if (base.endsWith('.pb.go') || base.includes('.generated.')) return 'generated';
-  if (dirs.some((p) => ['testdata', 'fixtures', '__snapshots__', 'golden', 'snapshots'].includes(p))) {
+  if (
+    dirs.some((p) => ['testdata', 'fixtures', '__snapshots__', 'golden', 'snapshots'].includes(p))
+  ) {
     return 'fixture-data';
   }
   if (depth === 'normal') return null;
 
   if (
     dirs.some((p) =>
-      ['test', 'tests', 'spec', 'specs', 'e2e', '__tests__', 'examples', 'example', 'benches'].includes(p)
+      [
+        'test',
+        'tests',
+        'spec',
+        'specs',
+        'e2e',
+        '__tests__',
+        'examples',
+        'example',
+        'benches',
+      ].includes(p)
     )
   ) {
     return 'out-of-scope-quick';
@@ -289,7 +316,7 @@ function keyAt(path: string, baseDepth: number, levelsBelowBase: number): string
 
 function shardFiles(files: AssimilateFileEntry[]): AssimilateShard[] {
   const baseDepth = commonDepth(files.map((f) => f.path));
-  let buckets = new Map<string, AssimilateFileEntry[]>();
+  const buckets = new Map<string, AssimilateFileEntry[]>();
   for (const f of files) {
     const key = keyAt(f.path, baseDepth, 2);
     const group = buckets.get(key) ?? [];
@@ -362,7 +389,10 @@ function shardFiles(files: AssimilateFileEntry[]): AssimilateShard[] {
 export function acquireTarget(options: AcquireOptions): AssimilateManifest {
   const depth = options.depth ?? 'normal';
   if (!ASSIMILATE_DEPTHS.includes(depth)) {
-    throw new AssimilateError('ASSIMILATE_USAGE', `--depth must be quick|normal|deep (got '${depth}')`);
+    throw new AssimilateError(
+      'ASSIMILATE_USAGE',
+      `--depth must be quick|normal|deep (got '${depth}')`
+    );
   }
   const focus = (options.focus ?? []).map((p) => p.replace(/^\/+|\/+$/g, '')).filter(Boolean);
   const cwd = options.cwd ?? process.cwd();

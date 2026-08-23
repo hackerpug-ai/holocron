@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { runAssimilateRepo } from '../assimilate/run.ts';
 import { getSecretValue } from '../config/secrets.ts';
 import { readDocumentFromObservedPlane } from '../cutover/data-plane-content.ts';
 import {
@@ -11,7 +12,6 @@ import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
-import { runAssimilateRepo } from '../assimilate/run.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
 
 function resolveJinaApiKey(): string | undefined {

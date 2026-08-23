@@ -2,7 +2,7 @@ import { accessSync, constants, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AcpAgent } from '@mastra/acp';
 import { ASSIMILATE_ACP } from './acp-pin.ts';
-import { writeReturn, type CrawlerFn, type CrawlerJob, type SynthesizerFn } from './crawler.ts';
+import { type CrawlerFn, type CrawlerJob, type SynthesizerFn, writeReturn } from './crawler.ts';
 import { AssimilateError } from './errors.ts';
 import type { WorkerReturn } from './types.ts';
 

@@ -1,6 +1,6 @@
 import { Mastra } from '@mastra/core/mastra';
-import { assimilateRepoWorkflow } from './workflow.ts';
 import type { AssimilateProfile } from './types.ts';
+import { assimilateRepoWorkflow } from './workflow.ts';
 
 export type RunAssimilateInput = {
   repositoryUrl: string;

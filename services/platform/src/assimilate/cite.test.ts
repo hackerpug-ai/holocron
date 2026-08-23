@@ -14,7 +14,10 @@ function fixtureRepo(): string {
     'use crate::theme::Palette;\n\nfn draw(prev: &Cell, next: &Cell) {\n    /// only redraw cells that actually changed\n    if prev_cell == next_cell { continue; }\n}\n'
   );
   writeFileSync(join(root, 'src', 'color.rs'), 'pub const RESET: &str = "esc[0m";\n');
-  writeFileSync(join(root, 'ui', 'color.rs'), 'pub fn tint(base: Rgb, amount: f32) -> Rgb { base }\n');
+  writeFileSync(
+    join(root, 'ui', 'color.rs'),
+    'pub fn tint(base: Rgb, amount: f32) -> Rgb { base }\n'
+  );
   return root;
 }
 

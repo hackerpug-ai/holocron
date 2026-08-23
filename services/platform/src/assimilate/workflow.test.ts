@@ -14,8 +14,14 @@ function git(args: string[], cwd: string): void {
 function makeRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'wf-repo-'));
   mkdirSync(join(root, 'src'), { recursive: true });
-  writeFileSync(join(root, 'src', 'main.ts'), 'export function boot(): void { console.log("boot"); }\n');
-  writeFileSync(join(root, 'README.md'), '# Widget runtime\nThis is the fixture repository used in assimilate tests.\n');
+  writeFileSync(
+    join(root, 'src', 'main.ts'),
+    'export function boot(): void { console.log("boot"); }\n'
+  );
+  writeFileSync(
+    join(root, 'README.md'),
+    '# Widget runtime\nThis is the fixture repository used in assimilate tests.\n'
+  );
   git(['init', '-q'], root);
   git(['add', '-A'], root);
   git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init'], root);

@@ -17,7 +17,10 @@ function makeFixture(): string {
   mkdirSync(join(root, 'src', 'input'), { recursive: true });
   mkdirSync(join(root, 'vendor'), { recursive: true });
   mkdirSync(join(root, 'docs'), { recursive: true });
-  writeFileSync(join(root, 'src', 'render', 'frame.rs'), 'use crate::theme::Palette;\nfn draw() {}\n');
+  writeFileSync(
+    join(root, 'src', 'render', 'frame.rs'),
+    'use crate::theme::Palette;\nfn draw() {}\n'
+  );
   writeFileSync(join(root, 'src', 'render', 'color.rs'), 'pub const RESET: &str = "\\x1b[0m";\n');
   writeFileSync(join(root, 'src', 'input', 'keys.rs'), 'fn keymap() {}\n');
   writeFileSync(join(root, 'README.md'), '# Fixture\nhello\n');
@@ -139,6 +142,8 @@ describe('acquireTarget', () => {
       'src/render/frame.rs',
     ]);
     expect(manifest.totals.tracked).toBe(manifest.totals.in_scope + manifest.totals.excluded);
-    expect(manifest.exclusions.some((e) => e.reason === 'out-of-focus' && e.count === 3)).toBe(true);
+    expect(manifest.exclusions.some((e) => e.reason === 'out-of-focus' && e.count === 3)).toBe(
+      true
+    );
   });
 });

@@ -6,11 +6,11 @@ import { acquireTarget } from './acquire.ts';
 import { validateCitations } from './cite.ts';
 import { coverageReport } from './cover.ts';
 import {
+  type CrawlerFn,
   jobsFromManifest,
   loadReturns,
   plantedReceiptCrawler,
   runJobs,
-  type CrawlerFn,
   type SynthesizerFn,
 } from './crawler.ts';
 import { assembleReport } from './report.ts';
@@ -71,8 +71,7 @@ function ctxSchema() {
 function resolveCrawler(planted: boolean | undefined, injected?: CrawlerFn): CrawlerFn {
   if (injected) return injected;
   if (planted) return plantedReceiptCrawler();
-  return (job) =>
-    import('./acp-dispatch.ts').then(({ acpCrawler }) => acpCrawler()(job));
+  return (job) => import('./acp-dispatch.ts').then(({ acpCrawler }) => acpCrawler()(job));
 }
 
 const acquireStep = createStep({
@@ -81,7 +80,9 @@ const acquireStep = createStep({
   outputSchema: ctxSchema(),
   execute: async ({ inputData, runId }) => {
     const sessionId = inputData.sessionId ?? runId;
-    const workDir = mkdtempSync(join(inputData.scratchRoot ?? process.env.SCRATCH_ROOT ?? '/tmp', 'assim-run-'));
+    const workDir = mkdtempSync(
+      join(inputData.scratchRoot ?? process.env.SCRATCH_ROOT ?? '/tmp', 'assim-run-')
+    );
     const returnsDir = join(workDir, 'returns');
     mkdirSync(returnsDir, { recursive: true });
     const manifest = acquireTarget({
@@ -158,7 +159,9 @@ const analyzeStep = createStep({
       const pending =
         attempt === 0
           ? shardJobs
-          : shardJobs.filter((j) => cover.uncovered_shards.includes(j.id) || cited.barren_workers.includes(j.id));
+          : shardJobs.filter(
+              (j) => cover.uncovered_shards.includes(j.id) || cited.barren_workers.includes(j.id)
+            );
       if (pending.length === 0 && attempt > 0) break;
       const batch = await runJobs(pending, crawler, ASSIMILATE_ACP_CONCURRENCY);
       returns = loadReturns(inputData.returnsDir);

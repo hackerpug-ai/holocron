@@ -18,11 +18,11 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
 import { serve } from 'bun';
+import { assimilateRepoWorkflow } from './assimilate/workflow.ts';
 import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
-import { assimilateRepoWorkflow } from './assimilate/workflow.ts';
 import { toolsAsRecord } from './tools/registry.ts';
 
 export const DEFAULT_PORT = 4111;

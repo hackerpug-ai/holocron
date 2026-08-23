@@ -76,7 +76,9 @@ function checkQuote(
   path: string | undefined,
   line: number | undefined,
   quote: string | undefined
-): { ok: true; mode: 'exact' | 'lines'; resolved: string } | { ok: false; code: CiteDropCode; resolved: string | null } {
+):
+  | { ok: true; mode: 'exact' | 'lines'; resolved: string }
+  | { ok: false; code: CiteDropCode; resolved: string | null } {
   const { path: resolved, error } = resolver.resolve(path);
   if (error) return { ok: false, code: error, resolved };
   if (!resolved) return { ok: false, code: 'unanchored', resolved: null };
@@ -102,7 +104,10 @@ function checkQuote(
   return { ok: false, code: 'unverified_quote', resolved };
 }
 
-export function validateCitations(manifest: AssimilateManifest, returns: WorkerReturn[]): CiteResult {
+export function validateCitations(
+  manifest: AssimilateManifest,
+  returns: WorkerReturn[]
+): CiteResult {
   const index = new Map(manifest.files.map((f) => [f.path, { lines: f.lines }]));
   const cache = new FileCache(manifest.target.root);
   const resolver = new PathResolver([...index.keys()], manifest.target.root);

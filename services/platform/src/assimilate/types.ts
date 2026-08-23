@@ -102,7 +102,9 @@ export type CiteDropCode =
 export type CiteResult = {
   schema: 'assimilate/validated@1';
   target: AssimilateManifest['target'];
-  kept_findings: Array<WorkerFinding & { path: string; quote_match: 'exact' | 'lines'; _worker: string }>;
+  kept_findings: Array<
+    WorkerFinding & { path: string; quote_match: 'exact' | 'lines'; _worker: string }
+  >;
   verified_paths: string[];
   totals: {
     submitted: number;
