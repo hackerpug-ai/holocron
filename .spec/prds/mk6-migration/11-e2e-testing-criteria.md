@@ -132,11 +132,11 @@ Per-UC criteria. **Type tags:** `[integration-test]` (real service), `[e2e-autom
 ### UC-SVC-04: MCP rehost & public endpoint
 | # | Criterion | AC | Type | Setup | Pass/Fail |
 |---|-----------|----|------|-------|-----------|
-| T-SVC-013 | All 44 tools have manifest-backed observable parity | AC-1 | api-contract | MCP + PG + frozen fixtures | each tool preserves declared success/error/default/order/pagination behavior; 0 Convex calls |
+| T-SVC-013 | All 49 tools have manifest-backed observable parity | AC-1 | api-contract | MCP + PG + frozen fixtures | each tool preserves declared success/error/default/order/pagination behavior; 0 Convex calls |
 | T-SVC-014 | Both MCP transports enforce declared policy | AC-2 | api-contract | stdio + Streamable HTTP mounts | manifest IDs equal registrations; origin/auth/cancellation/no-sampling policy holds; mutation replay is idempotent |
 | T-SVC-015 | Public article and asset capability behavior | AC-3 | integration-test | Hono + PG + blob store | representative HTML matches; linked asset loads only through article capability and revoked/non-public asset returns 404 |
 | T-SVC-016 | Duplicate Zod layer gone | AC-4 | build-gate | repo | 373-line `config/validation.ts` dup removed |
-| T-SVC-021 | MCP compatibility manifest is complete | AC-5 | build-gate | manifest + tool registry | all 44 tools and both transports have frozen success/error fixtures; mutation tool replay contract is present |
+| T-SVC-021 | MCP compatibility manifest is complete | AC-5 | build-gate | manifest + tool registry | all 49 tools and both transports have frozen success/error fixtures; mutation tool replay contract is present |
 | T-SVC-022 | Chat SSE resume and reconciliation contract | AC-3 | integration-test | Hono + PG + Zero | cursor replay and out-of-order injection produce one final durable assistant message |
 
 ### UC-SVC-05: Human gate, steering & fulcrum seams
@@ -209,7 +209,7 @@ Per-UC criteria. **Type tags:** `[integration-test]` (real service), `[e2e-autom
 |---|-----------|----|------|-------|-----------|
 | T-SYNC-008 | New stack validated, Convex untouched | AC-1 | integration-test | both stacks | integration suite green while Convex serves prod |
 | T-SYNC-009 | Durable freeze + catalog reconciliation report | AC-2 | human-gate | export + PG | write fence, cron/queue drain, quiet interval, watermark, last-write audit, ETL, and zero-unexplained-variance reconciliation are green |
-| T-SYNC-010 | Read-only soak from new backend | AC-3 | e2e-automated | flipped stack | app reads + 44 tools + /article + crons pass; app/MCP/upload/job/mission writes visibly return `migration_read_only` |
+| T-SYNC-010 | Read-only soak from new backend | AC-3 | e2e-automated | flipped stack | app reads + 49 tools + /article + crons pass; app/MCP/upload/job/mission writes visibly return `migration_read_only` |
 | T-SYNC-011 | MCP off convex/browser | AC-4 | build-gate | repo | client rewritten; no `convex/browser` import |
 
 ### UC-SYNC-04: Rollback plan

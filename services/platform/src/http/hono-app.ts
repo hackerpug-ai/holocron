@@ -52,6 +52,7 @@ import {
   getMissionStatusFromHttp,
   missionHttpErrorFromUnknown,
 } from './missions.ts';
+import { handleResearchCancel } from './research.ts';
 
 export type HonoAppVariables = {
   scope: Scope;
@@ -258,6 +259,8 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     if (!result) return c.json({ error: 'not_found', message: 'chat run not found' }, 404);
     return c.json(result, 200);
   });
+
+  app.post('/api/research/:id/cancel', (c) => handleResearchCancel(c));
 
   app.get('/api/chat-runs/:id', async (c) => {
     const result = await getChatRun(c.req.param('id'), { ownerScope: c.get('scope') });

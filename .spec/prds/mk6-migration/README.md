@@ -64,7 +64,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 | System Components | 19 |
 | Capability Chains | 7 |
 | Test Criteria | 105 (AC coverage 100%) |
-| Convex surface removed | 246 files · 60 tables · 16 crons · 44 MCP tools · ~105 app hook sites |
+| Convex surface removed | 246 files · 60 tables · 16 crons · 49 MCP tools · ~105 app hook sites |
 
 ## Notes
 

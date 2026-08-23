@@ -1,0 +1,6 @@
+{
+  "representative_example": true,
+  "code": "INVALID_ARGUMENT",
+  "message": "topic is required",
+  "details": {}
+}

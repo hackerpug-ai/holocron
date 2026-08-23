@@ -61,8 +61,6 @@ const TOOL_ID_ALIASES: Record<string, string> = {
   browse_category: 'list_documents',
   knowledge_base_stats: 'list_documents',
   shop_search: 'shop_products',
-  quick_research: 'search_research',
-  deep_research: 'get_research_session',
   answer_question: 'search_research',
   find_recommendations: 'findRecommendations',
   subscribe: 'add_subscription',
@@ -136,6 +134,30 @@ const ENTRIES: RegisteredTool[] = [
     'Search research sessions by topic/query',
     S.searchResearchInputSchema,
     S.searchResearchOutputSchema
+  ),
+  register(
+    'deep_research',
+    'Start asynchronous deep research (depth/breadth/auto). Returns sessionId immediately; poll deep_research_result.',
+    S.deepResearchInputSchema,
+    S.deepResearchOutputSchema
+  ),
+  register(
+    'quick_research',
+    'Start asynchronous quick research. Returns sessionId immediately; poll deep_research_result.',
+    S.quickResearchInputSchema,
+    S.quickResearchOutputSchema
+  ),
+  register(
+    'deep_research_result',
+    'Read-only research session snapshot (status, progress, latest iteration, gate).',
+    S.deepResearchResultInputSchema,
+    S.deepResearchResultOutputSchema
+  ),
+  register(
+    'deep_research_control',
+    'Cancel or steer an in-flight research session (server-authoritative cancel latch).',
+    S.deepResearchControlInputSchema,
+    S.deepResearchControlOutputSchema
   ),
   // Search
   register(
@@ -588,7 +610,7 @@ function walkTs(dir: string): string[] {
   }
   for (const name of entries) {
     const p = join(dir, name);
-    let st;
+    let st: ReturnType<typeof statSync>;
     try {
       st = statSync(p);
     } catch {

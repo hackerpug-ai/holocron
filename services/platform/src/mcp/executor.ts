@@ -13,6 +13,11 @@ import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { ingestDocument } from '../etl/ingest-document.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
+import {
+  cancelResearchSession,
+  kickoffResearch,
+  steerResearchSession,
+} from '../research/kickoff.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
 
 function resolveJinaApiKey(): string | undefined {
@@ -431,7 +436,8 @@ export async function executePostgresMcpTool(
           SELECT id::text AS "_id", id::text AS "sessionId", topic, status
           FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
         `;
-        if (!sessions[0]) return null;
+        // Bare ZodObject output — missing session returns empty object (not null).
+        if (!sessions[0]) return {};
         const iterations = await sql`
           SELECT id::text AS "_id", iteration_number AS "iterationNumber", status,
                  findings_summary AS "findingsSummary", summary, sources, findings
@@ -451,6 +457,301 @@ export async function executePostgresMcpTool(
           ORDER BY "relevanceScore" DESC, created_at DESC LIMIT ${limit}
         `;
         return { sessions: rows, totalResults: rows.length };
+      }
+      case 'deep_research': {
+        return await kickoffResearch({
+          topic: String(input.topic),
+          mode:
+            input.mode === 'auto' || input.mode === 'depth' || input.mode === 'breadth'
+              ? input.mode
+              : 'auto',
+          maxRounds: typeof input.maxRounds === 'number' ? input.maxRounds : undefined,
+          focus: Array.isArray(input.focus) ? input.focus.map(String) : undefined,
+          onBudgetExhausted:
+            input.onBudgetExhausted === 'ask' || input.onBudgetExhausted === 'partial'
+              ? input.onBudgetExhausted
+              : undefined,
+          conversationId:
+            typeof input.conversationId === 'string' ? input.conversationId : undefined,
+          sql,
+        });
+      }
+      case 'quick_research': {
+        return await kickoffResearch({
+          topic: String(input.topic),
+          forceQuick: true,
+          focus: Array.isArray(input.focus) ? input.focus.map(String) : undefined,
+          conversationId:
+            typeof input.conversationId === 'string' ? input.conversationId : undefined,
+          sql,
+        });
+      }
+      case 'deep_research_result': {
+        // Read-only snapshot — mutation fence still runs above; tool is not in
+        // the mutation manifest so soak-fence stays open under read-only.
+        const sessionId = String(input.sessionId);
+        const waitMs = Math.min(Math.max(Number(input.waitMs ?? 0), 0), 60_000);
+        const includeFindings = Boolean(input.includeFindings);
+        if (waitMs > 0) {
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+        const sessions = await sql<
+          {
+            sessionId: string;
+            status: string;
+            phase: string | null;
+            progress: unknown;
+            research_mode: string | null;
+            current_iteration: number | null;
+            max_iterations: number | null;
+            coverage_score: number | null;
+            document_id: string | null;
+            findings: unknown;
+            plan: unknown;
+            started_at: Date | string | null;
+            created_at: Date | string;
+            completed_at: Date | string | null;
+            error_reason: string | null;
+          }[]
+        >`
+          SELECT id::text AS "sessionId", status, phase, progress, research_mode,
+                 current_iteration, max_iterations, coverage_score,
+                 document_id::text AS document_id, findings, plan,
+                 started_at, created_at, completed_at, error_reason
+          FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+        `;
+        const session = sessions[0];
+        if (!session) throw new Error('NOT_FOUND: research session does not exist');
+
+        const modeRaw = (session.research_mode ?? '').toLowerCase();
+        const mode =
+          modeRaw === 'quick' || modeRaw === 'breadth' || modeRaw === 'depth'
+            ? modeRaw
+            : session.research_mode === 'simple'
+              ? 'quick'
+              : 'depth';
+
+        const terminal = ['completed', 'failed', 'cancelled'].includes(session.status);
+        const startedAtMs = session.started_at
+          ? new Date(session.started_at).getTime()
+          : new Date(session.created_at).getTime();
+        const endMs = session.completed_at ? new Date(session.completed_at).getTime() : Date.now();
+        const elapsedMs = Math.max(0, endMs - startedAtMs);
+
+        const progressObj =
+          session.progress &&
+          typeof session.progress === 'object' &&
+          !Array.isArray(session.progress)
+            ? (session.progress as Record<string, unknown>)
+            : {};
+        const round = Number(progressObj.round ?? session.current_iteration ?? 0);
+        const maxRounds = Number(progressObj.maxRounds ?? session.max_iterations ?? 1);
+        const progress = {
+          round: Number.isFinite(round) ? round : 0,
+          maxRounds: Number.isFinite(maxRounds) ? maxRounds : 1,
+          subQuestionsTotal: Number(progressObj.subQuestionsTotal ?? 0),
+          subQuestionsClosed: Number(progressObj.subQuestionsClosed ?? 0),
+          findingsVerified: Number(progressObj.findingsVerified ?? 0),
+          elapsedMs,
+        };
+
+        const iterations = await sql<
+          {
+            n: number;
+            summary: string | null;
+            feedback: string | null;
+            refined_queries: unknown;
+            sources: unknown;
+          }[]
+        >`
+          SELECT iteration_number AS n, summary, feedback, refined_queries, sources
+          FROM research_iterations
+          WHERE session_id = ${sessionId}::uuid
+          ORDER BY iteration_number DESC
+          LIMIT 1
+        `;
+        const latest = iterations[0];
+        const lastIteration = latest
+          ? {
+              n: Number(latest.n),
+              summary: latest.summary ?? '',
+              feedback: latest.feedback ?? '',
+              refinedQueries: Array.isArray(latest.refined_queries)
+                ? latest.refined_queries.map(String)
+                : [],
+              sources: Array.isArray(latest.sources)
+                ? (latest.sources as Array<Record<string, unknown>>)
+                : [],
+            }
+          : undefined;
+
+        const plan =
+          session.plan && typeof session.plan === 'object' && !Array.isArray(session.plan)
+            ? (session.plan as Record<string, unknown>)
+            : {};
+        const gateFromPlan =
+          plan.gate && typeof plan.gate === 'object' && !Array.isArray(plan.gate)
+            ? (plan.gate as Record<string, unknown>)
+            : null;
+        const gate = gateFromPlan
+          ? {
+              admitted: Boolean(gateFromPlan.admitted),
+              missingComponents: Array.isArray(gateFromPlan.missingComponents)
+                ? gateFromPlan.missingComponents.map(String)
+                : [],
+              independentSourceCount: Number(gateFromPlan.independentSourceCount ?? 0),
+              reasonCode: String(
+                gateFromPlan.reasonCode ?? (gateFromPlan.admitted ? 'admitted' : 'pending_evidence')
+              ),
+            }
+          : {
+              admitted: terminal && session.status === 'completed',
+              missingComponents: [] as string[],
+              independentSourceCount: Number(progress.findingsVerified ?? 0),
+              reasonCode: terminal
+                ? session.status === 'completed'
+                  ? 'kickoff_complete'
+                  : session.status === 'cancelled'
+                    ? 'cancelled'
+                    : 'failed'
+                : 'in_progress',
+            };
+
+        return {
+          sessionId: session.sessionId,
+          status: session.status,
+          ...(session.phase ? { phase: session.phase } : {}),
+          terminal,
+          mode,
+          progress,
+          ...(typeof latest?.summary === 'string' && latest.summary
+            ? { summary: latest.summary }
+            : {}),
+          ...(includeFindings && session.findings != null ? { findings: session.findings } : {}),
+          ...(session.document_id ? { documentId: session.document_id } : {}),
+          ...(session.coverage_score != null
+            ? { coverageScore: Number(session.coverage_score) }
+            : {}),
+          ...(session.status === 'failed' && session.error_reason
+            ? { stopReason: session.error_reason, partial: true }
+            : {}),
+          ...(session.status === 'cancelled' ? { stopReason: 'cancelled', partial: true } : {}),
+          elapsedMs,
+          nextPollAfterMs: terminal ? 0 : mode === 'quick' ? 500 : 1_500,
+          ...(lastIteration ? { lastIteration } : {}),
+          gate,
+        };
+      }
+      case 'deep_research_control': {
+        const sessionId = String(input.sessionId);
+        const action = input.action === 'steer' ? 'steer' : 'cancel';
+        const controlRequestKey =
+          typeof input.controlRequestKey === 'string' && input.controlRequestKey.trim()
+            ? input.controlRequestKey.trim()
+            : createHash('sha256')
+                .update(
+                  JSON.stringify({
+                    sessionId,
+                    action,
+                    note: input.note ?? null,
+                    addSubQuestions: input.addSubQuestions ?? null,
+                    dropSubQuestions: input.dropSubQuestions ?? null,
+                    stop: input.stop ?? null,
+                    extendBudget: input.extendBudget ?? null,
+                  })
+                )
+                .digest('hex')
+                .slice(0, 32);
+
+        if (action === 'cancel') {
+          // Replay by controlRequestKey stored on plan.
+          const existing = await sql<{ status: string; plan: unknown }[]>`
+            SELECT status, plan FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+          `;
+          if (!existing[0]) throw new Error('NOT_FOUND: research session does not exist');
+          const plan =
+            existing[0].plan &&
+            typeof existing[0].plan === 'object' &&
+            !Array.isArray(existing[0].plan)
+              ? (existing[0].plan as Record<string, unknown>)
+              : {};
+          const controls = Array.isArray(plan.controlRequests)
+            ? (plan.controlRequests as Array<Record<string, unknown>>)
+            : [];
+          const prior = controls.find(
+            (c) => c.controlRequestKey === controlRequestKey && c.action === 'cancel'
+          );
+          if (prior) {
+            return {
+              sessionId,
+              action: 'cancel' as const,
+              accepted: true,
+              status: existing[0].status,
+              controlRequestKey,
+              replay: true,
+            };
+          }
+
+          const cancelled = await cancelResearchSession(sessionId, { sql });
+          if (!cancelled.ok) {
+            throw new Error(`INVALID_STATE: ${cancelled.error}`);
+          }
+          const nextControls = [
+            ...controls,
+            {
+              action: 'cancel',
+              controlRequestKey,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+          await sql`
+            UPDATE research_sessions
+            SET plan = COALESCE(plan, '{}'::jsonb) || ${sql.json(
+              toSqlJsonValue({ controlRequests: nextControls })
+            )},
+                updated_at = now()
+            WHERE id = ${sessionId}::uuid
+          `;
+          return {
+            sessionId,
+            action: 'cancel' as const,
+            accepted: true,
+            status: cancelled.status,
+            controlRequestKey,
+            replay: false,
+          };
+        }
+
+        const steered = await steerResearchSession({
+          sessionId,
+          note: typeof input.note === 'string' ? input.note : undefined,
+          addSubQuestions: Array.isArray(input.addSubQuestions)
+            ? input.addSubQuestions.map(String)
+            : undefined,
+          dropSubQuestions: Array.isArray(input.dropSubQuestions)
+            ? input.dropSubQuestions.map(String)
+            : undefined,
+          stop: typeof input.stop === 'boolean' ? input.stop : undefined,
+          extendBudget: typeof input.extendBudget === 'boolean' ? input.extendBudget : undefined,
+          controlRequestKey,
+          sql,
+        });
+        if (!steered.ok) {
+          throw new Error(
+            steered.error.startsWith('INVALID_STATE')
+              ? steered.error
+              : `INVALID_STATE: ${steered.error}`
+          );
+        }
+        return {
+          sessionId: steered.sessionId,
+          action: 'steer' as const,
+          accepted: steered.accepted,
+          status: steered.status,
+          controlRequestKey: steered.controlRequestKey,
+          replay: steered.replay,
+          appliesAtRound: steered.appliesAtRound,
+        };
       }
       case 'shop_products': {
         const query = String(input.query);

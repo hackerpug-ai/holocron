@@ -8,7 +8,7 @@ prd_version: 2.0.0
 
 ## Product description
 
-Holocron is a personal research knowledge system (RN/Expo app + MCP gateway for agents + a backend). Today the backend is **Convex Cloud**: 60 tables, ~233 function modules, 16 crons, a single public `/article/` endpoint, and a 44-tool MCP server that thin-proxies Convex. All reasoning is cloud Anthropic; all embeddings are cloud Cohere.
+Holocron is a personal research knowledge system (RN/Expo app + MCP gateway for agents + a backend). Today the backend is **Convex Cloud**: 60 tables, ~233 function modules, 16 crons, a single public `/article/` endpoint, and a 49-tool MCP server that thin-proxies Convex. All reasoning is cloud Anthropic; all embeddings are cloud Cohere.
 
 This initiative **migrates holocron off Convex entirely** — both the database and the services — onto a **Mastra (Bun) + Postgres** platform that runs on the owner's Tailscale mini. The RN app resyncs through **Zero (Rocicorp)**; all reasoning moves to the **local inference fleet** (LiteLLM at `http://laptop:4545/v1`), with the Claude API demoted to a budgeted escape hatch. It is a **platform migration, not a feature release** — the app's screens and the MCP tool surface stay behaviorally identical; what changes underneath is the entire runtime.
 

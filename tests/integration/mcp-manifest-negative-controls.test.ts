@@ -120,7 +120,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
       ]);
       const out = `${r.stdout}\n${r.stderr}`;
       expect(r.status, out).not.toBe(0);
-      expect(out).not.toMatch(/44\/44/);
+      expect(out).not.toMatch(/49\/49/);
 
       const report = JSON.parse(r.stdout) as {
         ok: boolean;
@@ -130,7 +130,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
       };
       expect(report.ok).toBe(false);
       expect(report.tools_covered).toBe(43);
-      expect(report.tools_total).toBe(44);
+      expect(report.tools_total).toBe(49);
       expect(report.issues.length).toBeGreaterThan(0);
       expect(
         report.issues.some(
@@ -171,7 +171,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
       };
       expect(report.ok).toBe(false);
       expect(report.tools_covered).toBe(43);
-      expect(report.tools_covered).not.toBe(44);
+      expect(report.tools_covered).not.toBe(49);
       expect(report.issues.length).toBeGreaterThan(0);
       expect(
         report.issues.some(
@@ -209,8 +209,8 @@ describe('MCP manifest negative controls (RED teeth)', () => {
         issues: Array<{ tool_id?: string; kind: string }>;
       };
       expect(report.ok).toBe(true);
-      expect(report.tools_covered).toBe(44);
-      expect(report.tools_total).toBe(44);
+      expect(report.tools_covered).toBe(49);
+      expect(report.tools_total).toBe(49);
       expect(report.issues).toHaveLength(0);
 
       const verifySrc = readFileSync(
@@ -237,7 +237,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
     try {
       cpSync(FIXTURES_DIR, tmpDir, { recursive: true });
       const successFiles = readdirSync(tmpDir).filter((f: string) => f.endsWith('_success.json'));
-      expect(successFiles.length, 'pre-deletion temp copy must have 44 success fixtures').toBe(44);
+      expect(successFiles.length, 'pre-deletion temp copy must have 49 success fixtures').toBe(49);
       const successFile = resolve(tmpDir, 'check_subscriptions_success.json');
       rmSync(successFile, { force: true });
       expect(existsSync(successFile), 'success fixture must be deleted for test').toBe(false);
@@ -261,7 +261,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
       };
       expect(report.ok).toBe(false);
       expect(report.tools_covered).toBe(43);
-      expect(report.tools_covered).not.toBe(44);
+      expect(report.tools_covered).not.toBe(49);
       expect(report.issues.length).toBeGreaterThan(0);
       expect(
         report.issues.some(

@@ -122,6 +122,44 @@ const searchResearchTool = createTool({
   ),
 });
 
+const deepResearchTool = createTool({
+  id: "deep_research",
+  description:
+    "Start asynchronous deep research (depth/breadth/auto). Returns sessionId immediately; poll deep_research_result.",
+  inputSchema: AnyObject,
+  execute: wrapExecute("deep_research", (input) =>
+    platformClient.callTool("deep_research", input as Record<string, unknown>)
+  ),
+});
+
+const quickResearchTool = createTool({
+  id: "quick_research",
+  description:
+    "Start asynchronous quick research. Returns sessionId immediately; poll deep_research_result.",
+  inputSchema: AnyObject,
+  execute: wrapExecute("quick_research", (input) =>
+    platformClient.callTool("quick_research", input as Record<string, unknown>)
+  ),
+});
+
+const deepResearchResultTool = createTool({
+  id: "deep_research_result",
+  description: "Read-only research session snapshot (status, progress, latest iteration, gate).",
+  inputSchema: AnyObject,
+  execute: wrapExecute("deep_research_result", (input) =>
+    platformClient.callTool("deep_research_result", input as Record<string, unknown>)
+  ),
+});
+
+const deepResearchControlTool = createTool({
+  id: "deep_research_control",
+  description: "Cancel or steer an in-flight research session (server-authoritative cancel latch).",
+  inputSchema: AnyObject,
+  execute: wrapExecute("deep_research_control", (input) =>
+    platformClient.callTool("deep_research_control", input as Record<string, unknown>)
+  ),
+});
+
 const searchFtsTool = createTool({
   id: "search_fts",
   description: "Full-text keyword search",
@@ -568,6 +606,10 @@ const server = new MCPServer({
   tools: {
     get_research_session: getResearchSessionTool,
     search_research: searchResearchTool,
+    deep_research: deepResearchTool,
+    quick_research: quickResearchTool,
+    deep_research_result: deepResearchResultTool,
+    deep_research_control: deepResearchControlTool,
     search_fts: searchFtsTool,
     search_vector: searchVectorTool,
     store_document: storeDocumentTool,

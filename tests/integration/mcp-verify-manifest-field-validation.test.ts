@@ -90,6 +90,6 @@ describe('mcp:verify-manifest field validation', () => {
     const r = runHolo(['mcp:verify-manifest', '--manifest', MANIFEST]);
     const out = `${r.stdout}\n${r.stderr}`;
     expect(r.status, out).toBe(0);
-    expect(out).toMatch(/44\/44/);
+    expect(out).toMatch(/49\/49/);
   });
 });

@@ -1,5 +1,5 @@
 # MCP Compatibility Manifest — Holocron Postgres MCP Gateway
-# Frozen dual-transport contract for the 44 registered tools (stdio + streamable-http).
+# Frozen dual-transport contract for the 49 registered tools (stdio + streamable-http).
 # Tool IDs / schemas track services/platform/src/tools/registry.ts and executePostgresMcpTool.
 # Success/error/replay fixtures resolve by filename convention only:
 #   {toolId}_{success|error|replay}.json under services/platform/tests/fixtures/mcp-manifest/
@@ -48,8 +48,7 @@ tools:
       required: [sessionId]
     output_schema:
       type: object
-      nullable: true
-      description: "ResearchSession or null if not found"
+      description: "ResearchSession fields; empty object if not found (bare ZodObject — no top-level nullable)"
       properties:
         _id: { type: string }
         sessionId: { type: string }
@@ -102,6 +101,163 @@ tools:
     side_effects: null
     idempotency: null
     replay: null
+    transports: [stdio, streamable-http]
+
+  - id: deep_research
+    input_schema:
+      type: object
+      properties:
+        topic: { type: string, minLength: 1 }
+        mode: { type: string, enum: [auto, depth, breadth] }
+        maxRounds: { type: integer, minimum: 1 }
+        focus: { type: array, items: { type: string } }
+        onBudgetExhausted: { type: string, enum: [partial, ask] }
+        conversationId: { type: string, format: uuid }
+      required: [topic]
+    output_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string }
+        mode: { type: string, enum: [quick, depth, breadth] }
+        existing: { type: boolean }
+        pollAfterMs: { type: integer }
+        estimatedMs: { type: integer }
+    defaults:
+      mode: auto
+      maxRounds: null
+      focus: null
+      onBudgetExhausted: partial
+      conversationId: null
+    errors:
+      - code: INVALID_ARGUMENT
+        description: "topic is required"
+      - code: INTERNAL_SERVER_ERROR
+        description: "research kickoff failed"
+    pagination: null
+    side_effects: "CREATES research_sessions row and starts async research worker via kickoffResearch"
+    idempotency: "Idempotent by topic+mode+conversationId digest; reused non-terminal session returns existing:true"
+    replay:
+      idempotency_key: [topic, mode, conversationId]
+      stored_result: sessionId
+    transports: [stdio, streamable-http]
+
+  - id: quick_research
+    input_schema:
+      type: object
+      properties:
+        topic: { type: string, minLength: 1 }
+        focus: { type: array, items: { type: string } }
+        conversationId: { type: string, format: uuid }
+      required: [topic]
+    output_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string }
+        mode: { type: string, enum: [quick, depth, breadth] }
+        existing: { type: boolean }
+        pollAfterMs: { type: integer }
+        estimatedMs: { type: integer }
+    defaults:
+      focus: null
+      conversationId: null
+    errors:
+      - code: INVALID_ARGUMENT
+        description: "topic is required"
+      - code: INTERNAL_SERVER_ERROR
+        description: "research kickoff failed"
+    pagination: null
+    side_effects: "CREATES research_sessions row (system=simple) and starts async quick research worker"
+    idempotency: "Idempotent by topic+quick+conversationId digest; reused non-terminal session returns existing:true"
+    replay:
+      idempotency_key: [topic, conversationId]
+      stored_result: sessionId
+    transports: [stdio, streamable-http]
+
+  - id: deep_research_result
+    input_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        waitMs: { type: integer, minimum: 0, maximum: 60000 }
+        includeFindings: { type: boolean }
+      required: [sessionId]
+    output_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string }
+        phase: { type: string }
+        terminal: { type: boolean }
+        mode: { type: string, enum: [quick, depth, breadth] }
+        progress: { type: object }
+        summary: { type: string }
+        findings: {}
+        gaps: {}
+        documentId: { type: string, format: uuid }
+        coverageScore: { type: number }
+        partial: { type: boolean }
+        stopReason: { type: string }
+        elapsedMs: { type: integer }
+        nextPollAfterMs: { type: integer }
+        lastIteration: { type: object }
+        gate: { type: object }
+    defaults:
+      waitMs: 0
+      includeFindings: false
+    errors:
+      - code: NOT_FOUND
+        description: "research session does not exist"
+      - code: INTERNAL_SERVER_ERROR
+        description: "Postgres query failed"
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: [stdio, streamable-http]
+
+  - id: deep_research_control
+    input_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        action: { type: string, enum: [cancel, steer] }
+        note: { type: string }
+        addSubQuestions: { type: array, items: { type: string } }
+        dropSubQuestions: { type: array, items: { type: string } }
+        stop: { type: boolean }
+        extendBudget: { type: boolean }
+        controlRequestKey: { type: string }
+      required: [sessionId, action]
+    output_schema:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        action: { type: string, enum: [cancel, steer] }
+        accepted: { type: boolean }
+        status: { type: string }
+        controlRequestKey: { type: string }
+        replay: { type: boolean }
+        appliesAtRound: { type: integer }
+    defaults:
+      note: null
+      addSubQuestions: null
+      dropSubQuestions: null
+      stop: null
+      extendBudget: null
+      controlRequestKey: null
+    errors:
+      - code: NOT_FOUND
+        description: "research session does not exist"
+      - code: INVALID_STATE
+        description: "session is not cancellable/steerable"
+    pagination: null
+    side_effects: "UPDATES research_sessions status/cancel_requested_at or plan.controlRequests via deep_research_control"
+    idempotency: "Idempotent by controlRequestKey (or derived hash of control payload); cancel/steer replays return replay:true"
+    replay:
+      idempotency_key: [sessionId, action, controlRequestKey]
+      stored_result: controlRequestKey
     transports: [stdio, streamable-http]
 
   # ── Search ────────────────────────────────────────────────────

@@ -47,7 +47,7 @@ describe('mcp:verify-manifest completeness gate', () => {
     const r = runHolo(['mcp:verify-manifest', '--manifest', MANIFEST]);
     const out = `${r.stdout}\n${r.stderr}`;
     expect(r.status, out).toBe(0);
-    expect(out).toMatch(/44\/44/);
+    expect(out).toMatch(/49\/49/);
   });
 
   it('protocol pin: verify-manifest --protocol reports 2025-11-25', () => {

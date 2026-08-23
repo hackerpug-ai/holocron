@@ -1,0 +1,20 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["topic", "conversationId"],
+  "stored_result": "sessionId",
+  "first_call_result": {
+    "sessionId": "22222222-2222-4222-8222-222222222222",
+    "status": "queued",
+    "mode": "quick",
+    "pollAfterMs": 500,
+    "estimatedMs": 8000
+  },
+  "second_call_result": {
+    "sessionId": "22222222-2222-4222-8222-222222222222",
+    "status": "queued",
+    "mode": "quick",
+    "existing": true,
+    "pollAfterMs": 500,
+    "estimatedMs": 8000
+  }
+}

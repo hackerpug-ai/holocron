@@ -22,7 +22,7 @@ CI compares the legacy import/call-site inventory with this artifact and rejects
 
 ## MCP compatibility manifest
 
-`14-mcp-compatibility-manifest.yaml` pins MCP protocol **2025-11-25** and declares support for both existing stdio and Streamable HTTP entries. It records the stateless/no-server-sampling capability policy, authentication/cancellation policy, and all 44 tools. Per tool it records input/output JSON Schemas, defaults, error code/data, ordering/pagination, side effects, idempotency/replay, supported transports, and frozen success/error fixtures.
+`14-mcp-compatibility-manifest.yaml` pins MCP protocol **2025-11-25** and declares support for both existing stdio and Streamable HTTP entries. It records the stateless/no-server-sampling capability policy, authentication/cancellation policy, and all 49 tools. Per tool it records input/output JSON Schemas, defaults, error code/data, ordering/pagination, side effects, idempotency/replay, supported transports, and frozen success/error fixtures.
 
 Generated contract tests compare registered tool IDs and behavior to the manifest on both transports. The Streamable HTTP implementation follows the pinned protocol, including origin validation and the documented API-key policy; stdio receives credentials from its environment.
 
