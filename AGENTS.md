@@ -125,9 +125,9 @@ Runtime policy:
 ```yaml
 kb-orchestrate:
   stage-models:
-    run: grok:grok-composer-2.5-fast@medium
+    run: opencode:deepseek/deepseek-v4-pro
     plan: grok:grok-4.5@high
-    review: codex:gpt-5.6-terra@high
+    review: grok:grok-4.6@high
     qa: codex:gpt-5.6-terra@high
 ```
 <!-- kb-skills-config end -->
