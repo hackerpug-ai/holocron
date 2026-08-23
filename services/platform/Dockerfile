@@ -59,16 +59,23 @@ RUN apt-get update \
   && ln -sf /lib/ld-musl-aarch64.so.1 /lib/libc.musl-aarch64.so.1 \
   && ln -sf /usr/lib/libstdc++.so.6.0.34 /usr/lib/libstdc++.so.6 \
   && chmod 0755 /usr/local/bin/restic /usr/local/bin/pgbackrest /usr/local/bin/opencode \
-  && mkdir -p /home/bun/.config/opencode \
-  && chown -R bun:bun /home/bun/.config \
+  && mkdir -p /home/bun/.config/opencode /home/bun/.local/share/opencode /home/bun/.local/state /home/bun/.cache \
+  && rm -rf /tmp/opencode \
+  && chown -R bun:bun /home/bun \
   && /usr/local/bin/restic version \
-  && /usr/local/bin/pgbackrest version \
-  && /usr/local/bin/opencode --version
+  && /usr/local/bin/pgbackrest version
 COPY --chown=bun:bun services/platform/deploy/docker/opencode.json /home/bun/.config/opencode/opencode.json
 
 # The upstream Bun image supplies the unprivileged `bun` user. Do not run a
 # production server or worker as root.
 USER bun
+ENV HOME=/home/bun \
+    XDG_CONFIG_HOME=/home/bun/.config \
+    XDG_DATA_HOME=/home/bun/.local/share \
+    XDG_STATE_HOME=/home/bun/.local/state \
+    XDG_CACHE_HOME=/home/bun/.cache
+# Prove OpenCode as the runtime user so it does not root-own /tmp/opencode.
+RUN /usr/local/bin/opencode --version
 
 EXPOSE 4111
 

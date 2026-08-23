@@ -59,15 +59,39 @@ function permissionHandler() {
   };
 }
 
+/** Mastra's postgres DATABASE_URL must not leak into OpenCode's own sqlite. */
+export function acpSpawn(): { command: string; args: string[] } {
+  return {
+    command: '/bin/sh',
+    args: [
+      '-ec',
+      'unset DATABASE_URL PGPASSWORD MASTRA_API_KEY FLEET_KEY; exec "$1" acp',
+      'opencode-acp',
+      opencodeBin(),
+    ],
+  };
+}
+
 async function runLeaf(job: CrawlerJob, prompt: string): Promise<string> {
   assertAcpReady();
+  const spawn = acpSpawn();
   const agent = new AcpAgent({
     id: `assim-${job.id}`,
     name: `assimilate ${job.id}`,
     description: 'Holocron assimilate ACP leaf',
-    command: opencodeBin(),
-    args: ['acp'],
+    command: spawn.command,
+    args: spawn.args,
     cwd: job.root,
+    env: {
+      HOME: process.env.HOME || '/home/bun',
+      XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME || '/home/bun/.config',
+      XDG_DATA_HOME: process.env.XDG_DATA_HOME || '/home/bun/.local/share',
+      XDG_STATE_HOME: process.env.XDG_STATE_HOME || '/home/bun/.local/state',
+      XDG_CACHE_HOME: process.env.XDG_CACHE_HOME || '/home/bun/.cache',
+      OPENCODE_CONFIG:
+        process.env.OPENCODE_CONFIG || '/home/bun/.config/opencode/opencode.json',
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? '',
+    },
     model: ASSIMILATE_ACP.model,
     persistSession: false,
     onPermissionRequest: permissionHandler() as never,
