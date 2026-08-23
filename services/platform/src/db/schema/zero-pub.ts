@@ -80,6 +80,10 @@ export const ZERO_PUB_COLUMN_LIST_TABLES = {
     'refined_queries',
     'confidence_stats',
     'created_at',
+    'updated_at',
+    'branch_id',
+    'duration_ms',
+    'estimated_cost_usd',
   ],
   research_findings: [
     'id',
@@ -197,6 +201,8 @@ export const ZERO_PUB_EXCLUDED_TABLES = [
   'user_preferences',
   'feed_settings',
   'analysis_evidence',
+  // research pipeline server-internal audit (not reactive UI)
+  'research_web_calls',
 ] as const;
 
 export const ZERO_PUB_NAME = 'zero_pub' as const;

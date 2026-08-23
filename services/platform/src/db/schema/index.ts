@@ -68,10 +68,11 @@ export const DOMAIN_TABLE_NAMES = [
   'document_assets',
   'imports',
   'citations',
-  // research (3)
+  // research trio (3) + server-internal web-call audit (not a 4th trio member)
   'research_sessions',
   'research_iterations',
   'research_findings',
+  'research_web_calls',
   // analysis (3)
   'analysis_sessions',
   'analysis_items',

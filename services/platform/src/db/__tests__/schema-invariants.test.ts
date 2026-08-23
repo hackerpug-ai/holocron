@@ -43,4 +43,12 @@ describe('schema constant invariants (schema-5)', () => {
       expect((ZERO_PUB_TABLE_NAMES as readonly string[]).includes(excluded)).toBe(false);
     }
   });
+
+  it('research_web_calls is domain-catalogued but outside RESEARCH_TRIO and zero_pub', () => {
+    expect(DOMAIN_TABLE_NAMES).toContain('research_web_calls');
+    expect(RESEARCH_TRIO).toHaveLength(3);
+    expect((RESEARCH_TRIO as readonly string[]).includes('research_web_calls')).toBe(false);
+    expect((ZERO_PUB_TABLE_NAMES as readonly string[]).includes('research_web_calls')).toBe(false);
+    expect(ZERO_PUB_EXCLUDED_TABLES).toContain('research_web_calls');
+  });
 });

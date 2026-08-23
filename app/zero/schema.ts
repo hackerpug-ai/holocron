@@ -123,6 +123,12 @@ const researchSessions = table('research_sessions')
     input_type: string().optional(),
     refined_topic: string().optional(),
     status: string(),
+    phase: string().optional(),
+    progress: json().optional(),
+    idempotency_key: string().optional(),
+    started_at: number().optional(),
+    cancel_requested_at: number().optional(),
+    estimated_cost_usd: number().optional(),
     max_iterations: number().optional(),
     current_iteration: number().optional(),
     coverage_score: number().optional(),
@@ -163,6 +169,10 @@ const researchIterations = table('research_iterations')
     refined_queries: json().optional(),
     confidence_stats: json().optional(),
     created_at: number(),
+    updated_at: number().optional(),
+    branch_id: string().optional(),
+    duration_ms: number().optional(),
+    estimated_cost_usd: number().optional(),
   })
   .primaryKey('id');
 

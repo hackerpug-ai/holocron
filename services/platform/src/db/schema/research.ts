@@ -1,11 +1,21 @@
 /**
  * research group — MERGE 5→3 via `system` discriminator (simple | deep).
- * Targets only: research_sessions, research_iterations, research_findings.
+ * Trio targets: research_sessions, research_iterations, research_findings.
+ * Extra server-internal: research_web_calls (NOT a 4th trio member / shell).
  * NEVER create deep_research_* shell tables.
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   hnswEmbeddingIndex,
@@ -22,6 +32,16 @@ import {
 } from '../columns';
 import { lifecycleStatusValues, researchSystemValues, sqlInList } from '../enums';
 
+/** Pipeline phase values for research_sessions.phase (distinct from status). */
+export const researchPhaseValues = [
+  'planning',
+  'searching',
+  'analyzing',
+  'synthesizing',
+  'reviewing',
+  'publishing',
+] as const;
+
 export const researchSessions = pgTable(
   'research_sessions',
   {
@@ -36,6 +56,13 @@ export const researchSessions = pgTable(
     inputType: text('input_type'),
     refinedTopic: text('refined_topic'),
     status: text('status').notNull().default('pending'),
+    /** Pipeline phase — nullable until a run starts; never reuse as status. */
+    phase: text('phase'),
+    progress: typedJsonb('progress'),
+    idempotencyKey: text('idempotency_key'),
+    startedAt: timestamptz('started_at'),
+    cancelRequestedAt: timestamptz('cancel_requested_at'),
+    estimatedCostUsd: doublePrecision('estimated_cost_usd'),
     maxIterations: integer('max_iterations'),
     currentIteration: integer('current_iteration'),
     coverageScore: doublePrecision('coverage_score'),
@@ -56,6 +83,9 @@ export const researchSessions = pgTable(
   },
   (t) => [
     legacyConvexIdIndex('research_sessions', t.legacyConvexId),
+    uniqueIndex('research_sessions_idempotency_key_uidx')
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} IS NOT NULL`),
     check(
       'research_sessions_system_check',
       sql`system IN (${sql.raw(sqlInList(researchSystemValues))})`
@@ -63,6 +93,10 @@ export const researchSessions = pgTable(
     check(
       'research_sessions_status_check',
       sql`status IN (${sql.raw(sqlInList(lifecycleStatusValues))})`
+    ),
+    check(
+      'research_sessions_phase_check',
+      sql`phase IS NULL OR phase IN (${sql.raw(sqlInList(researchPhaseValues))})`
     ),
   ]
 );
@@ -89,11 +123,16 @@ export const researchIterations = pgTable(
     confidenceStats: typedJsonb('confidence_stats'),
     embedding: vector('embedding', { dimensions: 1024 }),
     createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
+    branchId: text('branch_id'),
+    durationMs: integer('duration_ms'),
+    estimatedCostUsd: doublePrecision('estimated_cost_usd'),
   },
   (t) => [
     legacyConvexIdIndex('research_iterations', t.legacyConvexId),
     hnswEmbeddingIndex('research_iterations_embedding_hnsw', t.embedding),
     index('research_iterations_session_id_idx').on(t.sessionId),
+    uniqueIndex('research_iterations_session_iteration_uidx').on(t.sessionId, t.iterationNumber),
     check(
       'research_iterations_system_check',
       sql`system IN (${sql.raw(sqlInList(researchSystemValues))})`
@@ -138,6 +177,41 @@ export const researchFindings = pgTable(
     check(
       'research_findings_system_check',
       sql`system IN (${sql.raw(sqlInList(researchSystemValues))})`
+    ),
+  ]
+);
+
+/** Server-internal web-call audit log — NOT in zero_pub / RESEARCH_TRIO. */
+export const researchWebCalls = pgTable(
+  'research_web_calls',
+  {
+    id: idColumn(),
+    sessionId: uuid('session_id'),
+    iterationId: uuid('iteration_id'),
+    branchId: text('branch_id'),
+    provider: text('provider'),
+    callKind: text('call_kind'),
+    query: text('query'),
+    url: text('url'),
+    httpStatus: integer('http_status'),
+    resultCount: integer('result_count'),
+    bytes: integer('bytes'),
+    wallMs: integer('wall_ms'),
+    estimatedCostUsd: doublePrecision('estimated_cost_usd'),
+    sourceId: text('source_id'),
+    errorCode: text('error_code'),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [
+    index('research_web_calls_session_id_idx').on(t.sessionId),
+    index('research_web_calls_url_idx').on(t.url),
+    check(
+      'research_web_calls_provider_check',
+      sql`${t.provider} IS NULL OR ${t.provider} IN ('jina', 'exa')`
+    ),
+    check(
+      'research_web_calls_call_kind_check',
+      sql`${t.callKind} IS NULL OR ${t.callKind} IN ('search', 'fetch', 'read')`
     ),
   ]
 );
