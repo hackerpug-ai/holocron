@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acpSpawn, assertAcpReady } from './acp-dispatch.ts';
+import { acpHomeForJob, acpSpawn, assertAcpReady } from './acp-dispatch.ts';
 import { AssimilateError } from './errors.ts';
 
 describe('assertAcpReady', () => {
@@ -39,5 +39,20 @@ describe('acpSpawn', () => {
       if (prevBin === undefined) delete process.env.OPENCODE_BIN;
       else process.env.OPENCODE_BIN = prevBin;
     }
+  });
+});
+
+describe('acpHomeForJob', () => {
+  it('isolates each leaf under the run returns directory', () => {
+    expect(
+      acpHomeForJob({
+        kind: 'shard',
+        id: 'S01',
+        key: 'src',
+        files: [],
+        root: '/tmp/repo',
+        returnsDir: '/tmp/assim-run/returns',
+      })
+    ).toBe('/tmp/assim-run/acp-home/S01');
   });
 });

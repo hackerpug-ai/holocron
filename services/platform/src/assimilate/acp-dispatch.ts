@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, readFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AcpAgent } from '@mastra/acp';
 import { ASSIMILATE_ACP } from './acp-pin.ts';
@@ -72,9 +72,18 @@ export function acpSpawn(): { command: string; args: string[] } {
   };
 }
 
+/** Per-leaf XDG so concurrent OpenCode processes do not lock one sqlite file. */
+export function acpHomeForJob(job: CrawlerJob): string {
+  return join(job.returnsDir, '..', 'acp-home', job.id);
+}
+
 async function runLeaf(job: CrawlerJob, prompt: string): Promise<string> {
   assertAcpReady();
   const spawn = acpSpawn();
+  const home = acpHomeForJob(job);
+  mkdirSync(join(home, '.local', 'share'), { recursive: true });
+  mkdirSync(join(home, '.local', 'state'), { recursive: true });
+  mkdirSync(join(home, '.cache'), { recursive: true });
   const agent = new AcpAgent({
     id: `assim-${job.id}`,
     name: `assimilate ${job.id}`,
@@ -83,13 +92,12 @@ async function runLeaf(job: CrawlerJob, prompt: string): Promise<string> {
     args: spawn.args,
     cwd: job.root,
     env: {
-      HOME: process.env.HOME || '/home/bun',
+      HOME: home,
       XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME || '/home/bun/.config',
-      XDG_DATA_HOME: process.env.XDG_DATA_HOME || '/home/bun/.local/share',
-      XDG_STATE_HOME: process.env.XDG_STATE_HOME || '/home/bun/.local/state',
-      XDG_CACHE_HOME: process.env.XDG_CACHE_HOME || '/home/bun/.cache',
-      OPENCODE_CONFIG:
-        process.env.OPENCODE_CONFIG || '/home/bun/.config/opencode/opencode.json',
+      XDG_DATA_HOME: join(home, '.local', 'share'),
+      XDG_STATE_HOME: join(home, '.local', 'state'),
+      XDG_CACHE_HOME: join(home, '.cache'),
+      OPENCODE_CONFIG: process.env.OPENCODE_CONFIG || '/home/bun/.config/opencode/opencode.json',
       DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? '',
     },
     model: ASSIMILATE_ACP.model,
