@@ -115,13 +115,11 @@ export async function advanceResearchSessionIteration(
 
     const nextIteration = previousIteration + 1;
 
+    // Status transitions belong solely in session-writer.updateResearchSessionStatus
+    // (terminal latch). This writer only advances current_iteration.
     const updated = await sql<SessionRow[]>`
       UPDATE research_sessions
       SET current_iteration = ${nextIteration},
-          status = CASE
-            WHEN status IN ('pending', 'running') THEN 'running'
-            ELSE status
-          END,
           updated_at = now()
       WHERE id = ${sessionId}::uuid
         AND COALESCE(current_iteration, 0) = ${previousIteration}
