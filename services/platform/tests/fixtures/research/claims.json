@@ -1,7 +1,7 @@
 {
   "claims": [
-    { "id": "claim-a", "text": "a", "component": "market" },
-    { "id": "claim-b", "text": "b", "component": "risk" }
+    { "id": "claim-a", "text": "market evidence claim", "component": "market" },
+    { "id": "claim-b", "text": "risk evidence claim", "component": "risk" }
   ],
   "evidence": [
     {
@@ -13,8 +13,8 @@
       "grade": 4,
       "entailment": 0.9,
       "direction": "supporting",
-      "quote": "a",
-      "sourceText": "Evidence says a",
+      "quote": "Evidence says market",
+      "sourceText": "Evidence says market conditions support the claim.",
       "disconfirmationResolved": true
     },
     {
@@ -26,8 +26,8 @@
       "grade": 3,
       "entailment": 0.8,
       "direction": "supporting",
-      "quote": "b",
-      "sourceText": "Evidence says b",
+      "quote": "Evidence says risk",
+      "sourceText": "Evidence says risk factors remain material.",
       "disconfirmationResolved": true
     }
   ],

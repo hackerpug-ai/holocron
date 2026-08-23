@@ -56,6 +56,8 @@ export const projects: TestProjectConfiguration[] = [
         'services/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts',
         // Sprint 22 pipes-1 — pure-TS evidence-gate + shared quote-match / components
         'services/platform/src/research/*.test.ts',
+        // Pure enrich seam — never launder fleet ASSAY text into gate quote/sourceText
+        'services/platform/src/mission/enrich-evidence-fleet.test.ts',
         // Sprint 25 / F1 — chat pre-flight gate truth table (pure predicate, no infra)
         'services/platform/src/http/chat-stream-gate.test.ts',
         // Assimilate crawl gates (real git + filesystem, no Postgres)

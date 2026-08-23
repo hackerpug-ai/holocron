@@ -42,6 +42,10 @@ import {
 } from './crash-hooks.ts';
 import { publishDocumentForRun } from './document-publish.ts';
 import {
+  EnrichEvidenceFleetError,
+  enrichEvidenceWithFleetModelText,
+} from './enrich-evidence-fleet.ts';
+import {
   assertRegisteredExecutor,
   assertRegisteredSchema,
   assertRegisteredStage,
@@ -1078,7 +1082,15 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     }
     assertAssayChallengeDistinct(assay.instanceId, challengeInstanceId);
 
-    const evidence = enrichEvidenceWithFleetModelText(assay.evidence, assayText, challengeText);
+    let evidence: EvidenceGateInput;
+    try {
+      evidence = enrichEvidenceWithFleetModelText(assay.evidence, assayText, challengeText);
+    } catch (error) {
+      if (error instanceof EnrichEvidenceFleetError) {
+        throw new MissionRuntimeError(error.code, error.message);
+      }
+      throw error;
+    }
 
     return canonicalJsonValue({
       goal: assay.goal,
@@ -2083,81 +2095,6 @@ function mintResearchFleetInstanceId(
   const raw = modelId?.trim() || modelRevision?.trim() || 'fleet-model';
   const model = raw.replace(/[^a-zA-Z0-9._-]+/g, '-');
   return `fleet:model:${model}:inst-${randomUUID()}`;
-}
-
-/**
- * Merge fleet ASSAY + CHALLENGE prose into the deterministic gate input so
- * evidence quotes/sourceText derive from real model output (CAP-INF-01).
- * Does not invent admission-quality grades — preserves retrieve/fixture floors.
- */
-function enrichEvidenceWithFleetModelText(
-  evidence: EvidenceGateInput,
-  assayText: string,
-  challengeText: string
-): EvidenceGateInput {
-  const assay = assayText.trim();
-  const challenge = challengeText.trim();
-  if (!assay || !challenge) {
-    throw new MissionRuntimeError(
-      'MISSION_FLEET_EMPTY_OUTPUT',
-      'fleet ASSAY/CHALLENGE text required before evidence-gate enrichment'
-    );
-  }
-  const modelSourceText = `ASSAY fleet output:\n${assay}\n\nCHALLENGE fleet output:\n${challenge}`;
-  const quoteFromModel = clipFleetText(assay, 160).replace(/…$/, '').trim() || assay;
-
-  const rows = (evidence.evidence ?? []).map((item, index) => {
-    if (index === 0) {
-      return {
-        ...item,
-        quote: quoteFromModel,
-        sourceText: modelSourceText,
-      };
-    }
-    // Preserve original quote ⊆ original sourceText; append model context.
-    return {
-      ...item,
-      sourceText: `${item.sourceText}\n\n---\n${modelSourceText}`,
-    };
-  });
-
-  // Empty retrieve: still feed at least one model-derived row so the gate sees
-  // real fleet text (admission still depends on components/floors).
-  if (rows.length === 0) {
-    const component = evidence.requiredComponents?.[0] ?? 'durable-evidence';
-    rows.push({
-      id: 'e-fleet-model-1',
-      claimId: 'claim-fleet-model-1',
-      component,
-      sourceId: 'fleet-model-src-1',
-      independenceGroup: 'fleet-model-src-1',
-      quote: quoteFromModel,
-      sourceText: modelSourceText,
-      grade: 1,
-      entailment: 0.1,
-      disconfirmationResolved: false,
-      direction: 'supporting',
-    });
-  }
-
-  const claimIds = new Set((evidence.claims ?? []).map((c) => c.id));
-  const claims = [...(evidence.claims ?? [])];
-  for (const row of rows) {
-    if (!claimIds.has(row.claimId)) {
-      claimIds.add(row.claimId);
-      claims.push({
-        id: row.claimId,
-        text: clipFleetText(assay, 120),
-        component: row.component,
-      });
-    }
-  }
-
-  return {
-    ...evidence,
-    claims,
-    evidence: rows,
-  };
 }
 
 function assertAssayChallengeDistinct(assayInstanceId: string, challengeInstanceId: string): void {

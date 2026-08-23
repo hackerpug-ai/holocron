@@ -305,49 +305,59 @@ describe('S31-09 real model output into evidence gate; ASSAY≠CHALLENGE', () =>
 
     // At least one evidence item: quote is a non-empty substring of sourceText.
     expect(evidenceItems.length, 'expected evidence items on mission/inspect').toBeGreaterThan(0);
-    const modelLinked = evidenceItems.filter((item) => {
+    const quoteLinked = evidenceItems.filter((item) => {
       const quote = typeof item.quote === 'string' ? item.quote : '';
       const sourceText = typeof item.sourceText === 'string' ? item.sourceText : '';
       return quote.length > 0 && sourceText.length > 0 && sourceText.includes(quote);
     });
-    expect(modelLinked.length, 'no evidence with quote ⊆ sourceText').toBeGreaterThan(0);
+    expect(quoteLinked.length, 'no evidence with quote ⊆ sourceText').toBeGreaterThan(0);
 
-    // Model-produced sourceText must not look like pure static fixture scaffolding alone.
-    // Fixture claims.json sourceTexts are short ("Evidence says a"); model enrichment
-    // embeds fleet ASSAY/CHALLENGE prose and is substantially longer / tagged.
-    const hasFleetDerivedSource = modelLinked.some((item) => {
-      const sourceText = String(item.sourceText);
-      return (
-        sourceText.includes('ASSAY fleet output:') ||
-        sourceText.includes('CHALLENGE fleet output:') ||
-        sourceText.includes('Fleet ASSAY') ||
-        sourceText.includes('Fleet CHALLENGE') ||
-        // model text is longer than pure fixture stubs
-        sourceText.length >= 40
-      );
-    });
-    expect(hasFleetDerivedSource, 'sourceText must derive from fleet model output').toBe(true);
+    // Regression: enrich must NOT laundry model ASSAY/CHALLENGE prose into
+    // gate quote/sourceText (self-cite). Fleet prose lives on assayText /
+    // challengeText stage fields only.
+    for (const item of evidenceItems) {
+      const sourceText = typeof item.sourceText === 'string' ? item.sourceText : '';
+      const quote = typeof item.quote === 'string' ? item.quote : '';
+      expect(
+        sourceText.startsWith('ASSAY fleet output:'),
+        'sourceText must not be ASSAY laundry'
+      ).toBe(false);
+      expect(
+        sourceText.includes('ASSAY fleet output:'),
+        'sourceText must not embed ASSAY laundry'
+      ).toBe(false);
+      expect(
+        sourceText.includes('CHALLENGE fleet output:'),
+        'sourceText must not embed CHALLENGE laundry'
+      ).toBe(false);
+      expect(quote.includes('ASSAY fleet output:'), 'quote must not be ASSAY laundry').toBe(false);
+    }
 
-    // When assayText is available on inspect, it must be non-empty fleet prose.
+    // Fleet model output is required on the challenge payload (side channel),
+    // not on gate evidence quote/sourceText.
     if (assayText.length > 0) {
       expect(assayText.length).toBeGreaterThanOrEqual(1);
       expect(assayText).not.toMatch(/scaffold placeholder|TODO|FIXME/i);
     } else {
-      // Still require inspect/mission to surface non-empty model-linked evidence.
-      // Negative control: empty assayText with only static fixture would fail the
-      // hasFleetDerivedSource check above once enrichment is required.
-      const anyModelMarker = modelLinked.some((item) =>
-        String(item.sourceText).match(/fleet output|Fleet ASSAY|Fleet CHALLENGE/i)
-      );
-      expect(anyModelMarker, 'missing assayText and no fleet markers in sourceText').toBe(true);
+      const challengeText =
+        (typeof output.challengeText === 'string' && output.challengeText) ||
+        (typeof findings.challengeText === 'string' && findings.challengeText) ||
+        '';
+      expect(
+        challengeText.length > 0,
+        'missing assayText and challengeText — fleet side channel empty'
+      ).toBe(true);
     }
 
     writeEvidence('ac2-gate-model-link.json', {
       runId,
       reason: gate.reason,
       admitted: gate.admitted,
-      modelLinkedCount: modelLinked.length,
+      quoteLinkedCount: quoteLinked.length,
       assayTextLen: assayText.length,
+      noAssayLaundry: evidenceItems.every(
+        (item) => !String(item.sourceText ?? '').includes('ASSAY fleet output:')
+      ),
     });
   });
 
