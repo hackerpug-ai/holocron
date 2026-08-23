@@ -45,6 +45,7 @@ COPY --from=opencode /usr/lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
 COPY --from=opencode /usr/lib/libstdc++.so.6.0.34 /usr/lib/libstdc++.so.6.0.34
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
+    ca-certificates \
     git \
     libbz2-1.0 \
     liblz4-1 \

@@ -615,6 +615,7 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       'COPY --from=opencode /lib/ld-musl-aarch64.so.1 /lib/ld-musl-aarch64.so.1'
     );
     expect(dockerfile).toContain('/usr/local/bin/opencode --version');
+    expect(dockerfile).toMatch(/ca-certificates/);
   });
 
   it('requires the committed fleet role manifest at the runtime path in the production image', () => {
