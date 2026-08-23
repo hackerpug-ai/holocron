@@ -399,6 +399,30 @@ function hasNamedVolumeMount(service: ComposeService, name: string, target: stri
   );
 }
 
+/** Short-form `src:target[:mode]` strings or Compose JSON long-form `{ target }`. */
+function volumeMountSpecs(service: ComposeService): string[] {
+  const volumes = service.volumes;
+  if (!Array.isArray(volumes)) return [];
+  const specs: string[] = [];
+  for (const entry of volumes) {
+    if (typeof entry === 'string') {
+      specs.push(entry);
+      continue;
+    }
+    if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+      const target = (entry as Record<string, unknown>).target;
+      if (typeof target === 'string' && target.length > 0) specs.push(target);
+    }
+  }
+  return specs;
+}
+
+function hasPathMount(service: ComposeService, mountPath: string): boolean {
+  return volumeMountSpecs(service).some(
+    (spec) => spec === mountPath || spec.includes(`:${mountPath}`) || spec.endsWith(mountPath)
+  );
+}
+
 function hasDatabaseUrlSecretMount(service: ComposeService): boolean {
   const secrets = service.secrets;
   return (
@@ -578,14 +602,12 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
     fail('postgres must mount postgres-data at /var/lib/postgresql for PG18');
   }
   // Blobs remain bind/path mounted (not one of the eight declared state volumes).
-  const mastraVolumes = Array.isArray(core.mastra.volumes) ? core.mastra.volumes.map(String) : [];
-  const schedulerVolumes = Array.isArray(core.scheduler.volumes)
-    ? core.scheduler.volumes.map(String)
-    : [];
-  if (!mastraVolumes.some((v) => v.includes('/var/lib/holocron/blobs'))) {
+  // Docker Compose `--format json` emits long-form `{ type, source, target }`
+  // objects; `String(entry)` is `[object Object]` and must not be the check.
+  if (!hasPathMount(core.mastra, '/var/lib/holocron/blobs')) {
     fail('mastra must mount blob storage at /var/lib/holocron/blobs');
   }
-  if (!schedulerVolumes.some((v) => v.includes('/var/lib/holocron/blobs'))) {
+  if (!hasPathMount(core.scheduler, '/var/lib/holocron/blobs')) {
     fail('scheduler must mount blob storage at /var/lib/holocron/blobs');
   }
   if (!hasNamedVolume(core['zero-cache'], 'zero-cache-data')) {

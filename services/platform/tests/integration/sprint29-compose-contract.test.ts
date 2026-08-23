@@ -751,6 +751,43 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     expect(Object.keys(secrets ?? {}).length).toBeGreaterThan(0);
     expect(JSON.stringify(candidate)).not.toMatch(/sk-[A-Za-z0-9_-]{8,}/);
   });
+
+  it('accepts Docker Compose long-form bind mounts for blob storage', () => {
+    const longForm = compose();
+    const services = longForm.services as Record<string, Record<string, unknown>>;
+    const mastraLong = services.mastra;
+    const schedulerLong = services.scheduler;
+    if (!mastraLong || !schedulerLong) throw new Error('missing application services');
+    const blobBind = {
+      type: 'bind',
+      source: '/Users/holocron/Projects/holocron/.data/holocron-blobs',
+      target: '/var/lib/holocron/blobs',
+      bind: {},
+    };
+    const confBind = {
+      type: 'bind',
+      source: '/Users/holocron/Projects/holocron/services/platform/deploy/compose/pgbackrest.conf',
+      target: '/etc/pgbackrest/pgbackrest.conf',
+      read_only: true,
+      bind: {},
+    };
+    mastraLong.volumes = [blobBind, confBind];
+    schedulerLong.volumes = [blobBind, confBind];
+    expect(() => assertComposeContract(longForm)).not.toThrow();
+
+    mastraLong.volumes = [
+      {
+        type: 'bind',
+        source: '/Users/holocron/Projects/holocron/.data/holocron-blobs',
+        target: '/var/lib/holocron/elsewhere',
+        bind: {},
+      },
+      confBind,
+    ];
+    expect(() => assertComposeContract(longForm)).toThrow(
+      /mastra must mount blob storage at \/var\/lib\/holocron\/blobs/
+    );
+  });
 });
 
 describe(`Docker-backed D06-06 evidence (${DOCKER_READY ? 'available' : 'SKIPPED: Docker daemon unavailable'})`, () => {
