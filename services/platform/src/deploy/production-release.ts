@@ -1003,6 +1003,8 @@ function renderCompose(
     // project `.env` would otherwise land in the rendered JSON and trip the
     // credential-literal scan. Apply injects the real value at compose-up.
     DEEPSEEK_API_KEY: 'stage-render-placeholder',
+    JINA_API_KEY: 'stage-render-placeholder',
+    EXA_API_KEY: 'stage-render-placeholder',
   };
   try {
     process.env.HOLO_PLATFORM_IMAGE = image;

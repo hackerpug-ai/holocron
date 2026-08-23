@@ -99,10 +99,20 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NONPROD_DATABASE_URL }}
           FLEET_URL: ${{ secrets.FLEET_URL }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           PLATFORM_IT: "1"
         run: |
           if [ -z "${DATABASE_URL:-}" ] || [ -z "${FLEET_URL:-}" ]; then
             echo "NONPROD_DATABASE_URL and FLEET_URL required — fail closed (no mocks)" >&2
+            exit 1
+          fi
+          if [ -z "${JINA_API_KEY:-}" ]; then
+            echo "JINA_API_KEY required — fail closed (no mocks)" >&2
+            exit 1
+          fi
+          if [ -z "${EXA_API_KEY:-}" ]; then
+            echo "EXA_API_KEY required — fail closed (no mocks)" >&2
             exit 1
           fi
           pnpm test:integration

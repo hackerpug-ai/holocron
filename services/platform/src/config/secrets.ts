@@ -24,6 +24,8 @@ export const REQUIRED_SECRET_KEYS = [
   'HOLO_KEY_RN',
   'HOLO_KEY_MCP',
   'HOLO_KEY_CONTROL',
+  'JINA_API_KEY',
+  'EXA_API_KEY',
 ] as const;
 
 /**

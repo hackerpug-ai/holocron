@@ -8,7 +8,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { applyConsolidatedSecretsToEnv } from '../../config/secrets.ts';
+import { applyConsolidatedSecretsToEnv, REQUIRED_SECRET_KEYS } from '../../config/secrets.ts';
 
 function writeSecrets(body: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'holo-secrets-'));
@@ -18,6 +18,10 @@ function writeSecrets(body: string): string {
 }
 
 describe('applyConsolidatedSecretsToEnv (RH-1)', () => {
+  it('REQUIRED_SECRET_KEYS includes JINA_API_KEY and EXA_API_KEY', () => {
+    expect(REQUIRED_SECRET_KEYS).toEqual(expect.arrayContaining(['JINA_API_KEY', 'EXA_API_KEY']));
+  });
+
   it('fills missing HOLO_KEY_* from secrets file into env bag', () => {
     const secretsPath = writeSecrets(`
 HOLO_KEY_RN: rn-from-file
