@@ -578,6 +578,15 @@ export async function executePostgresMcpTool(
       }
       case 'regenerate_transcript': {
         const contentId = String(input.contentId);
+        const known = await sql`
+          SELECT 1 AS ok FROM subscription_content WHERE content_id = ${contentId} LIMIT 1
+        `;
+        const knownVideo = known[0]
+          ? known
+          : await sql`SELECT 1 AS ok FROM video_transcripts WHERE content_id = ${contentId} LIMIT 1`;
+        if (!knownVideo[0]) {
+          throw new Error('NOT_FOUND: content does not exist');
+        }
         const existing = await sql`
           SELECT id::text AS "jobId" FROM transcript_jobs
           WHERE content_id = ${contentId} AND status IN ('pending', 'running', 'in_progress')
@@ -853,7 +862,16 @@ export async function executePostgresMcpTool(
           WHERE embedding IS NOT NULL
           ORDER BY embedding <=> ${embedding}::vector LIMIT ${limit}
         `;
-        return { results: rows, totalResults: rows.length };
+        return {
+          results: rows.map((row) => {
+            const score = Number((row as { score?: unknown }).score);
+            return {
+              ...row,
+              score: Number.isFinite(score) ? score : 0,
+            };
+          }),
+          totalResults: rows.length,
+        };
       }
       case 'get_subscription_content': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
@@ -1073,8 +1091,11 @@ export async function executePostgresMcpTool(
         return rows[0];
       }
       case 'remove_subscription': {
+        const subscriptionId = String(input.subscriptionId);
+        await sql`DELETE FROM subscription_content WHERE source_id = ${subscriptionId}::uuid`;
+        await sql`DELETE FROM subscription_filters WHERE source_id = ${subscriptionId}::uuid`;
         const rows = await sql`
-          DELETE FROM subscription_sources WHERE id = ${String(input.subscriptionId)}::uuid
+          DELETE FROM subscription_sources WHERE id = ${subscriptionId}::uuid
           RETURNING id::text AS "subscriptionId", source_type AS "sourceType", identifier, name
         `;
         return { deleted: rows.length === 1, ...(rows[0] ? { subscription: rows[0] } : {}) };

@@ -61,16 +61,11 @@ configs:
             api_base: http://inference2.tail011a51.ts.net:8003/v1
             api_key: sk-none
             weight: 100
+        # Embed is laptop oMLX only (FLEET-SPEC). inference1/2 serve chat 35B, not this 1024-d model.
         - model_name: qwen3-embedding
           litellm_params:
             model: openai/Qwen3-Embedding-0.6B-4bit-DWQ
-            api_base: http://inference1.tail011a51.ts.net:8003/v1
-            api_key: sk-none
-            weight: 100
-        - model_name: qwen3-embedding
-          litellm_params:
-            model: openai/Qwen3-Embedding-0.6B-4bit-DWQ
-            api_base: http://inference2.tail011a51.ts.net:8003/v1
+            api_base: http://laptop.tail011a51.ts.net:8003/v1
             api_key: sk-none
             weight: 100
       router_settings:
