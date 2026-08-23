@@ -80,9 +80,9 @@ const acquireStep = createStep({
   outputSchema: ctxSchema(),
   execute: async ({ inputData, runId }) => {
     const sessionId = inputData.sessionId ?? runId;
-    const workDir = mkdtempSync(
-      join(inputData.scratchRoot ?? process.env.SCRATCH_ROOT ?? '/tmp', 'assim-run-')
-    );
+    const scratchParent = inputData.scratchRoot ?? process.env.SCRATCH_ROOT ?? '/tmp';
+    mkdirSync(scratchParent, { recursive: true });
+    const workDir = mkdtempSync(join(scratchParent, 'assim-run-'));
     const returnsDir = join(workDir, 'returns');
     mkdirSync(returnsDir, { recursive: true });
     const manifest = acquireTarget({
