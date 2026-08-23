@@ -10,6 +10,9 @@ export const startAssimilationOutputSchema = z.object({
   sessionId: z.string(),
   status: z.string(),
   existing: z.boolean().optional(),
+  verdict: z.enum(['COMPLETE', 'PARTIAL']).optional(),
+  documentId: z.string().optional(),
+  markdown: z.string().optional(),
 });
 
 export const assimilationSessionIdInputSchema = z.object({

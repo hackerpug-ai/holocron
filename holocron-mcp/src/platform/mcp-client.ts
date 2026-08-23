@@ -111,7 +111,29 @@ export class PlatformMcpClient {
 
     let body: JsonRpcResponse;
     try {
-      body = (await response.json()) as JsonRpcResponse;
+      const contentType = response.headers.get('content-type') ?? '';
+      if (contentType.includes('text/event-stream')) {
+        const raw = await response.text();
+        const payloads: JsonRpcResponse[] = [];
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice('data:'.length).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            payloads.push(JSON.parse(payload) as JsonRpcResponse);
+          } catch {
+            /* progress comments */
+          }
+        }
+        const last = [...payloads].reverse().find((p) => p.result !== undefined || p.error !== undefined);
+        if (!last) {
+          throw new Error('SSE stream contained no JSON-RPC result');
+        }
+        body = last;
+      } else {
+        body = (await response.json()) as JsonRpcResponse;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`PLATFORM_ERROR: invalid JSON from platform tools/call: ${message}`);

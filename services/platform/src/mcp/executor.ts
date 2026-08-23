@@ -11,6 +11,7 @@ import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
+import { runAssimilateRepo } from '../assimilate/run.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
 
 function resolveJinaApiKey(): string | undefined {
@@ -405,7 +406,11 @@ async function runLiveShopSearch(
 export async function executePostgresMcpTool(
   id: string,
   input: Record<string, unknown>,
-  options?: { databaseUrl?: string; signal?: AbortSignal }
+  options?: {
+    databaseUrl?: string;
+    signal?: AbortSignal;
+    onProgress?: (message: string) => Promise<void> | void;
+  }
 ): Promise<unknown> {
   // D06-05 / D06-01: mutation-tool fence — fresh HOLO_MIGRATION_READ_ONLY read
   assertMcpWritable(id);
@@ -732,12 +737,56 @@ export async function executePostgresMcpTool(
           ORDER BY created_at DESC LIMIT 1
         `;
         if (existing[0]) return { ...existing[0], existing: true };
+        const sessionId = randomUUID();
+        const autoApprove = Boolean(input.autoApprove);
+        const profile = String(input.profile ?? 'standard');
         const rows = await sql`
           INSERT INTO assimilation_sessions (id, repository_url, profile, status, auto_approve)
-          VALUES (${randomUUID()}::uuid, ${repositoryUrl}, ${String(input.profile ?? 'standard')}, 'planning', ${Boolean(input.autoApprove)})
+          VALUES (${sessionId}::uuid, ${repositoryUrl}, ${profile}, ${autoApprove ? 'running' : 'planning'}, ${autoApprove})
           RETURNING id::text AS "sessionId", status
         `;
-        return { ...rows[0], existing: false };
+        if (!autoApprove) return { ...rows[0], existing: false };
+        await options?.onProgress?.('plan: running Mastra assimilate-repo workflow');
+        const wf = await runAssimilateRepo({
+          repositoryUrl,
+          profile: profile === 'fast' || profile === 'thorough' ? profile : 'standard',
+          autoApprove: true,
+          sessionId,
+          plantedCrawler: process.env.HOLO_ASSIMILATE_PLANTED === '1',
+        });
+        if (wf.status === 'success') {
+          const out = wf.result;
+          await sql`
+            UPDATE assimilation_sessions
+            SET status = 'completed', plan_content = ${out.markdown}, plan_summary = ${out.verdict},
+                completed_at = now(), updated_at = now()
+            WHERE id = ${sessionId}::uuid
+          `;
+          await options?.onProgress?.(
+            `report: verdict=${out.verdict} verified=${out.verifiedRead}/${out.inScope}`
+          );
+          return {
+            sessionId,
+            status: 'completed',
+            existing: false,
+            verdict: out.verdict,
+            markdown: out.markdown,
+          };
+        }
+        const err =
+          wf.status === 'failed' && 'error' in wf
+            ? String((wf as { error?: { message?: string } }).error?.message ?? wf.status)
+            : wf.status;
+        await sql`
+          UPDATE assimilation_sessions
+          SET status = ${wf.status === 'suspended' ? 'pending_approval' : 'failed'},
+              error_reason = ${err}, updated_at = now()
+          WHERE id = ${sessionId}::uuid
+        `;
+        if (wf.status === 'suspended') {
+          return { sessionId, status: 'pending_approval', existing: false };
+        }
+        throw new Error(`ASSIMILATE_FAILED: ${err}`);
       }
       case 'get_assimilation_status': {
         const rows = await sql`

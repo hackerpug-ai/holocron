@@ -12,10 +12,14 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/openai-compatible": "3.0.10",
+    "@mastra/acp": "0.4.0",
     "@mastra/core": "1.50.1",
+    "@mastra/langfuse": "1.4.9",
     "@mastra/mcp": "1.13.1",
     "@mastra/observability": "1.17.1",
+    "@mastra/otel-exporter": "1.3.9",
     "@mastra/pg": "1.15.1",
+    "@opentelemetry/exporter-trace-otlp-http": "0.218.0",
     "ai": "7.0.28",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
@@ -24,9 +28,6 @@
     "postgres": "^3.4.9",
     "uuid": "^14.0.1",
     "yaml": "2.9.0",
-    "zod": "4.4.3",
-    "@mastra/otel-exporter": "1.3.9",
-    "@mastra/langfuse": "1.4.9",
-    "@opentelemetry/exporter-trace-otlp-http": "0.218.0"
+    "zod": "4.4.3"
   }
 }

@@ -96,6 +96,11 @@ services:
       FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
       HOLO_BLOB_ROOT: /var/lib/holocron/blobs
       PGBACKREST_CONFIG: /etc/pgbackrest/pgbackrest.conf
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      HOME: /home/bun
+      XDG_CONFIG_HOME: /home/bun/.config
+      OPENCODE_CONFIG: /home/bun/.config/opencode/opencode.json
+      SCRATCH_ROOT: /var/lib/holocron/assimilate
     command:
       - /bin/sh
       - -ec
@@ -117,6 +122,7 @@ services:
     volumes:
       # Blob store is bind-mounted (not one of the eight declared state volumes).
       - ${HOLO_BLOB_HOST_PATH:-./.data/holocron-blobs}:/var/lib/holocron/blobs
+      - ${HOLO_ASSIMILATE_SCRATCH:-./.data/holocron-assimilate}:/var/lib/holocron/assimilate
       - ./pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
     depends_on:
       postgres:

@@ -58,6 +58,8 @@ export const projects: TestProjectConfiguration[] = [
         'services/platform/src/research/evidence-gate.test.ts',
         // Sprint 25 / F1 — chat pre-flight gate truth table (pure predicate, no infra)
         'services/platform/src/http/chat-stream-gate.test.ts',
+        // Assimilate crawl gates (real git + filesystem, no Postgres)
+        'services/platform/src/assimilate/**/*.test.ts',
       ],
       exclude: [
         // integration lane owns these

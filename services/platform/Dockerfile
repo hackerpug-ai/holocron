@@ -10,6 +10,7 @@ RUN bun install --frozen-lockfile --production
 # Pinned Compose-native backup binaries (immutable digests; no :latest).
 FROM woblerr/pgbackrest@sha256:3e6c90cc4287efad0c16d667992aee9c70226bcb6ef3052f69a0c84121454bce AS backup-pgbackrest
 FROM restic/restic@sha256:740ef3a20c7fe5de05ee031717a610ac8c3d1cf09a06cf77ffd4c3ec26e2302e AS backup-restic
+FROM ghcr.io/anomalyco/opencode:1.18.17 AS opencode
 
 FROM oven/bun:1.3.14-slim AS runtime
 
@@ -36,8 +37,10 @@ COPY --chown=bun:bun services/platform/deploy/compose/pgbackrest.conf /etc/pgbac
 USER root
 COPY --from=backup-restic /usr/bin/restic /usr/local/bin/restic
 COPY --from=backup-pgbackrest /usr/bin/pgbackrest /usr/local/bin/pgbackrest
+COPY --from=opencode /usr/local/bin/opencode /usr/local/bin/opencode
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
+    git \
     libbz2-1.0 \
     liblz4-1 \
     libpq5 \
@@ -47,9 +50,12 @@ RUN apt-get update \
     libzstd1 \
     zlib1g \
   && rm -rf /var/lib/apt/lists/* \
-  && chmod 0755 /usr/local/bin/restic /usr/local/bin/pgbackrest \
+  && chmod 0755 /usr/local/bin/restic /usr/local/bin/pgbackrest /usr/local/bin/opencode \
+  && mkdir -p /home/bun/.config/opencode \
+  && chown -R bun:bun /home/bun/.config \
   && /usr/local/bin/restic version \
   && /usr/local/bin/pgbackrest version
+COPY --chown=bun:bun services/platform/deploy/docker/opencode.json /home/bun/.config/opencode/opencode.json
 
 # The upstream Bun image supplies the unprivileged `bun` user. Do not run a
 # production server or worker as root.

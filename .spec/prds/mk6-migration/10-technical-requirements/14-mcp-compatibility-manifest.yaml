@@ -1255,7 +1255,7 @@ tools:
       - code: INTERNAL_SERVER_ERROR
         description: "Postgres start_assimilation insert failed"
     pagination: null
-    side_effects: "INSERTS assimilation_sessions row via executePostgresMcpTool start_assimilation (status planning)"
+    side_effects: "INSERTS assimilation_sessions row; when autoApprove is true, runs the Mastra assimilate-repo workflow (git acquire + ACP crawl + cite/cover + report) and streams progress"
     idempotency: "Semi-idempotent by repositoryUrl — Postgres executor returns the existing assimilation_sessions row when one is already in progress for the same repo."
     replay:
       idempotency_key: [repositoryUrl]

@@ -28,6 +28,22 @@ export function createMcpServer(): McpServer {
           }
           const result = await executePostgresMcpTool(id, input, {
             signal: extra.signal,
+            onProgress: async (message) => {
+              const extraRec = extra as {
+                _meta?: { progressToken?: string | number };
+                sendNotification?: (n: unknown) => Promise<void>;
+              };
+              const token = extraRec._meta?.progressToken;
+              if (token === undefined || typeof extraRec.sendNotification !== 'function') return;
+              await extraRec.sendNotification({
+                method: 'notifications/progress',
+                params: {
+                  progressToken: token,
+                  progress: 1,
+                  message,
+                },
+              });
+            },
           });
           const content = [{ type: 'text' as const, text: JSON.stringify(result) }];
           // MCP structuredContent is an object by protocol; array-shaped tool outputs
@@ -62,9 +78,10 @@ export function createMcpServer(): McpServer {
  */
 export async function handleMcpRequest(request: Request): Promise<Response> {
   const server = createMcpServer();
+  const wantsStream = (request.headers.get('accept') ?? '').includes('text/event-stream');
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
-    enableJsonResponse: true,
+    enableJsonResponse: !wantsStream,
     allowedOrigins: [new URL(request.url).origin],
     enableDnsRebindingProtection: true,
   });
