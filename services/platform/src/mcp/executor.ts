@@ -10,6 +10,7 @@ import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
 import { createDb, createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import { ingestDocument } from '../etl/ingest-document.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
@@ -1213,7 +1214,9 @@ export async function executePostgresMcpTool(
           )
           RETURNING id::text AS "toolId", title
         `;
-        return { ...rows[0], embeddingStatus: 'pending' };
+        // Toolbelt embeddings are not yet corpus-ingested; surface incomplete status
+        // without a hardcoded document-style pending literal.
+        return { ...rows[0], embeddingStatus: 'not_ingested' as const };
       }
       case 'get_tool': {
         const rows = await sql`
@@ -1276,7 +1279,7 @@ export async function executePostgresMcpTool(
             UPDATE toolbelt_tools SET status = ${toDatabaseToolStatus(input.status)}
             WHERE id = ${toolId}::uuid
           `;
-        return { toolId, updated: true, embeddingStatus: 'pending' };
+        return { toolId, updated: true, embeddingStatus: 'not_ingested' as const };
       }
       case 'get_document': {
         // REDHAT-FIX-RH-S30-02: route content reads via observed data plane.
@@ -1311,12 +1314,27 @@ export async function executePostgresMcpTool(
         return { documents: rows.slice(0, limit), hasMore, nextCursor: null };
       }
       case 'store_document': {
+        const databaseUrl = resolveHolocronNonprodDatabaseUrl({
+          databaseUrl: options?.databaseUrl,
+          context: 'MCP tool store_document',
+        });
         const rows = await sql`
           INSERT INTO documents (id, title, content, status, is_public)
           VALUES (${randomUUID()}::uuid, ${String(input.title)}, ${String(input.content)}, 'draft', false)
-          RETURNING id::text AS "documentId", title
+          RETURNING
+            id::text AS "documentId",
+            title,
+            content,
+            (extract(epoch FROM created_at) * 1000)::bigint AS "createdAtMs"
         `;
-        const stored = rows[0] as { documentId?: string; title?: string } | undefined;
+        const stored = rows[0] as
+          | {
+              documentId?: string;
+              title?: string;
+              content?: string;
+              createdAtMs?: number | string;
+            }
+          | undefined;
         // REDHAT-FIX-RH-S30-03: production-bound write audit when export watermark active.
         // Fail closed: do not return success if the audit ledger write fails.
         if (stored?.documentId && isExportWatermarkActive()) {
@@ -1331,9 +1349,33 @@ export async function executePostgresMcpTool(
             );
           }
         }
-        return { ...stored, embeddingStatus: 'pending' };
+        if (!stored?.documentId) {
+          throw new Error('INTERNAL_SERVER_ERROR: store_document insert returned no row');
+        }
+        const ingested = await ingestDocument(
+          sql,
+          {
+            id: stored.documentId,
+            title: stored.title ?? String(input.title),
+            content: stored.content ?? String(input.content),
+            created_at_ms: Math.floor(Number(stored.createdAtMs ?? Date.now())),
+          },
+          { databaseUrl }
+        );
+        return {
+          documentId: stored.documentId,
+          title: stored.title,
+          embeddingStatus: ingested.embeddingStatus,
+          pendingEmbeddingCount: ingested.pendingEmbeddingCount,
+          passageCount: ingested.passageCount,
+          embeddingJobId: ingested.embeddingJobId,
+        };
       }
       case 'update_document': {
+        const databaseUrl = resolveHolocronNonprodDatabaseUrl({
+          databaseUrl: options?.databaseUrl,
+          context: 'MCP tool update_document',
+        });
         const documentId = String(input.documentId);
         if (typeof input.title === 'string') {
           await sql`UPDATE documents SET title = ${input.title} WHERE id = ${documentId}::uuid`;
@@ -1341,7 +1383,45 @@ export async function executePostgresMcpTool(
         if (typeof input.content === 'string') {
           await sql`UPDATE documents SET content = ${input.content} WHERE id = ${documentId}::uuid`;
         }
-        return { documentId, updated: true, embeddingStatus: 'pending' };
+        const refreshed = await sql<
+          Array<{
+            documentId: string;
+            title: string | null;
+            content: string | null;
+            createdAtMs: number | string;
+          }>
+        >`
+          SELECT
+            id::text AS "documentId",
+            title,
+            content,
+            (extract(epoch FROM created_at) * 1000)::bigint AS "createdAtMs"
+          FROM documents
+          WHERE id = ${documentId}::uuid
+          LIMIT 1
+        `;
+        const row = refreshed[0];
+        if (!row) {
+          throw new Error('NOT_FOUND: document does not exist');
+        }
+        const ingested = await ingestDocument(
+          sql,
+          {
+            id: row.documentId,
+            title: row.title,
+            content: row.content,
+            created_at_ms: Math.floor(Number(row.createdAtMs ?? Date.now())),
+          },
+          { databaseUrl }
+        );
+        return {
+          documentId,
+          updated: true,
+          embeddingStatus: ingested.embeddingStatus,
+          pendingEmbeddingCount: ingested.pendingEmbeddingCount,
+          passageCount: ingested.passageCount,
+          embeddingJobId: ingested.embeddingJobId,
+        };
       }
       case 'share_document': {
         const documentId = String(input.documentId);

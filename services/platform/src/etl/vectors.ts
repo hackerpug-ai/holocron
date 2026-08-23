@@ -1,22 +1,18 @@
 /** Sprint 14 ETL vector regeneration — documents → sources/passages → real fleet embeddings. */
 import { createHash } from 'node:crypto';
 import { createDb, type Sql } from '../db/client.ts';
-import { chunkDocument, type PassageChunk } from '../inference/chunk.ts';
+import type { PassageChunk } from '../inference/chunk.ts';
 import { embed, RoleUnavailableError } from '../inference/embed.ts';
 import { type EmbedFn, embedRun } from '../inference/embed-run.ts';
 import { resolveModel } from '../inference/resolve-model.ts';
 import { rrfHybridSearch } from '../search/index.ts';
-import { deterministicUuidV7 } from './deterministic-uuidv7.ts';
+import { writeDocumentCorpus } from './corpus-write.ts';
 import { loadLatestRunContext } from './latest-run.ts';
 
 const PAST_8K_MARKER = 'UNIQUE_PAST_8K_MARKER';
 const PAST_8K_QUERY =
   'Sprint 14 vector regeneration should retrieve this exact span UNIQUE_PAST_8K_MARKER';
 const UNIT_NORM_TOLERANCE = 0.02;
-// Bump whenever chunkDocument output or the persisted embedding input contract changes.
-// The revision is stored with every passage so an ETL rerun can invalidate vectors
-// produced for older passage text instead of silently ranking stale embeddings.
-const PASSAGE_EMBEDDING_REVISION = 'chunk-document-v2-past-8k-anchor';
 const PAST_8K_OFFSET = 8_000;
 const ANCHOR_WORDS = 12;
 const MAX_ANCHOR_QUERY_WORDS = 8;
@@ -428,96 +424,30 @@ export async function runEtlVectors(options?: {
     let passagesInserted = 0;
     const past8kCandidates: Past8kRetrievalAnchor[] = [];
     for (const doc of docs) {
-      const createdAtMs = Number(doc.created_at_ms || 0);
-      const sourceId = deterministicUuidV7(createdAtMs, `source:${doc.id}`);
-      const contentHash = sha256Text(`${doc.id}\0${doc.content ?? ''}`);
-      await sql`
-        INSERT INTO sources (id, legacy_convex_id, source_kind, document_id, content_hash, title, metadata_json)
-        VALUES (
-          ${sourceId}::uuid,
-          ${doc.legacy_convex_id},
-          'document',
-          ${doc.id},
-          ${contentHash},
-          ${doc.title},
-          ${sql.json({ kind: 'etl_document_source' })}
-        )
-        ON CONFLICT (id) DO UPDATE
-          SET document_id = EXCLUDED.document_id,
-              content_hash = EXCLUDED.content_hash,
-              title = EXCLUDED.title,
-              metadata_json = EXCLUDED.metadata_json
-      `;
-
-      const chunks = chunkDocument(doc.content ?? '', {
-        title: doc.title ?? 'Untitled',
-      });
-      const candidate = selectPast8kRetrievalAnchor(doc.id, chunks);
+      const createdAtMs = Math.floor(Number(doc.created_at_ms || 0));
+      const written = await writeDocumentCorpus(
+        sql,
+        {
+          id: doc.id,
+          legacy_convex_id: doc.legacy_convex_id,
+          title: doc.title,
+          content: doc.content,
+          created_at_ms: createdAtMs,
+        },
+        {
+          embeddingMetaSource: 'etl:vectors',
+          embeddingMeta: {
+            embeddingDimension: fleetProbe.embeddingDimension,
+            modelId: fleetProbe.modelId,
+            modelRevision: fleetProbe.modelRevision,
+            provider: fleetProbe.provider,
+            endpoint: fleetProbe.endpoint,
+          },
+        }
+      );
+      const candidate = selectPast8kRetrievalAnchor(doc.id, written.chunks);
       if (candidate) past8kCandidates.push(candidate);
-      for (const chunk of chunks) {
-        const passageId = deterministicUuidV7(
-          createdAtMs + chunk.ordinal,
-          `passage:${doc.id}:${chunk.ordinal}`
-        );
-        await sql`
-          INSERT INTO passages (
-            id,
-            legacy_convex_id,
-            source_id,
-            document_id,
-            ordinal,
-            text,
-            token_count,
-            situating_header,
-            embedding,
-            metadata_json
-          )
-          VALUES (
-            ${passageId}::uuid,
-            ${`passage:${doc.legacy_convex_id ?? doc.id}:${chunk.ordinal}`},
-            ${sourceId}::uuid,
-            ${doc.id},
-            ${chunk.ordinal},
-            ${chunk.text},
-            ${chunk.tokenCount},
-            ${chunk.situatingHeader},
-            NULL,
-            ${sql.json({
-              embedding: {
-                role: 'embed',
-                source: 'etl:vectors',
-                passageRevision: PASSAGE_EMBEDDING_REVISION,
-                dimension: fleetProbe.embeddingDimension,
-                modelId: fleetProbe.modelId,
-                modelRevision: fleetProbe.modelRevision,
-                provider: fleetProbe.provider,
-                endpoint: fleetProbe.endpoint,
-              },
-            })}
-          )
-          ON CONFLICT (id) DO UPDATE
-            SET source_id = EXCLUDED.source_id,
-                document_id = EXCLUDED.document_id,
-                ordinal = EXCLUDED.ordinal,
-                text = EXCLUDED.text,
-                token_count = EXCLUDED.token_count,
-                situating_header = EXCLUDED.situating_header,
-                embedding = CASE
-                  WHEN passages.text IS DISTINCT FROM EXCLUDED.text
-                    OR passages.metadata_json -> 'embedding'
-                      IS DISTINCT FROM EXCLUDED.metadata_json -> 'embedding'
-                    THEN NULL
-                  ELSE passages.embedding
-                END,
-                metadata_json = EXCLUDED.metadata_json
-        `;
-      }
-      passagesInserted += chunks.length;
-      await sql`
-        DELETE FROM passages
-        WHERE source_id = ${sourceId}::uuid
-          AND ordinal >= ${chunks.length}
-      `;
+      passagesInserted += written.passageCount;
     }
 
     const past8kAnchor = selectMostDistinctivePast8kAnchor(past8kCandidates);
