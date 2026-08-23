@@ -1,0 +1,697 @@
+{
+  "run_id": "20260823T012201Z",
+  "namespace": "mcp-audit-20260823T012201Z",
+  "proxy": "http://127.0.0.1:44113/mcp",
+  "created": {
+    "documentId": "3d98a49c-a619-4d3c-994d-86a57785a17a",
+    "subscriptionId": "86309564-030d-4092-847e-c9bda21c3952",
+    "filterId": "7cda60b2-a29f-4aa6-a2dc-ebd739a4c0c9",
+    "toolbeltId": "1cd1c957-7857-4dd8-afd1-5624009bc987",
+    "improvementId": "ae92baa5-bc6b-48e7-8e19-56f55ebe4aee",
+    "shopSessionId": "683157dd-3e23-46a1-aa6c-51306ea27cfb",
+    "assimilationId": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7"
+  },
+  "protocol": {
+    "init_status": 200,
+    "init_cf_ray": "a2f659582c96c03b-DEN",
+    "init_server": {
+      "name": "holocron-postgres",
+      "version": "1.0.0"
+    },
+    "list_status": 200,
+    "list_cf_ray": "a2f659589e24c03b-DEN",
+    "live_count": 44,
+    "live_ids": [
+      "get_research_session",
+      "search_research",
+      "search_fts",
+      "search_vector",
+      "hybrid_search",
+      "store_document",
+      "update_document",
+      "share_document",
+      "get_document",
+      "list_documents",
+      "add_subscription",
+      "remove_subscription",
+      "list_subscriptions",
+      "check_subscriptions",
+      "get_subscription_content",
+      "set_subscription_filter",
+      "get_subscription_filters",
+      "store_tool",
+      "search_tools",
+      "get_tool",
+      "list_tools",
+      "update_tool",
+      "remove_tool",
+      "shop_products",
+      "get_shop_session",
+      "get_shop_listings",
+      "get_whats_new_report",
+      "list_whats_new_reports",
+      "start_assimilation",
+      "approve_assimilation_plan",
+      "reject_assimilation_plan",
+      "get_assimilation_status",
+      "cancel_assimilation",
+      "steer_assimilation",
+      "assimilate_creator",
+      "get_creator_transcripts",
+      "regenerate_transcript",
+      "search_improvements",
+      "get_improvement",
+      "list_improvements",
+      "add_improvement",
+      "close_improvement",
+      "set_improvement_status",
+      "findRecommendations"
+    ],
+    "missing_from_live": [
+      "unshare_document"
+    ],
+    "extra_on_live": []
+  },
+  "laptop_ports": {
+    "5432": true,
+    "4111": true,
+    "44112": false,
+    "44113": true
+  },
+  "scores_first_pass": {
+    "store_document": "pass",
+    "get_document": "pass",
+    "update_document": "pass",
+    "share_document": "fail",
+    "unshare_document": "designed_error",
+    "list_documents": "pass",
+    "search_fts": "pass",
+    "search_vector": "fail",
+    "hybrid_search": "fail",
+    "search_research": "pass",
+    "get_research_session": "fail",
+    "list_subscriptions": "pass",
+    "add_subscription": "pass",
+    "check_subscriptions": "pass",
+    "get_subscription_content": "pass",
+    "set_subscription_filter": "pass",
+    "get_subscription_filters": "pass",
+    "store_tool": "pass",
+    "get_tool": "pass",
+    "list_tools": "pass",
+    "search_tools": "pass",
+    "update_tool": "pass",
+    "add_improvement": "pass",
+    "get_improvement": "pass",
+    "list_improvements": "pass",
+    "search_improvements": "pass",
+    "set_improvement_status": "pass",
+    "close_improvement": "pass",
+    "get_whats_new_report": "pass",
+    "list_whats_new_reports": "pass",
+    "get_creator_transcripts": "fail",
+    "assimilate_creator": "designed_error",
+    "regenerate_transcript": "pass",
+    "shop_products": "pass",
+    "get_shop_session": "pass",
+    "get_shop_listings": "pass",
+    "findRecommendations": "pass",
+    "start_assimilation": "pass",
+    "get_assimilation_status": "pass",
+    "steer_assimilation": "pass",
+    "reject_assimilation_plan": "pass",
+    "cancel_assimilation": "pass",
+    "approve_assimilation_plan": "designed_error",
+    "remove_tool": "pass",
+    "remove_subscription": "fail"
+  },
+  "calls": [
+    {
+      "tool": "store_document",
+      "http_status": 200,
+      "elapsed_ms": 74,
+      "cf_ray": "a2f65976f98bc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "documentId": "3d98a49c-a619-4d3c-994d-86a57785a17a",
+        "title": "mcp-audit-20260823T012201Z-marker",
+        "embeddingStatus": "pending"
+      }
+    },
+    {
+      "tool": "get_document",
+      "http_status": 200,
+      "elapsed_ms": 83,
+      "cf_ray": "a2f6597d7badc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "documentId": "3d98a49c-a619-4d3c-994d-86a57785a17a",
+        "title": "mcp-audit-20260823T012201Z-marker",
+        "status": "draft",
+        "isPublic": false,
+        "shareToken": null,
+        "date": null,
+        "createdAt": "2026-08-23T01:30:00.137Z"
+      }
+    },
+    {
+      "tool": "update_document",
+      "http_status": 200,
+      "elapsed_ms": 71,
+      "cf_ray": "a2f6597e4e6cc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "documentId": "3d98a49c-a619-4d3c-994d-86a57785a17a",
+        "updated": true,
+        "embeddingStatus": "pending"
+      }
+    },
+    {
+      "tool": "share_document",
+      "http_status": 200,
+      "elapsed_ms": 63,
+      "cf_ray": "a2f6597f28d0c03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": "MCP error -32602: Input validation error: Invalid arguments for tool share_document: [\n  {\n    \"expected\": \"boolean\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"isPublic\"\n    ],\n    \"message\": \"Invalid input: expected boolean, receive"
+    },
+    {
+      "tool": "unshare_document",
+      "http_status": 200,
+      "elapsed_ms": 60,
+      "cf_ray": "a2f6597fdae7c03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": "MCP error -32602: Tool unshare_document not found"
+    },
+    {
+      "tool": "list_documents",
+      "http_status": 200,
+      "elapsed_ms": 113,
+      "cf_ray": "a2f659808cb9c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "documents": "list:5",
+        "hasMore": true,
+        "nextCursor": null
+      }
+    },
+    {
+      "tool": "search_fts",
+      "http_status": 200,
+      "elapsed_ms": 107,
+      "cf_ray": "a2f659819fa0c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "results": "list:5",
+        "totalResults": 5
+      }
+    },
+    {
+      "tool": "search_vector",
+      "http_status": 200,
+      "elapsed_ms": 222,
+      "cf_ray": "a2f659829aabc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": "MCP error -32602: Output validation error: Invalid structured content for tool search_vector: [\n  {\n    \"expected\": \"number\",\n    \"code\": \"invalid_type\",\n    \"received\": \"NaN\",\n    \"path\": [\n      \"results\",\n      0,\n      \"score\"\n    ],\n  "
+    },
+    {
+      "tool": "hybrid_search",
+      "http_status": 200,
+      "elapsed_ms": 140,
+      "cf_ray": "a2f65984580cc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "ROLE_UNAVAILABLE",
+        "message": "ROLE_UNAVAILABLE: fleet role 'embed' unreachable at http://host.docker.internal:4545/v1 (degradation=fail-closed): embed API call failed: litellm.NotFoundError:..."
+      }
+    },
+    {
+      "tool": "search_research",
+      "http_status": 200,
+      "elapsed_ms": 65,
+      "cf_ray": "a2f659859b8ac03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "sessions": "list:2",
+        "totalResults": 2
+      }
+    },
+    {
+      "tool": "get_research_session",
+      "http_status": 200,
+      "elapsed_ms": 63,
+      "cf_ray": "a2f659865dadc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "invalid input syntax for type uuid: \"SQL_ERROR:1:/usr/lib/postgresql/18/bin/psql: option requires an argument -- 'c'\npsql: hint: Try \"psql --help\" for more information.\""
+      }
+    },
+    {
+      "tool": "list_subscriptions",
+      "http_status": 200,
+      "elapsed_ms": 65,
+      "cf_ray": "a2f659871809c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "subscriptions": "list:10"
+      }
+    },
+    {
+      "tool": "add_subscription",
+      "http_status": 200,
+      "elapsed_ms": 69,
+      "cf_ray": "a2f6598dab1fc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "subscriptionId": "86309564-030d-4092-847e-c9bda21c3952",
+        "sourceType": "github",
+        "identifier": "mcp-audit-20260823T012201Z",
+        "name": "mcp-audit-20260823T012201Z",
+        "createdAt": 1787448603764.014
+      }
+    },
+    {
+      "tool": "add_subscription",
+      "http_status": 200,
+      "elapsed_ms": 69,
+      "cf_ray": "a2f659943e9cc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "subscriptionId": "86309564-030d-4092-847e-c9bda21c3952",
+        "sourceType": "github",
+        "identifier": "mcp-audit-20260823T012201Z",
+        "name": "mcp-audit-20260823T012201Z",
+        "createdAt": 1787448603764.014
+      }
+    },
+    {
+      "tool": "check_subscriptions",
+      "http_status": 200,
+      "elapsed_ms": 1238,
+      "cf_ray": "a2f659950948c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "sourcesChecked": 1,
+        "totalFetched": 10,
+        "totalQueued": 10,
+        "errors": "list:0"
+      }
+    },
+    {
+      "tool": "get_subscription_content",
+      "http_status": 200,
+      "elapsed_ms": 271,
+      "cf_ray": "a2f659a2fc97c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {}
+    },
+    {
+      "tool": "set_subscription_filter",
+      "http_status": 200,
+      "elapsed_ms": 64,
+      "cf_ray": "a2f659a51a7bc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "filterId": "7cda60b2-a29f-4aa6-a2dc-ebd739a4c0c9",
+        "ruleName": "mcp-audit-20260823T012201Z-rule",
+        "ruleType": "keyword",
+        "ruleValue": "audit",
+        "weight": 1
+      }
+    },
+    {
+      "tool": "get_subscription_filters",
+      "http_status": 200,
+      "elapsed_ms": 69,
+      "cf_ray": "a2f659a5dcd2c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "filters": "list:1"
+      }
+    },
+    {
+      "tool": "store_tool",
+      "http_status": 200,
+      "elapsed_ms": 67,
+      "cf_ray": "a2f659a6aef8c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "toolId": "1cd1c957-7857-4dd8-afd1-5624009bc987",
+        "title": "mcp-audit-20260823T012201Z",
+        "embeddingStatus": "pending"
+      }
+    },
+    {
+      "tool": "get_tool",
+      "http_status": 200,
+      "elapsed_ms": 66,
+      "cf_ray": "a2f659ad08f9c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "toolId": "1cd1c957-7857-4dd8-afd1-5624009bc987",
+        "title": "mcp-audit-20260823T012201Z",
+        "description": "audit toolbelt row",
+        "sourceUrl": null,
+        "sourceType": "other",
+        "category": "tool",
+        "status": "draft"
+      }
+    },
+    {
+      "tool": "list_tools",
+      "http_status": 200,
+      "elapsed_ms": 73,
+      "cf_ray": "a2f659adcb1ac03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "tools": "list:8",
+        "total": 8
+      }
+    },
+    {
+      "tool": "search_tools",
+      "http_status": 200,
+      "elapsed_ms": 69,
+      "cf_ray": "a2f659ae9d55c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "results": "list:1",
+        "totalResults": 1,
+        "searchMethod": "postgres-fts"
+      }
+    },
+    {
+      "tool": "update_tool",
+      "http_status": 200,
+      "elapsed_ms": 66,
+      "cf_ray": "a2f659af6f9ec03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "toolId": "1cd1c957-7857-4dd8-afd1-5624009bc987",
+        "updated": true,
+        "embeddingStatus": "pending"
+      }
+    },
+    {
+      "tool": "add_improvement",
+      "http_status": 200,
+      "elapsed_ms": 76,
+      "cf_ray": "a2f659b04a64c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "created": 1,
+        "ids": "list:1"
+      }
+    },
+    {
+      "tool": "get_improvement",
+      "http_status": 200,
+      "elapsed_ms": 67,
+      "cf_ray": "a2f659b6dba5c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "_id": "ae92baa5-bc6b-48e7-8e19-56f55ebe4aee",
+        "description": "mcp-audit-20260823T012201Z",
+        "status": "pending",
+        "sourceScreen": "mcp-audit",
+        "closedReason": null,
+        "closedAt": null,
+        "createdAt": 1787448609308.247
+      }
+    },
+    {
+      "tool": "list_improvements",
+      "http_status": 200,
+      "elapsed_ms": 72,
+      "cf_ray": "a2f659b7be4fc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": "list_len=5"
+    },
+    {
+      "tool": "search_improvements",
+      "http_status": 200,
+      "elapsed_ms": 61,
+      "cf_ray": "a2f659b888a4c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": "list_len=2"
+    },
+    {
+      "tool": "set_improvement_status",
+      "http_status": 200,
+      "elapsed_ms": 60,
+      "cf_ray": "a2f659b94ac8c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "id": "ae92baa5-bc6b-48e7-8e19-56f55ebe4aee",
+        "status": "open"
+      }
+    },
+    {
+      "tool": "close_improvement",
+      "http_status": 200,
+      "elapsed_ms": 67,
+      "cf_ray": "a2f659ba1db7c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "id": "ae92baa5-bc6b-48e7-8e19-56f55ebe4aee",
+        "status": "closed"
+      }
+    },
+    {
+      "tool": "get_whats_new_report",
+      "http_status": 200,
+      "elapsed_ms": 65,
+      "cf_ray": "a2f659bad80dc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "generatedAt": 1785804321487,
+        "report": "{tlDr,trends,newTools,peopleToWatch,communityPulse,headlineReleases}"
+      }
+    },
+    {
+      "tool": "list_whats_new_reports",
+      "http_status": 200,
+      "elapsed_ms": 59,
+      "cf_ray": "a2f659bb9a25c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": "list_len=3"
+    },
+    {
+      "tool": "get_creator_transcripts",
+      "http_status": 200,
+      "elapsed_ms": 67,
+      "cf_ray": "a2f659bc4c5cc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "invalid input syntax for type uuid: \"SQL_ERROR:1:/usr/lib/postgresql/18/bin/psql: option requires an argument -- 'c'\npsql: hint: Try \"psql --help\" for more information.\""
+      }
+    },
+    {
+      "tool": "assimilate_creator",
+      "http_status": 200,
+      "elapsed_ms": 73,
+      "cf_ray": "a2f659bd1ebbc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "invalid input syntax for type uuid: \"00000000-0000-0000-0000-00000000aud1\""
+      }
+    },
+    {
+      "tool": "regenerate_transcript",
+      "http_status": 200,
+      "elapsed_ms": 66,
+      "cf_ray": "a2f659bde92ec03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "success": true,
+        "data": "{jobId,created,contentId,message}"
+      }
+    },
+    {
+      "tool": "shop_products",
+      "http_status": 200,
+      "elapsed_ms": 33833,
+      "cf_ray": "a2f659beabacc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "sessionId": "683157dd-3e23-46a1-aa6c-51306ea27cfb",
+        "status": "completed",
+        "totalListings": 1,
+        "bestDeal": "{title,price,priceFormatted,retailer,condition,url}",
+        "listings": "list:1"
+      }
+    },
+    {
+      "tool": "get_shop_session",
+      "http_status": 200,
+      "elapsed_ms": 65,
+      "cf_ray": "a2f65a928c40c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "session": "{sessionId,query,condition,priceMin,priceMax,retailers}"
+      }
+    },
+    {
+      "tool": "get_shop_listings",
+      "http_status": 200,
+      "elapsed_ms": 71,
+      "cf_ray": "a2f65a934ec3c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "listings": "list:1"
+      }
+    },
+    {
+      "tool": "findRecommendations",
+      "http_status": 200,
+      "elapsed_ms": 13080,
+      "cf_ray": "a2f65a9418edc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": "list_len=3"
+    },
+    {
+      "tool": "start_assimilation",
+      "http_status": 200,
+      "elapsed_ms": 62,
+      "cf_ray": "a2f65ae63c4ec03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "sessionId": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7",
+        "status": "planning",
+        "existing": false
+      }
+    },
+    {
+      "tool": "get_assimilation_status",
+      "http_status": 200,
+      "elapsed_ms": 68,
+      "cf_ray": "a2f65aec6f49c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "_id": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7",
+        "status": "planning",
+        "profile": "fast",
+        "repositoryName": null,
+        "repositoryUrl": "https://github.com/octocat/Hello-World#mcp-audit-20260823T012201Z",
+        "currentIteration": null,
+        "maxIterations": null,
+        "dimensionScores": null
+      }
+    },
+    {
+      "tool": "steer_assimilation",
+      "http_status": 200,
+      "elapsed_ms": 69,
+      "cf_ray": "a2f65aed2988c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "steered": true,
+        "sessionId": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7"
+      }
+    },
+    {
+      "tool": "reject_assimilation_plan",
+      "http_status": 200,
+      "elapsed_ms": 79,
+      "cf_ray": "a2f65aee0c3bc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "rejected": true,
+        "sessionId": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7",
+        "replanning": true
+      }
+    },
+    {
+      "tool": "cancel_assimilation",
+      "http_status": 200,
+      "elapsed_ms": 107,
+      "cf_ray": "a2f65aef282dc03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "cancelled": true,
+        "sessionId": "816b3461-3b89-4d6d-b5a2-600cd80dcdd7"
+      }
+    },
+    {
+      "tool": "approve_assimilation_plan",
+      "http_status": 200,
+      "elapsed_ms": 82,
+      "cf_ray": "a2f65af01ab3c03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "INVALID_STATE",
+        "message": "INVALID_STATE: assimilation session is not awaiting approval"
+      }
+    },
+    {
+      "tool": "remove_tool",
+      "http_status": 200,
+      "elapsed_ms": 62,
+      "cf_ray": "a2f65af0dc97c03b-DEN",
+      "server": "cloudflare",
+      "is_error": false,
+      "payload_preview": {
+        "deleted": true,
+        "toolId": "1cd1c957-7857-4dd8-afd1-5624009bc987"
+      }
+    },
+    {
+      "tool": "remove_subscription",
+      "http_status": 200,
+      "elapsed_ms": 70,
+      "cf_ray": "a2f65af19eafc03b-DEN",
+      "server": "cloudflare",
+      "is_error": true,
+      "payload_preview": {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "update or delete on table \"subscription_sources\" violates RESTRICT setting of foreign key constraint \"subscription_content_source_id_fkey\" on table \"subscription_content\""
+      }
+    }
+  ]
+}
