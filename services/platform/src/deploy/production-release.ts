@@ -999,6 +999,10 @@ function renderCompose(
     LANGFUSE_OTLP_ENDPOINT:
       process.env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel',
     LANGFUSE_AUTH_HEADER: process.env.LANGFUSE_AUTH_HEADER || 'Basic stage-render-placeholder',
+    // Compose interpolates this into mastra.environment. A live key in the
+    // project `.env` would otherwise land in the rendered JSON and trip the
+    // credential-literal scan. Apply injects the real value at compose-up.
+    DEEPSEEK_API_KEY: 'stage-render-placeholder',
   };
   try {
     process.env.HOLO_PLATFORM_IMAGE = image;
