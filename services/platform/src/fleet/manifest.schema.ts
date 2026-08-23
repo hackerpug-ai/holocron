@@ -9,7 +9,14 @@
  */
 import { z } from 'zod';
 
-export const FLEET_ROLE_NAMES = ['divergent', 'convergent', 'judge', 'embed', 'rerank'] as const;
+export const FLEET_ROLE_NAMES = [
+  'divergent',
+  'convergent',
+  'judge',
+  'embed',
+  'rerank',
+  'synthesis',
+] as const;
 
 export type FleetRoleName = (typeof FLEET_ROLE_NAMES)[number];
 
@@ -61,6 +68,7 @@ export const FleetRoleManifestSchema = z
       judge: FleetRoleSchema,
       embed: FleetRoleSchema,
       rerank: FleetRoleSchema,
+      synthesis: FleetRoleSchema,
     }),
   })
   .superRefine((manifest, ctx) => {

@@ -175,7 +175,7 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-1-embed', health: body }));
   }, 30_000);
 
-  it('AC-2/TC-3/TC-4: committed manifest reports gating roles + live rerank present (non-gating)', async () => {
+  it('AC-2/TC-3/TC-4: committed manifest reports gating roles + live rerank/synthesis present (non-gating)', async () => {
     const body = (await healthWithManifest(MANIFEST_PATH)).body;
     expect(Object.keys(body.fleet.roles).sort()).toEqual([
       'convergent',
@@ -183,8 +183,16 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
       'embed',
       'judge',
       'rerank',
+      'synthesis',
     ]);
-    for (const role of ['divergent', 'convergent', 'judge', 'embed', 'rerank'] as const) {
+    for (const role of [
+      'divergent',
+      'convergent',
+      'judge',
+      'embed',
+      'rerank',
+      'synthesis',
+    ] as const) {
       expect(body.fleet.roles[role].present, role).toBe(true);
     }
     expect(body.fleet.roles.rerank).toMatchObject({
@@ -192,7 +200,13 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
       litellmModelId: 'qwen3-reranker',
       degradationAction: 'fail-closed',
     });
+    expect(body.fleet.roles.synthesis).toMatchObject({
+      present: true,
+      litellmModelId: 'research',
+      degradationAction: 'surface-unavailable',
+    });
     expect(body.fleet.unavailable_roles).not.toContain('rerank');
+    expect(body.fleet.unavailable_roles).not.toContain('synthesis');
     expect(body.fleet.unavailable_roles).toEqual([]);
     expect(body.fleet.ready).toBe(true);
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));

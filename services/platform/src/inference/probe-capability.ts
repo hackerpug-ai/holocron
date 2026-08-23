@@ -27,7 +27,7 @@ import { type ResolvedModel, resolveModel } from './resolve-model';
  * Capability probe result for a single role.
  */
 export type RoleCapability = {
-  /** Fleet role name (divergent, convergent, judge, embed, rerank). */
+  /** Fleet role name (divergent, convergent, judge, embed, rerank, synthesis). */
   role: string;
   /** Whether the role supports json_schema constrained decode. */
   supportsJsonSchema: boolean;

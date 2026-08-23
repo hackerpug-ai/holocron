@@ -221,7 +221,7 @@ describe('S31-06 AC-3: committed manifest matches live fleet with zero drift', (
       writeArtifact('ac3-live-probe.json', probeJson);
 
       const roles = Object.keys(capabilities);
-      expect(roles).toHaveLength(5);
+      expect(roles).toHaveLength(6);
       for (const role of roles) {
         const cap = capabilities[role];
         expect(cap).toBeDefined();

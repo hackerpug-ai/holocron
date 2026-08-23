@@ -595,7 +595,7 @@ Options:
   --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
-  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
+  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank|synthesis
   --escape              (infer:call) budgeted DeepSeek escape via runBudgetedEscape
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
@@ -2522,7 +2522,7 @@ async function main(): Promise<void> {
       const role = args.positional[1];
       if (!role) {
         console.error(
-          'error: manifest:resolve requires a role (e.g. divergent, convergent, judge, embed, rerank)'
+          'error: manifest:resolve requires a role (e.g. divergent, convergent, judge, embed, rerank, synthesis)'
         );
         process.exit(2);
       }

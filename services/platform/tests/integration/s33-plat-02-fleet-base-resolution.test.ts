@@ -245,6 +245,20 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
       configuredIds.filter((id) => id === currentManifest.roles.rerank.litellmModelId)
     ).toHaveLength(1);
     expect(currentManifest.roles.rerank.degradationAction).toBe('fail-closed');
+    expect(currentManifest.roles.synthesis.litellmModelId).toBe('research');
+    expect(currentManifest.roles.synthesis.modelRevision).toBe('Qwen3.8-27B-8bit');
+    expect(currentManifest.roles.synthesis.degradationAction).toBe('surface-unavailable');
+    expect(
+      configuredIds.filter((id) => id === currentManifest.roles.synthesis.litellmModelId)
+    ).toHaveLength(1);
+    expect(Object.keys(currentManifest.roles).sort()).toEqual([
+      'convergent',
+      'divergent',
+      'embed',
+      'judge',
+      'rerank',
+      'synthesis',
+    ]);
     expect(currentManifest.roles.embed.degradationAction).toBe('fail-closed');
     expect(readFileSync(MANIFEST_PATH, 'utf8')).not.toContain('qwen3.6-27b-mtp-q8_0');
     console.log(
@@ -259,6 +273,8 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
           ),
           rerankPresent: configuredIds.includes(currentManifest.roles.rerank.litellmModelId),
           rerankDegradationAction: currentManifest.roles.rerank.degradationAction,
+          synthesisPresent: configuredIds.includes(currentManifest.roles.synthesis.litellmModelId),
+          synthesisDegradationAction: currentManifest.roles.synthesis.degradationAction,
           embedDegradationAction: currentManifest.roles.embed.degradationAction,
         },
         null,

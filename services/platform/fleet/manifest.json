@@ -93,6 +93,23 @@
         "expectStatus": 200
       },
       "degradationAction": "fail-closed"
+    },
+    "synthesis": {
+      "role": "synthesis",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "research",
+      "modelRevision": "Qwen3.8-27B-8bit",
+      "contextLimit": 262144,
+      "concurrency": 2,
+      "timeoutMs": 240000,
+      "structuredOutput": false,
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 3000,
+        "expectStatus": 200
+      },
+      "degradationAction": "surface-unavailable"
     }
   }
 }

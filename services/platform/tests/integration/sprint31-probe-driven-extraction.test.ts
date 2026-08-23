@@ -103,7 +103,7 @@ describe('S31-06 AC-1: extraction consumes the boot probe', () => {
       writeArtifact('ac1-live-probe.json', probeJson);
 
       const roles = Object.keys(capabilities);
-      expect(roles).toHaveLength(5);
+      expect(roles).toHaveLength(6);
       for (const role of roles) {
         const cap = capabilities[role];
         expect(cap).toBeDefined();
