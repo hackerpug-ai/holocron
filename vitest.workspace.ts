@@ -58,6 +58,8 @@ export const projects: TestProjectConfiguration[] = [
         'services/platform/src/research/*.test.ts',
         // Pure enrich seam — never launder fleet ASSAY text into gate quote/sourceText
         'services/platform/src/mission/enrich-evidence-fleet.test.ts',
+        // Wave 2 web acquisition — pure origin/dates/normalize helpers (UNIT_TEST_JUSTIFIED)
+        'services/platform/src/web/**/*.test.ts',
         // Sprint 25 / F1 — chat pre-flight gate truth table (pure predicate, no infra)
         'services/platform/src/http/chat-stream-gate.test.ts',
         // Assimilate crawl gates (real git + filesystem, no Postgres)
