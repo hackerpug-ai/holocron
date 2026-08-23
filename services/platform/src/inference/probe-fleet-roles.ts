@@ -65,9 +65,9 @@ function emptyRoleStatusMap(): FleetRoleStatusMap {
 
 /**
  * Cross-check declared role model ids against one observed model-id list.
- * Rerank is intentionally visible but non-gating: no qwen3-reranker model is
- * provisioned on the fleet, while embed is a gating role because search and
- * re-embedding must fail closed when its model is unavailable.
+ * Rerank is intentionally visible but non-gating: a cold or missing
+ * qwen3-reranker degrades research rather than failing /health, while embed
+ * is gating because search and re-embedding must fail closed when unavailable.
  */
 export function compareFleetRoles(
   manifest: FleetRoleManifest,

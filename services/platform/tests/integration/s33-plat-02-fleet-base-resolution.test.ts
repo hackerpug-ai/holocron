@@ -239,6 +239,8 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
     expect(currentManifest.roles.judge.modelRevision).toBe('Qwen3.8-27B-8bit');
     expect(currentManifest.roles.embed.modelRevision).toBe('Qwen3-Embedding-0.6B-4bit-DWQ');
     expect(currentManifest.roles.embed.embed?.embeddingDimension).toBe(1024);
+    expect(currentManifest.roles.rerank.modelRevision).toBe('BAAI-bge-reranker-v2-m3-mlx-fp16');
+    expect(currentManifest.roles.rerank.modelRevision).not.toBe('qwen3-reranker-0.6b');
     expect(
       configuredIds.filter((id) => id === currentManifest.roles.rerank.litellmModelId)
     ).toHaveLength(0);

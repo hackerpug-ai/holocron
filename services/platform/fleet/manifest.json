@@ -81,7 +81,7 @@
       "role": "rerank",
       "endpoint": "http://127.0.0.1:4545",
       "litellmModelId": "qwen3-reranker",
-      "modelRevision": "qwen3-reranker-0.6b",
+      "modelRevision": "BAAI-bge-reranker-v2-m3-mlx-fp16",
       "contextLimit": 8192,
       "concurrency": 4,
       "timeoutMs": 30000,
