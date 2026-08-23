@@ -126,6 +126,42 @@ function toDatabaseToolStatus(status: unknown): string {
   return status === 'complete' ? 'completed' : String(status);
 }
 
+function asSearchResultRow(row: Record<string, unknown>): {
+  _id: string;
+  title?: string;
+  content?: string;
+  score: number;
+} {
+  const score = Number(row.score);
+  return {
+    _id: String(row._id ?? ''),
+    ...(typeof row.title === 'string' && row.title.length > 0 ? { title: row.title } : {}),
+    ...(typeof row.content === 'string' ? { content: row.content } : {}),
+    score: Number.isFinite(score) ? score : 0,
+  };
+}
+
+function asFilterResult(
+  row: Record<string, unknown>,
+  overrides?: { ruleName?: string; ruleType?: string; ruleValue?: unknown; weight?: unknown }
+): {
+  filterId: string;
+  ruleName: string;
+  ruleType: string;
+  ruleValue: unknown;
+  weight?: number;
+} {
+  const weightRaw = overrides?.weight ?? row.weight;
+  const weightNum = typeof weightRaw === 'number' ? weightRaw : Number(weightRaw);
+  return {
+    filterId: String(row.filterId ?? ''),
+    ruleName: String(overrides?.ruleName ?? row.ruleName ?? ''),
+    ruleType: String(overrides?.ruleType ?? row.ruleType ?? ''),
+    ruleValue: overrides?.ruleValue ?? row.ruleValue,
+    ...(Number.isFinite(weightNum) ? { weight: weightNum } : {}),
+  };
+}
+
 function asJinaSearchItem(value: unknown): JinaSearchItem | null {
   if (!isRecord(value)) return null;
   const title = typeof value.title === 'string' ? value.title : '';
@@ -863,13 +899,7 @@ export async function executePostgresMcpTool(
           ORDER BY embedding <=> ${embedding}::vector LIMIT ${limit}
         `;
         return {
-          results: rows.map((row) => {
-            const score = Number((row as { score?: unknown }).score);
-            return {
-              ...row,
-              score: Number.isFinite(score) ? score : 0,
-            };
-          }),
+          results: rows.map((row) => asSearchResultRow(row as Record<string, unknown>)),
           totalResults: rows.length,
         };
       }
@@ -924,13 +954,12 @@ export async function executePostgresMcpTool(
                 source_type = COALESCE(${sourceType}, source_type)
             WHERE id = ${String(existing[0].filterId)}::uuid
           `;
-          return {
-            filterId: existing[0].filterId,
+          return asFilterResult(existing[0] as Record<string, unknown>, {
             ruleName,
             ruleType: String(input.ruleType),
             ruleValue,
             weight,
-          };
+          });
         }
         const rows = await sql`
           INSERT INTO subscription_filters (id, source_id, source_type, rule_name, rule_type, rule_value, weight)
@@ -938,7 +967,10 @@ export async function executePostgresMcpTool(
                   ${String(input.ruleType)}, ${ruleValue}, ${weight})
           RETURNING id::text AS "filterId", rule_name AS "ruleName", rule_type AS "ruleType", rule_value AS "ruleValue", weight
         `;
-        return rows[0];
+        const inserted = rows[0];
+        if (!inserted)
+          throw new Error('INTERNAL_SERVER_ERROR: Postgres set_subscription_filter insert failed');
+        return asFilterResult(inserted as Record<string, unknown>);
       }
       case 'get_subscription_filters': {
         const subscriptionId =
@@ -1043,7 +1075,7 @@ export async function executePostgresMcpTool(
           LIMIT ${limit}
         `;
         return {
-          results: rows,
+          results: rows.map((row) => asSearchResultRow(row as Record<string, unknown>)),
           totalResults: rows.length,
         };
       }
