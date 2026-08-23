@@ -270,7 +270,7 @@ export type InferenceTelemetryProvider = 'fleet' | 'deepseek';
  * Call-kind discriminant for the single instrumented fleet client.
  * Expresses telemetry nullability in types rather than by convention.
  */
-export type FleetCallKind = 'chat' | 'object' | 'embedding';
+export type FleetCallKind = 'chat' | 'object' | 'embedding' | 'rerank';
 
 export type InferenceTelemetryRecord = {
   id: string;

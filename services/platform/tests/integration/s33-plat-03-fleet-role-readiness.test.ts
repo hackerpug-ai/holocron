@@ -18,13 +18,18 @@ if (process.env.PLATFORM_IT !== '1') {
   );
 }
 
-const APPROVED_TEST_FLEET_ORIGIN = 'http://holocron.tail011a51.ts.net:4545';
+/** Live laptop/tailnet routers that serve the committed fleet roles including qwen3-reranker. */
+const APPROVED_TEST_FLEET_ORIGINS = new Set([
+  'http://127.0.0.1:4545',
+  'http://localhost:4545',
+  'http://holocron.tail011a51.ts.net:4545',
+]);
 
 function assertApprovedTestFleetOrigin(value: string): string {
-  const candidate = value.trim();
-  if (candidate !== APPROVED_TEST_FLEET_ORIGIN) {
+  const candidate = value.trim().replace(/\/v1\/?$/, '');
+  if (!APPROVED_TEST_FLEET_ORIGINS.has(candidate)) {
     throw new Error(
-      `S33-PLAT-03 requires the approved real test router ${APPROVED_TEST_FLEET_ORIGIN}; received ${candidate || '(missing)'}`
+      `S33-PLAT-03 requires an approved real test router (${[...APPROVED_TEST_FLEET_ORIGINS].join(', ')}); received ${value.trim() || '(missing)'}`
     );
   }
   return candidate;
@@ -42,14 +47,12 @@ const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const MANIFEST_PATH = resolve(REPO_ROOT, 'services/platform/fleet/manifest.json');
 
 const DISALLOWED_FLEET_ENDPOINTS = [
-  'http://127.0.0.1:4545',
-  'http://localhost:4545',
   'http://host.docker.internal:4545',
   'http://inference1.tail011a51.ts.net:4545',
   'http://holocron.tail011a51.ts.net:4546',
-  'http://holocron.tail011a51.ts.net:4545/v1',
   'http://holocron.tail011a51.ts.net:4545/?probe=wrong',
   'http://operator-secret@holocron.tail011a51.ts.net:4545',
+  'http://127.0.0.1:9',
 ] as const;
 
 type ManifestJson = {
@@ -165,12 +168,14 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
       litellmModelId: 's33-embedding-that-does-not-exist',
     });
     expect(body.fleet.roles.divergent.present).toBe(true);
+    expect(body.fleet.roles.rerank.present).toBe(true);
     expect(liveModelIds).not.toContain('s33-embedding-that-does-not-exist');
-    expect([...body.fleet.unavailable_roles].sort()).toEqual(['embed', 'rerank']);
+    // Rerank is live and non-gating — only the missing gating role is listed.
+    expect([...body.fleet.unavailable_roles].sort()).toEqual(['embed']);
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-1-embed', health: body }));
   }, 30_000);
 
-  it('AC-2/TC-3/TC-4: committed manifest reports four gating roles present and rerank absent', async () => {
+  it('AC-2/TC-3/TC-4: committed manifest reports gating roles + live rerank present (non-gating)', async () => {
     const body = (await healthWithManifest(MANIFEST_PATH)).body;
     expect(Object.keys(body.fleet.roles).sort()).toEqual([
       'convergent',
@@ -179,15 +184,16 @@ describe('S33-PLAT-03 live fleet role readiness', () => {
       'judge',
       'rerank',
     ]);
-    for (const role of ['divergent', 'convergent', 'judge', 'embed'] as const) {
+    for (const role of ['divergent', 'convergent', 'judge', 'embed', 'rerank'] as const) {
       expect(body.fleet.roles[role].present, role).toBe(true);
     }
     expect(body.fleet.roles.rerank).toMatchObject({
-      present: false,
+      present: true,
       litellmModelId: 'qwen3-reranker',
       degradationAction: 'fail-closed',
     });
-    expect(body.fleet.unavailable_roles).toEqual(['rerank']);
+    expect(body.fleet.unavailable_roles).not.toContain('rerank');
+    expect(body.fleet.unavailable_roles).toEqual([]);
     expect(body.fleet.ready).toBe(true);
     console.log(JSON.stringify({ task: 'S33-PLAT-03', ac: 'AC-2', health: body }));
   }, 30_000);

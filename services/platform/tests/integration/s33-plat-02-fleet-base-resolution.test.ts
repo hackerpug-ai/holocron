@@ -243,7 +243,7 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
     expect(currentManifest.roles.rerank.modelRevision).not.toBe('qwen3-reranker-0.6b');
     expect(
       configuredIds.filter((id) => id === currentManifest.roles.rerank.litellmModelId)
-    ).toHaveLength(0);
+    ).toHaveLength(1);
     expect(currentManifest.roles.rerank.degradationAction).toBe('fail-closed');
     expect(currentManifest.roles.embed.degradationAction).toBe('fail-closed');
     expect(readFileSync(MANIFEST_PATH, 'utf8')).not.toContain('qwen3.6-27b-mtp-q8_0');
@@ -257,7 +257,7 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
               entry.modelRevision,
             ])
           ),
-          rerankAbsent: !configuredIds.includes(currentManifest.roles.rerank.litellmModelId),
+          rerankPresent: configuredIds.includes(currentManifest.roles.rerank.litellmModelId),
           rerankDegradationAction: currentManifest.roles.rerank.degradationAction,
           embedDegradationAction: currentManifest.roles.embed.degradationAction,
         },
