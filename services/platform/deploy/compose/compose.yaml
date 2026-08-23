@@ -96,7 +96,7 @@ services:
       FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
       HOLO_BLOB_ROOT: /var/lib/holocron/blobs
       PGBACKREST_CONFIG: /etc/pgbackrest/pgbackrest.conf
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       HOME: /home/bun
       XDG_CONFIG_HOME: /home/bun/.config
       OPENCODE_CONFIG: /home/bun/.config/opencode/opencode.json
