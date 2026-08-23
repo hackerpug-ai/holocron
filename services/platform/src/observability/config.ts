@@ -37,6 +37,26 @@ export const HOLOCRON_ATTRIBUTE_ALLOWLIST = [
   'mission',
   'phase',
   'stepId',
+  // Research pipeline operational metadata (never query/quote/source/URL/report text)
+  'researchSessionId',
+  'iterationNumber',
+  'researchMode',
+  'researchSystem',
+  'branchId',
+  'branchIndex',
+  'branchCount',
+  'subQuestionId',
+  'webProvider',
+  'sourceCount',
+  'admittedCount',
+  'rejectedCount',
+  'independentSourceCount',
+  'coverageScore',
+  'gateAdmitted',
+  'gateReasonCode',
+  'retryCount',
+  'cacheHit',
+  'phaseDurationMs',
 ] as const;
 
 export type HolocronAttributeKey = (typeof HOLOCRON_ATTRIBUTE_ALLOWLIST)[number];

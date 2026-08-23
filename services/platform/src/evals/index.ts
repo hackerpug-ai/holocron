@@ -37,6 +37,7 @@ export * from './datasets';
 export * from './deterministic-scorers';
 export * from './drift';
 export * from './persistence';
+export * from './research-scorers';
 export * from './scorers';
 
 export type RunEvalSampleOptions = {
