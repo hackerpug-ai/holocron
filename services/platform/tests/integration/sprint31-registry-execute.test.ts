@@ -145,8 +145,8 @@ describe('S31-05 registry execute + composition root', () => {
         const listKeys = Object.keys(listed);
         const recordKeys = Object.keys(toolsAsRecord());
 
-        expect(listKeys.length).toBe(49);
-        expect(toolCount()).toBe(49);
+        expect(listKeys.length).toBe(50);
+        expect(toolCount()).toBe(50);
         expect(new Set(listKeys)).toEqual(new Set(recordKeys));
 
         const listDocuments = mastra.getTool('list_documents' as keyof typeof listed);
@@ -234,8 +234,8 @@ describe('S31-05 registry execute + composition root', () => {
       duplicateValidationSites?: unknown[];
       extraTools?: unknown[];
     };
-    expect(report.registeredTools).toBe(49);
-    expect(report.manifestTools).toBe(49);
+    expect(report.registeredTools).toBe(50);
+    expect(report.manifestTools).toBe(50);
     expect(report.missingExecutors ?? []).toHaveLength(0);
     expect(report.convexRefs ?? []).toHaveLength(0);
     expect(report.duplicateValidationSites ?? []).toHaveLength(0);

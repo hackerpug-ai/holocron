@@ -37,3 +37,29 @@ export const regenerateTranscriptOutputSchema = z.object({
   data: z.unknown().nullish(),
   error: z.string().nullish(),
 });
+
+export const transcribeVideoUrlInputSchema = z.object({
+  url: z.string().min(1),
+});
+
+export const transcribeVideoUrlOutputSchema = z.object({
+  success: z.boolean(),
+  data: z
+    .object({
+      transcript: z.string().nullish(),
+      metadata: z
+        .object({
+          videoId: z.string().nullish(),
+          language: z.string().nullish(),
+          kind: z.string().nullish(),
+          wordCount: z.number().int().nullish(),
+          charCount: z.number().int().nullish(),
+          entryCount: z.number().int().nullish(),
+          preview: z.string().nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
+  error: z.string().nullish(),
+  message: z.string().nullish(),
+});

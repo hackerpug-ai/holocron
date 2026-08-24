@@ -48,8 +48,8 @@ The cutover runs as an ordered sequence — build the new stack in parallel with
 **Acceptance Criteria**
 - ☐ Operator can stand up and validate the entire new stack (Postgres + Mastra + Zero + fleet) against a real integration suite while Convex still serves production untouched.
 - ☐ Operator can durably fence Convex mutations/actions/uploads/webhooks, disable and drain all scheduled work, observe a declared quiet interval, capture an export watermark and final-write audit, run the one-time ETL, and produce a source-catalog reconciliation report with zero unexplained variance.
-- ☐ System can serve the app + MCP entirely from the new backend in a read-only rollbackable soak, verified by an end-to-end pass across reads, MCP (all 49 tools), the `/article/` endpoint, and every migrated cron against real services while every production write path returns `migration_read_only`.
-- ☐ Agent Client can invoke all 49 MCP tools post-flip and receive Postgres-backed results with `src/convex/client.ts` no longer importing `convex/browser`.
+- ☐ System can serve the app + MCP entirely from the new backend in a read-only rollbackable soak, verified by an end-to-end pass across reads, MCP (all 50 tools), the `/article/` endpoint, and every migrated cron against real services while every production write path returns `migration_read_only`.
+- ☐ Agent Client can invoke all 50 MCP tools post-flip and receive Postgres-backed results with `src/convex/client.ts` no longer importing `convex/browser`.
 
 ---
 

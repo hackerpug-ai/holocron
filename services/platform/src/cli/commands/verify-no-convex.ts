@@ -538,7 +538,7 @@ async function runMcpProbe(repoRoot: string): Promise<McpRuntimeSubgate> {
   }
 
   return {
-    ok: build.status === 0 && error === undefined && serverName === 'holocron' && toolCount === 49,
+    ok: build.status === 0 && error === undefined && serverName === 'holocron' && toolCount === 50,
     build_command: buildCommand,
     start_command: startCommand,
     build_exit_code: build.status,

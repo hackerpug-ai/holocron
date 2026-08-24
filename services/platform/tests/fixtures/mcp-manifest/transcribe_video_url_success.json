@@ -1,0 +1,18 @@
+{
+  "representative_example": true,
+  "success": true,
+  "data": {
+    "transcript": "In this video we discuss the migration to Postgres and Zero sync across the platform.",
+    "metadata": {
+      "videoId": "dQw4w9WgXcQ",
+      "language": "en",
+      "kind": "manual",
+      "wordCount": 15,
+      "charCount": 84,
+      "entryCount": 2,
+      "preview": "In this video we discuss the migration to Postgres and Zero sync across the platform."
+    }
+  },
+  "error": null,
+  "message": null
+}

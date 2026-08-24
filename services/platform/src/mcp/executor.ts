@@ -19,6 +19,7 @@ import {
   steerResearchSession,
 } from '../research/kickoff.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
+import { transcribeVideoUrl } from '../transcripts/service.ts';
 
 function resolveJinaApiKey(): string | undefined {
   return getSecretValue('JINA_API_KEY');
@@ -976,6 +977,25 @@ export async function executePostgresMcpTool(
             contentId,
             message: 'transcript job queued',
           },
+        };
+      }
+      case 'transcribe_video_url': {
+        const outcome = await transcribeVideoUrl(String(input.url), {
+          signal: options?.signal,
+        });
+        if (!outcome.ok) {
+          return {
+            success: false,
+            data: null,
+            error: outcome.error,
+            message: outcome.message,
+          };
+        }
+        return {
+          success: true,
+          data: { transcript: outcome.transcript, metadata: outcome.metadata },
+          error: null,
+          message: null,
         };
       }
       case 'findRecommendations': {

@@ -190,7 +190,7 @@ describe('S31-MCP-04 manifest reconciliation', () => {
 
     expect(foreign.status).toBe(403);
     expect(sameOrigin.status).toBe(200);
-    expect(toolCount).toBe(49);
+    expect(toolCount).toBe(50);
   });
 
   it('AC-2 header gate refuses origin_validation without allowed_origins', () => {
@@ -350,8 +350,8 @@ describe('S31-MCP-04 manifest reconciliation', () => {
 
     expect(loaderFixturesCount).toBe(0);
     expect(verify.status).toBe(0);
-    expect(report.tools_covered).toBe(49);
-    expect(report.tools_total).toBe(49);
+    expect(report.tools_covered).toBe(50);
+    expect(report.tools_total).toBe(50);
     expect(raw).toMatch(/\{toolId\}_\{success\|error\|replay\}\.json/);
   });
 

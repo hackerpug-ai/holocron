@@ -1,5 +1,5 @@
 # MCP Compatibility Manifest — Holocron Postgres MCP Gateway
-# Frozen dual-transport contract for the 49 registered tools (stdio + streamable-http).
+# Frozen dual-transport contract for the 50 registered tools (stdio + streamable-http).
 # Tool IDs / schemas track services/platform/src/tools/registry.ts and executePostgresMcpTool.
 # Success/error/replay fixtures resolve by filename convention only:
 #   {toolId}_{success|error|replay}.json under services/platform/tests/fixtures/mcp-manifest/
@@ -1717,6 +1717,55 @@ tools:
     replay:
       idempotency_key: [contentId]
       stored_result: jobId
+    transports: [stdio, streamable-http]
+
+  - id: transcribe_video_url
+    input_schema:
+      type: object
+      properties:
+        url:
+          type: string
+          minLength: 1
+          description: "YouTube video URL (watch / youtu.be / embed / shorts / live)"
+      required: [url]
+    output_schema:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          nullable: true
+          properties:
+            transcript: { type: string }
+            metadata:
+              type: object
+              nullable: true
+              properties:
+                videoId: { type: string }
+                language: { type: string }
+                kind: { type: string }
+                wordCount: { type: integer }
+                charCount: { type: integer }
+                entryCount: { type: integer }
+                preview: { type: string }
+        error: { type: string }
+        message: { type: string }
+    defaults: {}
+    errors:
+      - code: NO_CAPTIONS
+        description: "Video has no captions available (returned as success:false)"
+      - code: INVALID_URL
+        description: "URL is not parseable / non-http(s) / loopback, private, or link-local host (returned as success:false)"
+      - code: UNSUPPORTED_HOST
+        description: "Could not extract a YouTube video id (returned as success:false)"
+      - code: FETCH_FAILED
+        description: "Watch page or caption track fetch failed (returned as success:false)"
+      - code: PARSE_FAILED
+        description: "Caption track could not be parsed (returned as success:false)"
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
     transports: [stdio, streamable-http]
 
   # ── Improvement Requests ──────────────────────────────────────

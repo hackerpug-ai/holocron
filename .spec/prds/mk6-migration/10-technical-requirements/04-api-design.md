@@ -43,7 +43,7 @@ For every operation, the client-data contract declares a UUIDv7 or idempotency k
 
 `POST /api/chat-runs` accepts a client `requestId`; replaying it returns the same immutable `runId` and assistant-message ID. Events are persisted with monotonic per-run sequence and envelope `{ id: "runId:sequence", event: "delta|final|error|blocked", data }`. `GET /api/chat-runs/:id/events` resumes after its explicit cursor or `Last-Event-ID`; clients suppress duplicates and out-of-order events. The durable `chat_messages` row is authoritative: replay first fills the gap, then Zero reconciliation produces the final message exactly once.
 
-## MCP gateway (49 tools, unchanged surface)
+## MCP gateway (50 tools, unchanged surface)
 
 The 44 registered tools keep their manifest-approved names, schemas, success/error behavior, defaults, ordering, pagination, side effects, and result contracts. Each calls an **in-process Mastra tool / SQL query** instead of a Convex function by string ref. The baseline is MCP 2025-11-25 with both stdio and Streamable HTTP support; HTTP origin validation, scoped authentication, cancellation, and no-server-sampling policy are explicit compatibility-manifest fields. Tool categories: search/retrieval, documents, subscriptions, toolbelt, shop, whats-new, assimilation, creators, improvements, research.
 

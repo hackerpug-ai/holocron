@@ -25,6 +25,7 @@ import {
   assimilateCreator,
   getCreatorTranscripts,
   regenerateTranscript,
+  transcribeVideoUrl,
 } from "../tools/creators.ts";
 import { hybridSearch } from "../tools/hybrid-search.ts";
 import {
@@ -528,6 +529,16 @@ const regenerateTranscriptTool = createTool({
   ),
 });
 
+const transcribeVideoUrlTool = createTool({
+  id: "transcribe_video_url",
+  description:
+    "Fetch plain-text captions for a YouTube video URL (no API key, no Deepgram). Returns NO_CAPTIONS for caption-less videos.",
+  inputSchema: AnyObject,
+  execute: wrapExecute("transcribe_video_url", (input) =>
+    transcribeVideoUrl(platformClient, input as { url: string })
+  ),
+});
+
 const searchImprovementsTool = createTool({
   id: "search_improvements",
   description: "Search existing improvement requests using hybrid similarity search",
@@ -646,6 +657,7 @@ const server = new MCPServer({
     assimilate_creator: assimilateCreatorTool,
     get_creator_transcripts: getCreatorTranscriptsTool,
     regenerate_transcript: regenerateTranscriptTool,
+    transcribe_video_url: transcribeVideoUrlTool,
     search_improvements: searchImprovementsTool,
     get_improvement: getImprovementTool,
     list_improvements: listImprovementsTool,
