@@ -44,6 +44,15 @@ import {
   type WebCallLedger,
 } from './web-call-ledger.ts';
 
+/**
+ * Outer per-passage budget for claim extraction. Must exceed the inner
+ * role-aware call timeout inside extract-structured (divergent role
+ * timeoutMs = 120s) or the outer race aborts first and extraction never
+ * completes. 20s was the original value — it fired on every passage because
+ * the uncapped local fleet took minutes per generation.
+ */
+const CLAIM_EXTRACT_TIMEOUT_MS = 150_000;
+
 export type AcquireMode = 'shallow' | 'standard' | 'deep';
 
 export type AcquireAdmissibleEvidenceInput = {
@@ -295,7 +304,11 @@ export async function acquireAdmissibleEvidence(
               frozen: input.components,
               question: input.question,
             }),
-            20_000,
+            // Must exceed extract-structured's role-aware call budget (divergent
+            // role timeoutMs = 120s) or the outer race always aborts first and
+            // claims never extract. 20s previously killed EVERY extraction
+            // because the uncapped local fleet took minutes per passage.
+            CLAIM_EXTRACT_TIMEOUT_MS,
             'CLAIM_EXTRACT'
           );
           for (const claim of claims) {

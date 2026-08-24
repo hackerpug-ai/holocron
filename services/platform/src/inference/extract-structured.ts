@@ -165,6 +165,13 @@ export type ExtractStructuredOptions = {
   capabilityMap?: Record<string, RoleCapability>;
   /** Override manifest path for resolveModel / probe ensure. */
   manifestPath?: string;
+  /**
+   * Cap the model's output tokens for this extraction (object path). When
+   * omitted defaults to MAX_OUTPUT_TOKENS_DEFAULT — the local fleet is slow
+   * (5-25 tok/s) and uncapped generation (6-10K tokens observed) is the #1
+   * timeout driver.
+   */
+  maxOutputTokens?: number;
 };
 
 /**
@@ -412,6 +419,16 @@ function redactedTripwirePayload(
 const CALL_TIMEOUT_MS = 45_000;
 
 /**
+ * Default cap on model output tokens for the object (generateObject) path.
+ * The fleet is slow (5-25 tok/s); an uncapped extraction previously let the
+ * model emit 6-10K tokens and blew every timeout. 4096 keeps a full
+ * claims/synthesis payload feasible while bounding wall time to ~2-3 min
+ * uncongested. Callers that know their payload is small (e.g. claim
+ * extraction) pass a tighter cap via ExtractStructuredOptions.maxOutputTokens.
+ */
+const MAX_OUTPUT_TOKENS_DEFAULT = 4096;
+
+/**
  * Strip markdown code fences (```json ... ```) from a model response so the AI
  * SDK's strict JSON parser can handle models that wrap their JSON output.
  * Used as generateObject's experimental_repairText in repair mode.
@@ -488,11 +505,16 @@ async function runExtraction<T extends z.ZodType>(
     );
   }
 
-  // Resolve the fleet role (never bypass resolveModel) — used for mode metadata.
+  // Resolve the fleet role (never bypass resolveModel) — used for mode metadata
+  // AND the call budget. Role-aware budget: honor the manifest's per-role
+  // timeoutMs (divergent 120s / convergent 180s / synthesis 240s) instead of a
+  // fixed 45s cap that aborted legitimate long generations, and cap output
+  // tokens so the model cannot over-generate its way past the budget.
   const resolved: ResolvedModel = await resolveModel(role, {
     manifestPath: options.manifestPath,
   });
-  void resolved;
+  const callTimeoutMs = resolved.timeoutMs ?? CALL_TIMEOUT_MS;
+  const maxOutputTokens = options.maxOutputTokens ?? MAX_OUTPUT_TOKENS_DEFAULT;
 
   // S31-06: INITIAL mode comes from the boot capability probe map — not from
   // resolved.structuredOutput alone. The probe made a real generateObject call
@@ -522,7 +544,8 @@ async function runExtraction<T extends z.ZodType>(
         schema,
         modelOptions: { apiKey: process.env.FLEET_KEY ?? 'sk-none' },
         resolveOptions: { manifestPath: options.manifestPath },
-        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        abortSignal: AbortSignal.timeout(callTimeoutMs),
+        maxOutputTokens,
         stripResponseFormat: currentMode === 'repair',
         repairText:
           currentMode === 'repair'

@@ -54,6 +54,7 @@ function buildClaimPrompt(opts: {
     'Extract atomic factual claims supported by the PASSAGE.',
     'Each claim must cite a contiguous quote via character offsets into PASSAGE.',
     `Allowed components (use exactly one per claim): ${opts.components.join(', ')}`,
+    'Extract at most 6 claims — the highest-signal factual claims only, no padding.',
     'Respond with JSON: {"claims":[{"claimText":"...","component":"...","quoteStart":0,"quoteEnd":10}]}',
     'quoteStart inclusive, quoteEnd exclusive, 0-based into PASSAGE.',
     'If the passage contains no factual claim relevant to the question, return {"claims":[]}.',
@@ -111,7 +112,10 @@ export async function extractClaimsFromPassage(opts: {
       ClaimExtractionResultSchema,
       prompt,
       'divergent',
-      opts.extractionId
+      opts.extractionId,
+      // 6-claim cap → ~1-2K output tokens; the local fleet runs 5-25 tok/s so
+      // uncapped extraction (6-10K tokens observed) always blew the timeout.
+      { maxOutputTokens: 2048 }
     );
   } catch (err) {
     if (err instanceof ExtractionFailedError) {

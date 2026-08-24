@@ -964,6 +964,11 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
         schema: opts.schema!,
         prompt: opts.prompt,
         abortSignal: opts.abortSignal,
+        // Object calls previously had NO output cap while the chat path capped
+        // at 32 by default — the local fleet then over-generated 6-10K-token
+        // JSON payloads (at 5-25 tok/s) and blew every call timeout. Honor the
+        // caller's cap (extract-structured passes one) exactly like generateText.
+        ...(opts.maxOutputTokens !== undefined ? { maxOutputTokens: opts.maxOutputTokens } : {}),
         ...(opts.repairText
           ? {
               experimental_repairText: async ({ text: t }: { text: string }) =>

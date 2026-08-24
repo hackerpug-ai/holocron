@@ -44,10 +44,19 @@ configs:
   router-config:
     content: |
       model_list:
+        # reviewer (convergent/judge) — Qwen3.8-27B-8bit on the laptop's
+        # omlx-research server (:8004). S33-OPS-01/04 provisioned this model on
+        # the minis for reviewer, but oMLX's memory enforcer (soft 48GB / hard
+        # 49.2GB on a 64GB mini) evicts it the moment the 35B implementer is
+        # resident — hence the 404 storms. The laptop (128GB, fleet design
+        # home for research + rerank) hosts it on :8004. NOTE: this deliberately
+        # reintroduces a laptop reference to the production router for the
+        # research-pipeline roles (reviewer/research/rerank); the S33-OPS-04
+        # zero-laptop-coupling AC covered the core-chat contract only.
         - model_name: reviewer
           litellm_params:
             model: openai/Qwen3.8-27B-8bit
-            api_base: http://inference2.tail011a51.ts.net:8003/v1
+            api_base: http://laptop.tail011a51.ts.net:8004/v1
             api_key: sk-none
         - model_name: implementer
           litellm_params:
@@ -74,6 +83,21 @@ configs:
             api_base: http://inference2.tail011a51.ts.net:8003/v1
             api_key: sk-none
             weight: 100
+        # research (synthesis role) — Qwen3.8-27B-8bit on the laptop's omlx-research
+        # server (:8004), matching the fleet design (research -> laptop:8004).
+        - model_name: research
+          litellm_params:
+            model: openai/Qwen3.8-27B-8bit
+            api_base: http://laptop.tail011a51.ts.net:8004/v1
+            api_key: sk-none
+        # qwen3-reranker (rerank role) — BAAI bge reranker on the laptop's main
+        # oMLX server (:8003), matching the fleet design (qwen3-reranker ->
+        # laptop:8003). hosted_vllm provider exposes the /v1/rerank surface.
+        - model_name: qwen3-reranker
+          litellm_params:
+            model: hosted_vllm/BAAI-bge-reranker-v2-m3-mlx-fp16
+            api_base: http://laptop.tail011a51.ts.net:8003/v1
+            api_key: sk-none
       router_settings:
         routing_strategy: least-busy
         num_retries: 2
