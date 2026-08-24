@@ -299,8 +299,11 @@ const synthesizeStep = createStep({
     let report = '';
     let gaps = [...ledger.gaps];
     try {
-      // Prefer synthesis-capable convergent role (manifest has no 'synthesis' role).
-      // Hard timeout — fleet hangs must not stall commit.
+      // Use the manifest's synthesis role (research on the fleet; convergent is
+      // the stale S33-era alias). The full report routinely exceeds 4096 tokens,
+      // so cap output high, and the outer budget MUST exceed the synthesis role's
+      // 240s timeoutMs — the previous 45s hard cap aborted every synthesis and
+      // forced the raw-paste fallback (synthesis_fallback_convergent_failed).
       const out = await withTimeout(
         extractStructured(
           SynthesisSchema,
@@ -313,9 +316,11 @@ const synthesizeStep = createStep({
             evidenceBlock,
             'List remaining gaps explicitly.',
           ].join('\n'),
-          'convergent'
+          'synthesis',
+          undefined,
+          { maxOutputTokens: 8192 }
         ),
-        45_000,
+        250_000,
         'synthesize'
       );
       report = out.report;

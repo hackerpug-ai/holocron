@@ -415,7 +415,7 @@ export async function acquireAdmissibleEvidence(
           })),
           judge: input.judge,
         }),
-        90_000,
+        200_000,
         'ENTAILMENT'
       );
     } catch (err) {

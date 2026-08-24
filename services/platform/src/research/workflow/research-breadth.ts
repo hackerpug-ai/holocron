@@ -703,9 +703,11 @@ const synthesizeStep = createStep({
             evidenceBlock,
             'List remaining gaps explicitly.',
           ].join('\n'),
-          'convergent'
+          'synthesis',
+          undefined,
+          { maxOutputTokens: 8192 }
         ),
-        45_000,
+        250_000,
         'breadth_synthesize'
       );
       report = out.report;
