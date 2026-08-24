@@ -197,10 +197,13 @@ describe('Wave 5 research-depth workflow', () => {
         claimText: 'claim',
         component: 'definition',
         quote: 'Reciprocal rank fusion merges rankings',
+        sourceText:
+          'Reciprocal rank fusion merges rankings from multiple retrievers into one list.',
         sourceUrl: 'https://example.com',
         sourceId: 'https://example.com',
         grade: 4,
         entailment: 0.9,
+        disconfirmationResolved: true,
         direction: 'supporting',
       },
     ];

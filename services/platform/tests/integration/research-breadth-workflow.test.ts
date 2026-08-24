@@ -201,10 +201,12 @@ describe('Wave 7 research-breadth workflow', () => {
       claimText: 'RRF merges rankings',
       component: 'definition',
       quote: 'Reciprocal rank fusion combines ranked lists',
+      sourceText: 'Reciprocal rank fusion combines ranked lists from multiple retrievers.',
       sourceUrl: sharedUrl,
       sourceId: origin.sourceId,
       grade: 4,
       entailment: 0.9,
+      disconfirmationResolved: true,
       direction: 'supporting' as const,
     };
     const branchBDup = {
@@ -218,6 +220,8 @@ describe('Wave 7 research-breadth workflow', () => {
       claimText: 'Vector DB ANN search',
       component: 'mechanism',
       quote: 'Approximate nearest neighbor indexes accelerate retrieval',
+      sourceText:
+        'Approximate nearest neighbor indexes accelerate retrieval over high-dimensional embeddings.',
       sourceUrl: 'https://other.example.org/ann',
       sourceId: resolveOrigin({
         finalUrl: 'https://other.example.org/ann',
@@ -225,6 +229,7 @@ describe('Wave 7 research-breadth workflow', () => {
       }).sourceId,
       grade: 4,
       entailment: 0.9,
+      disconfirmationResolved: true,
       direction: 'supporting' as const,
     };
 

@@ -589,31 +589,44 @@ export async function executePostgresMcpTool(
           session.plan && typeof session.plan === 'object' && !Array.isArray(session.plan)
             ? (session.plan as Record<string, unknown>)
             : {};
+        const findingsObj =
+          session.findings &&
+          typeof session.findings === 'object' &&
+          !Array.isArray(session.findings)
+            ? (session.findings as Record<string, unknown>)
+            : {};
+        const gateFromFindings =
+          findingsObj.gate &&
+          typeof findingsObj.gate === 'object' &&
+          !Array.isArray(findingsObj.gate)
+            ? (findingsObj.gate as Record<string, unknown>)
+            : null;
         const gateFromPlan =
           plan.gate && typeof plan.gate === 'object' && !Array.isArray(plan.gate)
             ? (plan.gate as Record<string, unknown>)
             : null;
-        const gate = gateFromPlan
+        const gateRaw = gateFromFindings ?? gateFromPlan;
+        const gate = gateRaw
           ? {
-              admitted: Boolean(gateFromPlan.admitted),
-              missingComponents: Array.isArray(gateFromPlan.missingComponents)
-                ? gateFromPlan.missingComponents.map(String)
+              admitted: Boolean(gateRaw.admitted),
+              missingComponents: Array.isArray(gateRaw.missingComponents)
+                ? gateRaw.missingComponents.map(String)
                 : [],
-              independentSourceCount: Number(gateFromPlan.independentSourceCount ?? 0),
+              independentSourceCount: Number(gateRaw.independentSourceCount ?? 0),
               reasonCode: String(
-                gateFromPlan.reasonCode ?? (gateFromPlan.admitted ? 'admitted' : 'pending_evidence')
+                gateRaw.reasonCode ?? (gateRaw.admitted ? 'admitted' : 'pending_evidence')
               ),
             }
           : {
-              admitted: terminal && session.status === 'completed',
+              admitted: false,
               missingComponents: [] as string[],
-              independentSourceCount: Number(progress.findingsVerified ?? 0),
+              independentSourceCount: 0,
               reasonCode: terminal
-                ? session.status === 'completed'
-                  ? 'kickoff_complete'
-                  : session.status === 'cancelled'
-                    ? 'cancelled'
-                    : 'failed'
+                ? session.status === 'cancelled'
+                  ? 'cancelled'
+                  : session.status === 'failed'
+                    ? 'failed'
+                    : 'pending_evidence'
                 : 'in_progress',
             };
 

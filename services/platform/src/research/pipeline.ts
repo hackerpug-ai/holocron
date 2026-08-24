@@ -85,6 +85,9 @@ export type AcquireAdmissibleEvidenceResult = {
     entailment: number;
     disconfirmationResolved: boolean;
     sourceId: string;
+    quote: string;
+    sourceText: string;
+    url: string;
   }>;
   webCalls: WebCallRecord[];
   probes: DisconfirmProbeRecord[];
@@ -101,6 +104,38 @@ function modeMaxHits(mode: AcquireMode): number {
     default:
       return 5;
   }
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}_timeout_${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function fallbackClaimFromSource(
+  src: CapturedSource,
+  question: string,
+  component: string
+): ExtractedClaim | null {
+  const trimmed = src.sourceText.replace(/\s+/g, ' ').trim();
+  if (trimmed.length < 40) return null;
+  const quote = trimmed.slice(0, Math.min(80, Math.max(12, Math.floor(trimmed.length / 3))));
+  if (quote.length < 12 || quote === src.sourceText) return null;
+  return {
+    claimText: `${question}: ${quote.slice(0, 96)}`,
+    component,
+    quote,
+    quoteStart: 0,
+    quoteEnd: quote.length,
+  };
 }
 
 /**
@@ -238,14 +273,16 @@ export async function acquireAdmissibleEvidence(
       const passages = extractPassages(src.sourceText).slice(0, maxPassages);
       for (const passage of passages) {
         try {
-          const claims = await extractClaimsFromPassage({
-            passageText: passage.text,
-            frozen: input.components,
-            question: input.question,
-          });
+          const claims = await withTimeout(
+            extractClaimsFromPassage({
+              passageText: passage.text,
+              frozen: input.components,
+              question: input.question,
+            }),
+            20_000,
+            'CLAIM_EXTRACT'
+          );
           for (const claim of claims) {
-            // Offsets are relative to passage.text; remap quote against full sourceText
-            // by verifying the sliced quote is a substring of sourceText.
             working.push({
               claimId: randomUUID(),
               claimText: claim.claimText,
@@ -266,6 +303,26 @@ export async function acquireAdmissibleEvidence(
               ? String((err as { code: unknown }).code)
               : 'CLAIM_EXTRACT_FAILED';
           degraded.push(code);
+          const fallback = fallbackClaimFromSource(
+            src,
+            input.question,
+            input.components.components[0] ?? 'evidence'
+          );
+          if (fallback) {
+            working.push({
+              claimId: randomUUID(),
+              claimText: fallback.claimText,
+              component: fallback.component,
+              quote: fallback.quote,
+              quoteStart: fallback.quoteStart,
+              quoteEnd: fallback.quoteEnd,
+              sourceId: src.sourceId,
+              sourceText: src.sourceText,
+              url: src.url,
+              canonicalDomain: src.canonicalDomain,
+              publishedAt: src.publishedDate,
+            });
+          }
         }
       }
     }
@@ -297,23 +354,32 @@ export async function acquireAdmissibleEvidence(
   const entailmentByClaim = new Map<string, number>();
 
   if (!input.skipEntailment && grades.length > 0) {
-    entailmentResult = await scoreEntailmentBatch({
-      runId: input.runId,
-      items: grades.map(({ working: w }) => ({
-        id: w.claimId,
-        claimText: w.claimText,
-        quote: w.quote,
-        windowText: buildEntailmentWindow({
-          sourceText: w.sourceText,
-          quote: w.quote,
+    try {
+      entailmentResult = await withTimeout(
+        scoreEntailmentBatch({
+          runId: input.runId,
+          items: grades.map(({ working: w }) => ({
+            id: w.claimId,
+            claimText: w.claimText,
+            quote: w.quote,
+            windowText: buildEntailmentWindow({
+              sourceText: w.sourceText,
+              quote: w.quote,
+            }),
+          })),
+          judge: input.judge,
         }),
-      })),
-      judge: input.judge,
-    });
+        45_000,
+        'ENTAILMENT'
+      );
+    } catch (err) {
+      const code = err instanceof Error ? err.message.split(':')[0] : 'ENTAILMENT_FAILED';
+      degraded.push(code ?? 'ENTAILMENT_FAILED');
+    }
 
-    if (entailmentResult.discarded) {
+    if (entailmentResult?.discarded) {
       degraded.push(RESEARCH_JUDGE_DISCRIMINATION_FAILED);
-    } else {
+    } else if (entailmentResult) {
       for (const score of entailmentResult.admitted) {
         entailmentByClaim.set(score.id, score.score);
       }
@@ -366,7 +432,10 @@ export async function acquireAdmissibleEvidence(
   const rows = grades
     .filter(({ working: w }) => {
       if (entailmentResult?.discarded) return false;
-      return entailmentByClaim.has(w.claimId) || input.skipEntailment === true;
+      if (input.skipEntailment === true) return true;
+      if (entailmentResult) return entailmentByClaim.has(w.claimId);
+      // Judge timed out — keep graded rows at entailment 0 so the gate can refuse honestly.
+      return true;
     })
     .map(({ working: w, grade }) => ({
       claimId: w.claimId,
@@ -375,6 +444,7 @@ export async function acquireAdmissibleEvidence(
       sourceId: w.sourceId,
       quote: w.quote,
       sourceText: w.sourceText,
+      url: w.url,
       grade: grade.grade,
       entailment: entailmentByClaim.get(w.claimId) ?? 0,
       disconfirmationResolved: disconfirmByClaim.get(w.claimId) ?? false,
@@ -426,6 +496,9 @@ export async function acquireAdmissibleEvidence(
       entailment: r.entailment,
       disconfirmationResolved: r.disconfirmationResolved,
       sourceId: r.sourceId,
+      quote: r.quote,
+      sourceText: r.sourceText,
+      url: r.url,
     })),
     webCalls,
     probes,

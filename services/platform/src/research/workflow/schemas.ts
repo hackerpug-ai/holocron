@@ -44,10 +44,14 @@ export const LedgerFindingSchema = z.object({
   claimText: z.string().min(1),
   component: z.string().min(1),
   quote: z.string().min(1),
+  /** Full captured source body — quote must be a slice of this, never equal by construction. */
+  sourceText: z.string().min(1),
   sourceUrl: z.string().min(1),
   sourceId: z.string().min(1),
   grade: z.number().int().min(1).max(5),
   entailment: z.number().min(0).max(1),
+  /** Set by code from a persisted disconfirm probe — never hardcoded true. */
+  disconfirmationResolved: z.boolean(),
   direction: z.enum(['supporting', 'refuting']),
   citationId: z.string().optional(),
 });
@@ -86,6 +90,9 @@ export const ResearchLedgerSchema = z.object({
   report: z.string().optional(),
   admitted: z.boolean().optional(),
   coverageScore: z.number().min(0).max(1).optional(),
+  /** Last acquire gate payload (including rejected evidence) for honest persistence. */
+  lastGate: z.unknown().optional(),
+  lastGateInput: z.unknown().optional(),
 });
 
 export type ResearchLedger = z.infer<typeof ResearchLedgerSchema>;
@@ -119,8 +126,8 @@ export type ResearchOutput = z.infer<typeof ResearchOutputSchema>;
 export const MODE_DEFAULTS = {
   quick: {
     maxRounds: 1,
-    // Bound IT / product-loop wall cost; depth keeps the longer budget.
-    wallBudgetMs: 90_000,
+    // Real acquire (extract + entailment + disconfirm) needs more than a seed worker.
+    wallBudgetMs: 240_000,
     tokenBudget: 24_000,
     toolcallBudget: 24,
   },

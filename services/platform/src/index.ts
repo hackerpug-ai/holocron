@@ -23,6 +23,7 @@ import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
+import { setResearchMastra } from './research/research-mastra.ts';
 import { researchBreadthWorkflow } from './research/workflow/research-breadth.ts';
 import { researchDepthWorkflow } from './research/workflow/research-depth.ts';
 import { toolsAsRecord } from './tools/registry.ts';
@@ -73,7 +74,7 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
 export function createMastra(): Mastra {
   const storage = createStorage();
   const observability = createObservability();
-  return new Mastra({
+  const mastra = new Mastra({
     storage,
     observability,
     agents: {},
@@ -84,6 +85,8 @@ export function createMastra(): Mastra {
     },
     tools: toolsAsRecord(),
   });
+  setResearchMastra(mastra);
+  return mastra;
 }
 
 /**

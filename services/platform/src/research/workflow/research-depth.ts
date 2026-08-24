@@ -11,9 +11,8 @@ import { z } from 'zod';
 import { createSql } from '../../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../db/connection.ts';
 import { extractStructured } from '../../inference/extract-structured.ts';
-import { evaluateEvidenceGate } from '../evidence-gate.ts';
-import { insertResearchIteration } from '../iteration-writer.ts';
 import { updateResearchSessionStatus } from '../session-writer.ts';
+import { computeCoverageScore, finalizeResearchCommit } from './commit.ts';
 import { decideStop } from './decide-stop.ts';
 import { executeResearchRound, planResearchLedger } from './round.ts';
 import {
@@ -75,14 +74,6 @@ function mapWorkflowStatusToDb(
   if (mastraStatus === 'suspended' || mastraStatus === 'paused') return 'paused';
   if (mastraStatus === 'tripwire' || mastraStatus === 'failed') return 'failed';
   return 'completed';
-}
-
-function computeCoverageScore(ledger: ResearchLedger): number {
-  if (ledger.components.length === 0) return 0;
-  const covered = new Set(
-    ledger.findings.map((f) => f.component).filter((c) => ledger.components.includes(c))
-  );
-  return covered.size / ledger.components.length;
 }
 
 async function loadStoredResult(sessionId: string): Promise<ResearchOutput | null> {
@@ -363,50 +354,6 @@ const commitStep = createStep({
           startedAtMs: Date.now(),
         });
 
-    // coverage_score computed HERE only
-    const coverageScore = computeCoverageScore(ledger);
-
-    const claims = ledger.findings.map((f) => ({
-      id: f.id,
-      text: f.claimText,
-      component: f.component,
-    }));
-    const evidence = ledger.findings.map((f) => ({
-      id: `e-${f.id}`,
-      claimId: f.id,
-      component: f.component,
-      sourceId: f.sourceId,
-      independenceGroup: f.sourceId,
-      quote: f.quote,
-      sourceText: f.quote,
-      grade: f.grade,
-      entailment: f.entailment,
-      disconfirmationResolved: true,
-      direction: f.direction,
-    }));
-
-    let admitted = false;
-    let gaps = [...ledger.gaps];
-    if (ledger.components.length > 0 && claims.length > 0) {
-      try {
-        const gate = evaluateEvidenceGate({
-          claims,
-          evidence,
-          requiredComponents: ledger.components,
-          gradeFloor: 3,
-          entailmentFloor: 0.8,
-          independentSourceFloor: Math.min(2, Math.max(1, ledger.components.length)),
-        });
-        admitted = gate.admitted;
-        if (!admitted) {
-          gaps = [...new Set([...gaps, gate.reason])];
-        }
-      } catch {
-        admitted = false;
-        gaps = [...new Set([...gaps, 'final_gate_eval_failed'])];
-      }
-    }
-
     const stopReason =
       inputData.stopReason ??
       ledger.stopReason ??
@@ -417,83 +364,34 @@ const commitStep = createStep({
       });
 
     const status = mapWorkflowStatusToDb('success', stopReason);
-    const report =
-      inputData.report ||
-      ledger.report ||
-      (admitted
-        ? 'Research completed with admitted evidence.'
-        : `Honest refusal: under-evidenced (${stopReason ?? 'no_evidence'}). Gaps: ${
-            gaps.join('; ') || 'none recorded'
-          }`);
+    const finalized = await finalizeResearchCommit({
+      sessionId: inputData.sessionId,
+      ledger,
+      report: inputData.report,
+      stopReason,
+      round: inputData.round,
+      status,
+      system: inputData.mode === 'quick' ? 'simple' : 'deep',
+    });
 
     const output: ResearchOutput = {
       sessionId: inputData.sessionId,
       status,
       stopReason,
-      admitted,
-      coverageScore,
-      report,
-      gaps,
+      admitted: finalized.admitted,
+      coverageScore: finalized.coverageScore,
+      report: finalized.report,
+      gaps: finalized.gaps,
       rounds: inputData.round,
       findingsCount: ledger.findings.length,
     };
 
-    const sql = createSql(resolveHolocronNonprodDatabaseUrl({ context: 'research-depth commit' }), {
-      max: 1,
-    });
-    try {
-      await sql`
-        UPDATE research_sessions
-        SET coverage_score = ${coverageScore},
-            current_coverage_score = ${coverageScore},
-            findings = ${sql.json({
-              stopReason,
-              admitted,
-              coverageScore,
-              report,
-              gaps,
-              rounds: inputData.round,
-              findingsCount: ledger.findings.length,
-              findings: ledger.findings,
-            })},
-            error_text = ${admitted ? null : report.slice(0, 2000)},
-            updated_at = now()
-        WHERE id = ${inputData.sessionId}::uuid
-      `;
-
-      // Persist a final iteration row with coverage (ON CONFLICT DO NOTHING keeps round rows).
-      await insertResearchIteration({
-        sessionId: inputData.sessionId,
-        iterationNumber: Math.max(1, inputData.round || 1),
-        summary: report.slice(0, 2000),
-        feedback: admitted
-          ? 'commit: admitted'
-          : `commit: honest refusal (${stopReason ?? 'under-evidenced'})`,
-        refinedQueries: ledger.queriesRun.slice(-5),
-        sources: ledger.findings.map((f) => ({
-          title: f.claimText.slice(0, 120),
-          url: f.sourceUrl,
-          citationId: f.citationId,
-        })),
-        status: status === 'cancelled' ? 'cancelled' : 'completed',
-        system: inputData.mode === 'quick' ? 'simple' : 'deep',
-        coverageScore,
-        reviewGaps: gaps,
-        findings: ledger.findings,
-        sql,
-      });
-    } finally {
-      await sql.end({ timeout: 5 }).catch(() => undefined);
-    }
-
-    await updateResearchSessionStatus(inputData.sessionId, status);
-
     const nextLedger: ResearchLedger = {
       ...ledger,
-      gaps,
-      admitted,
-      coverageScore,
-      report,
+      gaps: finalized.gaps,
+      admitted: finalized.admitted,
+      coverageScore: finalized.coverageScore,
+      report: finalized.report,
       stopReason,
     };
     await setState(nextLedger);

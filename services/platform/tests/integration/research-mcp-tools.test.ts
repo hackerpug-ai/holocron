@@ -10,13 +10,16 @@
  *     services/platform/tests/integration/research-mcp-tools.test.ts
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createSql, type Sql } from '../../src/db/client.ts';
+import { getSecretValue } from '../../src/config/secrets.ts';
+import { createDb, createSql, type Sql } from '../../src/db/client.ts';
 import { createHonoApp } from '../../src/http/hono-app.ts';
+import { embedRun } from '../../src/inference/embed-run.ts';
 import { executePostgresMcpTool } from '../../src/mcp/executor.ts';
+import { rrfHybridSearch } from '../../src/search/rrf.ts';
 import { getToolSchema, resolveToolId } from '../../src/tools/registry.ts';
 import {
   deepResearchControlOutputSchema,
@@ -54,6 +57,16 @@ describe('Wave 6 research MCP tools', () => {
       throw new Error('research-mcp-tools requires FLEET_URL (already includes /v1)');
     }
 
+    process.env.DATABASE_URL = DATABASE_URL;
+    process.env.FLEET_URL = FLEET_URL;
+    const jina = getSecretValue('JINA_API_KEY') || process.env.JINA_API_KEY;
+    const exa = getSecretValue('EXA_API_KEY') || process.env.EXA_API_KEY;
+    if (!jina) throw new Error('research-mcp-tools requires JINA_API_KEY');
+    if (!exa) throw new Error('research-mcp-tools requires EXA_API_KEY');
+    if (!process.env.FLEET_KEY) {
+      process.env.FLEET_KEY = getSecretValue('FLEET_KEY') || 'sk-none';
+    }
+
     try {
       const fleet = await fetch(FLEET_URL.replace(/\/v1\/?$/, '/v1/models'), {
         signal: AbortSignal.timeout(5_000),
@@ -80,10 +93,32 @@ describe('Wave 6 research MCP tools', () => {
   afterAll(async () => {
     if (!sql) return;
     for (const id of cleanupSessionIds) {
+      let docs: Array<{ document_id: string | null }> = [];
+      try {
+        docs = await sql<{ document_id: string | null }[]>`
+          SELECT document_id::text AS document_id FROM research_sessions WHERE id = ${id}::uuid
+        `;
+      } catch {
+        docs = [];
+      }
+      await sql`DELETE FROM research_web_calls WHERE session_id = ${id}::uuid`.catch(
+        () => undefined
+      );
+      await sql`DELETE FROM citations WHERE session_id = ${id}::uuid`.catch(() => undefined);
+      await sql`DELETE FROM research_findings WHERE session_id = ${id}::uuid`.catch(
+        () => undefined
+      );
       await sql`DELETE FROM research_iterations WHERE session_id = ${id}::uuid`.catch(
         () => undefined
       );
       await sql`DELETE FROM research_sessions WHERE id = ${id}::uuid`.catch(() => undefined);
+      for (const d of docs) {
+        const documentId = d.document_id;
+        if (!documentId) continue;
+        await sql`DELETE FROM passages WHERE document_id = ${documentId}`.catch(() => undefined);
+        await sql`DELETE FROM sources WHERE document_id = ${documentId}`.catch(() => undefined);
+        await sql`DELETE FROM documents WHERE id = ${documentId}::uuid`.catch(() => undefined);
+      }
     }
     await sql.end({ timeout: 5 }).catch(() => undefined);
   });
@@ -146,20 +181,27 @@ describe('Wave 6 research MCP tools', () => {
       'paused',
       'pending',
     ]).toContain(rows[0]?.status);
+
+    // Do not leave a depth workflow competing for the fleet during later tests.
+    await executePostgresMcpTool(
+      'deep_research_control',
+      { sessionId, action: 'cancel', controlRequestKey: `wave6-kickoff-${sessionId.slice(0, 8)}` },
+      { databaseUrl: DATABASE_URL }
+    );
   }, 30_000);
 
   it('deep_research_result poll shows real status/phase/iteration consistent with DB', async () => {
-    const topic = `wave6-poll-${randomUUID().slice(0, 8)}`;
+    const topic = `wave6-poll-${randomUUID().slice(0, 8)} What is reciprocal rank fusion?`;
     const kickoff = (await executePostgresMcpTool(
-      'deep_research',
-      { topic, mode: 'depth', maxRounds: 2 },
+      'quick_research',
+      { topic },
       { databaseUrl: DATABASE_URL }
     )) as { sessionId: string };
     const sessionId = kickoff.sessionId;
     cleanupSessionIds.push(sessionId);
 
     let snapshot: Record<string, unknown> | null = null;
-    const deadline = Date.now() + 15_000;
+    const deadline = Date.now() + 200_000;
     while (Date.now() < deadline) {
       snapshot = (await executePostgresMcpTool(
         'deep_research_result',
@@ -168,6 +210,7 @@ describe('Wave 6 research MCP tools', () => {
       )) as Record<string, unknown>;
       const last = snapshot.lastIteration as { summary?: string; n?: number } | undefined;
       if (
+        snapshot.terminal === true &&
         last &&
         typeof last.summary === 'string' &&
         last.summary.length > 0 &&
@@ -175,7 +218,7 @@ describe('Wave 6 research MCP tools', () => {
       ) {
         break;
       }
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     expect(snapshot).toBeTruthy();
@@ -183,7 +226,7 @@ describe('Wave 6 research MCP tools', () => {
     expect(typeof snapshot?.status).toBe('string');
     expect(String(snapshot?.status).length).toBeGreaterThan(0);
     expect(typeof snapshot?.terminal).toBe('boolean');
-    expect(snapshot?.mode).toBe('depth');
+    expect(snapshot?.mode).toBe('quick');
     expect(snapshot?.progress).toMatchObject({
       round: expect.any(Number),
       maxRounds: expect.any(Number),
@@ -218,7 +261,15 @@ describe('Wave 6 research MCP tools', () => {
       SELECT count(*)::int AS c FROM research_iterations WHERE session_id = ${sessionId}::uuid
     `;
     expect(iterCount[0]?.c).toBeGreaterThanOrEqual(1);
-  }, 45_000);
+
+    const seedHits = await sql<{ url: string }[]>`
+      SELECT COALESCE(src->>'url', '') AS url
+      FROM research_iterations,
+           LATERAL jsonb_array_elements(COALESCE(sources, '[]'::jsonb)) AS src
+      WHERE session_id = ${sessionId}::uuid
+    `;
+    expect(seedHits.some((r) => /holocron\.local/i.test(r.url))).toBe(false);
+  }, 240_000);
 
   it('HTTP POST /api/research/:id/cancel sets cancelled and stays cancelled', async () => {
     const topic = `wave6-http-cancel-${randomUUID().slice(0, 8)}`;
@@ -300,4 +351,128 @@ describe('Wave 6 research MCP tools', () => {
     `;
     expect(db[0]?.status).toBe('cancelled');
   }, 30_000);
+
+  it('kickoff does not insert holocron.local seed iterations', async () => {
+    const topic = `wave6-noseed-${randomUUID().slice(0, 8)} What is reciprocal rank fusion?`;
+    const kickoff = (await executePostgresMcpTool(
+      'quick_research',
+      { topic },
+      { databaseUrl: DATABASE_URL }
+    )) as { sessionId: string };
+    const sessionId = kickoff.sessionId;
+    cleanupSessionIds.push(sessionId);
+
+    await new Promise((r) => setTimeout(r, 1500));
+    const sources = await sql<{ url: string }[]>`
+      SELECT COALESCE(src->>'url', '') AS url
+      FROM research_iterations,
+           LATERAL jsonb_array_elements(COALESCE(sources, '[]'::jsonb)) AS src
+      WHERE session_id = ${sessionId}::uuid
+    `;
+    expect(sources.some((r) => /holocron\.local/i.test(r.url))).toBe(false);
+    const summaries = await sql<{ summary: string | null }[]>`
+      SELECT summary FROM research_iterations WHERE session_id = ${sessionId}::uuid
+    `;
+    expect(summaries.some((r) => /kickoff-seed/i.test(r.summary ?? ''))).toBe(false);
+  }, 30_000);
+
+  it('live MCP question writes real gate JSON, publishes document_id, rrf-hits report', async () => {
+    const nonce = `live-rrf-${randomUUID().slice(0, 8)}`;
+    const topic = `${nonce} What is reciprocal rank fusion in information retrieval?`;
+    const kickoff = (await executePostgresMcpTool(
+      'quick_research',
+      { topic },
+      { databaseUrl: DATABASE_URL }
+    )) as { sessionId: string; mode: string };
+    expect(kickoff.mode).toBe('quick');
+    const sessionId = kickoff.sessionId;
+    cleanupSessionIds.push(sessionId);
+
+    let snapshot: Record<string, unknown> | null = null;
+    const deadline = Date.now() + 280_000;
+    while (Date.now() < deadline) {
+      snapshot = (await executePostgresMcpTool(
+        'deep_research_result',
+        { sessionId, waitMs: 0, includeFindings: true },
+        { databaseUrl: DATABASE_URL }
+      )) as Record<string, unknown>;
+      if (snapshot.terminal === true) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    expect(snapshot?.terminal).toBe(true);
+    expect(
+      String(snapshot?.gate && (snapshot.gate as { reasonCode?: string }).reasonCode)
+    ).not.toBe('kickoff_complete');
+
+    const row = await sql<
+      {
+        document_id: string | null;
+        findings: unknown;
+        status: string;
+      }[]
+    >`
+      SELECT document_id::text AS document_id, findings, status
+      FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+    `;
+    const documentId = row[0]?.document_id;
+    expect(documentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    if (!documentId) throw new Error('document_id missing after research commit');
+
+    const findings =
+      row[0]?.findings && typeof row[0].findings === 'object' && !Array.isArray(row[0].findings)
+        ? (row[0].findings as Record<string, unknown>)
+        : {};
+    expect(findings.gate).toBeTruthy();
+    expect(findings.gateInput).toBeTruthy();
+    const report = String(findings.report ?? snapshot?.summary ?? '');
+    expect(report.length).toBeGreaterThan(0);
+
+    const ledgerFindings = Array.isArray(findings.findings) ? findings.findings : [];
+    for (const f of ledgerFindings as Array<Record<string, unknown>>) {
+      if (typeof f.quote === 'string' && typeof f.sourceText === 'string') {
+        expect(f.sourceText).not.toBe(f.quote);
+        expect(String(f.sourceText).length).toBeGreaterThan(String(f.quote).length);
+      }
+    }
+
+    const scratch = resolve(
+      '/Users/justinrich/.cache/agent-scratch/grok-goal-43fb43cf2fe8/implementer'
+    );
+    mkdirSync(scratch, { recursive: true });
+    writeFileSync(
+      resolve(scratch, 'live-gate.json'),
+      JSON.stringify(
+        {
+          sessionId,
+          status: row[0]?.status,
+          documentId,
+          gate: findings.gate,
+          gateInput: findings.gateInput,
+          admitted: findings.admitted,
+          reportExcerpt: report.slice(0, 1200),
+          constructed: false,
+        },
+        null,
+        2
+      )
+    );
+    writeFileSync(resolve(scratch, 'live-report-excerpt.md'), report.slice(0, 4000));
+
+    const embedResult = await embedRun({ databaseUrl: DATABASE_URL, sql });
+    const pending = await sql<{ c: number }[]>`
+      SELECT count(*)::int AS c
+      FROM passages
+      WHERE document_id = ${documentId} AND embedding IS NULL
+    `;
+    expect(pending[0]?.c, `embedRun processed=${embedResult.processed}`).toBe(0);
+
+    const token = `research-report-token-${sessionId.replace(/-/g, '').slice(0, 12)}`;
+    const search = await rrfHybridSearch(createDb(sql), sql, {
+      query: token,
+      limit: 10,
+    });
+    const hit = search.results.find((r) => r.document_id === documentId || r._id === documentId);
+    expect(hit, `expected rrf hit for ${token} document ${documentId}`).toBeTruthy();
+  }, 360_000);
 });

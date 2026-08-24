@@ -1,51 +1,30 @@
 /**
- * Shared research round executor — web + rerank + quote-verify + ledger + persist.
- * Wave 3 pipeline is absent; call web/rerank/gate directly with honest partials.
+ * Shared research round executor — search + rerank + acquireAdmissibleEvidence.
+ * Grade / entailment(+decoys) / disconfirm / gate live in the Wave 3 pipeline.
+ * evaluateEvidenceGate remains the only admission judge (via assembleAndEvaluate).
  */
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { createSql, type Sql } from '../../db/client.ts';
+import { createSql, type Sql, toSqlJsonValue } from '../../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../db/connection.ts';
 import { extractStructured } from '../../inference/extract-structured.ts';
 import { rerankCandidates } from '../../inference/rerank.ts';
 import { resolveOrigin } from '../../web/origin.ts';
 import { acquireDocument, ladderSearch } from '../../web/provider.ts';
-import type { SearchHit } from '../../web/types.ts';
+import type { CapturedSource, SearchHit } from '../../web/types.ts';
 import { insertCitation } from '../citation-writer.ts';
 import { freezeComponents } from '../components.ts';
-import {
-  type EvidenceGateResult,
-  type EvidenceItemSchema,
-  evaluateEvidenceGate,
-  type ResearchClaimSchema,
-} from '../evidence-gate.ts';
+import type { EvidenceGateResult } from '../evidence-gate.ts';
 import { insertResearchFinding } from '../findings-writer.ts';
 import { insertResearchIteration } from '../iteration-writer.ts';
-import { verifyQuote } from '../quote-match.ts';
+import { acquireAdmissibleEvidence } from '../pipeline.ts';
 import { recordResearchProgress, updateResearchSessionStatus } from '../session-writer.ts';
-import { sourceTier } from '../source-tier.ts';
 import { createWebCallLedger } from '../web-call-ledger.ts';
 import { decideStop } from './decide-stop.ts';
 import type { LedgerFinding, ResearchLedger, RoundHandle, SubQuestion } from './schemas.ts';
 
-type Claim = z.infer<typeof ResearchClaimSchema>;
-type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
-
 const QueriesSchema = z.object({
   queries: z.array(z.string().min(1)).min(1).max(4),
-});
-
-const ClaimsSchema = z.object({
-  claims: z
-    .array(
-      z.object({
-        text: z.string().min(1),
-        quote: z.string().min(12),
-        direction: z.enum(['supporting', 'refuting']).default('supporting'),
-        entailment: z.number().min(0).max(1).default(0.85),
-      })
-    )
-    .max(6),
 });
 
 const PlanSchema = z.object({
@@ -325,6 +304,9 @@ export async function executeResearchRound(opts: {
     const ledgerHandle = createWebCallLedger(sql, { branchId: branchId ?? null });
     const topN = opts.mode === 'quick' ? 2 : 4;
     const maxDocsToRead = opts.mode === 'quick' ? 2 : 3;
+    const captured: CapturedSource[] = [];
+    const titlesByUrl = new Map<string, string>();
+    const publishedByUrl = new Map<string, string | null>();
 
     for (const query of queries) {
       if (deps.abortSignal?.aborted) break;
@@ -455,110 +437,121 @@ export async function executeResearchRound(opts: {
         if (sourceText.trim().length < 40) continue;
 
         const origin = resolveOrigin({ finalUrl: hit.url, text: sourceText });
-        const grade = sourceTier({
-          url: hit.url,
-          originKey: origin.originKey,
+        titlesByUrl.set(hit.url, title);
+        publishedByUrl.set(hit.url, hit.publishedAt);
+        captured.push({
+          sourceId: origin.sourceId,
           canonicalDomain: origin.canonicalDomain,
+          url: hit.url,
+          publishedDate: hit.publishedAt,
+          retrievedAt: new Date().toISOString(),
+          sourceText,
+          provider: hit.provider,
+          webCallId: hit.webCallId,
         });
 
-        let extracted: z.infer<typeof ClaimsSchema> = { claims: [] };
-        // Prefer deterministic quote span from source text; optional LLM enrich with timeout.
-        const fallbackSnippet = sourceText.replace(/\s+/g, ' ').trim().slice(0, 180);
-        if (fallbackSnippet.length >= 12) {
-          extracted = {
-            claims: [
-              {
-                text: `${open.component}: ${open.text}`,
-                quote: fallbackSnippet.slice(0, 120),
-                direction: 'supporting',
-                entailment: 0.85,
-              },
-            ],
+        if (!ledger.seenUrls.includes(hit.url)) {
+          ledger = { ...ledger, seenUrls: [...ledger.seenUrls, hit.url] };
+        }
+      }
+    }
+
+    const uniqueCaptured = [...new Map(captured.map((c) => [c.url, c])).values()];
+
+    if (uniqueCaptured.length > 0 && ledger.components.length > 0) {
+      try {
+        const frozen = freezeComponents([...ledger.components]);
+        const acquired = await withTimeout(
+          acquireAdmissibleEvidence({
+            question: open.text,
+            components: frozen,
+            mode: opts.mode === 'quick' ? 'shallow' : opts.mode === 'breadth' ? 'deep' : 'standard',
+            runId: opts.sessionId,
+            abortSignal: deps.abortSignal,
+            sql,
+            ledger: ledgerHandle,
+            capturedSources: uniqueCaptured,
+            maxHits: uniqueCaptured.length,
+            maxPassagesPerDoc: opts.mode === 'quick' ? 1 : 2,
+          }),
+          opts.mode === 'quick' ? 180_000 : 240_000,
+          'acquire_evidence'
+        );
+        gate = acquired.gate;
+        ledger = {
+          ...ledger,
+          lastGate: acquired.gate,
+          lastGateInput: acquired.gateInput,
+        };
+        if (acquired.degraded.length > 0) {
+          ledger = {
+            ...ledger,
+            degraded: true,
+            gaps: [...new Set([...ledger.gaps, ...acquired.degraded])],
           };
         }
-        if (opts.mode !== 'quick') {
-          try {
-            const llmClaims = await withTimeout(
-              extract(
-                ClaimsSchema,
-                [
-                  'Extract factual claims about the sub-question from the source text.',
-                  'Each claim MUST include a verbatim quote (≥12 chars) that appears in the source.',
-                  `Sub-question: ${open.text}`,
-                  `Component: ${open.component}`,
-                  `Source URL: ${hit.url}`,
-                  'SOURCE TEXT:',
-                  sourceText.slice(0, 4000),
-                ].join('\n'),
-                'divergent'
-              ),
-              45_000,
-              'claim_extract'
-            );
-            if (llmClaims.claims.length > 0) extracted = llmClaims;
-          } catch {
-            // keep deterministic fallback
-          }
+        for (const call of acquired.webCalls) {
+          roundCost += call.costUsd ?? 0;
+          roundToolCalls += 1;
         }
 
-        const claims: Claim[] = [];
-        const evidence: EvidenceItem[] = [];
+        await sql`
+          UPDATE research_sessions
+          SET plan = COALESCE(plan, '{}'::jsonb) || ${sql.json(
+            toSqlJsonValue({
+              gate: {
+                admitted: acquired.gate.admitted,
+                missingComponents: acquired.gate.missingComponents,
+                independentSourceCount: acquired.gate.independentSourceCount,
+                reasonCode: acquired.gate.admitted
+                  ? 'admitted'
+                  : acquired.gate.missingComponents.length > 0
+                    ? 'missing-components'
+                    : acquired.gate.independentSourceCount < 2
+                      ? 'independent-source-floor'
+                      : acquired.gate.reason,
+                coveredComponents: acquired.gate.coveredComponents,
+                direction: acquired.gate.direction,
+                admittedEvidenceIds: acquired.gate.admittedEvidenceIds,
+                rejectedEvidenceIds: acquired.gate.rejectedEvidenceIds,
+                reason: acquired.gate.reason,
+              },
+            })
+          )},
+              updated_at = now()
+          WHERE id = ${opts.sessionId}::uuid
+        `;
 
-        for (const c of extracted.claims) {
-          const verified = verifyQuote(c.quote, sourceText, { allowLines: false });
-          if (!verified.ok) continue;
+        const admittedIds = new Set(acquired.gate.admittedEvidenceIds);
+        const sourceById = new Map(acquired.sources.map((s) => [s.sourceId, s]));
+        const claimById = new Map(acquired.gateInput.claims.map((c) => [c.id, c]));
 
-          const claimId = randomUUID();
-          const evidenceId = randomUUID();
-          claims.push({
-            id: claimId,
-            text: c.text,
-            component: open.component,
-          });
-          evidence.push({
-            id: evidenceId,
-            claimId,
-            component: open.component,
-            sourceId: origin.sourceId,
-            independenceGroup: origin.originKey || origin.sourceId,
-            quote: c.quote,
-            sourceText,
-            grade,
-            entailment: c.entailment ?? 0.85,
-            disconfirmationResolved: true,
-            direction: c.direction ?? 'supporting',
-          });
-        }
-
-        if (claims.length === 0) continue;
-
-        const gateResult = evaluateEvidenceGate({
-          claims,
-          evidence,
-          requiredComponents: [open.component],
-          gradeFloor: 3,
-          entailmentFloor: 0.8,
-          independentSourceFloor: 1,
-        });
-        gate = gateResult;
-
-        for (const item of evidence) {
-          if (!gateResult.admittedEvidenceIds.includes(item.id)) continue;
-          const claim = claims.find((c) => c.id === item.claimId);
+        for (const item of acquired.gateInput.evidence) {
+          if (!admittedIds.has(item.id)) continue;
+          const claim = claimById.get(item.claimId);
           if (!claim) continue;
+          const src = sourceById.get(item.sourceId);
+          const sourceUrl = src?.url ?? item.sourceId;
+          const title = titlesByUrl.get(sourceUrl) ?? claim.text.slice(0, 120);
+          if (item.quote === item.sourceText) {
+            ledger = {
+              ...ledger,
+              gaps: [...new Set([...ledger.gaps, 'quote_equals_sourceText'])],
+            };
+            continue;
+          }
 
           const citation = await insertCitation({
             sessionId: opts.sessionId,
-            sourceUrl: hit.url,
+            sourceUrl,
             sourceTitle: title,
-            sourceDomain: origin.canonicalDomain,
+            sourceDomain: src?.canonicalDomain,
             claimText: claim.text,
             claimMarker: item.quote.slice(0, 80),
-            sourceType: origin.originKey.startsWith('doi:') ? 'doi' : 'web',
-            // citations.credibility_score is integer (1-5 tier), not a fraction.
-            credibilityScore: grade,
+            sourceType: item.sourceId.startsWith('doi:') ? 'doi' : 'web',
+            credibilityScore: item.grade,
             evidenceType: item.direction,
-            publishedDate: hit.publishedAt ?? undefined,
+            publishedDate: publishedByUrl.get(sourceUrl) ?? src?.publishedDate ?? undefined,
             sql,
           });
 
@@ -568,8 +561,8 @@ export async function executeResearchRound(opts: {
           } else {
             iterationSources.push({
               title,
-              url: hit.url,
-              domain: origin.canonicalDomain,
+              url: sourceUrl,
+              domain: src?.canonicalDomain,
             });
           }
 
@@ -578,13 +571,13 @@ export async function executeResearchRound(opts: {
               sessionId: opts.sessionId,
               claimText: claim.text,
               citationIds: [citationId],
-              claimCategory: open.component,
-              sourceCredibilityScore: grade / 5,
+              claimCategory: claim.component,
+              sourceCredibilityScore: item.grade / 5,
               evidenceQualityScore: item.entailment,
-              corroborationScore: gateResult.independentSourceCount >= 2 ? 0.8 : 0.4,
-              recencyScore: hit.publishedAt ? 0.7 : 0.4,
+              corroborationScore: acquired.gate.independentSourceCount >= 2 ? 0.8 : 0.4,
+              recencyScore: (publishedByUrl.get(sourceUrl) ?? src?.publishedDate) ? 0.7 : 0.4,
               expertConsensusScore: 0.5,
-              confidenceScore: Math.min(1, (grade / 5 + item.entailment) / 2),
+              confidenceScore: Math.min(1, (item.grade / 5 + item.entailment) / 2),
               system: opts.mode === 'quick' ? 'simple' : 'deep',
               sql,
             });
@@ -593,22 +586,26 @@ export async function executeResearchRound(opts: {
           newFindings.push({
             id: item.id,
             claimText: claim.text,
-            component: open.component,
+            component: claim.component,
             quote: item.quote,
-            sourceUrl: hit.url,
-            // Canonical origin identity — independence dedupes on this, not URL alone.
-            sourceId: origin.sourceId,
+            sourceText: item.sourceText,
+            sourceUrl,
+            sourceId: item.sourceId,
             grade: item.grade,
             entailment: item.entailment,
+            disconfirmationResolved: item.disconfirmationResolved,
             direction: item.direction,
             citationId,
           });
           admittedThisRound += 1;
         }
-
-        if (!ledger.seenUrls.includes(hit.url)) {
-          ledger = { ...ledger, seenUrls: [...ledger.seenUrls, hit.url] };
-        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ledger = {
+          ...ledger,
+          degraded: true,
+          gaps: [...new Set([...ledger.gaps, `acquire_failed:${msg.slice(0, 160)}`])],
+        };
       }
     }
 
