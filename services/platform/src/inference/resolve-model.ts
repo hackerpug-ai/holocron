@@ -220,7 +220,7 @@ export async function probeDeepSeekEscape(options?: {
  */
 export function createFleetChatModel(
   resolved: ResolvedModel,
-  options?: { apiKey?: string; name?: string }
+  options?: { apiKey?: string; name?: string; disableThinking?: boolean }
 ) {
   if (resolved.provider !== 'fleet') {
     throw new Error(
@@ -231,6 +231,21 @@ export function createFleetChatModel(
     name: options?.name ?? 'holocron-fleet',
     baseURL: resolved.baseURL,
     apiKey: options?.apiKey ?? process.env.FLEET_KEY ?? 'sk-none',
+    // Fleet chat models (Qwen3.6-35B / Qwen3.8-27B on oMLX) default to a long
+    // reasoning preamble before every answer. That preamble is pure overhead for
+    // the platform's structured extraction / synthesis work and it blows the
+    // output budget: in the 2026-08-24 verification runs every claim extraction
+    // hit finish_reason=length mid-JSON (2048 AND 4096 token caps) because the
+    // thinking block alone exceeded the cap. Disable thinking by default; pass
+    // disableThinking:false to opt back in for a reasoning-needing call.
+    ...(options?.disableThinking !== false
+      ? {
+          transformRequestBody: (body: Record<string, unknown>) => ({
+            ...body,
+            chat_template_kwargs: { enable_thinking: false },
+          }),
+        }
+      : {}),
   });
   return provider.chatModel(resolved.litellmModelId);
 }
