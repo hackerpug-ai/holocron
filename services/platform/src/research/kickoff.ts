@@ -1,8 +1,12 @@
 /**
  * Async research kickoff — inserts a research_sessions row and starts
  * background work without awaiting the full run (<2s return contract).
+ *
+ * MCP tools use kickoffResearch (session + background worker).
+ * Mastra research-depth uses kickoffDeepResearch (startAsync fire-and-forget).
  */
 import { createHash, randomUUID } from 'node:crypto';
+import type { Mastra } from '@mastra/core/mastra';
 import { createSql, type Sql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { insertResearchIteration } from './iteration-writer.ts';
@@ -12,6 +16,8 @@ import {
   startResearchSession,
   updateResearchSessionStatus,
 } from './session-writer.ts';
+import type { ResearchMode } from './workflow/schemas.ts';
+import { MODE_DEFAULTS } from './workflow/schemas.ts';
 
 export type ResearchKickoffMode = 'quick' | 'depth' | 'breadth';
 
@@ -503,3 +509,95 @@ export async function steerResearchSession(input: {
     if (ownsSql) await sql.end({ timeout: 5 }).catch(() => undefined);
   }
 }
+
+export type KickoffDeepResearchInput = {
+  query: string;
+  idempotencyKey: string;
+  mode?: ResearchMode;
+  maxRounds?: number;
+  wallBudgetMs?: number;
+  tokenBudget?: number;
+  toolcallBudget?: number;
+  mastra: Mastra;
+};
+
+export type KickoffDeepResearchResult =
+  | {
+      ok: true;
+      sessionId: string;
+      runId: string;
+      status: 'queued' | 'running';
+      latencyMs: number;
+    }
+  | { ok: false; error: string; latencyMs: number };
+
+/**
+ * Start a research-depth Mastra run without awaiting completion.
+ * Returns as soon as the session row exists and startAsync has been invoked.
+ */
+export async function kickoffDeepResearch(
+  input: KickoffDeepResearchInput
+): Promise<KickoffDeepResearchResult> {
+  const started = Date.now();
+  const mode = input.mode ?? 'quick';
+  const defaults = MODE_DEFAULTS[mode];
+  const maxRounds = input.maxRounds ?? defaults.maxRounds;
+
+  const session = await startResearchSession({
+    query: input.query,
+    idempotencyKey: input.idempotencyKey,
+    system: mode === 'quick' ? 'simple' : 'deep',
+    maxIterations: maxRounds,
+    researchType: 'web',
+    researchMode: mode,
+  });
+
+  if (!session.ok) {
+    return { ok: false, error: session.error, latencyMs: Date.now() - started };
+  }
+
+  const workflow = input.mastra.getWorkflow('researchDepth');
+  const run = await workflow.createRun();
+  const runId = run.runId;
+
+  void run
+    .startAsync({
+      inputData: {
+        sessionId: session.sessionId,
+        query: input.query,
+        mode,
+        maxRounds,
+        wallBudgetMs: input.wallBudgetMs ?? defaults.wallBudgetMs,
+        tokenBudget: input.tokenBudget ?? defaults.tokenBudget,
+        toolcallBudget: input.toolcallBudget ?? defaults.toolcallBudget,
+      },
+    })
+    .then(async () => {
+      if (session.status === 'queued') {
+        await updateResearchSessionStatus(session.sessionId, 'running').catch(() => undefined);
+      }
+    })
+    .catch(async (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      await updateResearchSessionStatus(session.sessionId, 'failed').catch(() => undefined);
+      console.error(`[kickoffDeepResearch] background startAsync failed: ${msg}`);
+    });
+
+  return {
+    ok: true,
+    sessionId: session.sessionId,
+    runId,
+    status: 'queued',
+    latencyMs: Date.now() - started,
+  };
+}
+
+/** Cooperative cancel alias used by the research-depth workflow tests. */
+export async function cancelDeepResearch(
+  sessionId: string
+): Promise<{ ok: true; status: string; latched: boolean } | { ok: false; error: string }> {
+  const result = await cancelResearchSession(sessionId);
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, status: result.status, latched: result.latched };
+}
+

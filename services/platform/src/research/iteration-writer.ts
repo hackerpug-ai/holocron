@@ -56,7 +56,8 @@ function resolveSql(opts: SqlOpts, context: string): { sql: Sql; ownsSql: boolea
       resolveHolocronNonprodDatabaseUrl({
         databaseUrl: opts.databaseUrl,
         context,
-      })
+      }),
+      { max: 1 }
     ),
     ownsSql: true,
   };

@@ -56,6 +56,8 @@ export const projects: TestProjectConfiguration[] = [
         'services/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts',
         // Sprint 22 pipes-1 — pure-TS evidence-gate + shared quote-match / components
         'services/platform/src/research/*.test.ts',
+        // Wave 5 — pure decideStop (coverage_score invariance; UNIT_TEST_JUSTIFIED)
+        'services/platform/src/research/workflow/*.test.ts',
         // Pure enrich seam — never launder fleet ASSAY text into gate quote/sourceText
         'services/platform/src/mission/enrich-evidence-fleet.test.ts',
         // Wave 2 web acquisition — pure origin/dates/normalize helpers (UNIT_TEST_JUSTIFIED)
