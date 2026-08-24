@@ -13,6 +13,11 @@ x-holocron-logging: &bounded-logging
     max-file: "3"
 
 x-langfuse-env: &langfuse-env
+  # Next.js standalone server binds to $HOSTNAME (Docker sets this to the
+  # container's short ID, which is not a loopback address) unless told
+  # otherwise, which makes 127.0.0.1-based healthchecks fail with connection
+  # refused even though the app is up. Bind all interfaces instead.
+  HOSTNAME: "0.0.0.0"
   DATABASE_URL: ${LANGFUSE_DATABASE_URL:?LANGFUSE_DATABASE_URL is required}
   NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:?LANGFUSE_NEXTAUTH_URL is required}
   NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?LANGFUSE_NEXTAUTH_SECRET is required}
