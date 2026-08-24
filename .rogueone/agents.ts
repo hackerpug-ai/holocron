@@ -12,9 +12,48 @@ type ProjectAgent = {
   readonly tools: 'all';
   readonly description: string;
   readonly role: string;
+  readonly harness?: AgentTarget['harness'];
+  readonly provider?: string;
+  readonly model?: string;
   readonly knowledgeGraph?: unknown;
   readonly metadata: Record<string, unknown>;
 };
+
+type AgentTarget = {
+  readonly harness: 'claude-code' | 'codex' | 'opencode' | 'grok';
+  readonly provider: string;
+  readonly model: string;
+};
+
+/**
+ * The only model-routing knobs for project agents.
+ *
+ * Keep these in the project agent pack so changing a harness/provider/model
+ * assignment does not require editing every agent or the dispatch config.
+ * The RogueOne config imports these values only because its schema requires
+ * role targets to be present there as well.
+ */
+export const IMPLEMENTER_TARGET: AgentTarget = {
+  harness: 'opencode',
+  provider: 'openrouter',
+  model: 'zai/glm-5.3',
+};
+
+export const REVIEWER_TARGET: AgentTarget = {
+  harness: 'opencode',
+  provider: 'deepseek',
+  model: 'deepseek-v4-pro',
+};
+
+function targetForRole(role: string): AgentTarget | undefined {
+  if (role === 'implementer' || role === 'migration-implementer') {
+    return IMPLEMENTER_TARGET;
+  }
+  if (role === 'reviewer' || role === 'migration-reviewer') {
+    return REVIEWER_TARGET;
+  }
+  return undefined;
+}
 
 type BrainSource = {
   readonly body: string;
@@ -111,16 +150,19 @@ function projectPrompt(body: string): string {
 
 function shadow(name: string, role: string, description: string): ProjectAgent {
   const source = readBrainSource(name);
+  const target = targetForRole(role);
   return {
     name,
     systemPrompt: projectPrompt(source.body),
     tools: 'all',
     description,
     role,
+    ...(target ?? {}),
     metadata: {
       project: 'holocron',
       brain_source_profile: source.path,
       brain_source_sha256: source.sha256,
+      ...(target ?? {}),
     },
   };
 }
@@ -129,6 +171,7 @@ const mastraGraph = readMastraGraph();
 
 function mastra(name: string, role: string, description: string): ProjectAgent {
   const source = readBrainSource(name);
+  const target = targetForRole(role);
   ROSETTA_BLOCK.lastIndex = 0;
   if (!ROSETTA_BLOCK.test(source.body)) {
     throw new Error(
@@ -149,6 +192,7 @@ function mastra(name: string, role: string, description: string): ProjectAgent {
     tools: 'all',
     description,
     role,
+    ...(target ?? {}),
     knowledgeGraph: mastraGraph.graph,
     metadata: {
       project: 'holocron',
@@ -156,6 +200,7 @@ function mastra(name: string, role: string, description: string): ProjectAgent {
       brain_source_sha256: source.sha256,
       brain_knowledge_graph: mastraGraph.path,
       brain_knowledge_graph_sha256: mastraGraph.sha256,
+      ...(target ?? {}),
     },
   };
 }
@@ -176,16 +221,19 @@ function designerVariant(
   mode: string,
   description: string
 ): ProjectAgent {
+  const target = targetForRole(role);
   return {
     name,
     systemPrompt: projectPrompt(`${designerSource.body}\n\n${mode}`),
     tools: 'all',
     description,
     role,
+    ...(target ?? {}),
     metadata: {
       project: 'holocron',
       brain_source_profile: designerSource.path,
       brain_source_sha256: designerSource.sha256,
+      ...(target ?? {}),
     },
   };
 }

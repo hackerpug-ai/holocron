@@ -1,4 +1,4 @@
-import { agents } from './.rogueone/agents';
+import { agents, IMPLEMENTER_TARGET, REVIEWER_TARGET } from './.rogueone/agents';
 
 /**
  * The installed RogueOne host re-validates this default export with its own
@@ -11,9 +11,7 @@ function defineRogueoneConfig<T>(config: T): T {
 
 export default defineRogueoneConfig({
   defaults: {
-    harness: 'grok',
-    provider: 'xai',
-    model: 'grok-composer-2.5-fast',
+    ...IMPLEMENTER_TARGET,
   },
 
   agents,
@@ -40,23 +38,13 @@ export default defineRogueoneConfig({
     implementer: {
       persistSession: true,
       byLanguage: {
-        typescript: {
-          harness: 'grok',
-          provider: 'xai',
-          model: 'grok-composer-2.5-fast',
-        },
-        python: {
-          harness: 'grok',
-          provider: 'xai',
-          model: 'grok-composer-2.5-fast',
-        },
+        typescript: { ...IMPLEMENTER_TARGET },
+        python: { ...IMPLEMENTER_TARGET },
       },
     },
     reviewer: {
       persistSession: false,
-      harness: 'codex',
-      provider: 'openai',
-      model: 'gpt-5.6-terra',
+      ...REVIEWER_TARGET,
     },
   },
 
@@ -134,8 +122,8 @@ export default defineRogueoneConfig({
   concurrency: 1,
 
   providers: {
-    xai: { maxInFlight: 1 },
-    openai: { maxInFlight: 1 },
+    [IMPLEMENTER_TARGET.provider]: { maxInFlight: 1 },
+    [REVIEWER_TARGET.provider]: { maxInFlight: 1 },
   },
 
   reviewers: [
