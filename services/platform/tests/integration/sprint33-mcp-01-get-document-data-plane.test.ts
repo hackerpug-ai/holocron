@@ -277,8 +277,31 @@ async function mcpCall(
       params: { name: tool, arguments: args },
     }),
   });
-  const body = asEnvelope(await response.json());
-  return body;
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('text/event-stream')) {
+    // The Streamable HTTP gateway answers SSE when the client accepts
+    // text/event-stream. Parse `data:` frames and return the last envelope that
+    // carries a result or error, mirroring the platform MCP client.
+    const raw = await response.text();
+    const payloads: McpEnvelope[] = [];
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice('data:'.length).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        payloads.push(asEnvelope(JSON.parse(payload)));
+      } catch {
+        // ignore progress/comment frames
+      }
+    }
+    const last = [...payloads]
+      .reverse()
+      .find((p) => p.result !== undefined || p.error !== undefined);
+    if (!last) throw new Error('SSE stream contained no JSON-RPC result');
+    return last;
+  }
+  return asEnvelope(await response.json());
 }
 
 async function readResponseLine(
@@ -522,6 +545,44 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
       expect(absent.result?.isError ?? false).toBe(false);
       expect(absent.result?.content?.[0]?.text).toBe('null');
       expect(absent.result?.content).toHaveLength(1);
+    },
+    60_000
+  );
+
+  itLive(
+    'AC-5: resolves a legacy Convex _id (documents_<suffix>) to its Postgres uuid on read',
+    async () => {
+      if (!sql || !normalGateway) throw new Error('S33-MCP-01 live setup was not initialized');
+      const legacyId = 'documents_s33mcp01_legacy_7f3a';
+      const legacyTitle = 'S33-MCP-01 legacy id resolution';
+      const legacyUuid = crypto.randomUUID();
+      try {
+        await sql`
+          INSERT INTO documents (id, legacy_convex_id, title, content, status)
+          VALUES (${legacyUuid}::uuid, ${legacyId}, ${legacyTitle}, ${TEST_CONTENT}, 'draft')
+        `;
+        const read = await mcpCall(
+          normalGateway.baseUrl,
+          'get_document',
+          { documentId: legacyId },
+          330501
+        );
+        const payload = read.result?.structuredContent;
+        writeEvidence('red-ac-5-legacy-id.json', { legacyId, legacyUuid, read });
+        expect(read.error).toBeUndefined();
+        expect(read.result?.isError ?? false).toBe(false);
+        expect(payload).toEqual(
+          expect.objectContaining({
+            documentId: legacyUuid,
+            title: legacyTitle,
+            content: TEST_CONTENT,
+            data_plane: 'postgres',
+            source: 'postgres',
+          })
+        );
+      } finally {
+        await sql`DELETE FROM documents WHERE legacy_convex_id = ${legacyId}`;
+      }
     },
     60_000
   );

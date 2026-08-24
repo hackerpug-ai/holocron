@@ -1595,10 +1595,14 @@ export async function executePostgresMcpTool(
             `RETIRED_DATA_PLANE: ${planeRead.error ?? 'retired_cloud_plane_removed_d08_02'} (data_plane=${planeRead.data_plane ?? 'unknown'})`
           );
         }
+        // The observed-plane read already resolved any legacy Convex _id
+        // (documents_<suffix>) to a Postgres uuid. Re-read extra share fields
+        // by that resolved uuid so migrated references stay fetchable.
+        if (!planeRead.ok || !planeRead.document) return null;
         const rows = await sql`
           SELECT id::text AS "documentId", title, content, status, is_public AS "isPublic",
                  share_token AS "shareToken", date, created_at AS "createdAt"
-          FROM documents WHERE id = ${String(input.documentId)}::uuid LIMIT 1
+          FROM documents WHERE id = ${planeRead.document.id}::uuid LIMIT 1
         `;
         const row = rows[0] as Record<string, unknown> | undefined;
         if (!row) return null;
