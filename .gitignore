@@ -115,3 +115,7 @@ fallback-convex-boot.png
 
 # opencode local state (biome noise; never commit sessions/goals runtime)
 .opencode/
+
+# rogueone runtime output (live orchestrator run state; .rogueone/agents.ts stays tracked)
+.rogueone/runs/
+.rogueone/worktrees/
