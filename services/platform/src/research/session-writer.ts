@@ -329,6 +329,8 @@ export async function updateResearchSessionStatus(
     const startedAtSql =
       next === 'running' && (current.status === 'queued' || current.status === 'pending');
     const completedAtSql = isTerminal(next);
+    // Terminal status must not keep a mid-pipeline phase (RN card binds `phase`).
+    const terminalPhase = isTerminal(next) ? 'publishing' : null;
 
     const updated = await sql<{ id: string; status: string }[]>`
       UPDATE research_sessions
@@ -337,6 +339,12 @@ export async function updateResearchSessionStatus(
               AND ${next}::text <> 'pending'
             THEN status
             ELSE ${next}
+          END,
+          phase = CASE
+            WHEN ${terminalPhase}::text IS NOT NULL
+              AND NOT (status IN ('completed', 'failed', 'cancelled') AND ${next}::text <> 'pending')
+            THEN ${terminalPhase}
+            ELSE phase
           END,
           idempotency_key = CASE
             WHEN ${clearKey} THEN NULL

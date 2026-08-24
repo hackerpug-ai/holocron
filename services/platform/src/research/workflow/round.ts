@@ -14,6 +14,7 @@ import { acquireDocument, ladderSearch } from '../../web/provider.ts';
 import type { CapturedSource, SearchHit } from '../../web/types.ts';
 import { insertCitation } from '../citation-writer.ts';
 import { freezeComponents } from '../components.ts';
+import { RESEARCH_JUDGE_DISCRIMINATION_FAILED } from '../decoys.ts';
 import type { EvidenceGateResult } from '../evidence-gate.ts';
 import { insertResearchFinding } from '../findings-writer.ts';
 import { insertResearchIteration } from '../iteration-writer.ts';
@@ -120,8 +121,19 @@ export async function planResearchLedger(opts: {
     },
   ];
 
-  // Depth/breadth may ask the model; quick stays deterministic.
-  if (opts.ledger.mode !== 'quick') {
+  // Quick stays deterministic and single-component so one well-evidenced
+  // question can clear the gate in a single round. Depth/breadth may plan.
+  if (opts.ledger.mode === 'quick') {
+    components = ['definition'];
+    subQuestions = [
+      {
+        id: randomUUID(),
+        text: opts.query,
+        component: 'definition',
+        status: 'open',
+      },
+    ];
+  } else {
     try {
       const planned = await withTimeout(
         extract(
@@ -474,7 +486,7 @@ export async function executeResearchRound(opts: {
             maxHits: uniqueCaptured.length,
             maxPassagesPerDoc: opts.mode === 'quick' ? 1 : 2,
           }),
-          opts.mode === 'quick' ? 180_000 : 240_000,
+          opts.mode === 'quick' ? 240_000 : 300_000,
           'acquire_evidence'
         );
         gate = acquired.gate;
@@ -484,9 +496,10 @@ export async function executeResearchRound(opts: {
           lastGateInput: acquired.gateInput,
         };
         if (acquired.degraded.length > 0) {
+          const judgeFailed = acquired.degraded.includes(RESEARCH_JUDGE_DISCRIMINATION_FAILED);
           ledger = {
             ...ledger,
-            degraded: true,
+            degraded: judgeFailed || ledger.degraded,
             gaps: [...new Set([...ledger.gaps, ...acquired.degraded])],
           };
         }

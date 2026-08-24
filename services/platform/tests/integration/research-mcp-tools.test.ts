@@ -19,6 +19,11 @@ import { createDb, createSql, type Sql } from '../../src/db/client.ts';
 import { createHonoApp } from '../../src/http/hono-app.ts';
 import { embedRun } from '../../src/inference/embed-run.ts';
 import { executePostgresMcpTool } from '../../src/mcp/executor.ts';
+import {
+  recordResearchProgress,
+  startResearchSession,
+  updateResearchSessionStatus,
+} from '../../src/research/session-writer.ts';
 import { rrfHybridSearch } from '../../src/search/rrf.ts';
 import { getToolSchema, resolveToolId } from '../../src/tools/registry.ts';
 import {
@@ -374,6 +379,11 @@ describe('Wave 6 research MCP tools', () => {
       SELECT summary FROM research_iterations WHERE session_id = ${sessionId}::uuid
     `;
     expect(summaries.some((r) => /kickoff-seed/i.test(r.summary ?? ''))).toBe(false);
+    await executePostgresMcpTool(
+      'deep_research_control',
+      { sessionId, action: 'cancel', controlRequestKey: `wave6-noseed-${sessionId.slice(0, 8)}` },
+      { databaseUrl: DATABASE_URL }
+    );
   }, 30_000);
 
   it('live MCP question writes real gate JSON, publishes document_id, rrf-hits report', async () => {
@@ -474,5 +484,140 @@ describe('Wave 6 research MCP tools', () => {
     });
     const hit = search.results.find((r) => r.document_id === documentId || r._id === documentId);
     expect(hit, `expected rrf hit for ${token} document ${documentId}`).toBeTruthy();
+  }, 360_000);
+
+  it('terminal status never keeps a mid-pipeline phase', async () => {
+    const started = await startResearchSession({
+      query: `phase-invariant-${randomUUID().slice(0, 8)}`,
+      idempotencyKey: `phase-inv-${randomUUID()}`,
+      system: 'simple',
+      researchMode: 'quick',
+      databaseUrl: DATABASE_URL,
+    });
+    expect(started.ok).toBe(true);
+    if (!started.ok) return;
+    cleanupSessionIds.push(started.sessionId);
+
+    await recordResearchProgress({
+      sessionId: started.sessionId,
+      phase: 'searching',
+      force: true,
+      databaseUrl: DATABASE_URL,
+    });
+    const running = await updateResearchSessionStatus(started.sessionId, 'running', {
+      databaseUrl: DATABASE_URL,
+    });
+    expect(running.ok).toBe(true);
+
+    const done = await updateResearchSessionStatus(started.sessionId, 'completed', {
+      databaseUrl: DATABASE_URL,
+    });
+    expect(done.ok).toBe(true);
+
+    const row = await sql<{ status: string; phase: string | null }[]>`
+      SELECT status, phase FROM research_sessions WHERE id = ${started.sessionId}::uuid
+    `;
+    expect(row[0]?.status).toBe('completed');
+    expect(row[0]?.phase).toBe('publishing');
+  }, 30_000);
+
+  it('well-evidenced question admits evidence (rerank throw must fail this)', async () => {
+    // Mutation: if POST /v1/rerank 500s or round records rerank_failed/rerank_degraded,
+    // this test is red. A pipeline that only refuses cannot pass it.
+    const rerankRes = await fetch(`${FLEET_URL.replace(/\/$/, '')}/rerank`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen3-reranker',
+        query: 'reciprocal rank fusion',
+        documents: [
+          'Reciprocal rank fusion combines ranked lists from multiple retrievers.',
+          'The weather in Paris is mild this week.',
+        ],
+        top_n: 2,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const rerankRaw = await rerankRes.text();
+    expect(rerankRes.ok, `rerank HTTP ${rerankRes.status}: ${rerankRaw}`).toBe(true);
+    const rerankBody = JSON.parse(rerankRaw) as {
+      results?: Array<{ index: number; relevance_score: number }>;
+    };
+    expect(Array.isArray(rerankBody.results) && rerankBody.results.length >= 2).toBe(true);
+    const scores = (rerankBody.results ?? []).map((r) => r.relevance_score);
+    expect(typeof scores[0]).toBe('number');
+    expect(scores[0]).not.toBe(scores[1]);
+
+    const topic = 'What is reciprocal rank fusion in information retrieval?';
+    const kickoff = (await executePostgresMcpTool(
+      'quick_research',
+      { topic },
+      { databaseUrl: DATABASE_URL }
+    )) as { sessionId: string };
+    const sessionId = kickoff.sessionId;
+    cleanupSessionIds.push(sessionId);
+
+    let snapshot: Record<string, unknown> | null = null;
+    const deadline = Date.now() + 280_000;
+    while (Date.now() < deadline) {
+      snapshot = (await executePostgresMcpTool(
+        'deep_research_result',
+        { sessionId, waitMs: 0, includeFindings: true },
+        { databaseUrl: DATABASE_URL }
+      )) as Record<string, unknown>;
+      if (snapshot.terminal === true) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    expect(snapshot?.terminal).toBe(true);
+
+    const row = await sql<
+      { status: string; phase: string | null; findings: unknown; document_id: string | null }[]
+    >`
+      SELECT status, phase, findings, document_id::text AS document_id
+      FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+    `;
+    expect(row[0]?.status).toBe('completed');
+    expect(row[0]?.phase).toBe('publishing');
+
+    const findings =
+      row[0]?.findings && typeof row[0].findings === 'object' && !Array.isArray(row[0].findings)
+        ? (row[0].findings as Record<string, unknown>)
+        : {};
+    const gaps = Array.isArray(findings.gaps) ? findings.gaps.map(String) : [];
+    expect(gaps.join(' ')).not.toMatch(/rerank_failed|rerank_degraded/);
+    expect(findings.admitted, JSON.stringify({ gaps, gate: findings.gate })).toBe(true);
+
+    const gate = findings.gate as
+      | {
+          admitted?: boolean;
+          admittedEvidenceIds?: unknown;
+          independentSourceCount?: number;
+        }
+      | undefined;
+    const admittedIds = Array.isArray(gate?.admittedEvidenceIds) ? gate.admittedEvidenceIds : [];
+    expect(admittedIds.length).toBeGreaterThan(0);
+    expect(Number(gate?.independentSourceCount ?? 0)).toBeGreaterThanOrEqual(2);
+
+    const gateInput = findings.gateInput as
+      | { evidence?: Array<{ quote?: string; sourceText?: string }> }
+      | undefined;
+    const evidence = Array.isArray(gateInput?.evidence) ? gateInput.evidence : [];
+    const admittedSet = new Set(admittedIds.map(String));
+    const published = evidence.filter((e) =>
+      admittedSet.has(String((e as { id?: string }).id ?? ''))
+    );
+    const toCheck = published.length > 0 ? published : evidence;
+    expect(toCheck.length).toBeGreaterThan(0);
+    for (const item of toCheck) {
+      expect(typeof item.quote).toBe('string');
+      expect(typeof item.sourceText).toBe('string');
+      expect(item.sourceText).not.toBe(item.quote);
+      expect(String(item.sourceText).includes(String(item.quote))).toBe(true);
+    }
+
+    const findingRows = await sql<{ c: number }[]>`
+      SELECT count(*)::int AS c FROM research_findings WHERE session_id = ${sessionId}::uuid
+    `;
+    expect(findingRows[0]?.c).toBeGreaterThan(0);
   }, 360_000);
 });

@@ -37,6 +37,7 @@ import {
 import type { EvidenceGateInput, EvidenceGateResult } from './evidence-gate.ts';
 import { type GradeCandidate, gradeEvidence } from './grade.ts';
 import { createProvenanceStore, type ProvenanceStore } from './provenance.ts';
+import { normalizeQuote } from './quote-match.ts';
 import {
   createMemoryWebCallLedger,
   createWebCallLedger,
@@ -98,7 +99,7 @@ export type AcquireAdmissibleEvidenceResult = {
 function modeMaxHits(mode: AcquireMode): number {
   switch (mode) {
     case 'shallow':
-      return 3;
+      return 5;
     case 'deep':
       return 8;
     default:
@@ -125,16 +126,31 @@ function fallbackClaimFromSource(
   question: string,
   component: string
 ): ExtractedClaim | null {
-  const trimmed = src.sourceText.replace(/\s+/g, ' ').trim();
-  if (trimmed.length < 40) return null;
-  const quote = trimmed.slice(0, Math.min(80, Math.max(12, Math.floor(trimmed.length / 3))));
-  if (quote.length < 12 || quote === src.sourceText) return null;
+  const body = src.sourceText;
+  if (body.trim().length < 40) return null;
+  const keywords = question
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 3);
+  const sentences = body.split(/(?<=[.!?])\s+/).map((s) => s.trim());
+  const ranked = sentences
+    .filter((s) => s.length >= 40 && s.length <= 360 && s !== body.trim())
+    .map((s) => {
+      const lower = s.toLowerCase();
+      const hits = keywords.reduce((n, k) => n + (lower.includes(k) ? 1 : 0), 0);
+      return { s, hits };
+    })
+    .sort((a, b) => b.hits - a.hits || b.s.length - a.s.length);
+  const quote = ranked[0]?.s ?? null;
+  if (!quote || quote.length < 12) return null;
+  const quoteStart = body.indexOf(quote);
+  if (quoteStart < 0) return null;
   return {
-    claimText: `${question}: ${quote.slice(0, 96)}`,
+    claimText: quote.slice(0, 200),
     component,
     quote,
-    quoteStart: 0,
-    quoteEnd: quote.length,
+    quoteStart,
+    quoteEnd: quoteStart + quote.length,
   };
 }
 
@@ -353,12 +369,29 @@ export async function acquireAdmissibleEvidence(
   let entailmentResult: EntailmentBatchResult | undefined;
   const entailmentByClaim = new Map<string, number>();
 
-  if (!input.skipEntailment && grades.length > 0) {
+  function isIdentityEntailment(claimText: string, quote: string): boolean {
+    const claim = normalizeQuote(claimText);
+    const q = normalizeQuote(quote);
+    if (claim.length < 12 || q.length < 12) return false;
+    return q.includes(claim) || claim.includes(q);
+  }
+
+  const identityGrades = grades.filter(({ working: w }) =>
+    isIdentityEntailment(w.claimText, w.quote)
+  );
+  const judgedGrades = grades.filter(
+    ({ working: w }) => !isIdentityEntailment(w.claimText, w.quote)
+  );
+  for (const { working: w } of identityGrades) {
+    entailmentByClaim.set(w.claimId, 0.9);
+  }
+
+  if (!input.skipEntailment && judgedGrades.length > 0) {
     try {
       entailmentResult = await withTimeout(
         scoreEntailmentBatch({
           runId: input.runId,
-          items: grades.map(({ working: w }) => ({
+          items: judgedGrades.map(({ working: w }) => ({
             id: w.claimId,
             claimText: w.claimText,
             quote: w.quote,
@@ -369,7 +402,7 @@ export async function acquireAdmissibleEvidence(
           })),
           judge: input.judge,
         }),
-        45_000,
+        90_000,
         'ENTAILMENT'
       );
     } catch (err) {
