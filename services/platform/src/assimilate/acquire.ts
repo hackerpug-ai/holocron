@@ -112,11 +112,29 @@ function scratchRoot(explicit?: string): string {
   return root;
 }
 
+/** process.env minus git redirect vars that leak in from a parent pre-commit hook. */
+function isolatedGitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_COMMON_DIR',
+    'GIT_PREFIX',
+  ]) {
+    delete env[key];
+  }
+  return env;
+}
+
 function runGit(args: string[], cwd?: string): { status: number; stdout: string; stderr: string } {
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    // Isolate from a parent git hook env: GIT_DIR/GIT_INDEX_FILE/GIT_WORK_TREE
+    // exported by `git commit` would otherwise redirect the subprocess at the
+    // parent repo instead of `cwd` (breaking fixture git repos in tests).
+    env: isolatedGitEnv(),
     maxBuffer: 32 * 1024 * 1024,
   });
   return {
