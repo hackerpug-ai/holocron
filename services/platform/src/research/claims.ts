@@ -113,9 +113,12 @@ export async function extractClaimsFromPassage(opts: {
       prompt,
       'divergent',
       opts.extractionId,
-      // 6-claim cap → ~1-2K output tokens; the local fleet runs 5-25 tok/s so
-      // uncapped extraction (6-10K tokens observed) always blew the timeout.
-      { maxOutputTokens: 2048 }
+      // Cap high enough for the model's reasoning preamble + 6-claim JSON.
+      // 2048 was too tight: Qwen3.6-35B emits a long thinking prefix and hit
+      // finish_reason=length mid-JSON on every passage (all 8/10 extractions
+      // in the 2026-08-24 verification run truncated). At ~53 tok/s on the
+      // minis, 4096 tokens ≈ 77s, inside the divergent role's 120s budget.
+      { maxOutputTokens: 4096 }
     );
   } catch (err) {
     if (err instanceof ExtractionFailedError) {
