@@ -354,6 +354,9 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: 3.0.10
         version: 3.0.10(zod@4.4.3)
+      '@mastra/acp':
+        specifier: 0.4.0
+        version: 0.4.0(@mastra/core@1.50.1(@grpc/grpc-js@1.14.4)(ai@7.0.28(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)
       '@mastra/core':
         specifier: 1.50.1
         version: 1.50.1(@grpc/grpc-js@1.14.4)(ai@7.0.28(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
@@ -429,6 +432,11 @@ packages:
 
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
+
+  '@agentclientprotocol/sdk@0.21.1':
+    resolution: {integrity: sha512-ZTLH+o9QxcZDLX/9ww+W7C2iExnXFM+vD/uGFVSlR61Kzj9FaxUqBC6Rv/kwgA7qVWYUEI9c5ZNqCuO9PM4rKg==}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
 
   '@ai-sdk/anthropic@3.0.69':
     resolution: {integrity: sha512-LshR7X3pFugY0o41G2VKTmg1XoGpSl7uoYWfzk6zjVZLhCfeFiwgpOga+eTV4XY1VVpZwKVqRnkDbIL7K2eH5g==}
@@ -2187,6 +2195,12 @@ packages:
   '@lukeed/uuid@2.0.1':
     resolution: {integrity: sha512-qC72D4+CDdjGqJvkFMMEAtancHUQ7/d/tAiHf64z8MopFDmcrtbcJuerDtFceuAfQJ2pDSfCKCtbqoGBNnwg0w==}
     engines: {node: '>=8'}
+
+  '@mastra/acp@0.4.0':
+    resolution: {integrity: sha512-iSp+T65/wnDE1ryBFAJn4pCEsalJvx8dfKIcUCS0AWvF5qacdkU6griTlbloshc1PuZucP9S656hC4Zk7VvNQg==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.34.0-0 <2.0.0-0'
 
   '@mastra/core@1.50.1':
     resolution: {integrity: sha512-8iFBnaR4LvWsvshFifuGMvo0bBKSxg6JXKtcr/BYhak13NjhLBumjwSoNdKt9SOci5uMp+e+/QUEeBgpFo65/w==}
@@ -9688,6 +9702,10 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
+  '@agentclientprotocol/sdk@0.21.1(zod@4.4.3)':
+    dependencies:
+      zod: 4.4.3
+
   '@ai-sdk/anthropic@3.0.69(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -11493,6 +11511,13 @@ snapshots:
   '@lukeed/uuid@2.0.1':
     dependencies:
       '@lukeed/csprng': 1.1.0
+
+  '@mastra/acp@0.4.0(@mastra/core@1.50.1(@grpc/grpc-js@1.14.4)(ai@7.0.28(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@agentclientprotocol/sdk': 0.21.1(zod@4.4.3)
+      '@mastra/core': 1.50.1(@grpc/grpc-js@1.14.4)(ai@7.0.28(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
+    transitivePeerDependencies:
+      - zod
 
   '@mastra/core@1.50.1(@grpc/grpc-js@1.14.4)(ai@7.0.28(zod@4.4.3))(express@5.2.1)(zod@4.4.3)':
     dependencies:

@@ -69,6 +69,8 @@ export type ExecuteResearchRoundDeps = {
   search?: typeof ladderSearch;
   rerank?: typeof rerankCandidates;
   nowMs?: () => number;
+  /** Breadth branch attribution — stamped on iterations + web_calls. */
+  branchId?: string;
 };
 
 export type ExecuteResearchRoundResult = {
@@ -209,6 +211,7 @@ export async function executeResearchRound(opts: {
   const extract = deps.extract ?? extractStructured;
   const search = deps.search ?? ladderSearch;
   const rerank = deps.rerank ?? rerankCandidates;
+  const branchId = deps.branchId;
 
   const ownsSql = !deps.sql;
   const sql =
@@ -319,7 +322,7 @@ export async function executeResearchRound(opts: {
     let roundCost = 0;
     let admittedThisRound = 0;
 
-    const ledgerHandle = createWebCallLedger(sql);
+    const ledgerHandle = createWebCallLedger(sql, { branchId: branchId ?? null });
     const topN = opts.mode === 'quick' ? 2 : 4;
     const maxDocsToRead = opts.mode === 'quick' ? 2 : 3;
 
@@ -347,6 +350,7 @@ export async function executeResearchRound(opts: {
           queries,
           sources: iterationSources,
           feedback: 'cancelled mid-round',
+          branchId,
         });
         return {
           handle: {
@@ -515,8 +519,8 @@ export async function executeResearchRound(opts: {
             id: evidenceId,
             claimId,
             component: open.component,
-            sourceId: hit.url,
-            independenceGroup: origin.originKey || hit.url,
+            sourceId: origin.sourceId,
+            independenceGroup: origin.originKey || origin.sourceId,
             quote: c.quote,
             sourceText,
             grade,
@@ -592,7 +596,8 @@ export async function executeResearchRound(opts: {
             component: open.component,
             quote: item.quote,
             sourceUrl: hit.url,
-            sourceId: hit.url,
+            // Canonical origin identity — independence dedupes on this, not URL alone.
+            sourceId: origin.sourceId,
             grade: item.grade,
             entailment: item.entailment,
             direction: item.direction,
@@ -649,6 +654,7 @@ export async function executeResearchRound(opts: {
         admittedThisRound > 0
           ? `admitted ${admittedThisRound} evidence item(s) for ${open.component}`
           : `no admissible evidence this round for ${open.component}`,
+      branchId,
     });
 
     // Re-check cancel before deciding stop
@@ -698,6 +704,7 @@ async function persistIterationPartial(opts: {
   queries: string[];
   sources: Array<{ title?: string; url?: string; domain?: string; citationId?: string }>;
   feedback: string;
+  branchId?: string;
 }): Promise<void> {
   const summary =
     opts.ledger.findings.length > 0
@@ -717,6 +724,7 @@ async function persistIterationPartial(opts: {
     sources: opts.sources,
     status: opts.ledger.stopReason === 'canceled' ? 'cancelled' : 'completed',
     system: opts.ledger.mode === 'quick' ? 'simple' : 'deep',
+    branchId: opts.branchId,
     findings: opts.ledger.findings,
     reviewGaps: opts.ledger.gaps,
     durationMs: Math.round(opts.ledger.spend.wallMs),

@@ -23,6 +23,7 @@ import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
+import { researchBreadthWorkflow } from './research/workflow/research-breadth.ts';
 import { researchDepthWorkflow } from './research/workflow/research-depth.ts';
 import { toolsAsRecord } from './tools/registry.ts';
 
@@ -79,6 +80,7 @@ export function createMastra(): Mastra {
     workflows: {
       assimilateRepo: assimilateRepoWorkflow,
       researchDepth: researchDepthWorkflow,
+      researchBreadth: researchBreadthWorkflow,
     },
     tools: toolsAsRecord(),
   });

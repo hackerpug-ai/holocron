@@ -125,13 +125,15 @@ function asSessionId(runId: string): string | null {
   return UUID_RE.test(runId) ? runId : null;
 }
 
-export function createWebCallLedger(sql: Sql): WebCallLedger {
+export function createWebCallLedger(sql: Sql, opts?: { branchId?: string | null }): WebCallLedger {
+  const defaultBranchId = opts?.branchId ?? null;
   return {
     async record(input: LedgerRecordInput): Promise<void> {
       const { call } = input;
       const sessionId = asSessionId(call.runId);
       const callKind = capabilityToCallKind(call.capability);
       const id = call.webCallId;
+      const branchId = input.branchId ?? defaultBranchId;
 
       await sql`
         INSERT INTO research_web_calls (
@@ -154,7 +156,7 @@ export function createWebCallLedger(sql: Sql): WebCallLedger {
           ${id}::uuid,
           ${sessionId}::uuid,
           ${input.iterationId ?? null}::uuid,
-          ${input.branchId ?? null},
+          ${branchId},
           ${call.provider},
           ${callKind},
           ${input.query ?? null},

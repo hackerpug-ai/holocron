@@ -172,3 +172,49 @@ export function emptyLedger(seed: {
     steeredStop: false,
   };
 }
+
+/** Breadth foreach job — one sub-question researched on an attributed branch. */
+export const SubQuestionJobSchema = z.object({
+  sessionId: z.string().uuid(),
+  jobId: z.string().min(1),
+  branchId: z.string().min(1),
+  text: z.string().min(1),
+  component: z.string().min(1),
+  query: z.string().min(1),
+  mode: ResearchModeSchema,
+  maxInternalRounds: z.number().int().positive().max(2),
+  wallBudgetMs: z.number().int().positive(),
+  tokenBudget: z.number().int().positive(),
+  toolcallBudget: z.number().int().positive(),
+  /** Shared iteration offset so branch rows don't collide on (session, iteration_number). */
+  iterationBase: z.number().int().nonnegative(),
+});
+
+export type SubQuestionJob = z.infer<typeof SubQuestionJobSchema>;
+
+export const SubResultSchema = z.object({
+  jobId: z.string().min(1),
+  branchId: z.string().min(1),
+  component: z.string().min(1),
+  text: z.string().min(1),
+  findings: z.array(LedgerFindingSchema),
+  queriesRun: z.array(z.string()),
+  seenUrls: z.array(z.string()),
+  gaps: z.array(z.string()),
+  spend: SpendLedgerSchema,
+  stopReason: StopReasonSchema.nullable(),
+  rounds: z.number().int().nonnegative(),
+  degraded: z.boolean(),
+});
+
+export type SubResult = z.infer<typeof SubResultSchema>;
+
+export const BreadthMergeStatsSchema = z.object({
+  branchCount: z.number().int().nonnegative(),
+  findingCount: z.number().int().nonnegative(),
+  independentSourceCount: z.number().int().nonnegative(),
+  dedupedFindingCount: z.number().int().nonnegative(),
+  branchIds: z.array(z.string()),
+});
+
+export type BreadthMergeStats = z.infer<typeof BreadthMergeStatsSchema>;

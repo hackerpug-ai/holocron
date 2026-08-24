@@ -556,7 +556,8 @@ export async function kickoffDeepResearch(
     return { ok: false, error: session.error, latencyMs: Date.now() - started };
   }
 
-  const workflow = input.mastra.getWorkflow('researchDepth');
+  const workflowName = mode === 'breadth' ? 'researchBreadth' : 'researchDepth';
+  const workflow = input.mastra.getWorkflow(workflowName);
   const run = await workflow.createRun();
   const runId = run.runId;
 
@@ -600,4 +601,3 @@ export async function cancelDeepResearch(
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, status: result.status, latched: result.latched };
 }
-
