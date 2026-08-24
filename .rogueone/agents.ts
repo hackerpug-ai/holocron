@@ -35,14 +35,14 @@ type AgentTarget = {
  */
 export const IMPLEMENTER_TARGET: AgentTarget = {
   harness: 'opencode',
-  provider: 'openrouter',
-  model: 'zai/glm-5.3',
+  provider: 'deepseek',
+  model: 'deepseek-v4-pro',
 };
 
 export const REVIEWER_TARGET: AgentTarget = {
   harness: 'opencode',
-  provider: 'deepseek',
-  model: 'deepseek-v4-pro',
+  provider: 'openrouter',
+  model: 'zai/glm-5.3',
 };
 
 function targetForRole(role: string): AgentTarget | undefined {
