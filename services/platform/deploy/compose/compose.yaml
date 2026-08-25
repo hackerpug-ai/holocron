@@ -445,7 +445,9 @@ services:
         condition: service_healthy
         restart: true
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:13133/ || exit 1"]
+      # Distroless image (no /bin/sh, no wget): probe the collector binary
+      # directly with the exec form, same pattern as edge's `caddy version`.
+      test: ["CMD", "/otelcol-contrib", "--version"]
       interval: 10s
       timeout: 5s
       retries: 12

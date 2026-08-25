@@ -279,7 +279,7 @@ Public MCP is `https://mcp.holocrnlib.com/mcp` (and `https://mcp.holocrnlib.com/
 
 This hostname is gated by a Cloudflare Access **Self-hosted identity/login** policy (allow-listed operator email, or emails-ending-in the operator's domain — the operator's identity only). That is a different Access **policy type** than Public document share reader, which uses a **service-token** policy (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` held only by the Worker). Login here issues a **login JWT** (`Cf-Access-Jwt-Assertion`) after browser SSO. A service token will not satisfy this application, and this application's login JWT will not satisfy origin-docs.
 
-`HOLO_KEY_MCP` stays an independent second layer at the origin. Access JWT without that bearer is origin **401**. A foreign `Origin` header is still origin **403** `MCP_ORIGIN_REJECTED`. The all-or-nothing 45-tool MCP key model does not change.
+`HOLO_KEY_MCP` stays an independent second layer at the origin. Access JWT without that bearer is origin **401**. A foreign `Origin` header is still origin **403** `MCP_ORIGIN_REJECTED`. The all-or-nothing 50-tool MCP key model does not change.
 
 Value-free names: `HOLO_KEY_MCP`, `MCP_ACCESS_AUD_TAG`, `ZERO_TRUST_TEAM_NAME`. Never put JWT values, tunnel tokens, or Access AUD/team values in git, argv, or logs.
 
@@ -631,7 +631,7 @@ Schema `holo.deploy.cross-tailnet-drill.v1`. Required fields (non-empty):
 | `funnel_enabled` / `funnel_endpoint_count` | `false` / `0` |
 | `healthy_service_count` | `12` |
 | `postgres_down_health_status` / `recovered_health_status` | `503` / `200` |
-| `mcp_tool_count` | `44` |
+| `mcp_tool_count` | `50` |
 | `mastra_restart_count` | `≥1` |
 | `postgres_sentinel_rows` / `blob_sentinel_objects` | `1` / `1` |
 | `unreachable_serve_rejection_count` | `1` |
