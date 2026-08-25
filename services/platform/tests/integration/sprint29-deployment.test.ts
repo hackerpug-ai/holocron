@@ -107,7 +107,7 @@ const expected = {
   composeSha256: COMPOSE_SHA,
 };
 
-describe('D06-07 inference1 deployment contract', () => {
+describe('D06-07 holocron deployment contract', () => {
   it('restarts every long-lived Postgres consumer after the database endpoint returns', () => {
     const prefix = ['compose', '-p', 'holocron-test', '-f', 'compose.yaml'];
     expect(postgresDependencyRecoveryArgs(prefix)).toEqual([
@@ -272,7 +272,7 @@ describe('D06-07 inference1 deployment contract', () => {
     ).toThrow(/operator authorization is required/);
     expect(invoked).toBe(false);
 
-    const script = spawnSync('bash', ['scripts/deploy-inference1.sh', '--dry-run'], {
+    const script = spawnSync('bash', ['scripts/deploy-holocron.sh', '--dry-run'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
     });
@@ -302,7 +302,9 @@ describe('D06-07 inference1 deployment contract', () => {
       secretsPath: '/operator/secrets.yaml',
       host: DEFAULT_DEPLOY_HOST,
     });
-    expect(override).toContain('127.0.0.1:44111:4111');
+    // Edge (Caddy) owns loopback 44111 from the base Compose contract;
+    // the override must not re-publish it on mastra (double-bind crash).
+    expect(override).not.toContain('127.0.0.1:44111:4111');
     expect(override).not.toMatch(/0\.0\.0\.0:\d+:4111/);
     expect(override).toContain('127.0.0.1:44112:5432');
     expect(override).toContain('127.0.0.1:44113:4848');
@@ -354,24 +356,27 @@ describe('D06-07 inference1 deployment contract', () => {
       secretsPath: '/operator/secrets.yaml',
       host: 'holocron',
     });
-    const mastraPublish = '127.0.0.1:44111:4111';
-    expect(override).toContain(mastraPublish);
+    // Edge (Caddy) owns loopback 44111 from the base Compose contract and
+    // reverse-proxies to mastra:4111. The deploy override must not re-publish
+    // the server port on mastra — that double-binds 127.0.0.1:44111.
+    expect(override).not.toContain('127.0.0.1:44111:4111');
     expect(override).not.toContain('0.0.0.0:44111:4111');
     const publishedServerPorts = [
       ...override.matchAll(/["'](?:\d+\.\d+\.\d+\.\d+|\[?::\]?):(\d+):4111["']/g),
     ];
-    expect(publishedServerPorts.length, 'published_server_port_count').toBe(1);
+    expect(publishedServerPorts.length, 'published_server_port_count').toBe(0);
     const nonLoopback = [...override.matchAll(/["'](?!127\.0\.0\.1)[^"']+:\d+:\d+["']/g)].filter(
       (match) => !match[0].includes('127.0.0.1')
     );
-    // Only mastra/postgres/zero ports — all must be loopback for host publications
+    // Only postgres/zero ports — all must be loopback for host publications
     const hostPublishes = [
       ...override.matchAll(/ports: !override\s*\n\s*-\s*["']([^"']+)["']/g),
     ].map((m) => m[1] ?? '');
     expect(hostPublishes.length).toBeGreaterThan(0);
     const nonLoopbackPublishCount = hostPublishes.filter((p) => !p.startsWith('127.0.0.1:')).length;
     expect(nonLoopbackPublishCount, 'non_loopback_publish_count').toBe(0);
-    expect(hostPublishes.some((p) => p === mastraPublish)).toBe(true);
+    expect(hostPublishes.some((p) => p === '127.0.0.1:44112:5432')).toBe(true);
+    expect(hostPublishes.some((p) => p === '127.0.0.1:44113:4848')).toBe(true);
     void nonLoopback;
   });
 
@@ -629,7 +634,7 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(holo).toMatch(/deploy:preflight/);
     expect(holo).toMatch(/deploy:verify/);
     expect(holo).toMatch(/deploy:rollback-preflight/);
-    const script = readFileSync(resolve(REPO_ROOT, 'scripts/deploy-inference1.sh'), 'utf8');
+    const script = readFileSync(resolve(REPO_ROOT, 'scripts/deploy-holocron.sh'), 'utf8');
     expect(script).not.toMatch(/ipconfig getifaddr/);
     expect(script).toMatch(/tailscale|MagicDNS|HOLO_PRODUCTION_BASE_URL/);
     expect(script).toMatch(/holocron/);
@@ -828,7 +833,7 @@ describe('D06-07 inference1 deployment contract', () => {
       'unauthorized_docker_mutation_count'
     ).toBe(0);
 
-    const script = spawnSync('bash', ['scripts/deploy-inference1.sh', '--dry-run'], {
+    const script = spawnSync('bash', ['scripts/deploy-holocron.sh', '--dry-run'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       env: { ...process.env, HOLO_PRODUCTION_BASE_URL: 'https://example.tailnet.ts.net:44111' },
