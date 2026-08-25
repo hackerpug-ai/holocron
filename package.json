@@ -48,6 +48,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/openai-compatible": "3.0.10",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
@@ -79,6 +80,8 @@
     "@rn-primitives/toggle": "^1.2.0",
     "@rn-primitives/toggle-group": "^1.2.0",
     "@rn-primitives/tooltip": "^1.2.0",
+    "@mastra/acp": "0.4.0",
+    "@mastra/core": "1.50.1",
     "@rocicorp/zero": "1.8.0",
     "@shopify/flash-list": "2.0.2",
     "@tanstack/react-query": "^5.90.21",
@@ -138,7 +141,7 @@
     "react-native": "0.83.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.12",
+    "@biomejs/biome": "2.4.12",
     "@storybook/addon-ondevice-actions": "^10.2.3",
     "@storybook/addon-ondevice-controls": "^10.2.3",
     "@storybook/jest": "^0.2.3",
@@ -156,7 +159,7 @@
     "lefthook": "^2.1.6",
     "react-dom": "19.2.0",
     "react-native": "0.83.2",
-    "react-test-renderer": "^19.2.0",
+    "react-test-renderer": "19.2.0",
     "storybook": "^10.2.19",
     "typescript": "~5.9.2",
     "vitest": "^4.0.18",
