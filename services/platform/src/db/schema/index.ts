@@ -12,6 +12,7 @@ export * from './evidence';
 export * from './inference';
 export * from './media';
 export * from './mission';
+export * from './observability';
 export * from './others';
 export * from './outbox';
 export * from './queue';
@@ -29,6 +30,7 @@ import * as evidence from './evidence';
 import * as inference from './inference';
 import * as media from './media';
 import * as mission from './mission';
+import * as observability from './observability';
 import * as others from './others';
 import * as outbox from './outbox';
 import * as queue from './queue';
@@ -52,6 +54,7 @@ export const schema = {
   ...inference,
   ...evals,
   ...cutover,
+  ...observability,
 };
 
 /** Ordered list of expected physical table names (≥55). */
@@ -134,6 +137,8 @@ export const DOMAIN_TABLE_NAMES = [
   'rate_limit_tracking',
   'rate_limits',
   'convex_id_map',
+  // observability (1)
+  'service_events',
 ] as const;
 
 export const ANALYSIS_TRIO = ['analysis_sessions', 'analysis_items', 'analysis_evidence'] as const;
