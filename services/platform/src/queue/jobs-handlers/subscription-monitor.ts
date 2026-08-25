@@ -43,13 +43,29 @@ export const subscriptionMonitor: JobHandler = async (ctx): Promise<JobHandlerRe
       { databaseUrl: ctx.databaseUrl }
     );
 
+    // Fail closed: AC-1 makes the durable redacted heartbeat a hard contract, not a
+    // best-effort nicety. A monitor that advances last_checked but reports ok without
+    // a persisted service_event silently drops the only durable observability signal,
+    // so surface the heartbeat failure and let the queue retry instead of lying green.
+    if (!heartbeat.ok) {
+      return {
+        ok: false,
+        detail: {
+          sources_checked: updated.length,
+          heartbeat_ok: false,
+          note: 'last_checked advanced but the redacted heartbeat did not persist',
+        },
+        error: `observability heartbeat failed: ${heartbeat.error}`,
+      };
+    }
+
     return {
       ok: true,
       detail: {
         sources_checked: updated.length,
         note: 'external content fetch deferred (scope); last_checked advanced',
-        heartbeat_event_id: heartbeat.ok ? heartbeat.eventId : null,
-        heartbeat_ok: heartbeat.ok,
+        heartbeat_event_id: heartbeat.eventId,
+        heartbeat_ok: true,
       },
     };
   } catch (err) {
