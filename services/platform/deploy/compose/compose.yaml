@@ -482,7 +482,15 @@ configs:
         handle /health {
           reverse_proxy mastra:4111
         }
-        respond / "holocron edge ready" 200
+        handle / {
+          respond "holocron edge ready" 200
+        }
+        # Everything else (MCP /mcp, /api/*, /article/*, /blobs/*, SSE streams)
+        # passes through to mastra — parity with the previous direct binding,
+        # where mastra owned 44111 and every route was reachable.
+        handle {
+          reverse_proxy mastra:4111
+        }
       }
 
 secrets:
