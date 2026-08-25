@@ -475,7 +475,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
 
       const verbs: Record<number, RegExp> = {
         1: /cutover:go-no-go/,
-        2: /deploy:apply|deploy-inference1/,
+        2: /deploy:apply|deploy-holocron|deploy-inference1/,
         3: /deploy:verify/,
         4: /deploy:verify/,
         5: /cutover:freeze[\s\S]*cutover:capture-article-baseline[\s\S]*cutover:quiet-check/,

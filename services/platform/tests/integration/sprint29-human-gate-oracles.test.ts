@@ -62,7 +62,7 @@ const STEP_ORACLES: Record<number, string> = {
 
 const STEP_VERBS: Record<number, RegExp> = {
   1: /cutover:go-no-go/,
-  2: /deploy:apply|deploy-inference1/,
+  2: /deploy:apply|deploy-holocron|deploy-inference1/,
   3: /deploy:verify/,
   4: /deploy:verify/,
   5: /cutover:freeze[\s\S]*cutover:quiet-check/,
@@ -158,7 +158,7 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
       expect(cmd, `step ${n} must use bun holo dispatcher`).toContain(HOLO_CLI_TOKEN);
       expect(cmd, `step ${n} must reference deployment/cutover verb family`).toMatch(stepVerb(n));
       // Action is real CLI, not isolated jq on pre-baked JSON alone
-      expect(cmd).toMatch(/cutover:|deploy:|deploy-inference1/);
+      expect(cmd).toMatch(/cutover:|deploy:|deploy-holocron|deploy-inference1/);
       verbHits[n] =
         cmd.match(/(?:cutover|deploy):[a-z0-9-]+|migration_read_only/)?.[0] ?? 'unknown';
     }

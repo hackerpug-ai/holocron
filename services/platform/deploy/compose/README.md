@@ -490,8 +490,9 @@ authorized** image rollback that still forbids `down -v` / volume prune.
 ## Authorized deploy, receipt, and verification
 
 ```sh
-# Compatibility script (filename retained) — portable target, no LAN derivation:
-scripts/deploy-inference1.sh --authorize --release path/to/image-lock.json
+# Portable deploy entry point (renamed from deploy-inference1.sh — the serving
+# host is `holocron`):
+scripts/deploy-holocron.sh --authorize --release path/to/image-lock.json
 
 # Or direct CLI:
 holo deploy:apply --authorize \

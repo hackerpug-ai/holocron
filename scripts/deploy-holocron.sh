@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Compatibility entry point for portable Holocron deployment.
-# Retains the historical filename; target/base URL come from validated portable
-# inputs (env or Tailscale MagicDNS) — never from a derived LAN address.
+# Portable Holocron deployment entry point (formerly deploy-inference1.sh —
+# renamed 2026-07: the serving host is `holocron`, not an inference1 node).
+# Target/base URL come from validated portable inputs (env or Tailscale MagicDNS)
+# — never from a derived LAN address.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,7 +37,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      echo "Usage: scripts/deploy-inference1.sh --authorize --release <image-lock.json> [--base-url URL] [--target host]"
+      echo "Usage: scripts/deploy-holocron.sh --authorize --release <image-lock.json> [--base-url URL] [--target host]"
       echo "  Base URL defaults to https://\$(tailscale MagicDNS):44111 when unset."
       echo "  Never derives a LAN address."
       exit 0
