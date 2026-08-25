@@ -404,7 +404,11 @@ export async function executeResearchRound(opts: {
         });
         roundTokens += ranked.totalTokens;
         if (ranked.degraded) {
-          ledger = { ...ledger, degraded: true, gaps: [...ledger.gaps, 'rerank_degraded'] };
+          // Rerank degrades gracefully (labeled-degraded returns original-order
+          // results), so a transient timeout/fallback must not abort the whole
+          // research. Fleet-down is still detected by the query-plan (divergent)
+          // and acquire/entailment (judge) steps, which use fleet reasoning roles.
+          ledger = { ...ledger, gaps: [...ledger.gaps, 'rerank_degraded'] };
         }
         rankedIds = ranked.results.map((r) => r.id);
       } catch {
