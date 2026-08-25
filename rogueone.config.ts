@@ -93,7 +93,10 @@ export default defineRogueoneConfig({
   holdout: { storeRoot: '~/.rogueone/holdout' },
 
   verifications: ['pnpm lint', 'pnpm typecheck', 'pnpm test:unit', 'pnpm test:lanes'],
-  test_command: 'pnpm exec vitest run',
+  // --no-color keeps vitest's "Tests N ... (M)" summary machine-readable: the
+  // loop gate parses that line to enforce min_tests, and ANSI escapes (emitted
+  // when TERM is inherited as xterm-256color) break the parse. Purely cosmetic.
+  test_command: 'pnpm exec vitest run --no-color',
 
   dispatch: {
     maxRetries: 1,
