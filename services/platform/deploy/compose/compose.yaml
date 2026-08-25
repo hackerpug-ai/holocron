@@ -482,6 +482,11 @@ configs:
         handle /health {
           reverse_proxy mastra:4111
         }
+        handle /mcp* {
+          reverse_proxy mastra:4111 {
+            flush_interval -1
+          }
+        }
         respond / "holocron edge ready" 200
       }
 
