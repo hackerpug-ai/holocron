@@ -332,4 +332,52 @@ describe('OBS-03-SIGNALS observability signals', () => {
       insertedDeltaCount,
     });
   }, 60_000);
+
+  it('OBS-03-SIGNALS-AC-4-redaction: sensitive-assignment and bearer-token paths are order-independent', async () => {
+    // Regression for the stateful-global-regex bug: SENSITIVE_ASSIGN_RE and
+    // BEARER_TOKEN_RE previously carried the /g flag, so RegExp.prototype.test()
+    // advanced lastIndex across calls and the SAME secret could be ACCEPTED
+    // depending on prior call order. This sequence interleaves matching and
+    // non-matching strings so a stale lastIndex would surface as an acceptance.
+    const sensitiveAssignments: string[] = [
+      'has secret=abc token',
+      'api_key=zzz here',
+      'password=x now',
+      'token=y here',
+      'Authorization: Bearer deadbeef',
+    ];
+    const bearerTokens: string[] = ['Bearer abc123def', 'Bearer deadbeef1234'];
+
+    let sensitiveAccepted = 0;
+    for (const summary of sensitiveAssignments) {
+      const r = await writeServiceEvent(
+        { source: 'health', type: 'health.test', summary, redacted: true },
+        { databaseUrl: DATABASE_URL }
+      );
+      if (r.ok) sensitiveAccepted += 1;
+    }
+    let bearerAccepted = 0;
+    for (const summary of bearerTokens) {
+      const r = await writeServiceEvent(
+        { source: 'health', type: 'health.test', summary, redacted: true },
+        { databaseUrl: DATABASE_URL }
+      );
+      if (r.ok) bearerAccepted += 1;
+    }
+
+    expect(sensitiveAccepted).toBe(0);
+    expect(bearerAccepted).toBe(0);
+
+    // No row may have been inserted by any of the sensitive/bearer payloads.
+    const totalEvents = await countServiceEvents();
+    expect(totalEvents).toBe(0);
+
+    writeEvidence('ac4-redaction-order-independence.json', {
+      sensitiveAccepted,
+      bearerAccepted,
+      sensitiveAssignments,
+      bearerTokens,
+      totalEvents,
+    });
+  }, 60_000);
 });

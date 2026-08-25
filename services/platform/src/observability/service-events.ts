@@ -54,9 +54,13 @@ const METADATA_ALLOWLIST_SET: ReadonlySet<string> = new Set(SERVICE_EVENT_METADA
  * convention and the assignment/header patterns that must never be persisted.
  */
 const SECRET_SENTINEL_RE = /\b(?:trace-secret|OBS0[1-3]-SECRET-SENTINEL)[0-9a-zA-Z_-]*\b/i;
+// NOTE: no /g flag. A global regex used with RegExp.prototype.test() is stateful
+// (lastIndex advances on match and the next .test() resumes from that index), so
+// secret detection would become call-order-dependent. Keep these presence checks
+// deterministic: /i only, never /g.
 const SENSITIVE_ASSIGN_RE =
-  /\b(secret|password|token|api[_-]?key|authorization|bearer)\s*[:=]\s*([^\s,;]+)/gi;
-const BEARER_TOKEN_RE = /\bBearer\s+[A-Za-z0-9._-]+/gi;
+  /\b(secret|password|token|api[_-]?key|authorization|bearer)\s*[:=]\s*([^\s,;]+)/i;
+const BEARER_TOKEN_RE = /\bBearer\s+[A-Za-z0-9._-]+/i;
 
 function containsSecretSentinel(value: unknown): boolean {
   if (typeof value === 'string') {
