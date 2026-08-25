@@ -48,6 +48,7 @@ yarn-error.*
 .rnstorybook/storybook.requires.ts
 
 # Taskplane runtime artifacts (machine-specific, do not commit)
+.pi/
 .pi/batch-state.json
 .pi/batch-history.json
 .pi/lane-state-*
@@ -86,6 +87,7 @@ PHASE*.md
 *~
 .claude/worktrees/
 .tmp/
+.firecrawl/
 .kb-run-sprint/
 .kb-orchestrate/
 

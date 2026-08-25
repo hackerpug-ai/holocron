@@ -13,6 +13,7 @@
       "!.rnstorybook",
       "!.pi-subagents",
       "!.tmp",
+      "!.firecrawl",
       "!dist",
       "!build",
       "!.spec/evidence",
@@ -26,7 +27,8 @@
       "!scripts",
       "!**/*.stories.tsx",
       "!metro.config.cjs",
-      "!.opencode"
+      "!.opencode",
+      "!.pi"
     ]
   },
   "formatter": {
