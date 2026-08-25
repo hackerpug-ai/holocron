@@ -365,18 +365,47 @@ describe('OBS-03-SIGNALS observability signals', () => {
       if (r.ok) bearerAccepted += 1;
     }
 
+    // Metadata VALUES carrying a secret must be rejected too. validateServiceEventInput
+    // recursively scans allowlisted-key values (containsSecretSentinel(input.metadata)),
+    // but the AC-4 suite only exercised the summary path — leaving this redaction branch
+    // unproven. Drive a secret inside an allowlisted key's value to prove it also fails
+    // closed (order-independent, no stale-lastIndex acceptance).
+    const secretMetadataPayloads: Array<{ key: string; value: string }> = [
+      { key: 'job_name', value: 'Bearer abc123def' },
+      { key: 'category', value: 'password=supersecret' },
+      { key: 'service_name', value: 'api_key=deadbeef' },
+      { key: 'endpoint', value: 'token=zzz' },
+    ];
+    let metadataSecretAccepted = 0;
+    for (const { key, value } of secretMetadataPayloads) {
+      const r = await writeServiceEvent(
+        {
+          source: 'health',
+          type: 'health.test',
+          summary: 'valid summary',
+          metadata: { [key]: value },
+          redacted: true,
+        },
+        { databaseUrl: DATABASE_URL }
+      );
+      if (r.ok) metadataSecretAccepted += 1;
+    }
+
     expect(sensitiveAccepted).toBe(0);
     expect(bearerAccepted).toBe(0);
+    expect(metadataSecretAccepted).toBe(0);
 
-    // No row may have been inserted by any of the sensitive/bearer payloads.
+    // No row may have been inserted by any of the sensitive/bearer/metadata payloads.
     const totalEvents = await countServiceEvents();
     expect(totalEvents).toBe(0);
 
     writeEvidence('ac4-redaction-order-independence.json', {
       sensitiveAccepted,
       bearerAccepted,
+      metadataSecretAccepted,
       sensitiveAssignments,
       bearerTokens,
+      secretMetadataPayloads,
       totalEvents,
     });
   }, 60_000);
