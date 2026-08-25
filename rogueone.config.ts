@@ -126,7 +126,11 @@ export default defineRogueoneConfig({
 
   providers: {
     [IMPLEMENTER_TARGET.provider]: { maxInFlight: 1 },
-    [REVIEWER_TARGET.provider]: { maxInFlight: 1 },
+    // Two reviewer lenses (product + technical) dispatch through the reviewer
+    // provider in parallel. A cap of 1 rejects the second lens ("no
+    // channel-validated verdict for lens=product") and denies the land at the
+    // review stage; allow both lenses to run concurrently.
+    [REVIEWER_TARGET.provider]: { maxInFlight: 2 },
   },
 
   reviewers: [
