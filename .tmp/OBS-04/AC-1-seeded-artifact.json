@@ -40,7 +40,7 @@
     "redis-data",
     "zero-cache"
   ],
-  "composeSha256": "6ab42e140a0342138b4dd7f48d8c8534267aac35ed6554a0ff9303a55dc51073",
+  "composeSha256": "47face3a706f78a1ea35eab1fd89e2fe5d647ab365d8a27202dcfd4edc39f5a0",
   "platform": "linux/arm64",
   "otelCanaryComposePresent": true
 }
