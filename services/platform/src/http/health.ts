@@ -20,6 +20,10 @@ import {
 } from '../inference/probe-fleet-roles.ts';
 import { DATABASE_URL } from '../mastra.ts';
 import {
+  type ObservabilityHealthResult,
+  probeObservabilityHealth,
+} from '../observability/health.ts';
+import {
   isProcessQueueReady,
   probeQueueBackend,
   type QueueBackendName,
@@ -135,8 +139,16 @@ export type HealthBody = {
   fleet: FleetProbeResult;
   queue: ProbeResult;
   zeroCache: EndpointProbeResult;
+  observability: ObservabilityHealthResult;
   deployment: DeploymentIdentityProbe;
-  failing_dependency: 'postgres' | 'fleet' | 'queue' | 'zero-cache' | 'deployment' | null;
+  failing_dependency:
+    | 'postgres'
+    | 'fleet'
+    | 'queue'
+    | 'zero-cache'
+    | 'deployment'
+    | 'observability'
+    | null;
   host: string | null;
   runtime: 'container' | null;
   imageDigest: string | null;
@@ -454,14 +466,21 @@ export async function runHealthCheck(options?: {
     database_target = null;
   }
   const deployment = readDeploymentIdentity(options?.deploymentEnv, options?.processFacts);
-  const [db, fleet, queue, zeroCache] = await Promise.all([
+  const [db, fleet, queue, zeroCache, observability] = await Promise.all([
     probeDb(databaseUrl),
     probeFleet(options?.fleetEndpoint, options?.fleetManifestPath),
     probeQueue(options?.queue, databaseUrl),
     probeZeroCache(options?.zeroCacheEndpoint, strictReadiness),
+    probeObservabilityHealth(databaseUrl),
   ]);
 
-  const allReady = db.ready && fleet.ready && queue.ready && zeroCache.ready && deployment.ready;
+  const allReady =
+    db.ready &&
+    fleet.ready &&
+    queue.ready &&
+    zeroCache.ready &&
+    deployment.ready &&
+    observability.ready;
   const failingDependency = !db.ready
     ? 'postgres'
     : !fleet.ready
@@ -472,7 +491,9 @@ export async function runHealthCheck(options?: {
           ? 'zero-cache'
           : !deployment.ready
             ? 'deployment'
-            : null;
+            : !observability.ready
+              ? 'observability'
+              : null;
   // Fresh control-plane re-read every health request (R2-C04 live ack surface)
   const observed = resolveObservedDataPlane();
   const serviceLabelRaw =
@@ -516,6 +537,14 @@ export async function runHealthCheck(options?: {
       endpoint: zeroCache.endpoint,
       latency_ms: zeroCache.latency_ms,
       ...(zeroCache.error ? { error: zeroCache.error } : {}),
+    },
+    observability: {
+      ready: observability.ready,
+      storageReady: observability.storageReady,
+      storageError: observability.storageError,
+      exportState: observability.exportState,
+      exportReady: observability.exportReady,
+      latency_ms: observability.latency_ms,
     },
     deployment,
     database_target,

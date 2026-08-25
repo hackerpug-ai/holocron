@@ -3,8 +3,13 @@
  * Touches last_checked on active subscription_sources so the monitor is observable
  * even when external fetch is deferred (01-scope live market-data deferred).
  * Idempotent: re-run advances last_checked only.
+ *
+ * OBS-03: after a successful advance, persists a redacted heartbeat service_event
+ * (type/summary carry "last_checked") through the validated public writer so the
+ * monitor's activity is durable and queryable across reconnects.
  */
 import { createSql } from '../../db/client.ts';
+import { writeServiceEvent } from '../../observability/service-events.ts';
 import type { JobHandler, JobHandlerResult } from './types.ts';
 
 export const subscriptionMonitor: JobHandler = async (ctx): Promise<JobHandlerResult> => {
@@ -21,11 +26,30 @@ export const subscriptionMonitor: JobHandler = async (ctx): Promise<JobHandlerRe
       RETURNING id::text AS id
     `;
 
+    const heartbeat = await writeServiceEvent(
+      {
+        source: 'observability',
+        category: 'job',
+        type: 'subscription.last_checked',
+        severity: 'info',
+        status: 'ok',
+        summary: `subscription-monitor advanced last_checked for ${updated.length} source(s)`,
+        metadata: {
+          job_name: 'subscription-monitor',
+          sources_checked: updated.length,
+        },
+        redacted: true,
+      },
+      { databaseUrl: ctx.databaseUrl }
+    );
+
     return {
       ok: true,
       detail: {
         sources_checked: updated.length,
         note: 'external content fetch deferred (scope); last_checked advanced',
+        heartbeat_event_id: heartbeat.ok ? heartbeat.eventId : null,
+        heartbeat_ok: heartbeat.ok,
       },
     };
   } catch (err) {

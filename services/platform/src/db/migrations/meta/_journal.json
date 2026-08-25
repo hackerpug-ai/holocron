@@ -176,6 +176,13 @@
       "when": 1784114000000,
       "tag": "0038_domain_referential_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784115000000,
+      "tag": "0040_service_events_observability_state",
+      "breakpoints": true
     }
   ]
 }
