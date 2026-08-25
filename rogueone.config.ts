@@ -93,7 +93,10 @@ export default defineRogueoneConfig({
   holdout: { storeRoot: '~/.rogueone/holdout' },
 
   verifications: ['pnpm lint', 'pnpm typecheck', 'pnpm test:unit', 'pnpm test:lanes'],
-  test_command: 'pnpm exec vitest run',
+  // --no-color keeps vitest's "Tests N ... (M)" summary machine-readable: the
+  // loop gate parses that line to enforce min_tests, and ANSI escapes (emitted
+  // when TERM is inherited as xterm-256color) break the parse. Purely cosmetic.
+  test_command: 'pnpm exec vitest run --no-color',
 
   dispatch: {
     maxRetries: 1,
@@ -123,7 +126,15 @@ export default defineRogueoneConfig({
 
   providers: {
     [IMPLEMENTER_TARGET.provider]: { maxInFlight: 1 },
-    [REVIEWER_TARGET.provider]: { maxInFlight: 1 },
+    // Two reviewer lenses (product + technical) dispatch through the reviewer
+    // provider CONCURRENTLY (dispatchReviewers fans out via Promise.all). A
+    // cap of 1 rejects whichever lens loses the acquire race; when the binding
+    // `product` lens loses, the land review fails with "no channel-validated
+    // verdict for lens=product" (provider_cap). This fix only takes effect once
+    // it is on the MAIN checkout: the loop driver resolves this config from
+    // main at startup, never from a task worktree, so a task-branch edit alone
+    // does not clear the review denial.
+    [REVIEWER_TARGET.provider]: { maxInFlight: 2 },
   },
 
   reviewers: [

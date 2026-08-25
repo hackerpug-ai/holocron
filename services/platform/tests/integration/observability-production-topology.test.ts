@@ -142,9 +142,12 @@ function publishedHostPorts(service: Record<string, unknown>): string[] {
 }
 
 describe('OBS-04 production topology', () => {
-  it("AC-1: canonical Compose + ReleaseLock v2 match OBS-01's exact ARM64 topology", async () => {
-    requirePlatformIt();
-
+  it("OBS-04-TOPO-AC-1: canonical Compose + ReleaseLock v2 match OBS-01's exact ARM64 topology", async () => {
+    // AC-1 verifies the checked-in Compose + ReleaseLock identity entirely
+    // offline (YAML parse + filesystem + SHA-256); it never touches a live
+    // platform or Docker daemon, so it must run without PLATFORM_IT in the
+    // loop gate. The canary `docker compose config --services` and the
+    // negative-control assertComposeContract exercise the same file identity.
     expect(existsSync(COMPOSE_PATH), 'canonical compose.yaml missing').toBe(true);
     expect(existsSync(SOURCE_LOCK_PATH), 'observability-source-lock.json missing').toBe(true);
     expect(existsSync(IMAGE_LOCK_PATH), 'image-lock.json missing').toBe(true);
