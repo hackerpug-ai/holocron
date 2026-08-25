@@ -41,7 +41,11 @@ export function decideStop(input: DecideStopInput): StopReason | null {
 
   if (roundJustFinished >= ledger.maxRounds) return 'round_cap';
 
-  const wallElapsed = Math.max(0, nowMs - ledger.startedAtMs) + ledger.spend.wallMs;
+  // wallElapsed is elapsed wall clock since the workflow started. spend.wallMs
+  // already accumulates per-round wall time (a subset of nowMs - startedAtMs),
+  // so adding it here double-counted the round durations and fired wall_budget
+  // after ~half the intended budget (observed: depth truncated to 1 round).
+  const wallElapsed = Math.max(0, nowMs - ledger.startedAtMs);
   if (wallElapsed >= ledger.wallBudgetMs) return 'wall_budget';
 
   if (ledger.spend.tokens >= ledger.tokenBudget) return 'token_budget';

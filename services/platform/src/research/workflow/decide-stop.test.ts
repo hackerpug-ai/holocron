@@ -88,6 +88,25 @@ describe('decideStop', () => {
     expect(reason).toBe('wall_budget');
   });
 
+  it('does NOT stop on wall_budget when spend.wallMs alone would exceed budget (regression: wall elapsed must not double-count per-round wall time)', () => {
+    // Regression for the double-count bug: wallElapsed was computed as
+    // (nowMs - startedAtMs) + spend.wallMs, which double-counted per-round
+    // wall time and truncated depth runs to a single round. Here the real
+    // elapsed (nowMs - startedAtMs = 6_000) is under budget, but the
+    // accumulated spend.wallMs (9_000) would have pushed the old formula
+    // over. Correct behavior: continue (null), not wall_budget.
+    const reason = decideStop({
+      ledger: baseLedger({
+        wallBudgetMs: 10_000,
+        startedAtMs: 0,
+        spend: { wallMs: 9_000, tokens: 0, toolCalls: 0, costUsd: 0 },
+      }),
+      roundJustFinished: 1,
+      nowMs: 6_000,
+    });
+    expect(reason).toBeNull();
+  });
+
   it('stops on token_budget / toolcall_budget', () => {
     expect(
       decideStop({
