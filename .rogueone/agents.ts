@@ -42,7 +42,7 @@ export const IMPLEMENTER_TARGET: AgentTarget = {
 export const REVIEWER_TARGET: AgentTarget = {
   harness: 'opencode',
   provider: 'openrouter',
-  model: 'zai/glm-5.3',
+  model: 'openrouter/deepseek/deepseek-v4-pro-0813',
 };
 
 function targetForRole(role: string): AgentTarget | undefined {
