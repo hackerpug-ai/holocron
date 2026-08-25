@@ -36,7 +36,7 @@ type AgentTarget = {
 export const IMPLEMENTER_TARGET: AgentTarget = {
   harness: 'opencode',
   provider: 'deepseek',
-  model: 'deepseek-v4-pro',
+  model: 'deepseek/deepseek-v4-pro',
 };
 
 export const REVIEWER_TARGET: AgentTarget = {

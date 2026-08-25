@@ -7,19 +7,17 @@ import { acquireTarget } from './acquire.ts';
 import { AssimilateError } from './errors.ts';
 
 function git(args: string[], cwd: string): void {
-  // Isolate fixture git ops from a parent pre-commit hook env (GIT_DIR /
-  // GIT_INDEX_FILE / GIT_WORK_TREE leak in and would redirect the subprocess
-  // at the parent repo instead of this scratch fixture).
+  // Hermetic: this test creates throwaway fixture repos and must never be
+  // redirected into the enclosing repo. The pre-commit lefthook chain (and
+  // any agent harness that runs the suite) exports GIT_DIR/GIT_WORK_TREE so
+  // git commands inside the fixture would otherwise commit into the parent
+  // repository — the fixture dir then has no .git and "init" lands on main
+  // as author t <t@t>. Strip the inherited vars; git re-discovers the repo
+  // from the fixture dir itself.
   const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_WORK_TREE',
-    'GIT_INDEX_FILE',
-    'GIT_COMMON_DIR',
-    'GIT_PREFIX',
-  ]) {
-    delete env[key];
-  }
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', env });
   if (r.status !== 0) throw new Error(r.stderr || r.stdout || args.join(' '));
 }

@@ -7,19 +7,13 @@ import { describe, expect, it } from 'vitest';
 import { assimilateRepoWorkflow } from './workflow.ts';
 
 function git(args: string[], cwd: string): void {
-  // Isolate fixture git ops from a parent pre-commit hook env (GIT_DIR /
-  // GIT_INDEX_FILE / GIT_WORK_TREE leak in and would redirect the subprocess
-  // at the parent repo instead of this scratch fixture).
+  // Hermetic — see acquire.test.ts: this suite runs under git hooks and agent
+  // gates that export GIT_DIR/GIT_WORK_TREE; without stripping them the
+  // fixture's "init" commit lands in the enclosing repo instead of here.
   const env = { ...process.env };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_WORK_TREE',
-    'GIT_INDEX_FILE',
-    'GIT_COMMON_DIR',
-    'GIT_PREFIX',
-  ]) {
-    delete env[key];
-  }
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', env });
   if (r.status !== 0) throw new Error(r.stderr || r.stdout || args.join(' '));
 }

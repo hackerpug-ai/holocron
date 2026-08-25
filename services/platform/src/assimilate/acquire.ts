@@ -112,29 +112,20 @@ function scratchRoot(explicit?: string): string {
   return root;
 }
 
-/** process.env minus git redirect vars that leak in from a parent pre-commit hook. */
-function isolatedGitEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
-  for (const key of [
-    'GIT_DIR',
-    'GIT_WORK_TREE',
-    'GIT_INDEX_FILE',
-    'GIT_COMMON_DIR',
-    'GIT_PREFIX',
-  ]) {
-    delete env[key];
-  }
-  return env;
-}
-
 function runGit(args: string[], cwd?: string): { status: number; stdout: string; stderr: string } {
+  // Hermetic: acquire operates on the TARGET repository (or cwd) and must never
+  // be redirected by a caller-exported GIT_DIR/GIT_WORK_TREE. When this runs
+  // inside a git hook or agent harness (rogueone check gates, pre-commit),
+  // those vars point at the ENCLOSING repo — git would resolve every command
+  // there instead of at `cwd`, silently enumerating/committing the wrong tree.
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf8',
-    // Isolate from a parent git hook env: GIT_DIR/GIT_INDEX_FILE/GIT_WORK_TREE
-    // exported by `git commit` would otherwise redirect the subprocess at the
-    // parent repo instead of `cwd` (breaking fixture git repos in tests).
-    env: isolatedGitEnv(),
+    env,
     maxBuffer: 32 * 1024 * 1024,
   });
   return {
