@@ -19,6 +19,15 @@ describe('research round/commit pipeline contract', () => {
     expect(round).not.toMatch(/sourceTier\(/);
   });
 
+  it('rerank degradation records a gap but never sets the fatal degraded flag', () => {
+    const round = readFileSync(join(DIR, 'round.ts'), 'utf8');
+    // The rerank branch must still record the gap for observability...
+    expect(round).toMatch(/gaps: \[\.\.\.ledger\.gaps, 'rerank_degraded'\]/);
+    // ...but must NOT co-set `degraded: true` (a transient rerank timeout/fallback
+    // must not abort the whole research via decideStop's degraded_sense_only).
+    expect(round).not.toMatch(/degraded:\s*true,\s*gaps: \[\.\.\.ledger\.gaps, 'rerank_degraded'\]/);
+  });
+
   it('commit never sets sourceText to the quote', () => {
     const depth = readFileSync(join(DIR, 'research-depth.ts'), 'utf8');
     const breadth = readFileSync(join(DIR, 'research-breadth.ts'), 'utf8');
