@@ -43,6 +43,98 @@ type SessionRow = {
 };
 
 /**
+ * Atomically reserve one slot from a session's global iteration budget.
+ *
+ * Unlike advanceResearchSessionIteration's deliberately observable CAS loser,
+ * this is the workflow admission gate: concurrent branches serialize in
+ * Postgres and every caller receives either a unique slot or ITERATION_BOUNDS.
+ */
+export async function reserveResearchSessionIteration(
+  input: AdvanceResearchSessionIterationInput
+): Promise<AdvanceResearchSessionIterationResult> {
+  const sessionId = input.sessionId?.trim();
+  if (!sessionId) {
+    return {
+      ok: false,
+      sessionId: input.sessionId ?? '',
+      errorCode: 'RESEARCH_SESSION_NOT_FOUND',
+      error: 'research session not found: empty sessionId',
+    };
+  }
+
+  const ownsSql = !input.sql;
+  const sql =
+    input.sql ??
+    createSql(
+      resolveHolocronNonprodDatabaseUrl({
+        databaseUrl: input.databaseUrl,
+        context: 'research session iteration reservation',
+      })
+    );
+
+  try {
+    const updated = await sql<SessionRow[]>`
+      UPDATE research_sessions
+      SET current_iteration = COALESCE(current_iteration, 0) + 1,
+          updated_at = now()
+      WHERE id = ${sessionId}::uuid
+        AND max_iterations > 0
+        AND COALESCE(current_iteration, 0) < max_iterations
+      RETURNING id, current_iteration, max_iterations, status
+    `;
+    const row = updated[0];
+    if (row) {
+      const currentIteration = row.current_iteration ?? 1;
+      return {
+        ok: true,
+        sessionId,
+        previousIteration: currentIteration - 1,
+        currentIteration,
+        maxIterations: row.max_iterations ?? currentIteration,
+      };
+    }
+
+    const rows = await sql<SessionRow[]>`
+      SELECT id, current_iteration, max_iterations, status
+      FROM research_sessions
+      WHERE id = ${sessionId}::uuid
+      LIMIT 1
+    `;
+    const session = rows[0];
+    if (!session) {
+      return {
+        ok: false,
+        sessionId,
+        errorCode: 'RESEARCH_SESSION_NOT_FOUND',
+        error: `research session not found: ${sessionId}`,
+      };
+    }
+
+    const currentIteration = session.current_iteration ?? 0;
+    const maxIterations = session.max_iterations;
+    if (maxIterations == null || maxIterations <= 0 || currentIteration >= maxIterations) {
+      return {
+        ok: false,
+        sessionId,
+        errorCode: 'ITERATION_BOUNDS',
+        error: `iteration bounds: current_iteration ${currentIteration}, max_iterations ${String(maxIterations)}`,
+      };
+    }
+
+    return {
+      ok: false,
+      sessionId,
+      errorCode: 'RESEARCH_SESSION_UPDATE_FAILED',
+      error: `research session iteration reservation failed (0 rows) for ${sessionId}`,
+    };
+  } finally {
+    if (ownsSql) {
+      await sql.end({ timeout: 5 });
+    }
+  }
+}
+
+/**
  * Advance research_sessions.current_iteration by 1 for the given session.
  *
  * Fail-closed:

@@ -220,8 +220,24 @@ export async function executeResearchRound(opts: {
   const round = Math.max(1, Math.floor(opts.round));
 
   try {
-    // 1) Steer / progress heartbeat
-    await recordResearchProgress({
+    // Cancellation is terminal and takes precedence over claiming another round.
+    const statusBeforeAdvance = await readSessionStatus(sql, opts.sessionId);
+    if (statusBeforeAdvance === 'cancelled') {
+      ledger = { ...ledger, stopReason: 'canceled' };
+      return {
+        handle: {
+          sessionId: opts.sessionId,
+          mode: opts.mode,
+          round,
+          stopReason: 'canceled',
+        },
+        ledger,
+        gate: null,
+      };
+    }
+
+    // 1) Atomically claim one slot from the session's global round budget.
+    const progress = await recordResearchProgress({
       sessionId: opts.sessionId,
       phase: 'searching',
       advanceIteration: true,
@@ -229,6 +245,24 @@ export async function executeResearchRound(opts: {
       sql,
       force: true,
     });
+    if (!progress.ok) {
+      if (progress.errorCode === 'ITERATION_BOUNDS') {
+        const statusAtBound = await readSessionStatus(sql, opts.sessionId);
+        const stopReason = statusAtBound === 'cancelled' ? 'canceled' : 'round_cap';
+        ledger = { ...ledger, stopReason };
+        return {
+          handle: {
+            sessionId: opts.sessionId,
+            mode: opts.mode,
+            round,
+            stopReason,
+          },
+          ledger,
+          gate,
+        };
+      }
+      throw new Error(`research progress advance failed: ${progress.error}`);
+    }
 
     // 2) CANCEL check — cooperative latch; never bail()
     const status = await readSessionStatus(sql, opts.sessionId);

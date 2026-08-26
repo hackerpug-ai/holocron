@@ -9,7 +9,10 @@
 import { createSql, type Sql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { researchPhaseValues } from '../db/schema/research.ts';
-import { advanceResearchSessionIteration } from './progress.ts';
+import {
+  type AdvanceResearchSessionIterationFailure,
+  reserveResearchSessionIteration,
+} from './progress.ts';
 
 export const RESEARCH_SESSION_STATUSES = [
   'queued',
@@ -396,10 +399,18 @@ export type RecordResearchProgressInput = {
   phase?: ResearchPhase;
   progress?: Record<string, unknown>;
   sourceCount?: number;
-  /** When true, also advance current_iteration via advanceResearchSessionIteration. */
+  /** When true, atomically reserve one slot from the session's global iteration budget. */
   advanceIteration?: boolean;
   force?: boolean;
 } & SqlOpts;
+
+export type RecordResearchProgressResult =
+  | { ok: true; written: boolean; phase: string | null }
+  | {
+      ok: false;
+      error: string;
+      errorCode?: AdvanceResearchSessionIterationFailure['errorCode'];
+    };
 
 function shouldWriteProgress(args: {
   sessionId: string;
@@ -464,12 +475,12 @@ export async function setResearchPhase(
 }
 
 /**
- * Throttled phase/progress writer. Iteration advances reuse advanceResearchSessionIteration
- * (no raw SET current_iteration here).
+ * Throttled phase/progress writer. Workflow iteration starts reserve one global
+ * slot atomically in Postgres (no raw SET current_iteration here).
  */
 export async function recordResearchProgress(
   input: RecordResearchProgressInput
-): Promise<{ ok: true; written: boolean; phase: string | null } | { ok: false; error: string }> {
+): Promise<RecordResearchProgressResult> {
   const sessionId = input.sessionId?.trim();
   if (!sessionId) return { ok: false, error: 'sessionId is required' };
   if (input.phase && !(researchPhaseValues as readonly string[]).includes(input.phase)) {
@@ -479,13 +490,13 @@ export async function recordResearchProgress(
   const { sql, ownsSql } = resolveSql(input, 'research session progress fields');
   try {
     if (input.advanceIteration) {
-      const advanced = await advanceResearchSessionIteration({
+      const reserved = await reserveResearchSessionIteration({
         sessionId,
         sql,
         databaseUrl: input.databaseUrl,
       });
-      if (!advanced.ok) {
-        return { ok: false, error: advanced.error };
+      if (!reserved.ok) {
+        return { ok: false, errorCode: reserved.errorCode, error: reserved.error };
       }
     }
 
