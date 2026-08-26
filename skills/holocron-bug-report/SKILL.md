@@ -1,11 +1,11 @@
 ---
 name: holocron-bug-report
-description: "Create, inspect, and update evidence-backed Holocron bug reports in this repository's JSONL ledger. Requires explicit submit, edit, or cancel confirmation before every write."
+description: "Create, inspect, and update evidence-backed Holocron bug reports in this repository's JSONL ledger, with optional sanitized context from the visible invoking session. Requires explicit submit, edit, or cancel confirmation before every write."
 compatibility: "Claude Code, Codex, Cursor, pi, and other harnesses with local file and shell access."
 allowed-tools: "Read Write Bash"
 disable-model-invocation: true
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # /holocron-bug-report
@@ -65,6 +65,22 @@ Events share these required fields:
   ],
   "investigation_hypothesis": "Optional, explicitly unverified hypothesis.",
   "reporter_context": "Optional context",
+  "session_context": {
+    "capture_mode": "visible_session_summary",
+    "captured_at": "ISO-8601 UTC timestamp",
+    "scope": "report-relevant context already visible to the invoking agent",
+    "summary": "Sanitized factual debugging summary (maximum 1,500 characters).",
+    "recent_observations": [
+      {
+        "kind": "user_report | command | tool_result | error | file_context | agent_observation",
+        "summary": "Sanitized factual observation (maximum 500 characters).",
+        "reference": "Optional safe path, command, or error identifier (maximum 300 characters)."
+      }
+    ],
+    "affected_artifacts": ["Safe repository-relative path or surface (maximum 300 characters)."],
+    "unknowns": ["Unavailable fact (maximum 300 characters)."],
+    "redactions_applied": ["Context-specific redaction category"]
+  },
   "redactions_applied": ["Optional redaction category"]
 }
 ```
@@ -81,6 +97,11 @@ Events share these required fields:
   "verification": "Observed proof; required when fixed"
 }
 ```
+
+`session_context` is optional for backward compatibility. When present, it is a bounded summary,
+not a raw transcript: at most 8 `recent_observations`, 8 `affected_artifacts`, and 8 `unknowns`.
+`capture_mode` must be `visible_session_summary`. Each observation must use one of the listed
+`kind` values. Treat absent session context on older events as normal.
 
 The current report state is the latest event by `occurred_at` for each `report_id`.
 A report is fixed **only** when that latest state is `fixed`.
@@ -99,13 +120,18 @@ fixed         -> open   (only for a regression)
 ### 1. Parse the mode
 
 ```text
-/holocron-bug-report "description of the problem"  # create (default)
+/holocron-bug-report "description of the problem"  # create (default; asks about context)
+/holocron-bug-report --with-session-context "description" # create with proposed context
+/holocron-bug-report --without-session-context "description" # create without context
+/holocron-bug-report --session-context-only "description" # create using context plus symptom
 /holocron-bug-report --list [--status STATUS]      # summarized current records
 /holocron-bug-report --show REPORT_ID              # full event history
 /holocron-bug-report --status REPORT_ID STATUS     # propose a state transition
 ```
 
-Reject unknown flags and statuses with the usage block above. Resolve the Git root with
+`--with-session-context`, `--without-session-context`, and `--session-context-only` are create-mode
+flags and cannot be combined. Reject unknown flags, conflicting create flags, and statuses with the
+usage block above. Resolve the Git root with
 `git rev-parse --show-toplevel`; stop if it cannot be found. Do not use a user-home or
 worktree-relative fallback destination.
 
@@ -134,8 +160,44 @@ Optionally capture current branch, command/surface, and runtime. Never run destr
 or reproduce a bug without explicit separate authorization.
 
 Treat all hypotheses as unverified. Scan proposed content for credentials, tokens, private keys,
-or connection strings. Redact their values before previewing or saving; record only the redaction
-category in `redactions_applied`.
+connection strings, and unnecessary personal data. Redact their values before previewing or saving;
+record only the redaction category in `redactions_applied`.
+
+#### Optional session context
+
+After the high-value intake, unless a create flag already selected the preference, ask exactly:
+
+> Would you like me to include a sanitized summary of relevant context from this session? Reply `include` or `omit`.
+
+- `--with-session-context` selects `include`; `--without-session-context` selects `omit`;
+  `--session-context-only` selects `include` but still requires the quoted symptom as the report's
+  user-facing problem statement.
+- When included, build `session_context` **only from report-relevant facts already visible to the
+  invoking agent in the current session**: user-reported symptoms, non-destructive attempted
+  actions, observed command/tool outcomes, safe error identifiers, and candidate affected paths or
+  surfaces. Do not claim access to hidden harness logs, other sessions, external data, or messages
+  not visible to the agent.
+- Never store a raw transcript, system/developer prompt, chain-of-thought, or unrelated discussion.
+  Summarize command/tool output; retain only a safe non-secret excerpt or identifier.
+- Store known factual observations in `recent_observations`. Put unavailable facts and uncertain
+  inferences in `unknowns` or the already-unverified `investigation_hypothesis`, never as observed
+  facts. If no meaningful visible context exists, say so and offer a user-provided `context note`;
+  omit `session_context` if the user declines.
+- Redact and truncate every context field before preview: `summary` ≤1,500 characters; an observation
+  summary ≤500; and references, artifacts, and unknowns ≤300. Keep the most diagnostic/recent facts
+  if a candidate exceeds the list caps. Use `[redacted: category]` where a risky value cannot safely
+  be summarized.
+- Render a distinct `Session context (optional; sanitized)` section with summary, observations,
+  affected artifacts, unknowns, and redaction categories. Before the final report preview, ask:
+  `Include this context, edit it, or omit it?` Accept `include`, `omit`, or
+  `edit context <what to change>` only at this context-review step. Each edit is re-sanitized,
+  re-capped, and rerendered; `omit` removes `session_context` from the draft. A request to store a
+  full transcript or secret must be declined with an offer to store a sanitized summary.
+- After `include` or `omit`, rerender the complete report and proceed to the final submission gate.
+  Context preference is **not** submission approval: at the final gate, accept only `submit`,
+  `edit <what to change>`, or `cancel`; interpret `edit context omit` as a final-gate edit that
+  removes the snapshot and rerenders the final gate. When a harness cannot reliably surface prior
+  messages, ask for a compact manual context note rather than inventing or claiming access.
 
 Before creating, compare normalized title + area against unresolved records. If similar records
 exist, show their IDs and titles, but let the user decide whether this is distinct.
@@ -143,7 +205,8 @@ exist, show their IDs and titles, but let the user decide whether this is distin
 ### 4. Require a submission confirmation
 
 Render the full proposed event in readable form, including ID, `open` status, destination,
-all unknown values, evidence, and unverified hypothesis. Then ask exactly:
+all unknown values, evidence, unverified hypothesis, and whether the distinct `Session context
+(optional; sanitized)` section is included or omitted. Then ask exactly:
 
 > Does this submission look right? Reply `submit`, `edit <what to change>`, or `cancel`.
 
@@ -195,7 +258,9 @@ identify likely code paths, and append an investigating or evidence-backed fixed
 | Git root unavailable | Stop; the ledger must be repository-local. |
 | Missing description | Ask what went wrong, then begin draft intake. |
 | Invalid ledger line | Stop with line number; preserve all existing data. |
-| Possible secret | Redact before preview/save and explain the category redacted. |
+| Possible secret or personal data | Redact before preview/save and explain the category redacted. |
+| Raw transcript or hidden context requested | Do not store it; offer a bounded sanitized visible-session summary. |
+| No meaningful session context visible | Omit the snapshot or ask for a compact user-provided context note. |
 | Duplicate-looking report | Show matches; user may continue, edit, or cancel. |
 | Missing fix proof | Do not permit `fixed`; offer `investigating`. |
 | Append verification fails | Stop and report the mismatch; do not claim submission succeeded. |
@@ -204,6 +269,9 @@ identify likely code paths, and append an investigating or evidence-backed fixed
 
 ```text
 /holocron-bug-report "Hybrid search returns stale content after a document update."
+/holocron-bug-report --with-session-context "Search result remained stale after update command completed."
+/holocron-bug-report --without-session-context "The report list omits an open record."
+/holocron-bug-report --session-context-only "A status update says fixed but the repro still fails."
 /holocron-bug-report --list
 /holocron-bug-report --list --status fixed
 /holocron-bug-report --show bug_20260825T153045Z_a1b2c3d4
