@@ -148,11 +148,14 @@ export function startExportHealthProbe(intervalMs?: number): void {
   stopExportHealthProbe();
   const raw = intervalMs ?? Number(process.env.HOLO_EXPORT_HEALTH_PROBE_MS ?? 60_000);
   if (!Number.isFinite(raw) || raw <= 0) return;
-  probeTimer = setInterval(() => {
-    void probeExportPipeline().catch(() => {
-      // Probe failures already record state; never let one kill the interval.
-    });
-  }, Math.max(10_000, raw));
+  probeTimer = setInterval(
+    () => {
+      void probeExportPipeline().catch(() => {
+        // Probe failures already record state; never let one kill the interval.
+      });
+    },
+    Math.max(10_000, raw)
+  );
   probeTimer.unref?.();
 }
 

@@ -31,7 +31,7 @@ export type LangfuseBackupResult = {
   resticSnapshotCount: number;
   expectedWitnessMismatchCount: number;
   manifestPath: string;
-  witnesses: LangfuseBackupWitnesses;
+  witnesses: LangfuseBackupWitnesses | null;
   productionVolumeMountCount: number;
   otelQueueBackedUp: boolean;
   redisDisposition: 'ephemeral-not-restored';
@@ -77,7 +77,18 @@ function sha256Text(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-function resolveSource(project: string): SourceEndpoints {
+/**
+ * Resolve backup source endpoints for a compose project.
+ *
+ * - `obs01-canary` (default): isolated canary with fixed local endpoints.
+ * - `holocron-production`: the hosted stack. Fail-closed on missing env —
+ *   production endpoints are never guessed. Containers follow the compose
+ *   `<project>-<service>-1` naming of the production compose project.
+ */
+export function resolveBackupSource(
+  project: string,
+  env: NodeJS.ProcessEnv = process.env
+): SourceEndpoints {
   if (project === 'obs01-canary') {
     return {
       webBaseUrl: 'http://127.0.0.1:13100',
@@ -90,8 +101,31 @@ function resolveSource(project: string): SourceEndpoints {
       otelContainer: 'obs01-canary-otel-collector-1',
     };
   }
+  if (project === 'holocron-production') {
+    const requiredEnv = [
+      'HOLO_LANGFUSE_PUBLIC_BASE_URL',
+      'LANGFUSE_PUBLIC_KEY',
+      'LANGFUSE_SECRET_KEY',
+    ] as const;
+    const missing = requiredEnv.filter((name) => !env[name]);
+    if (missing.length > 0) {
+      throw new Error(
+        `holocron-production backup source requires ${missing.join(', ')} — fail-closed, refusing to guess production endpoints`
+      );
+    }
+    return {
+      webBaseUrl: String(env.HOLO_LANGFUSE_PUBLIC_BASE_URL).replace(/\/+$/, ''),
+      publicKey: String(env.LANGFUSE_PUBLIC_KEY),
+      secretKey: String(env.LANGFUSE_SECRET_KEY),
+      clickhouseContainer: 'holocron-production-langfuse-clickhouse-1',
+      postgresContainer: 'holocron-production-langfuse-postgres-1',
+      minioContainer: 'holocron-production-langfuse-minio-1',
+      redisContainer: 'holocron-production-langfuse-redis-1',
+      otelContainer: 'holocron-production-otel-collector-1',
+    };
+  }
   throw new Error(
-    `unsupported OBS-04 source project ${project} — use an isolated canary (obs01-canary), never holocron-production`
+    `unsupported OBS-04 source project ${project} — use obs01-canary or (operator-gated) holocron-production`
   );
 }
 
@@ -544,13 +578,26 @@ export async function runLangfuseConsistentBackup(input: {
 }): Promise<LangfuseBackupResult> {
   const errors: string[] = [];
   mkdirSync(input.evidenceDir, { recursive: true });
-  if (input.sourceProject.includes('production') || input.sourceProject === 'holocron') {
+  const isProductionSource = input.sourceProject === 'holocron-production';
+  const productionAuthorized = process.env.HOLO_PRODUCTION_BACKUP_AUTHORIZE === '1';
+  if (
+    (input.sourceProject.includes('production') || input.sourceProject === 'holocron') &&
+    !isProductionSource
+  ) {
     throw new Error('refusing to back up hosted holocron-production without operator gate');
   }
+  if (isProductionSource && !productionAuthorized) {
+    throw new Error(
+      'refusing to back up holocron-production without operator gate (set HOLO_PRODUCTION_BACKUP_AUTHORIZE=1)'
+    );
+  }
 
-  const source = resolveSource(input.sourceProject);
+  const source = resolveBackupSource(input.sourceProject);
   const productionVolumeMountCount = assertNoProductionVolumeMounts(input.sourceProject);
-  if (productionVolumeMountCount > 0) {
+  // An authorized production source is *expected* to mount production
+  // volumes — record the count but do not refuse; everything else still
+  // refuses on the first production mount.
+  if (productionVolumeMountCount > 0 && !(isProductionSource && productionAuthorized)) {
     throw new Error('source project mounts production volumes — refuse backup');
   }
 
@@ -560,7 +607,11 @@ export async function runLangfuseConsistentBackup(input: {
     throw new Error(`source Langfuse health HTTP ${health.status}`);
   }
 
-  const witnesses = await seedWitness(source);
+  // Production sources skip synthetic witness data unless explicitly enabled —
+  // an operator-gated backup must not write canary rows into hosted Langfuse.
+  const seedWitnesses =
+    !isProductionSource || process.env.HOLO_PRODUCTION_BACKUP_SEED_WITNESS === '1';
+  const witnesses = seedWitnesses ? await seedWitness(source) : null;
   const stageDir = mkdtempSync(join(tmpdir(), 'obs04-langfuse-backup-'));
   const passwordPath = join(input.evidenceDir, '.restic-password');
   const repoDir = join(input.evidenceDir, 'restic-repo');
@@ -617,33 +668,38 @@ export async function runLangfuseConsistentBackup(input: {
       productionVolumeMountCount,
       otelQueueBackedUp,
       witnesses,
+      witnessesSeeded: witnesses !== null,
       checksums,
       releaseLock,
     };
     const manifestPath = join(input.evidenceDir, 'langfuse-backup-manifest.json');
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-    // Verify witness still present after backup (mismatch count).
-    const verify = run('docker', [
-      'exec',
-      source.clickhouseContainer,
-      'clickhouse-client',
-      '--user',
-      'clickhouse',
-      '--password',
-      'clickhouse',
-      '-q',
-      `SELECT count() FROM events_full WHERE trace_id = '${witnesses.traceId}' AND name = 'obs04-backup-witness'`,
-    ]);
-    const count = Number(verify.stdout.trim() || '0');
-    const expectedWitnessMismatchCount = count >= 1 ? 0 : 1;
+    // Verify witness still present after backup (mismatch count). Unseeded
+    // (production) backups carry no witnesses — nothing to re-verify.
+    let expectedWitnessMismatchCount = 0;
+    if (witnesses) {
+      const verify = run('docker', [
+        'exec',
+        source.clickhouseContainer,
+        'clickhouse-client',
+        '--user',
+        'clickhouse',
+        '--password',
+        'clickhouse',
+        '-q',
+        `SELECT count() FROM events_full WHERE trace_id = '${witnesses.traceId}' AND name = 'obs04-backup-witness'`,
+      ]);
+      const count = Number(verify.stdout.trim() || '0');
+      expectedWitnessMismatchCount = count >= 1 ? 0 : 1;
+    }
 
     return {
       ok:
         expectedWitnessMismatchCount === 0 &&
         resticSnapshotCount >= 1 &&
         otelQueueBackedUp &&
-        Boolean(witnesses.scoreId && witnesses.objectKey && witnesses.eventId),
+        (!witnesses || Boolean(witnesses.scoreId && witnesses.objectKey && witnesses.eventId)),
       resticSnapshotCount,
       expectedWitnessMismatchCount,
       manifestPath,

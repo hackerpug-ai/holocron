@@ -393,7 +393,9 @@ Usage:
                             GATE-FIX-QA2: capture+upload recovery baseline bound to a listable
                             restic snapshot + pgBackRest label (refuses ghosts / zero domain)
                             [--blob-root <path>] [--restic-snapshot <id>] [--json]
-  backup:langfuse           OBS-04: consistent Langfuse/ClickHouse/object/queue backup [--json]
+  backup:langfuse           OBS-04: consistent Langfuse/ClickHouse/object/queue backup
+                            [--source-project obs01-canary|holocron-production] [--json]
+                            (holocron-production requires HOLO_PRODUCTION_BACKUP_AUTHORIZE=1)
   restore:langfuse          OBS-04: isolated Langfuse restore into a fresh Compose project
                             --isolated [--project <name>] [--json]
   restore                   D05-02: pgBackRest PITR restore --pitr <iso> --scratch <dir>

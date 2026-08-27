@@ -62,7 +62,9 @@ type BackupManifest = {
     eventId?: string;
     objectKey?: string;
     spanName: string;
-  };
+  } | null;
+  /** False for operator-gated production backups run without witness seeding. */
+  witnessesSeeded?: boolean;
 };
 
 const CANARY_PUBLIC_KEY = 'pk-lf-obs01-canary-public';
@@ -681,20 +683,18 @@ export async function runIsolatedLangfuseRestore(input: {
     run('docker', ['restart', `${input.restoreProject}-langfuse-web-1`], { timeout: 120_000 });
     waitHealthy(input.restoreProject, input.evidenceDir);
 
-    const expectedWitnessMismatchCount = verifyWitness(
-      input.restoreProject,
-      manifest.witnesses.traceId,
-      manifest.witnesses.spanName
-    );
-    const eventSqlWitnessMismatchCount = verifyEventSqlWitness(
-      input.restoreProject,
-      manifest.witnesses
-    );
+    // Unseeded (production) backups carry no witnesses — nothing to verify.
+    const witnesses = manifest.witnesses;
+    const expectedWitnessMismatchCount = witnesses
+      ? verifyWitness(input.restoreProject, witnesses.traceId, witnesses.spanName)
+      : 0;
+    const eventSqlWitnessMismatchCount = witnesses
+      ? verifyEventSqlWitness(input.restoreProject, witnesses)
+      : 0;
     const webPort = resolveWebPort(input.restoreProject, input.evidenceDir);
-    const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(
-      webPort,
-      manifest.witnesses
-    );
+    const publicApiWitnessMismatchCount = witnesses
+      ? await verifyPublicApiWitnesses(webPort, witnesses)
+      : 0;
     const productionVolumeMountCount = countProductionMounts(
       input.restoreProject,
       input.productionVolumeDenyList
@@ -808,13 +808,15 @@ export async function proveLangfuseColdRestart(input: {
     [...volumesBefore].some((name) => !volumesAfter.has(name)) ||
     [...volumesAfter].some((name) => !volumesBefore.has(name) && volumesBefore.size > 0);
 
-  const restartWitnessMismatchCount = verifyWitness(
-    input.project,
-    manifest.witnesses.traceId,
-    manifest.witnesses.spanName
-  );
+  // Unseeded (production) backups carry no witnesses — nothing to verify.
+  const witnesses = manifest.witnesses;
+  const restartWitnessMismatchCount = witnesses
+    ? verifyWitness(input.project, witnesses.traceId, witnesses.spanName)
+    : 0;
   const webPort = resolveWebPort(input.project, input.evidenceDir);
-  const publicApiWitnessMismatchCount = await verifyPublicApiWitnesses(webPort, manifest.witnesses);
+  const publicApiWitnessMismatchCount = witnesses
+    ? await verifyPublicApiWitnesses(webPort, witnesses)
+    : 0;
 
   return {
     ok:
