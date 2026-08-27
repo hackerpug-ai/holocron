@@ -42,3 +42,18 @@ export function getResearchMastra(): Mastra {
   });
   return instance;
 }
+
+/**
+ * Bind a standalone agent to the process Mastra instance (OBS B4).
+ *
+ * Agents constructed with `new Agent(...)` outside the Mastra composition
+ * root (chat turns, compat spikes) capture no observability: agent/tool/
+ * generation spans only flow through `Observability` when the agent is
+ * registered on an instance. Structural type keeps this cycle-free for
+ * callers that must not import Mastra directly.
+ */
+export function registerAgentOnObservabilityMastra(agent: {
+  __registerMastra(mastra: Mastra): void;
+}): void {
+  agent.__registerMastra(getResearchMastra());
+}

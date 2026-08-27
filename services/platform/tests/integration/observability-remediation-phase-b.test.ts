@@ -16,6 +16,7 @@
  */
 
 import type { AnyExportedSpan } from '@mastra/core/observability';
+import type { Mastra } from '@mastra/core/mastra';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatRunTraceId } from '../../src/http/chat-runs.ts';
 import {
@@ -25,6 +26,10 @@ import {
   runWithMissionSpanContext,
   type SpanUsage,
 } from '../../src/observability/langfuse-exporter.ts';
+import {
+  registerAgentOnObservabilityMastra,
+  setResearchMastra,
+} from '../../src/research/research-mastra.ts';
 
 type RecordedSpan = AnyExportedSpan & { sessionId?: string };
 
@@ -255,5 +260,17 @@ describe('OBS remediation B3 — one mission root span per run', () => {
     expect(metadata.spanType).toBe('mission_run');
     expect(metadata.status).toBe('completed');
     expect(metadata.attempt).toBe(1);
+  });
+});
+
+describe('OBS remediation B4 — chat agent registered on the observability Mastra', () => {
+  it('binds standalone agents to the process Mastra instance via __registerMastra', () => {
+    const fakeInstance = { __obsTestInstance: true } as unknown as Mastra;
+    setResearchMastra(fakeInstance);
+    const register = vi.fn();
+    registerAgentOnObservabilityMastra({ __registerMastra: register });
+    expect(register).toHaveBeenCalledTimes(1);
+    // Identity matters: the agent must be bound to the live process instance.
+    expect(register.mock.calls[0]?.[0]).toBe(fakeInstance);
   });
 });

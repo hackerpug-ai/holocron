@@ -33,6 +33,7 @@ import {
   evaluateChatPolicy,
 } from '../mastra/processors/chat-policy-block.ts';
 import { getTextDelta, handleStreamChunk, TripwireError } from '../mastra/tripwire.ts';
+import { registerAgentOnObservabilityMastra } from '../research/research-mastra.ts';
 import { shouldUseDeterministicChatStream } from './chat-stream-gate.ts';
 
 const ChatRunRequestSchema = z
@@ -429,6 +430,10 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
             `public chat refused non-router endpoint: ${agentBundle.resolved.baseURL}`
           );
         }
+        // OBS B4: bind the standalone chat agent to the process Mastra instance
+        // so chat turns emit agent/tool/generation spans through Observability
+        // (Langfuse) instead of silently bypassing it.
+        registerAgentOnObservabilityMastra(agentBundle.agent);
         // Bound runs that need more work than maxSteps: force a tool call every
         // step so the loop hits the ceiling (AC-3). Never force on larger budgets —
         // toolChoice:required would consume every step without a final text turn.
