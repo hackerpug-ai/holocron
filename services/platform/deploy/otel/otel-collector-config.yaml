@@ -32,9 +32,10 @@ exporters:
 extensions:
   file_storage:
     directory: /var/lib/otelcol/queue
-    # Bound queued-span lifetime so a prolonged Langfuse outage cannot grow
-    # the on-disk queue indefinitely (spans older than 7 days are dropped).
-    ttl: 168h
+    # NOTE: this collector build rejects a `ttl` key under file_storage
+    # ("invalid keys: ttl" → crash loop). Queue lifetime is instead bounded
+    # by sending_queue.queue_size (1000 spans) above, which caps on-disk
+    # growth during a prolonged Langfuse outage.
   health_check:
     endpoint: 0.0.0.0:13133
   zpages:
