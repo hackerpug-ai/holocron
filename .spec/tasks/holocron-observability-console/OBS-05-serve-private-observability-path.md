@@ -6,6 +6,14 @@
 **Estimate:** 3–4 days
 **Depends on:** OBS-04
 
+> **Remediation addendum (2026-08-27, goal `mt88s12y-1645ni`)** — six base-path
+> co-requisites discovered during the observability remediation are recorded below
+> under "Base-path co-requisites". Docs only; nothing here is implemented.
+**Depends on (updated):** OBS-04 + the mastra→collector OTLP wiring landed in the
+> remediation branch (`fix(observability): wire mastra OTLP export to collector`,
+> commit `14883837`) — before that fix the collector leg was dead, so OBS-05 route
+> parity could pass while no spans flowed.
+
 ## Objective
 
 Build and pin a base-path-aware Langfuse web image and deterministic edge route so the
@@ -49,6 +57,43 @@ services/platform/tests/e2e/observability-console.spec.ts
 If Playwright is absent, add an exact-pinned `@playwright/test` dev dependency after
 the OBS-01 provenance policy, install the matching real browser, and commit the lock.
 Application routes, Tailscale settings, observability tables, and MCP files are read-only.
+
+## Base-path co-requisites (remediation addendum)
+
+Discovered while fixing the dead mastra→collector OTLP leg. These MUST ship in the
+same release as the base-path Langfuse web rebuild, or the console will look healthy
+while silently losing data:
+
+1. **Collector OTLP endpoint follows the base path.** `LANGFUSE_OTLP_ENDPOINT` for
+   the otel-collector service must become
+   `http://langfuse-web:3000/observability/api/public/otel` in the same release as
+   the web rebuild. The OTLP HTTP exporter treats 4xx responses as non-retryable —
+   a collector still pointed at `/api/public/otel` gets 404s under the base-path
+   build and **silently drops every span** with no queue growth to notice.
+2. **langfuse-web healthcheck follows the base path.** The compose healthcheck must
+   probe `/observability/api/public/health`. A base-path build does not serve
+   `/api/public/health`, so the web reports unhealthy, and the dependency cascade
+   (otel-collector `depends_on: langfuse-web: service_healthy`) holds the collector
+   down — dragging mastra export health to `degraded` with it.
+3. **Pin the edge matcher with an explicit path regexp.** Use
+   `path_regexp ^/observability(/|$)` (or equivalent exact matcher). Caddy's
+   `handle /observability` is prefix-based — adjacent paths like `/observatoryevil`
+   must NOT be treated as console-adjacent; the AC-2 route-adversary matrix already
+   requires them to reach Mastra, so assert the matcher itself in config review, not
+   just the runtime behavior.
+4. **External auth URL carries the base path.** `LANGFUSE_NEXTAUTH_URL` on the device
+   must be `https://holocron.tail011a51.ts.net:44111/observability/api/auth` (full
+   private URL with base path) — record it in the device secret store and add it to
+   `services/platform/deploy/compose/production.env.example` so a staged render never
+   ships a root-path auth URL against a base-path build.
+5. **Sign-out belongs in the E2E matrix.** Sign-in/auth-callback under a base path is
+   the tested happy path, but sign-out redirects are a known base-path bug class
+   (see langfuse#12035). AC-1 must include a sign-out step asserting the redirect
+   stays under `/observability`.
+6. **Spans actually flow first.** The dead-leg fix (mastra OTLP wiring, remediation
+   commit `14883837`) is a hard dependency: without it, edge/console parity can pass
+   while the pipeline behind the console is empty. Verify via the export-health
+   endpoint (`GET /observability/export-health`) before browser QA.
 
 ## Route and build contract
 

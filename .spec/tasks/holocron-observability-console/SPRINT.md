@@ -1,7 +1,12 @@
 # Sprint: Holocron Observability Console
 
 **Status:** In Progress
-> Progress: 1/8 tasks completed · updated 2026-08-21T05:43:54Z
+> Progress: 3/8 tasks completed · updated 2026-08-27T19:59:34Z
+>   Landed: OBS-01 (baseline/canary), OBS-02 (OTLP v4 pipeline), OBS-04 (topology +
+>   backup/restore). Remediation branch `task/obs-remediation-mt88s12y` (goal
+>   `mt88s12y-1645ni`) closes the gaps found in each: dead OTLP leg wiring, false
+>   LANGFUSE_UNREACHABLE, span shape (B1–B5), export health (C1–C3), and backup
+>   coverage for Langfuse state (D1). OBS-03/OBS-05/OBS-MCP-*/OBS-QA-01 remain.
 **PRD:** `.spec/prd/holocron-observability-console/README.md`
 **Execution mode:** task worktrees, implementer commit, independent review, orchestrator-only merge
 

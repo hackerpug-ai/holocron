@@ -16,13 +16,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
-import { resolveBackupSource, runLangfuseConsistentBackup } from '../../src/backup/langfuse-backup.ts';
+import {
+  resolveBackupSource,
+  runLangfuseConsistentBackup,
+} from '../../src/backup/langfuse-backup.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const PGBACKREST_CONF = resolve(
-  REPO_ROOT,
-  'services/platform/deploy/compose/pgbackrest.conf'
-);
+const PGBACKREST_CONF = resolve(REPO_ROOT, 'services/platform/deploy/compose/pgbackrest.conf');
 const COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.yaml');
 
 function confSection(name: string): string {
@@ -109,9 +109,7 @@ describe('D1 — resolveBackupSource', () => {
       LANGFUSE_PUBLIC_KEY: 'pk-lf-production',
       LANGFUSE_SECRET_KEY: 'sk-lf-production',
     });
-    expect(source.webBaseUrl).toBe(
-      'https://holocron.tail011a51.ts.net:44111/observability'
-    );
+    expect(source.webBaseUrl).toBe('https://holocron.tail011a51.ts.net:44111/observability');
     expect(source.clickhouseContainer).toBe('holocron-production-langfuse-clickhouse-1');
     expect(source.postgresContainer).toBe('holocron-production-langfuse-postgres-1');
     expect(source.minioContainer).toBe('holocron-production-langfuse-minio-1');
