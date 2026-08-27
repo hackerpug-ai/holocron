@@ -224,20 +224,26 @@ export class HolocronOtelBridge extends BaseExporter {
       this.#exportedEvents += batch.length;
       this.#lastFlushAt = new Date().toISOString();
 
-      // Probe collector metrics reachability — do not mark last-success without proof.
+      // Probe collector metrics reachability — informational only. The span
+      // batch above was already accepted by the collector; the metrics URL
+      // feeds readExportHealth() queue scraping, not the export path. A failed
+      // probe must not report the export itself as failed.
       const cfg = readObservabilityConfig();
       const metrics = await fetch(cfg.otelCollectorMetricsUrl, {
         signal: AbortSignal.timeout(3000),
       }).catch(() => null);
       if (!metrics?.ok) {
-        this.#exportFailed = true;
-        this.#lastFailureCode = ExportFailureCode.LANGFUSE_UNREACHABLE;
-        this.#lastError = 'collector metrics unreachable after flush';
-        recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
-        if (this.failOnExportError) {
-          throw new LangfuseExportError(this.#lastError, undefined, this.#lastFailureCode);
-        }
-        return;
+        console.warn(
+          JSON.stringify({
+            event: 'langfuse_export_metrics_probe_failed',
+            code: 'METRICS_PROBE_FAILED',
+            message:
+              'collector metrics endpoint unreachable after flush; spans were accepted by the collector',
+            metricsUrl: cfg.otelCollectorMetricsUrl,
+            serviceName: this.resolvedServiceName,
+            lastFlushAt: this.#lastFlushAt,
+          })
+        );
       }
 
       // Bounded v2 confirmation when Langfuse credentials are present (retry briefly).
@@ -258,6 +264,14 @@ export class HolocronOtelBridge extends BaseExporter {
           this.#lastFailureCode = ExportFailureCode.LANGFUSE_UNREACHABLE;
           this.#lastError = `Langfuse Observations API v2 unreachable (status=${v2?.status ?? 'fetch-failed'})`;
           recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
+          console.warn(
+            JSON.stringify({
+              event: 'langfuse_export_v2_unreachable',
+              code: ExportFailureCode.LANGFUSE_UNREACHABLE,
+              message: this.#lastError,
+              serviceName: this.resolvedServiceName,
+            })
+          );
           if (this.failOnExportError) {
             throw new LangfuseExportError(this.#lastError, undefined, this.#lastFailureCode);
           }
@@ -282,6 +296,15 @@ export class HolocronOtelBridge extends BaseExporter {
       this.#lastError = err instanceof Error ? err.message : String(err);
       this.#buffer.unshift(...batch);
       recordExportFailure(code);
+      console.warn(
+        JSON.stringify({
+          event: 'langfuse_export_failed',
+          code,
+          message: this.#lastError,
+          serviceName: this.resolvedServiceName,
+          bufferedSpans: batch.length,
+        })
+      );
       if (this.failOnExportError) {
         throw new LangfuseExportError(this.#lastError, err, code);
       }

@@ -99,6 +99,13 @@ services:
     environment:
       PORT: "4111"
       FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
+      # OBS remediation: wire mastra → collector → Langfuse observability path.
+      # Static container-network topology; the secret key stays file-mounted
+      # (see secrets + command below), public key is not sensitive.
+      OTEL_COLLECTOR_URL: http://otel-collector:4318/v1/traces
+      OTEL_COLLECTOR_METRICS_URL: http://otel-collector:8888/metrics
+      LANGFUSE_BASE_URL: http://langfuse-web:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?LANGFUSE_PUBLIC_KEY is required}
       HOLO_BLOB_ROOT: /var/lib/holocron/blobs
       PGBACKREST_CONFIG: /etc/pgbackrest/pgbackrest.conf
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
@@ -115,6 +122,7 @@ services:
         export DATABASE_URL="$$(cat /run/secrets/database_url)";
         export MASTRA_API_KEY="$$(cat /run/secrets/mastra_api_key)";
         export FLEET_KEY="$$(cat /run/secrets/fleet_key)";
+        export LANGFUSE_SECRET_KEY="$$(cat /run/secrets/langfuse_secret_key)";
         export PGPASSWORD="$$(bun -e 'const u = new URL(process.env.DATABASE_URL); process.stdout.write(decodeURIComponent(u.password))')";
         export DATABASE_URL="$$(bun -e 'const u = new URL(process.env.DATABASE_URL); u.password = ""; process.stdout.write(u.toString())')";
         bun src/cli/holo.ts db:migrate;
@@ -126,6 +134,8 @@ services:
         target: mastra_api_key
       - source: fleet-key
         target: fleet_key
+      - source: langfuse-secret-key
+        target: langfuse_secret_key
     volumes:
       # Blob store is bind-mounted (not one of the eight declared state volumes).
       - ${HOLO_BLOB_HOST_PATH:-./.data/holocron-blobs}:/var/lib/holocron/blobs
@@ -512,3 +522,5 @@ secrets:
     environment: LANGFUSE_S3_ACCESS_KEY_ID
   langfuse-s3-secret-access-key:
     environment: LANGFUSE_S3_SECRET_ACCESS_KEY
+  langfuse-secret-key:
+    environment: LANGFUSE_SECRET_KEY
