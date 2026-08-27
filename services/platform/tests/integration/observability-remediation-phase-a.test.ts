@@ -12,7 +12,11 @@
  *       events) instead of bare console noise.
  *   A4  Rendered compose output stays secret-free for LANGFUSE_SECRET_KEY
  *       (file-mounted secret, never interpolated into service environment).
- *   A5  Collector queue storage is bounded by a 168h TTL.
+ *   A5  Collector queue storage is bounded: sending_queue.queue_size cap
+ *       (1000) on the file-backed queue. (The original contract was a 168h
+ *       file_storage TTL; the shipped collector build rejects that key —
+ *       "invalid keys: ttl" crashes config load — so the bound moved to
+ *       queue_size. See commit 36d9b32f.)
  *
  * The unit seams (A2/A3) stub global fetch — they need no infrastructure and
  * run in every lane. Compose/docker assertions are static file parses plus a
@@ -154,12 +158,24 @@ describe('OBS remediation phase A — compose collector wiring (static contract)
   });
 });
 
-describe('OBS remediation phase A — collector queue TTL + pipeline config', () => {
-  it('bounds file-backed queue lifetime to 168h', () => {
+describe('OBS remediation phase A — collector queue bounds + pipeline config', () => {
+  it('bounds the file-backed queue via a queue_size cap (collector build rejects a file_storage ttl)', () => {
     const config = otelConfig();
     const extensions = config.extensions as Record<string, Record<string, unknown>>;
-    expect(extensions.file_storage?.ttl).toBe('168h');
+    // 36d9b32f: the shipped collector binary rejects `ttl` under file_storage
+    // ("invalid keys: ttl" → config load fails → container crash loops). The
+    // on-disk bound is instead sending_queue.queue_size: once 1000 spans are
+    // queued, the exporter stops persisting new ones, so a prolonged Langfuse
+    // outage cannot grow /var/lib/otelcol/queue indefinitely. Keeping the
+    // ttl-absence assertion is a regression guard against the crash loop.
+    expect(extensions.file_storage?.ttl).toBeUndefined();
     expect(extensions.file_storage?.directory).toBe('/var/lib/otelcol/queue');
+    const exporters = config.exporters as Record<string, Record<string, unknown>>;
+    const queue = (exporters['otlphttp/langfuse'] as Record<string, Record<string, unknown>>)
+      .sending_queue as Record<string, unknown>;
+    expect(queue.enabled).toBe(true);
+    expect(queue.storage).toBe('file_storage');
+    expect(queue.queue_size).toBeLessThanOrEqual(1000);
   });
 
   it('routes the traces pipeline to Langfuse only (debug exporter removed from production)', () => {

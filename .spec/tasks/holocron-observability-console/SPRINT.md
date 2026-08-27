@@ -1,12 +1,45 @@
 # Sprint: Holocron Observability Console
 
 **Status:** In Progress
-> Progress: 3/8 tasks completed · updated 2026-08-27T19:59:34Z
+> Progress: 3/8 tasks completed · updated 2026-08-27T20:45:00Z
 >   Landed: OBS-01 (baseline/canary), OBS-02 (OTLP v4 pipeline), OBS-04 (topology +
 >   backup/restore). Remediation branch `task/obs-remediation-mt88s12y` (goal
 >   `mt88s12y-1645ni`) closes the gaps found in each: dead OTLP leg wiring, false
 >   LANGFUSE_UNREACHABLE, span shape (B1–B5), export health (C1–C3), and backup
 >   coverage for Langfuse state (D1). OBS-03/OBS-05/OBS-MCP-*/OBS-QA-01 remain.
+
+## Remediation audit reconciliation (goal `mt88s12y-1645ni`, 2026-08-27)
+
+Independent post-deploy audit (device datastores + live deploy) confirmed the
+remediation end state and surfaced three findings; reconciliation below is
+binding context for OBS-03/OBS-05/OBS-QA-01:
+
+1. **A5 queue bound contract moved (reconciled in tests).** The shipped
+   collector build rejects `ttl` under the `file_storage` extension
+   ("invalid keys: ttl" → config load fails → otel-collector crash loop, the
+   production deploy failure fixed in 36d9b32f). The on-disk queue is bounded
+   by `sending_queue.queue_size` (1000) instead; the phase-a test now pins the
+   queue-size bound AND asserts the `ttl` key stays absent (regression guard
+   against the crash loop).
+2. **Chat-path span correlation contract.** Spans emitted by the Mastra OTel
+   integration carry SDK-generated trace ids, not `chatRunTraceId(runId)`.
+   B1's tested contract is the `chat_runs.trace_id` DB stamp (valid W3C 32-hex,
+   idempotent per run — replacing the malformed `chat:${runId}` stamp); live
+   chat-span correlation is via the runId embedded in span names
+   (e.g. `model_chunk chat-knowledge-89d206eb`). The deterministic
+   trace-id linkage is realized on the mission/platform-exporter path
+   (`bufferMissionRootSpan`), which also carries the B2 session/release and
+   B5 usage attributes. Live post-deploy exercise drove a chat run, not a
+   mission run — running one mission and verifying its root span arrives in
+   Langfuse under `chatRunTraceId`-shaped linkage is follow-up work owned by
+   OBS-03.
+3. **Upstream exporter span-drop disclosure.** `@mastra/otel-exporter` drops
+   one span per chat turn with `completionStartTime.toISOString is not a
+   function` (device mastra logs, 2026-08-27T20:11:13Z). Consequence:
+   `usage_details` is `{}` on arrived model spans from that path; the 5-span
+   agent chain still arrives (verified in Langfuse). Token/cost usage proof
+   rides the platform-exporter mission path (`bufferMissionModelCall`);
+   re-pin or patch the exporter when upstream fixes the serialization bug.
 **PRD:** `.spec/prd/holocron-observability-console/README.md`
 **Execution mode:** task worktrees, implementer commit, independent review, orchestrator-only merge
 
