@@ -366,6 +366,42 @@ export function createLangfuseExporterFromEnv(
 }
 
 /**
+ * Deployment identity attributes stamped on buffered spans (OBS remediation B2).
+ *
+ * The deployer injects HOLO_IMAGE_DIGEST / HOLO_SOURCE_REVISION into the
+ * production container; the observability allowlist already admits
+ * environment/releaseSha/imageDigest — this is the single place they get
+ * populated so every exported span is filterable by release in Langfuse.
+ */
+export function deploymentSpanAttributes(
+  env: NodeJS.ProcessEnv = process.env
+): { environment: string; releaseSha?: string; imageDigest?: string } {
+  return {
+    environment: env.HOLO_ENVIRONMENT ?? env.NODE_ENV ?? 'development',
+    ...(env.HOLO_SOURCE_REVISION ? { releaseSha: env.HOLO_SOURCE_REVISION } : {}),
+    ...(env.HOLO_IMAGE_DIGEST ? { imageDigest: env.HOLO_IMAGE_DIGEST } : {}),
+  };
+}
+
+/** Token usage attached to generation spans (OBS remediation B5). */
+export type SpanUsage = {
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  costUsd?: number | null;
+};
+
+function usageMetadata(usage: SpanUsage | undefined | null): Record<string, number> {
+  if (!usage) return {};
+  const flat: Record<string, number> = {};
+  if (typeof usage.inputTokens === 'number') flat.usageInputTokens = usage.inputTokens;
+  if (typeof usage.outputTokens === 'number') flat.usageOutputTokens = usage.outputTokens;
+  if (typeof usage.totalTokens === 'number') flat.usageTotalTokens = usage.totalTokens;
+  if (typeof usage.costUsd === 'number') flat.usageCostUsd = usage.costUsd;
+  return flat;
+}
+
+/**
  * Buffer a mission root span + model-generation span for a real fleet call.
  */
 export function bufferMissionModelCall(
@@ -373,12 +409,15 @@ export function bufferMissionModelCall(
   args: {
     traceId: string;
     runId: string;
+    /** Conversation/session identity (OBS B2): defaults to runId. */
+    sessionId?: string | null;
     stepId?: string | null;
     name?: string;
     endpoint: string;
     modelId?: string | null;
     role?: string;
     callKind?: string;
+    usage?: SpanUsage | null;
     startTime: Date;
     endTime: Date;
     input?: unknown;
@@ -388,6 +427,8 @@ export function bufferMissionModelCall(
 ): void {
   const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
   const rootId = randomUUID().replace(/-/g, '').slice(0, 16);
+  const sessionId = args.sessionId ?? args.runId;
+  const deployment = deploymentSpanAttributes();
   const metadata = redactForExport({
     serviceName: exporter.resolvedServiceName,
     spanType: 'model_generation',
@@ -398,6 +439,8 @@ export function bufferMissionModelCall(
     stepId: args.stepId ?? undefined,
     callKind: args.callKind,
     status: args.status,
+    ...deployment,
+    ...usageMetadata(args.usage),
   }) as Record<string, unknown>;
 
   exporter.enqueueSpan({
@@ -406,12 +449,15 @@ export function bufferMissionModelCall(
     name: 'research-mission',
     type: 'span',
     isRootSpan: true,
+    sessionId,
     startTime: args.startTime,
     endTime: args.endTime,
     metadata: redactForExport({
       serviceName: exporter.resolvedServiceName,
       runId: args.runId,
       isRootSpan: true,
+      sessionId,
+      ...deployment,
     }) as Record<string, unknown>,
     tags: ['research-mission', exporter.resolvedServiceName],
   } as AnyExportedSpan);
@@ -423,6 +469,7 @@ export function bufferMissionModelCall(
     type: 'model_generation',
     isRootSpan: false,
     parentSpanId: rootId,
+    sessionId,
     startTime: args.startTime,
     endTime: args.endTime,
     metadata,

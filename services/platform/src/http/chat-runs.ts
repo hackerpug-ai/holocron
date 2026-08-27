@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { TripWire } from '@mastra/core/agent';
 import { z } from 'zod';
 import {
@@ -225,10 +225,23 @@ async function finalizeChatRun(
   });
 }
 
+/**
+ * Deterministic W3C trace id (32 lowercase hex) for a chat run.
+ *
+ * OBS remediation B1: chat runs previously stamped `chat:${runId}` into
+ * chat_runs.trace_id, which is not a valid W3C trace id — any downstream
+ * OTel export keyed on it was malformed. Deriving a stable 32-hex digest of
+ * the run id keeps claim retries idempotent (same trace per run) while
+ * satisfying the trace-id format every consumer validates against.
+ */
+export function chatRunTraceId(runId: string): string {
+  return createHash('sha256').update(`holocron-chat-run:${runId}`).digest('hex').slice(0, 32);
+}
+
 async function claimRun(sql: ReturnType<typeof createSql>, runId: string): Promise<boolean> {
   const rows = await sql<{ id: string }[]>`
     UPDATE chat_runs
-    SET status = 'running', trace_id = ${`chat:${runId}`}, updated_at = now()
+    SET status = 'running', trace_id = ${chatRunTraceId(runId)}, updated_at = now()
     WHERE id = ${runId}::uuid AND status = 'pending'
     RETURNING id
   `;

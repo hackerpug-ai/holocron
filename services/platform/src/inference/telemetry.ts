@@ -1028,6 +1028,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       modelId,
       role: resolved.role,
       callKind,
+      usage: { inputTokens, outputTokens, totalTokens },
       startTime: startedAt,
       endTime: new Date(),
       input: { prompt: opts.prompt.slice(0, 200) },
@@ -1083,6 +1084,7 @@ async function maybeExportLangfuse(
     modelId: string | null;
     role: string;
     callKind: FleetCallKind;
+    usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
     startTime: Date;
     endTime: Date;
     input: unknown;
@@ -1103,12 +1105,14 @@ async function maybeExportLangfuse(
   bufferMissionModelCall(exporter, {
     traceId: span.traceId,
     runId: span.runId,
+    sessionId: span.runId,
     stepId: span.stepId,
     name: `model_${span.callKind}`,
     endpoint: span.endpoint,
     modelId: span.modelId,
     role: span.role,
     callKind: span.callKind,
+    usage: span.usage,
     startTime: span.startTime,
     endTime: span.endTime,
     input: span.input,

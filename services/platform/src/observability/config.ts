@@ -30,6 +30,12 @@ export const HOLOCRON_ATTRIBUTE_ALLOWLIST = [
   'imageDigest',
   'spanType',
   'isRootSpan',
+  'sessionId',
+  // OBS remediation B5: token usage + cost on generation spans.
+  'usageInputTokens',
+  'usageOutputTokens',
+  'usageTotalTokens',
+  'usageCostUsd',
   'job_name',
   'last_wal_segment',
   'last_snapshot_id',
