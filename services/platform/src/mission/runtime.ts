@@ -10,8 +10,10 @@ import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall, runWithMissionLangfuseExporter } from '../inference/telemetry.ts';
 import {
+  bufferMissionRootSpan,
   createLangfuseExporterFromEnv,
   type HolocronOtelBridge,
+  runWithMissionSpanContext,
 } from '../observability/langfuse-exporter.ts';
 import { createMissionObservability } from '../observability/mission-research.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
@@ -3896,13 +3898,43 @@ async function executeRunWithLease(
   // S31-07: re-attach Langfuse exporter on the live mission path (was orphaned after c480051d).
   const { langfuseExporter } = attachMissionObservability(run);
 
+  // B3: one mission root span per run. The whole mission executes inside a
+  // span-context so every nested generation lands under one traceId and one
+  // root, with real per-stage timing instead of root==child bookends.
+  const missionTraceId = run.trace_id;
+  const rootStartedAt = new Date();
+  const rootSpanId = randomUUID().replace(/-/g, '').slice(0, 16);
+  let finalRun: MissionRunRow | null = null;
+
   try {
-    // Thread exporter into every nested runFleetModelCall via ALS so spans
-    // share one buffer and flushMissionLangfuse actually exports them.
-    return await runWithMissionLangfuseExporter(langfuseExporter, () =>
-      executeRunWithLeaseInner(sql, runId, lease, databaseUrl, run, langfuseExporter)
-    );
+    const execute = () =>
+      runWithMissionLangfuseExporter(langfuseExporter, () =>
+        executeRunWithLeaseInner(sql, runId, lease, databaseUrl, run, langfuseExporter)
+      );
+    const result = missionTraceId
+      ? await runWithMissionSpanContext(
+          {
+            runId: run.id,
+            traceId: missionTraceId,
+            rootSpanId,
+            sessionId: run.id,
+          },
+          execute
+        )
+      : await execute();
+    finalRun = result;
+    return result;
   } finally {
+    if (missionTraceId) {
+      bufferMissionRootSpan(langfuseExporter, {
+        runId: run.id,
+        traceId: missionTraceId,
+        startTime: rootStartedAt,
+        endTime: new Date(),
+        status: finalRun?.status ?? null,
+        attempt: run.attempt_count,
+      });
+    }
     await flushMissionLangfuse(langfuseExporter);
   }
 }

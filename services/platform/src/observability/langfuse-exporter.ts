@@ -4,6 +4,7 @@
  * Production path: @mastra/otel-exporter → pinned Collector → Langfuse OTLP v4.
  * Legacy custom ingestion exporter is retired.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type {
   AnyExportedSpan,
@@ -373,9 +374,11 @@ export function createLangfuseExporterFromEnv(
  * environment/releaseSha/imageDigest — this is the single place they get
  * populated so every exported span is filterable by release in Langfuse.
  */
-export function deploymentSpanAttributes(
-  env: NodeJS.ProcessEnv = process.env
-): { environment: string; releaseSha?: string; imageDigest?: string } {
+export function deploymentSpanAttributes(env: NodeJS.ProcessEnv = process.env): {
+  environment: string;
+  releaseSha?: string;
+  imageDigest?: string;
+} {
   return {
     environment: env.HOLO_ENVIRONMENT ?? env.NODE_ENV ?? 'development',
     ...(env.HOLO_SOURCE_REVISION ? { releaseSha: env.HOLO_SOURCE_REVISION } : {}),
@@ -390,6 +393,71 @@ export type SpanUsage = {
   totalTokens?: number | null;
   costUsd?: number | null;
 };
+
+/**
+ * Mission span context (OBS remediation B3): one trace per mission run.
+ *
+ * While this context is bound (ALS), model-generation spans parent to
+ * `rootSpanId` under the mission trace instead of minting per-call roots —
+ * the mission runtime opens exactly one root span for the whole run with
+ * real stage-nesting timing.
+ */
+export type MissionSpanContext = {
+  runId: string;
+  traceId: string;
+  rootSpanId: string;
+  sessionId: string;
+};
+
+const missionSpanContextAls = new AsyncLocalStorage<MissionSpanContext>();
+
+/** Bind a mission span context for nested fleet calls. */
+export function runWithMissionSpanContext<T>(
+  context: MissionSpanContext,
+  fn: () => Promise<T>
+): Promise<T> {
+  return missionSpanContextAls.run(context, fn);
+}
+
+export function getMissionSpanContext(): MissionSpanContext | undefined {
+  return missionSpanContextAls.getStore();
+}
+
+/** Buffer the single mission-run root span (OBS B3). */
+export function bufferMissionRootSpan(
+  exporter: HolocronOtelBridge,
+  args: {
+    runId: string;
+    traceId: string;
+    sessionId?: string | null;
+    startTime: Date;
+    endTime: Date;
+    status?: string | null;
+    attempt?: number | null;
+  }
+): void {
+  const deployment = deploymentSpanAttributes();
+  exporter.enqueueSpan({
+    id: randomUUID().replace(/-/g, '').slice(0, 16),
+    traceId: args.traceId,
+    name: 'research-mission',
+    type: 'span',
+    isRootSpan: true,
+    sessionId: args.sessionId ?? args.runId,
+    startTime: args.startTime,
+    endTime: args.endTime,
+    metadata: redactForExport({
+      serviceName: exporter.resolvedServiceName,
+      runId: args.runId,
+      isRootSpan: true,
+      spanType: 'mission_run',
+      ...(args.status ? { status: args.status } : {}),
+      ...(typeof args.attempt === 'number' ? { attempt: args.attempt } : {}),
+      ...deployment,
+    }) as Record<string, unknown>,
+    tags: ['research-mission', exporter.resolvedServiceName],
+  } as AnyExportedSpan);
+}
 
 function usageMetadata(usage: SpanUsage | undefined | null): Record<string, number> {
   if (!usage) return {};
@@ -427,7 +495,14 @@ export function bufferMissionModelCall(
 ): void {
   const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
   const rootId = randomUUID().replace(/-/g, '').slice(0, 16);
-  const sessionId = args.sessionId ?? args.runId;
+  // OBS B3: inside a mission span context, generations nest under the ONE
+  // mission root span (real timing tree) instead of a per-call synthetic root.
+  const missionCtx = getMissionSpanContext();
+  const traceId = missionCtx?.traceId ?? args.traceId;
+  // The bound mission context is authoritative for identity (B3): explicit
+  // args are caller fallbacks for the standalone path.
+  const sessionId = missionCtx?.sessionId ?? args.sessionId ?? args.runId;
+  const parentSpanId = missionCtx ? missionCtx.rootSpanId : rootId;
   const deployment = deploymentSpanAttributes();
   const metadata = redactForExport({
     serviceName: exporter.resolvedServiceName,
@@ -444,31 +519,12 @@ export function bufferMissionModelCall(
   }) as Record<string, unknown>;
 
   exporter.enqueueSpan({
-    id: rootId,
-    traceId: args.traceId,
-    name: 'research-mission',
-    type: 'span',
-    isRootSpan: true,
-    sessionId,
-    startTime: args.startTime,
-    endTime: args.endTime,
-    metadata: redactForExport({
-      serviceName: exporter.resolvedServiceName,
-      runId: args.runId,
-      isRootSpan: true,
-      sessionId,
-      ...deployment,
-    }) as Record<string, unknown>,
-    tags: ['research-mission', exporter.resolvedServiceName],
-  } as AnyExportedSpan);
-
-  exporter.enqueueSpan({
     id: spanId,
-    traceId: args.traceId,
+    traceId,
     name: args.name ?? 'model_generation',
     type: 'model_generation',
     isRootSpan: false,
-    parentSpanId: rootId,
+    parentSpanId,
     sessionId,
     startTime: args.startTime,
     endTime: args.endTime,
@@ -478,6 +534,29 @@ export function bufferMissionModelCall(
     attributes: { model: args.modelId ?? undefined },
     tags: ['research-mission', exporter.resolvedServiceName],
   } as AnyExportedSpan);
+
+  // Standalone calls (no mission context) still emit a synthetic root so the
+  // trace is visible in Langfuse; mission runs get exactly one real root.
+  if (!missionCtx) {
+    exporter.enqueueSpan({
+      id: rootId,
+      traceId: args.traceId,
+      name: 'research-mission',
+      type: 'span',
+      isRootSpan: true,
+      sessionId,
+      startTime: args.startTime,
+      endTime: args.endTime,
+      metadata: redactForExport({
+        serviceName: exporter.resolvedServiceName,
+        runId: args.runId,
+        isRootSpan: true,
+        sessionId,
+        ...deployment,
+      }) as Record<string, unknown>,
+      tags: ['research-mission', exporter.resolvedServiceName],
+    } as AnyExportedSpan);
+  }
 }
 
 /** Query observations via Langfuse Observations API v2 (not deprecated traces). */

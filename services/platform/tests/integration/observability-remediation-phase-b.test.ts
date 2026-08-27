@@ -1,25 +1,30 @@
 /**
- * OBS remediation — phase B focused tests (B1/B2/B5).
+ * OBS remediation — phase B focused tests (B1/B2/B3/B5).
  *
  *   B1  chat_runs.trace_id carries a valid W3C trace id (32 lowercase hex),
  *       derived deterministically from the run id — never `chat:${runId}`.
  *   B2  Buffered spans carry sessionId (run/conversation identity) and
  *       deployment attributes (environment/releaseSha/imageDigest) that the
  *       allowlist admits; sourced from the deployer-injected env.
+ *   B3  One mission root span per run: model generations nest under the
+ *       mission root (single traceId, real parent-child timing), not a
+ *       synthetic per-call root.
  *   B5  Generation spans carry token usage (+cost when known) as flattened
  *       usage* metadata keys.
  *
  * All seams are pure/unit: a stub exporter records enqueueSpan payloads.
  */
 
+import type { AnyExportedSpan } from '@mastra/core/observability';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatRunTraceId } from '../../src/http/chat-runs.ts';
 import {
   bufferMissionModelCall,
+  bufferMissionRootSpan,
   deploymentSpanAttributes,
+  runWithMissionSpanContext,
   type SpanUsage,
 } from '../../src/observability/langfuse-exporter.ts';
-import type { AnyExportedSpan } from '@mastra/core/observability';
 
 type RecordedSpan = AnyExportedSpan & { sessionId?: string };
 
@@ -141,7 +146,12 @@ describe('OBS remediation B2 — sessionId + deployment attributes on spans', ()
 describe('OBS remediation B5 — usage attributes on generation spans', () => {
   it('flattens token usage + cost into usage* metadata keys on the generation span', () => {
     const { exporter, spans } = stubExporter();
-    const usage: SpanUsage = { inputTokens: 120, outputTokens: 80, totalTokens: 200, costUsd: 0.0137 };
+    const usage: SpanUsage = {
+      inputTokens: 120,
+      outputTokens: 80,
+      totalTokens: 200,
+      costUsd: 0.0137,
+    };
     bufferMissionModelCall(exporter as never, {
       traceId: 'a'.repeat(32),
       runId: 'run-b5',
@@ -173,5 +183,77 @@ describe('OBS remediation B5 — usage attributes on generation spans', () => {
     const metadata = generation?.metadata as Record<string, unknown>;
     expect(metadata).not.toHaveProperty('usageInputTokens');
     expect(metadata).not.toHaveProperty('usageCostUsd');
+  });
+});
+
+describe('OBS remediation B3 — one mission root span per run', () => {
+  it('nests generations under the mission root when a span context is bound', async () => {
+    const { exporter, spans } = stubExporter();
+    const start = new Date();
+    const end = new Date(start.getTime() + 1500);
+    await runWithMissionSpanContext(
+      { runId: 'run-b3', traceId: 'f'.repeat(32), rootSpanId: 'root123', sessionId: 'sess-b3' },
+      async () => {
+        bufferMissionModelCall(exporter as never, {
+          // Deliberately WRONG traceId/sessionId: the bound context must win.
+          traceId: 'e'.repeat(32),
+          runId: 'run-b3',
+          sessionId: 'ignored-session',
+          endpoint: '/research/test',
+          modelId: 'test-model',
+          startTime: start,
+          endTime: end,
+        });
+      }
+    );
+    // Exactly one span: the generation. No synthetic per-call root inside a mission.
+    const recorded = spans();
+    expect(recorded).toHaveLength(1);
+    const generation = recorded[0];
+    expect(generation.type).toBe('model_generation');
+    expect(generation.traceId).toBe('f'.repeat(32));
+    expect(generation.sessionId).toBe('sess-b3');
+    expect(generation.parentSpanId).toBe('root123');
+    expect(generation.isRootSpan).toBe(false);
+  });
+
+  it('outside a mission context, keeps the synthetic root (standalone visibility)', () => {
+    const { exporter, spans } = stubExporter();
+    bufferMissionModelCall(exporter as never, {
+      traceId: 'a'.repeat(32),
+      runId: 'run-b3-standalone',
+      endpoint: '/research/test',
+      startTime: new Date(),
+      endTime: new Date(),
+    });
+    const recorded = spans();
+    expect(recorded).toHaveLength(2);
+    const roots = recorded.filter((s) => s.isRootSpan);
+    expect(roots).toHaveLength(1);
+    const generation = recorded.find((s) => s.type === 'model_generation');
+    expect(generation?.parentSpanId).toBe(roots[0]?.id);
+  });
+
+  it('bufferMissionRootSpan emits the single root with mission_run metadata', () => {
+    const { exporter, spans } = stubExporter();
+    bufferMissionRootSpan(exporter as never, {
+      runId: 'run-b3-root',
+      traceId: 'f'.repeat(32),
+      startTime: new Date(),
+      endTime: new Date(),
+      status: 'completed',
+      attempt: 1,
+    });
+    const recorded = spans();
+    expect(recorded).toHaveLength(1);
+    const root = recorded[0];
+    expect(root.name).toBe('research-mission');
+    expect(root.isRootSpan).toBe(true);
+    expect(root.traceId).toBe('f'.repeat(32));
+    expect(root.sessionId).toBe('run-b3-root'); // defaults to runId
+    const metadata = root.metadata as Record<string, unknown>;
+    expect(metadata.spanType).toBe('mission_run');
+    expect(metadata.status).toBe('completed');
+    expect(metadata.attempt).toBe(1);
   });
 });
