@@ -111,6 +111,59 @@ export function recordExportSuccess(at = new Date().toISOString()): void {
   state.lastSuccessAt = at;
 }
 
+/**
+ * Periodic end-to-end export probe (OBS C2).
+ *
+ * Reuses the same Langfuse v2 observations reachability proof that gates
+ * readExportHealth and the exporter's flush confirmation, but on an interval
+ * so the health snapshot reflects reality even when nothing is exporting.
+ * Success/failure lands in the shared state readExportHealth serves.
+ */
+export async function probeExportPipeline(): Promise<ExternalExportState> {
+  const cfg = readObservabilityConfig();
+  const reachable = await probeLangfuseHealth(
+    cfg.langfuseBaseUrl,
+    cfg.langfusePublicKey,
+    cfg.langfuseSecretKey
+  );
+  if (reachable === true) {
+    recordExportSuccess();
+    return 'ready';
+  }
+  if (reachable === false) {
+    recordExportFailure(ExportFailureCode.LANGFUSE_UNREACHABLE);
+    return 'degraded';
+  }
+  return 'unknown';
+}
+
+let probeTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Start the periodic probe (OBS C2). Interval clamped to >=10s;
+ * HOLO_EXPORT_HEALTH_PROBE_MS <= 0 disables it. Timer is unref'd so tests
+ * and scripts never hang on it.
+ */
+export function startExportHealthProbe(intervalMs?: number): void {
+  stopExportHealthProbe();
+  const raw = intervalMs ?? Number(process.env.HOLO_EXPORT_HEALTH_PROBE_MS ?? 60_000);
+  if (!Number.isFinite(raw) || raw <= 0) return;
+  probeTimer = setInterval(() => {
+    void probeExportPipeline().catch(() => {
+      // Probe failures already record state; never let one kill the interval.
+    });
+  }, Math.max(10_000, raw));
+  probeTimer.unref?.();
+}
+
+/** Stop the periodic probe (idempotent). */
+export function stopExportHealthProbe(): void {
+  if (probeTimer) {
+    clearInterval(probeTimer);
+    probeTimer = null;
+  }
+}
+
 /** Record a terminal export failure code without inventing queue depth. */
 export function recordExportFailure(code: ExportFailureCodeName): void {
   state.lastFailureAt = new Date().toISOString();

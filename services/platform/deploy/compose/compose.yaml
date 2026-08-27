@@ -148,6 +148,11 @@ services:
       postgres:
         condition: service_healthy
         restart: true
+      # OBS C3: ordering guarantee — mastra's OTLP spans have a collector to
+      # land on from process start (service_started, not healthy: the collector
+      # itself gates on langfuse-web and can legitimately lag mastra boot).
+      otel-collector:
+        condition: service_started
     healthcheck:
       test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1:4111/health');if(!r.ok)process.exit(1)"]
       interval: 10s

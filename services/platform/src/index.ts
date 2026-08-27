@@ -23,6 +23,7 @@ import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
+import { startExportHealthProbe, stopExportHealthProbe } from './observability/export-health.ts';
 import { setResearchMastra } from './research/research-mastra.ts';
 import { researchBreadthWorkflow } from './research/workflow/research-breadth.ts';
 import { researchDepthWorkflow } from './research/workflow/research-depth.ts';
@@ -142,7 +143,13 @@ export async function startService(options?: {
     );
   }
 
+  // OBS C2: periodic end-to-end export probe keeps /observability/export-health
+  // state fresh even when nothing is exporting. Unref'd timer; disabled when
+  // HOLO_EXPORT_HEALTH_PROBE_MS <= 0.
+  startExportHealthProbe();
+
   const stop = async () => {
+    stopExportHealthProbe();
     server.stop(true);
     const results = await Promise.allSettled([serviceQueue.stop(), mastra.shutdown()]);
     const failure = results.find(

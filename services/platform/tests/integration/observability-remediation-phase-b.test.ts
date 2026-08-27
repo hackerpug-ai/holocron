@@ -15,8 +15,8 @@
  * All seams are pure/unit: a stub exporter records enqueueSpan payloads.
  */
 
-import type { AnyExportedSpan } from '@mastra/core/observability';
 import type { Mastra } from '@mastra/core/mastra';
+import type { AnyExportedSpan } from '@mastra/core/observability';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatRunTraceId } from '../../src/http/chat-runs.ts';
 import {

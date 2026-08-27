@@ -25,6 +25,7 @@ import { createSoakFenceMiddleware } from '../cutover/soak-fence.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { handleMcpRequest } from '../mcp/gateway.ts';
+import { readExportHealth } from '../observability/export-health.ts';
 import {
   finalizeUploadIntent,
   initUploadIntent,
@@ -203,6 +204,14 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
   app.get('/health', async (c) => {
     const result = await runHealthCheck();
     return c.json(result.body as HealthBody, result.statusCode);
+  });
+
+  // OBS C1: expose the export-health snapshot (queue depth/capacity, external
+  // state, last success/failure). Open like /health (tailnet-only surface);
+  // every field is measured, never static.
+  app.get('/observability/export-health', async (c) => {
+    const snapshot = await readExportHealth();
+    return c.json(snapshot, snapshot.externalState === 'unavailable' ? 503 : 200);
   });
 
   app.get('/blobs/:id', async (c) => {
