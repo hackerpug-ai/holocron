@@ -26,6 +26,7 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { REQUIRED_OBSERVABILITY_SECRET_NAMES } from '../../src/deploy/production-deploy.ts';
+import { stageRenderEnv } from '../../src/deploy/production-release.ts';
 import {
   bufferMissionModelCall,
   HolocronOtelBridge,
@@ -34,6 +35,7 @@ import {
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.yaml');
+const DEV_COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.dev.yaml');
 const OTEL_CONFIG_PATH = resolve(
   REPO_ROOT,
   'services/platform/deploy/otel/otel-collector-config.yaml'
@@ -46,6 +48,14 @@ function compose(): Record<string, unknown> {
 
 function otelConfig(): Record<string, unknown> {
   return parseYaml(readFileSync(OTEL_CONFIG_PATH, 'utf8')) as Record<string, unknown>;
+}
+
+function composeYaml(): Record<string, unknown> {
+  return parseYaml(readFileSync(COMPOSE_PATH, 'utf8')) as Record<string, unknown>;
+}
+
+function devComposeYaml(): Record<string, unknown> {
+  return parseYaml(readFileSync(DEV_COMPOSE_PATH, 'utf8')) as Record<string, unknown>;
 }
 
 function mastraService(): Record<string, unknown> {
@@ -152,19 +162,44 @@ describe('OBS remediation phase A — collector queue TTL + pipeline config', ()
     expect(extensions.file_storage?.directory).toBe('/var/lib/otelcol/queue');
   });
 
-  it('keeps the traces pipeline intact (otlp → memory_limiter/batch → langfuse+debug)', () => {
+  it('routes the traces pipeline to Langfuse only (debug exporter removed from production)', () => {
     const config = otelConfig();
     const service = config.service as { pipelines: Record<string, Record<string, string[]>> };
     const traces = service.pipelines.traces;
     expect(traces.receivers).toEqual(['otlp']);
     expect(traces.processors).toEqual(['memory_limiter', 'batch']);
-    expect(traces.exporters).toEqual(['otlphttp/langfuse', 'debug']);
+    // A5: production must not ship the debug exporter — every span goes to
+    // Langfuse only. Debug stays in the canary stack (deploy/otel).
+    expect(traces.exporters).toEqual(['otlphttp/langfuse']);
+    expect(config.exporters).not.toHaveProperty('debug');
 
     const exporters = config.exporters as Record<string, Record<string, unknown>>;
     const langfuse = exporters['otlphttp/langfuse'];
     expect(langfuse?.endpoint).toBe('${env:LANGFUSE_OTLP_ENDPOINT}');
     const headers = langfuse?.headers as Record<string, string>;
     expect(headers?.Authorization).toBe('${env:LANGFUSE_AUTH_HEADER}');
+  });
+});
+
+describe('OBS remediation phase A — retention TTL + dev compose inheritance', () => {
+  it('sets a 30-day default TTL on the shared Langfuse env anchor', () => {
+    const compose = composeYaml();
+    const anchors = compose['x-langfuse-env'] as Record<string, string>;
+    expect(anchors?.LANGFUSE_DEFAULT_TTL).toBe('30');
+  });
+  it('keeps the mastra OTEL wiring after merging the dev compose override', () => {
+    const base = composeYaml();
+    const dev = devComposeYaml();
+    // compose.dev.yaml is a labels-only override with no `environment` blocks,
+    // so base `mastra.environment` (the A1 OTEL wiring) inherits verbatim on
+    // the laptop stack. Assert the merge contract the deployment relies on.
+    const devServices = (dev.services ?? {}) as Record<string, unknown>;
+    for (const [_name, svc] of Object.entries(devServices)) {
+      expect(svc).not.toHaveProperty('environment');
+    }
+    const baseMastra = (base.services?.mastra ?? {}) as { environment?: Record<string, unknown> };
+    expect(baseMastra.environment?.OTEL_COLLECTOR_URL).toBe('http://otel-collector:4318/v1/traces');
+    expect(devServices.mastra).toHaveProperty('labels');
   });
 });
 
@@ -257,6 +292,70 @@ describe('OBS remediation phase A — flush false-failure + structured warnings 
     expect(unreachable?.code).toBe('LANGFUSE_UNREACHABLE');
     expect(unreachable?.serviceName).toBe('holocron-platform');
   }, 30_000);
+});
+
+describe('OBS remediation phase A — stage render env hard-forces credentials (A4)', () => {
+  const IMAGE =
+    'registry.example/holocron-platform@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  const sentinel = 'OBS-A4-LIVE-ENV-SENTINEL';
+
+  const HARD_FORCED: Array<[string, string]> = [
+    ['POSTGRES_PASSWORD', 'stage-render-placeholder'],
+    ['DATABASE_URL', 'postgres://holocron@127.0.0.1:44112/holocron'],
+    ['MASTRA_API_KEY', 'stage-render-placeholder'],
+    ['FLEET_KEY', 'stage-render-placeholder'],
+    ['ZERO_ADMIN_PASSWORD', 'stage-render-placeholder'],
+    ['LANGFUSE_DATABASE_URL', 'postgres://langfuse@langfuse-postgres:5432/langfuse'],
+    ['LANGFUSE_NEXTAUTH_SECRET', 'stage-render-placeholder'],
+    ['LANGFUSE_SALT', 'stage-render-placeholder'],
+    ['LANGFUSE_ENCRYPTION_KEY', '0'.repeat(64)],
+    ['LANGFUSE_CLICKHOUSE_PASSWORD', 'stage-render-placeholder'],
+    ['LANGFUSE_S3_ACCESS_KEY_ID', 'stage-render-placeholder'],
+    ['LANGFUSE_S3_SECRET_ACCESS_KEY', 'stage-render-placeholder'],
+    ['LANGFUSE_REDIS_AUTH', 'stage-render-placeholder'],
+    ['LANGFUSE_POSTGRES_PASSWORD', 'stage-render-placeholder'],
+    ['LANGFUSE_PUBLIC_KEY', 'pk-lf-stage-render-placeholder'],
+    ['LANGFUSE_SECRET_KEY', 'lf-stage-render-placeholder'],
+    ['LANGFUSE_INIT_USER_PASSWORD', 'stage-render-placeholder'],
+    ['LANGFUSE_AUTH_HEADER', 'Basic stage-render-placeholder'],
+    ['DEEPSEEK_API_KEY', 'stage-render-placeholder'],
+    ['JINA_API_KEY', 'stage-render-placeholder'],
+    ['EXA_API_KEY', 'stage-render-placeholder'],
+  ];
+
+  it('ignores live .env credentials — every credential var renders its placeholder', () => {
+    // Simulate the operator's real `.env` loaded into process.env: every
+    // credential-shaped var carries a live sentinel that must NEVER survive
+    // into the rendered compose (credential-literal scan refusal).
+    const saved: Array<[string, string | undefined]> = [];
+    for (const [name] of HARD_FORCED) {
+      saved.push([name, process.env[name]]);
+      process.env[name] = sentinel;
+    }
+    try {
+      const env = stageRenderEnv(IMAGE);
+      for (const [name, placeholder] of HARD_FORCED) {
+        expect(env[name], `${name} must be hard-forced`).toBe(placeholder);
+        expect(env[name]).not.toContain(sentinel);
+      }
+    } finally {
+      for (const [name, value] of saved) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
+  it('still flows non-secret configuration from the environment', () => {
+    const env = stageRenderEnv(IMAGE);
+    expect(env.HOLO_PLATFORM_IMAGE).toBe(IMAGE);
+    // Non-secret values keep process.env-first behavior so stage renders
+    // reflect the target topology.
+    expect(env.POSTGRES_DB || 'holocron').toBe(process.env.POSTGRES_DB || 'holocron');
+    expect(env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel').toBe(
+      process.env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel'
+    );
+  });
 });
 
 (PLATFORM_IT ? describe : describe.skip)(

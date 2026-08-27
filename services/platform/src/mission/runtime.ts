@@ -3863,8 +3863,20 @@ async function flushMissionLangfuse(
   if (!exporter) return;
   try {
     await exporter.flush();
-  } catch {
-    // Mission terminal status is authoritative; Langfuse flush failure is operator-visible via exporter status.
+  } catch (err) {
+    // Mission terminal status is authoritative; the flush failure itself is
+    // operator-visible via the exporter's structured warnings and status — but
+    // OBS remediation A3 requires this boundary to log loudly too, so a
+    // mission-level flush failure is never fully silent.
+    console.warn(
+      JSON.stringify({
+        event: 'mission_langfuse_flush_failed',
+        code: 'MISSION_LANGFUSE_FLUSH_FAILED',
+        message: err instanceof Error ? err.message : String(err),
+        // The exporter's own status/lastFailureCode remain authoritative for
+        // terminal-code classification; this warn is a mission-boundary trace.
+      })
+    );
   }
 }
 

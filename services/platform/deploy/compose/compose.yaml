@@ -25,6 +25,9 @@ x-langfuse-env: &langfuse-env
   ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?LANGFUSE_ENCRYPTION_KEY is required}
   TELEMETRY_ENABLED: "false"
   LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+  # OBS remediation A5: default per-trace retention so self-hosted Langfuse
+  # prunes observations older than 30 days instead of growing unbounded.
+  LANGFUSE_DEFAULT_TTL: "30"
   CLICKHOUSE_MIGRATION_URL: ${LANGFUSE_CLICKHOUSE_MIGRATION_URL:?LANGFUSE_CLICKHOUSE_MIGRATION_URL is required}
   CLICKHOUSE_URL: ${LANGFUSE_CLICKHOUSE_URL:?LANGFUSE_CLICKHOUSE_URL is required}
   CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:?LANGFUSE_CLICKHOUSE_USER is required}

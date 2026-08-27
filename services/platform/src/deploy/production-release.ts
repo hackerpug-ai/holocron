@@ -939,6 +939,69 @@ export function buildReleaseLockVolumeRecords(): ReleaseLockVolumeRecord[] {
   ];
 }
 
+/**
+ * Environment for staging/package compose renders (OBS remediation A4).
+ *
+ * Credential-shaped values are HARD-FORCED to placeholders: `holo
+ * deploy:package` runs with the operator's live `.env` loaded, and any real
+ * credential interpolated into the rendered JSON trips the credential-literal
+ * scan in production-deploy.ts. Apply-time compose-up injects the real values
+ * from the secret store. Non-secret values may flow through from the
+ * environment. Exported for unit tests asserting the hard-force contract.
+ */
+export function stageRenderEnv(image: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOLO_PLATFORM_IMAGE: image,
+    FLEET_URL: process.env.FLEET_URL || 'http://host.docker.internal:4545',
+    POSTGRES_DB: process.env.POSTGRES_DB || 'holocron',
+    POSTGRES_USER: process.env.POSTGRES_USER || 'holocron',
+    POSTGRES_PASSWORD: 'stage-render-placeholder',
+    DATABASE_URL: 'postgres://holocron@127.0.0.1:44112/holocron',
+    MASTRA_API_KEY: 'stage-render-placeholder',
+    FLEET_KEY: 'stage-render-placeholder',
+    ZERO_ADMIN_PASSWORD: 'stage-render-placeholder',
+    LANGFUSE_DATABASE_URL: 'postgres://langfuse@langfuse-postgres:5432/langfuse',
+    LANGFUSE_NEXTAUTH_URL: process.env.LANGFUSE_NEXTAUTH_URL || 'http://127.0.0.1:44111',
+    LANGFUSE_NEXTAUTH_SECRET: 'stage-render-placeholder',
+    LANGFUSE_SALT: 'stage-render-placeholder',
+    LANGFUSE_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000',
+    LANGFUSE_CLICKHOUSE_MIGRATION_URL:
+      process.env.LANGFUSE_CLICKHOUSE_MIGRATION_URL || 'clickhouse://langfuse-clickhouse:9000',
+    LANGFUSE_CLICKHOUSE_URL:
+      process.env.LANGFUSE_CLICKHOUSE_URL || 'http://langfuse-clickhouse:8123',
+    LANGFUSE_CLICKHOUSE_DB: process.env.LANGFUSE_CLICKHOUSE_DB || 'default',
+    LANGFUSE_CLICKHOUSE_USER: process.env.LANGFUSE_CLICKHOUSE_USER || 'clickhouse',
+    LANGFUSE_CLICKHOUSE_PASSWORD: 'stage-render-placeholder',
+    LANGFUSE_S3_BUCKET: process.env.LANGFUSE_S3_BUCKET || 'langfuse',
+    LANGFUSE_S3_ACCESS_KEY_ID: 'stage-render-placeholder',
+    LANGFUSE_S3_SECRET_ACCESS_KEY: 'stage-render-placeholder',
+    LANGFUSE_S3_ENDPOINT: process.env.LANGFUSE_S3_ENDPOINT || 'http://langfuse-minio:9000',
+    LANGFUSE_REDIS_AUTH: 'stage-render-placeholder',
+    LANGFUSE_POSTGRES_USER: process.env.LANGFUSE_POSTGRES_USER || 'langfuse',
+    LANGFUSE_POSTGRES_DB: process.env.LANGFUSE_POSTGRES_DB || 'langfuse',
+    LANGFUSE_POSTGRES_PASSWORD: 'stage-render-placeholder',
+    LANGFUSE_INIT_ORG_ID: process.env.LANGFUSE_INIT_ORG_ID || 'holocron-observability',
+    LANGFUSE_INIT_ORG_NAME: process.env.LANGFUSE_INIT_ORG_NAME || 'Holocron',
+    LANGFUSE_INIT_PROJECT_ID: process.env.LANGFUSE_INIT_PROJECT_ID || 'holocron',
+    LANGFUSE_INIT_PROJECT_NAME: process.env.LANGFUSE_INIT_PROJECT_NAME || 'Holocron',
+    LANGFUSE_PUBLIC_KEY: 'pk-lf-stage-render-placeholder',
+    LANGFUSE_SECRET_KEY: 'lf-stage-render-placeholder',
+    LANGFUSE_INIT_USER_EMAIL: process.env.LANGFUSE_INIT_USER_EMAIL || 'ops@example.invalid',
+    LANGFUSE_INIT_USER_NAME: process.env.LANGFUSE_INIT_USER_NAME || 'ops',
+    LANGFUSE_INIT_USER_PASSWORD: 'stage-render-placeholder',
+    LANGFUSE_OTLP_ENDPOINT:
+      process.env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel',
+    LANGFUSE_AUTH_HEADER: 'Basic stage-render-placeholder',
+    // Compose interpolates these into mastra.environment. Live keys in the
+    // project `.env` would otherwise land in the rendered JSON and trip the
+    // credential-literal scan. Apply injects the real value at compose-up.
+    DEEPSEEK_API_KEY: 'stage-render-placeholder',
+    JINA_API_KEY: 'stage-render-placeholder',
+    EXA_API_KEY: 'stage-render-placeholder',
+  };
+}
+
 function renderCompose(
   runner: ProcessRunner,
   cwd: string,
@@ -946,68 +1009,8 @@ function renderCompose(
   image: string
 ): void {
   const before = process.env.HOLO_PLATFORM_IMAGE;
-  // Staging/package only validates the rendered contract. Provide non-secret
-  // placeholders for required Compose interpolations that deploy:apply supplies
-  // from the operator secret store at apply time.
-  const renderEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    HOLO_PLATFORM_IMAGE: image,
-    FLEET_URL: process.env.FLEET_URL || 'http://host.docker.internal:4545',
-    POSTGRES_DB: process.env.POSTGRES_DB || 'holocron',
-    POSTGRES_USER: process.env.POSTGRES_USER || 'holocron',
-    POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD || 'stage-render-placeholder',
-    DATABASE_URL: process.env.DATABASE_URL || 'postgres://holocron@127.0.0.1:44112/holocron',
-    MASTRA_API_KEY: process.env.MASTRA_API_KEY || 'stage-render-placeholder',
-    FLEET_KEY: process.env.FLEET_KEY || 'stage-render-placeholder',
-    ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD || 'stage-render-placeholder',
-    LANGFUSE_DATABASE_URL:
-      process.env.LANGFUSE_DATABASE_URL || 'postgres://langfuse@langfuse-postgres:5432/langfuse',
-    LANGFUSE_NEXTAUTH_URL: process.env.LANGFUSE_NEXTAUTH_URL || 'http://127.0.0.1:44111',
-    LANGFUSE_NEXTAUTH_SECRET: process.env.LANGFUSE_NEXTAUTH_SECRET || 'stage-render-placeholder',
-    LANGFUSE_SALT: process.env.LANGFUSE_SALT || 'stage-render-placeholder',
-    LANGFUSE_ENCRYPTION_KEY:
-      process.env.LANGFUSE_ENCRYPTION_KEY ||
-      '0000000000000000000000000000000000000000000000000000000000000000',
-    LANGFUSE_CLICKHOUSE_MIGRATION_URL:
-      process.env.LANGFUSE_CLICKHOUSE_MIGRATION_URL || 'clickhouse://langfuse-clickhouse:9000',
-    LANGFUSE_CLICKHOUSE_URL:
-      process.env.LANGFUSE_CLICKHOUSE_URL || 'http://langfuse-clickhouse:8123',
-    LANGFUSE_CLICKHOUSE_DB: process.env.LANGFUSE_CLICKHOUSE_DB || 'default',
-    LANGFUSE_CLICKHOUSE_USER: process.env.LANGFUSE_CLICKHOUSE_USER || 'clickhouse',
-    LANGFUSE_CLICKHOUSE_PASSWORD:
-      process.env.LANGFUSE_CLICKHOUSE_PASSWORD || 'stage-render-placeholder',
-    LANGFUSE_S3_BUCKET: process.env.LANGFUSE_S3_BUCKET || 'langfuse',
-    LANGFUSE_S3_ACCESS_KEY_ID: process.env.LANGFUSE_S3_ACCESS_KEY_ID || 'stage-render-placeholder',
-    LANGFUSE_S3_SECRET_ACCESS_KEY:
-      process.env.LANGFUSE_S3_SECRET_ACCESS_KEY || 'stage-render-placeholder',
-    LANGFUSE_S3_ENDPOINT: process.env.LANGFUSE_S3_ENDPOINT || 'http://langfuse-minio:9000',
-    LANGFUSE_REDIS_AUTH: process.env.LANGFUSE_REDIS_AUTH || 'stage-render-placeholder',
-    LANGFUSE_POSTGRES_USER: process.env.LANGFUSE_POSTGRES_USER || 'langfuse',
-    LANGFUSE_POSTGRES_DB: process.env.LANGFUSE_POSTGRES_DB || 'langfuse',
-    LANGFUSE_POSTGRES_PASSWORD:
-      process.env.LANGFUSE_POSTGRES_PASSWORD || 'stage-render-placeholder',
-    LANGFUSE_INIT_ORG_ID: process.env.LANGFUSE_INIT_ORG_ID || 'holocron-observability',
-    LANGFUSE_INIT_ORG_NAME: process.env.LANGFUSE_INIT_ORG_NAME || 'Holocron',
-    LANGFUSE_INIT_PROJECT_ID: process.env.LANGFUSE_INIT_PROJECT_ID || 'holocron',
-    LANGFUSE_INIT_PROJECT_NAME: process.env.LANGFUSE_INIT_PROJECT_NAME || 'Holocron',
-    LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY || 'pk-lf-stage-render-placeholder',
-    LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY || 'lf-stage-render-placeholder',
-    LANGFUSE_INIT_USER_EMAIL: process.env.LANGFUSE_INIT_USER_EMAIL || 'ops@example.invalid',
-    LANGFUSE_INIT_USER_NAME: process.env.LANGFUSE_INIT_USER_NAME || 'ops',
-    LANGFUSE_INIT_USER_PASSWORD:
-      process.env.LANGFUSE_INIT_USER_PASSWORD || 'stage-render-placeholder',
-    LANGFUSE_OTLP_ENDPOINT:
-      process.env.LANGFUSE_OTLP_ENDPOINT || 'http://langfuse-web:3000/api/public/otel',
-    LANGFUSE_AUTH_HEADER: process.env.LANGFUSE_AUTH_HEADER || 'Basic stage-render-placeholder',
-    // Compose interpolates this into mastra.environment. A live key in the
-    // project `.env` would otherwise land in the rendered JSON and trip the
-    // credential-literal scan. Apply injects the real value at compose-up.
-    DEEPSEEK_API_KEY: 'stage-render-placeholder',
-    JINA_API_KEY: 'stage-render-placeholder',
-    EXA_API_KEY: 'stage-render-placeholder',
-  };
+  const renderEnv = stageRenderEnv(image);
   try {
-    process.env.HOLO_PLATFORM_IMAGE = image;
     const rendered = runOrFail(
       runner,
       cwd,

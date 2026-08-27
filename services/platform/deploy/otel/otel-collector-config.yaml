@@ -28,8 +28,6 @@ exporters:
       num_consumers: 2
       queue_size: 1000
       storage: file_storage
-  debug:
-    verbosity: basic
 
 extensions:
   file_storage:
@@ -57,4 +55,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/langfuse, debug]
+      # OBS remediation A5: production ships spans to Langfuse only; the debug
+      # exporter stays available in the canary stack (deploy/otel) for
+      # laptop-level troubleshooting.
+      exporters: [otlphttp/langfuse]
