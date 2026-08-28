@@ -1,0 +1,22 @@
+# AC-5 file_artifact — filesystem scan of the 3 gate modules (services/platform/src/fulcrum/gate)
+# MUST_OBSERVE: scan names grade.ts + verify-quote.ts + admission.ts, 3 files scanned, generateText count 0, model-role identifier count 0, judge hits on the Fulcrum path 0
+
+AC-5 scan: {
+  "filesScanned": [
+    "admission.ts",
+    "grade.ts",
+    "verify-quote.ts"
+  ],
+  "fileCount": 3,
+  "generateTextTotal": 0,
+  "roleTotal": 0,
+  "fulcrumPathFilesScanned": 4,
+  "judgeHits": 0
+}
+
+
+# per-file 'judge' hit counts across every .ts file on the Fulcrum path (all must be 0):
+  0 judge-hits: services/platform/src/fulcrum/admission-writer.ts
+  0 judge-hits: services/platform/src/fulcrum/gate/admission.ts
+  0 judge-hits: services/platform/src/fulcrum/gate/grade.ts
+  0 judge-hits: services/platform/src/fulcrum/gate/verify-quote.ts

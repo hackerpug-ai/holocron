@@ -1,0 +1,11 @@
+# AC-4 db_query — active domain_tiers ladder row + grade determinism evidence (real Postgres holocron_nonprod)
+# MUST_OBSERVE: ladder maps sec.gov -> tier_value 1.0; gradeEvidence twice -> byte-identical 0.89; unladdered domain -> 0 rows, null grade
+-[ RECORD 1 ]------+------------
+mission_id         | dev-revenue
+version            | 1
+registrable_domain | sec.gov
+tier               | primary
+tier_value         | 1
+
+AC-4 db_query: {"tierValue":1,"retrievedAtMs":1785343799098,"halfLifeDays":180,"first":"0.89","second":"0.89","identical":true}
+AC-4 unladdered: {"domain":"randomblog.example","ladderRows":0,"grade":null}

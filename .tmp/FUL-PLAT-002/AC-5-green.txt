@@ -1,0 +1,33 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-002[39m
+
+[90mstdout[2m | services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22m[2mFUL-PLAT-002 AC-5: gate modules contain no model call and no model role[2m > [22m[2mAC-5: filesystem scan of the 3 gate modules reports 0 generateText and 0 model-role identifiers
+[22m[39mAC-5 scan: {
+  "filesScanned": [
+    "admission.ts",
+    "grade.ts",
+    "verify-quote.ts"
+  ],
+  "fileCount": 3,
+  "generateTextTotal": 0,
+  "roleTotal": 0,
+  "fulcrumPathFilesScanned": 4,
+  "judgeHits": 0
+}
+
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-1: a quote-verified in-window classified claim is admitted and recorded (PRIMARY)[2m > [22mAC-1: admits the verbatim-quote claim with grade 0.92 and persists the decision
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 1: unclassified domain stays provisional with reason domain_unclassified and no grade
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 2: 900-day-old evidence stays provisional with reason evidence_out_of_window
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 3: grade 0.92 under a 0.98 floor stays provisional with reason grade_below_floor
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-3: a quote absent from normalized_text is rejected with its own reason[2m > [22mAC-3 case 1: fabricated quote is stored provisional with reason quote_unverified
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-3: a quote absent from normalized_text is rejected with its own reason[2m > [22mAC-3 case 2: quote sliced from the 280-char hybrid-search snippet is rejected, not self-cited
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-3: a quote absent from normalized_text is rejected with its own reason[2m > [22mAC-3 case 3: the verbatim 10-K sentence still admits (control)
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-4: grade is a deterministic tier-by-recency product[2m > [22mAC-4: gradeEvidence returns the byte-identical string 0.89 across two identical calls
+ [2m[90m↓[39m[22m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-4: grade is a deterministic tier-by-recency product[2m > [22mAC-4: unladdered domain has 0 ladder rows and gradeEvidence returns null
+ [32m✓[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-5: gate modules contain no model call and no model role[2m > [22mAC-5: filesystem scan of the 3 gate modules reports 0 generateText and 0 model-role identifiers[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m9 skipped[39m[90m (10)[39m
+[2m   Start at [22m 10:50:14
+[2m   Duration [22m 796ms[2m (transform 133ms, setup 139ms, import 341ms, tests 257ms, environment 0ms)[22m
+

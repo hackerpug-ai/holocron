@@ -1,0 +1,91 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-002[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts [2m([22m[2m10 tests[22m[2m | [22m[31m3 failed[39m[2m | [22m[33m7 skipped[39m[2m)[22m[33m 564[2mms[22m[39m
+[31m     [31m×[31m AC-2 case 1: unclassified domain stays provisional with reason domain_unclassified and no grade[39m[32m 4[2mms[22m[39m
+[31m     [31m×[31m AC-2 case 2: 900-day-old evidence stays provisional with reason evidence_out_of_window[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m AC-2 case 3: grade 0.92 under a 0.98 floor stays provisional with reason grade_below_floor[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 1: unclassified domain stays provisional with reason domain_unclassified and no grade
+[31m[1mAssertionError[22m: AC-2: Fulcrum gate modules must exist on disk before the gate can run (missing: gate/grade.ts, gate/verify-quote.ts, gate/admission.ts, admission-writer.ts): expected [ 'gate/grade.ts', …(3) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "gate/grade.ts",[39m
+[31m+   "gate/verify-quote.ts",[39m
+[31m+   "gate/admission.ts",[39m
+[31m+   "admission-writer.ts",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireGateModules services/platform/tests/integration/fulcrum-admission.test.ts:[2m283:5[22m[39m
+    [90m281|[39m     state[33m.[39mmissingModules[33m,[39m
+    [90m282|[39m     `${scope}: Fulcrum gate modules must exist on disk before the gate…
+    [90m283|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m284|[39m }
+    [90m285|[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-admission.test.ts:[2m447:7[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 2: 900-day-old evidence stays provisional with reason evidence_out_of_window
+[31m[1mAssertionError[22m: AC-2: Fulcrum gate modules must exist on disk before the gate can run (missing: gate/grade.ts, gate/verify-quote.ts, gate/admission.ts, admission-writer.ts): expected [ 'gate/grade.ts', …(3) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "gate/grade.ts",[39m
+[31m+   "gate/verify-quote.ts",[39m
+[31m+   "gate/admission.ts",[39m
+[31m+   "admission-writer.ts",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireGateModules services/platform/tests/integration/fulcrum-admission.test.ts:[2m283:5[22m[39m
+    [90m281|[39m     state[33m.[39mmissingModules[33m,[39m
+    [90m282|[39m     `${scope}: Fulcrum gate modules must exist on disk before the gate…
+    [90m283|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m284|[39m }
+    [90m285|[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-admission.test.ts:[2m497:7[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-2: each admission failure mode leaves the claim provisional with its own reason[2m > [22mAC-2 case 3: grade 0.92 under a 0.98 floor stays provisional with reason grade_below_floor
+[31m[1mAssertionError[22m: AC-2: Fulcrum gate modules must exist on disk before the gate can run (missing: gate/grade.ts, gate/verify-quote.ts, gate/admission.ts, admission-writer.ts): expected [ 'gate/grade.ts', …(3) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "gate/grade.ts",[39m
+[31m+   "gate/verify-quote.ts",[39m
+[31m+   "gate/admission.ts",[39m
+[31m+   "admission-writer.ts",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireGateModules services/platform/tests/integration/fulcrum-admission.test.ts:[2m283:5[22m[39m
+    [90m281|[39m     state[33m.[39mmissingModules[33m,[39m
+    [90m282|[39m     `${scope}: Fulcrum gate modules must exist on disk before the gate…
+    [90m283|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m284|[39m }
+    [90m285|[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-admission.test.ts:[2m545:7[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[33m7 skipped[39m[90m (10)[39m
+[2m   Start at [22m 10:09:38
+[2m   Duration [22m 960ms[2m (transform 117ms, setup 94ms, import 246ms, tests 564ms, environment 0ms)[22m
+

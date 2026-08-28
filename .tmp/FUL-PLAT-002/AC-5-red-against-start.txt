@@ -1,0 +1,34 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-002[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts [2m([22m[2m10 tests[22m[2m | [22m[31m1 failed[39m[2m | [22m[33m9 skipped[39m[2m)[22m[32m 179[2mms[22m[39m
+[31m     [31m×[31m AC-5: filesystem scan of the 3 gate modules reports 0 generateText and 0 model-role identifiers[39m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-admission.test.ts[2m > [22mFUL-PLAT-002 AC-5: gate modules contain no model call and no model role[2m > [22mAC-5: filesystem scan of the 3 gate modules reports 0 generateText and 0 model-role identifiers
+[31m[1mAssertionError[22m: gate module grade.ts must exist on disk: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m services/platform/tests/integration/fulcrum-admission.test.ts:[2m845:84[22m[39m
+    [90m843|[39m     // Explicit paths — a missing directory must fail the scan, never …
+    [90m844|[39m     [35mconst[39m report [33m=[39m [33mGATE_MODULE_FILES[39m[33m.[39m[34mmap[39m((file) [33m=>[39m {
+    [90m845|[39m       expect(existsSync(file.path), `gate module ${file.name} must exi…
+    [90m   |[39m                                                                                    [31m^[39m
+    [90m846|[39m       [35mconst[39m text [33m=[39m [34mreadFileSync[39m(file[33m.[39mpath[33m,[39m [32m'utf8'[39m)[33m;[39m
+    [90m847|[39m       [35mreturn[39m {
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-admission.test.ts:[2m844:38[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m9 skipped[39m[90m (10)[39m
+[2m   Start at [22m 10:09:42
+[2m   Duration [22m 585ms[2m (transform 124ms, setup 91ms, import 262ms, tests 179ms, environment 0ms)[22m
+
