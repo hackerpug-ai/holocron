@@ -165,20 +165,23 @@ kb-orchestrate:
 # Planning & Execution Workflow
 
 ## Plan Storage
-All plans (PRDs, specs, design docs) MUST be stored in `.spec/prd/` — each plan in its own subdirectory:
+All plans (PRDs, specs, design docs) MUST be stored in `.spec/prds/` — each plan in its own subdirectory:
 ```
-.spec/prd/{feature-name}/
+.spec/prds/{feature-name}/
 ├── README.md          # The plan/PRD itself
 └── ...                # Supporting artifacts
 ```
 
+**Never write to `.spec/prd/` (singular).** That path is legacy and still holds a root-level PRD plus 18 older subfolders; writing there collides with existing content. Leave what's there alone — don't migrate it unasked — but every new plan goes to `.spec/prds/{feature-name}/`.
+
 ## Plan → Task Pipeline
-After generating a plan, ALWAYS run `/kb-project-plan` to create task files from the plan. This produces structured task files in `.spec/tasks/{epic-id}/` that are compatible with `/kb-run-epic` for execution.
+After generating a plan, ALWAYS run `/kb-sprint-tasks-plan` to create task files from the plan. This produces structured task files in `.spec/tasks/{sprint-id}/` that are compatible with `/kb-run-sprint` for execution.
 
 **Workflow:**
-1. Create plan in `.spec/prd/{feature-name}/`
-2. Run `/kb-project-plan` to generate task files
-3. Run `/kb-run-epic` to execute tasks
+1. Create plan in `.spec/prds/{feature-name}/`
+2. Run `/kb-sprint-plan` to generate the sprint roadmap
+3. Run `/kb-sprint-tasks-plan` to generate task files
+4. Run `/kb-run-sprint` to execute tasks
 
 ---
 
