@@ -11,7 +11,9 @@ export const storeDocumentOutputSchema = z.object({
   documentId: z.string(),
   title: z.string(),
   embeddingStatus: z.string().optional(),
-  embeddingDimensions: z.number().int().optional(),
+  pendingEmbeddingCount: z.number().int().nonnegative().optional(),
+  passageCount: z.number().int().nonnegative().optional(),
+  embeddingJobId: z.string().nullable().optional(),
 });
 
 export const updateDocumentInputSchema = z.object({
@@ -25,8 +27,9 @@ export const updateDocumentOutputSchema = z.object({
   documentId: z.string(),
   updated: z.boolean(),
   embeddingStatus: z.string().optional(),
-  embeddingRegenerated: z.boolean().optional(),
-  embeddingDimensions: z.number().int().optional(),
+  pendingEmbeddingCount: z.number().int().nonnegative().optional(),
+  passageCount: z.number().int().nonnegative().optional(),
+  embeddingJobId: z.string().nullable().optional(),
 });
 
 export const shareDocumentInputSchema = z

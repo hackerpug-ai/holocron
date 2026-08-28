@@ -13,7 +13,9 @@ export interface StoreDocumentOutput {
   documentId: string;
   title: string;
   embeddingStatus?: string;
-  embeddingDimensions?: number;
+  pendingEmbeddingCount?: number;
+  passageCount?: number;
+  embeddingJobId?: string | null;
 }
 
 export interface UpdateDocumentInput {
@@ -27,8 +29,9 @@ export interface UpdateDocumentOutput {
   documentId: string;
   updated: boolean;
   embeddingStatus?: string;
-  embeddingRegenerated?: boolean;
-  embeddingDimensions?: number;
+  pendingEmbeddingCount?: number;
+  passageCount?: number;
+  embeddingJobId?: string | null;
 }
 
 export interface ShareDocumentInput {
