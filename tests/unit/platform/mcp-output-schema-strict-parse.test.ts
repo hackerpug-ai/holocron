@@ -15,8 +15,8 @@
  * Unit lane: no infra, no network — pure zod semantics + registry metadata.
  */
 import { describe, expect, it } from 'vitest';
-import { storeDocumentOutputSchema } from '@/services/platform/src/tools/schemas/documents';
 import { getTool, listTools, type ZodSchema } from '@/services/platform/src/tools/registry';
+import { storeDocumentOutputSchema } from '@/services/platform/src/tools/schemas/documents';
 
 /** The canonical store_document payload the executor is contracted to return. */
 const CANONICAL_STORE_DOCUMENT = {
@@ -74,7 +74,8 @@ describe('strict vs plain output-schema parsing (T1 AC1)', () => {
     const objectSchemas: Array<{ id: string; strict: () => ZodSchema }> = [];
     for (const row of listTools()) {
       const candidate = row.outputSchema as { strict?: () => ZodSchema };
-      if (typeof candidate.strict === 'function') objectSchemas.push({ id: row.id, strict: candidate.strict });
+      if (typeof candidate.strict === 'function')
+        objectSchemas.push({ id: row.id, strict: candidate.strict });
     }
     // Every tool that has an object output schema must survive strict parsing
     // of its own canonical contract (empty object at minimum parses structurally).

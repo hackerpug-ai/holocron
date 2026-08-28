@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  // imp-mcp-schema-drift-hardening T2 — compile-time contract pinning.
+  // src/mcp (executors + rehost verification) and src/tools (registry + zod
+  // schemas) must be error-free, always: executor returns are pinned to the
+  // registry output schemas with `satisfies z.infer<...>`, so schema↔executor
+  // drift fails `pnpm typecheck:contract` at compile time instead of surfacing
+  // as a deployed-contract incident. Fail-on-any-error over the contract dirs
+  // (see scripts/typecheck-contract.ts) — NOT a ratchet/baseline file.
+  //
+  // Note: TypeScript include globs do not support `!(...extglob)` negation, so
+  // the amended include is expressed as full-dir globs plus excludes. The
+  // program is import-closure based, so pre-existing strict-mode errors in
+  // TRANSITIVE files outside these dirs also print; the gate fails only on
+  // errors within the contract surface.
+  "include": [
+    "src/mcp/**/*.ts",
+    "src/tools/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/__tests__/**"
+  ]
+}

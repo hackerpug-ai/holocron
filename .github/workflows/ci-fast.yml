@@ -54,6 +54,10 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Typecheck platform contract surface (mcp + tools)
+        working-directory: services/platform
+        run: bun run typecheck:contract
+
       - name: Lint
         run: pnpm lint
 

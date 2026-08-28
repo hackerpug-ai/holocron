@@ -58,6 +58,10 @@ export function findThrowOnlyCases(executorText: string): string[] {
   let match: RegExpExecArray | null = caseRe.exec(executorText);
   while (match) {
     const id = match[1];
+    // The capture group is structurally required by the regex, but
+    // noUncheckedIndexedAccess types it string | undefined — narrow instead of
+    // asserting (this was the ONE standing src/mcp+src/tools compile error).
+    if (id === undefined) break;
     const bodyStart = match.index + match[0].length;
     const rest = executorText.slice(bodyStart);
     const nextBoundary = rest.search(/\n\s*case\s+['"]|\n\s*default\s*:/);

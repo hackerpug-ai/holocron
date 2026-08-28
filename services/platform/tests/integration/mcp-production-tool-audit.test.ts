@@ -643,9 +643,7 @@ describe('MCP production tool audit', () => {
       // (records/arrays — no unknown-key semantics) use the declared schema as-is.
       const parsed = strictOutputParse(getTool(row.id).outputSchema, output);
       if (!parsed.success) {
-        reasons.push(
-          `output_schema_mismatch:${JSON.stringify(parsed.error.issues).slice(0, 400)}`
-        );
+        reasons.push(`output_schema_mismatch:${JSON.stringify(parsed.error.issues).slice(0, 400)}`);
       }
 
       if (row.id === 'hybrid_search') {

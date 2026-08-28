@@ -14,12 +14,17 @@ import { ingestDocument } from '../etl/ingest-document.ts';
 import { RoleUnavailableError } from '../inference/resolve-model.ts';
 import { buildPublicShareUrl } from '../public-docs.ts';
 import {
+  storeDocumentOutputSchema,
+  updateDocumentOutputSchema,
+} from '../tools/schemas/documents.ts';
+import {
   cancelResearchSession,
   kickoffResearch,
   steerResearchSession,
 } from '../research/kickoff.ts';
 import { rrfHybridSearch } from '../search/rrf.ts';
 import { transcribeVideoUrl } from '../transcripts/service.ts';
+import type { z } from 'zod';
 
 function resolveJinaApiKey(): string | undefined {
   return getSecretValue('JINA_API_KEY');
@@ -1690,6 +1695,12 @@ export async function executePostgresMcpTool(
         if (!stored?.documentId) {
           throw new Error('INTERNAL_SERVER_ERROR: store_document insert returned no row');
         }
+        // imp-mcp-schema-drift-hardening: the INSERT sets title from the non-null
+        // validated input, so a null/absent RETURNING title is an internal fault —
+        // fail closed rather than emit a payload violating title: z.string().
+        if (typeof stored.title !== 'string' || stored.title.length === 0) {
+          throw new Error('INTERNAL_SERVER_ERROR: store_document insert returned no title');
+        }
         const ingested = await ingestDocument(
           sql,
           {
@@ -1707,7 +1718,7 @@ export async function executePostgresMcpTool(
           pendingEmbeddingCount: ingested.pendingEmbeddingCount,
           passageCount: ingested.passageCount,
           embeddingJobId: ingested.embeddingJobId,
-        };
+        } satisfies z.infer<typeof storeDocumentOutputSchema>;
       }
       case 'update_document': {
         const databaseUrl = resolveHolocronNonprodDatabaseUrl({
@@ -1759,7 +1770,7 @@ export async function executePostgresMcpTool(
           pendingEmbeddingCount: ingested.pendingEmbeddingCount,
           passageCount: ingested.passageCount,
           embeddingJobId: ingested.embeddingJobId,
-        };
+        } satisfies z.infer<typeof updateDocumentOutputSchema>;
       }
       case 'share_document': {
         const documentId = String(input.documentId);
