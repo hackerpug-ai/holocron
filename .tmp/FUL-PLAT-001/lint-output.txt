@@ -1,0 +1,560 @@
+
+> holocron@1.0.0 lint /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-001
+> biome check .
+
+app/(drawer)/_layout.tsx:325:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: conversations.
+  
+    323 │   const isLoading = conversationRows === undefined;
+    324 │ 
+  > 325 │   useEffect(() => {
+        │   ^^^^^^^^^
+    326 │     // ANY chat route (including deep-linked /chat/<uuid>) is authoritative.
+    327 │     // Never steal Maestro holocron://chat/<id> to most-recent/new (TC-1).
+  
+  i This dependency can be removed from the list.
+  
+    353 │     router.replace('/chat/new');
+    354 │     isInitializing.current = false;
+  > 355 │   }, [isLoading, conversations, router, pathname]);
+        │                  ^^^^^^^^^^^^^
+    356 │ 
+    357 │   return (
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    355 │ ··},·[isLoading,·conversations,·router,·pathname]);
+        │                  ---------------                   
+
+app/(drawer)/chat/[conversationId].tsx:212:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: conversationId.
+  
+    211 │   // Drop optimistic entry when navigating to another conversation (no cross-leak).
+  > 212 │   useEffect(() => {
+        │   ^^^^^^^^^
+    213 │     setPendingUser(null);
+    214 │   }, [conversationId]);
+  
+  i This dependency can be removed from the list.
+  
+    212 │   useEffect(() => {
+    213 │     setPendingUser(null);
+  > 214 │   }, [conversationId]);
+        │       ^^^^^^^^^^^^^^
+    215 │ 
+    216 │   const chatHistoryId = isNewConversation ? null : (conversationId ?? null);
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    214 │ ··},·[conversationId]);
+        │       --------------   
+
+app/(drawer)/chat/[conversationId].tsx:306:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: runBusy, isSending, streamPhase.
+  
+    305 │   // Tick while module-level stop-hold is active so agentBusy re-evaluates.
+  > 306 │   useEffect(() => {
+        │   ^^^^^^^^^
+    307 │     if (globalStopHoldUntilMs <= 0) return;
+    308 │     const remaining = globalStopHoldUntilMs - Date.now();
+  
+  i This dependency can be removed from the list.
+  
+    322 │       clearInterval(poll);
+    323 │     };
+  > 324 │   }, [runBusy, isSending, streamPhase]);
+        │       ^^^^^^^
+    325 │ 
+    326 │   // Server already cleared agent_busy (run terminal) but SSE may still be
+  
+  i This dependency can be removed from the list.
+  
+    322 │       clearInterval(poll);
+    323 │     };
+  > 324 │   }, [runBusy, isSending, streamPhase]);
+        │                ^^^^^^^^^
+    325 │ 
+    326 │   // Server already cleared agent_busy (run terminal) but SSE may still be
+  
+  i This dependency can be removed from the list.
+  
+    322 │       clearInterval(poll);
+    323 │     };
+  > 324 │   }, [runBusy, isSending, streamPhase]);
+        │                           ^^^^^^^^^^^
+    325 │ 
+    326 │   // Server already cleared agent_busy (run terminal) but SSE may still be
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    324 │ ··},·[runBusy,·isSending,·streamPhase]);
+        │       -------------------------------   
+
+app/(drawer)/chat/[conversationId].tsx:387:22 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: setPendingUser.
+  
+    385 │   );
+    386 │ 
+  > 387 │   const handleSend = useCallback(
+        │                      ^^^^^^^^^^^
+    388 │     async (content: string) => {
+    389 │       if (!content.trim() || isSending) return;
+  
+  i This dependency can be removed from the list.
+  
+    526 │       resetStream,
+    527 │       enterDegradedFromEnvelope,
+  > 528 │       setPendingUser,
+        │       ^^^^^^^^^^^^^^
+    529 │     ]
+    530 │   );
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    519 519 │       },
+    520 520 │       [
+    521     │ - ······conversationId,
+    522     │ - ······isSending,
+    523     │ - ······isNewConversation,
+    524     │ - ······router,
+    525     │ - ······connectStream,
+    526     │ - ······resetStream,
+    527     │ - ······enterDegradedFromEnvelope,
+    528     │ - ······setPendingUser,
+        521 │ + ······conversationId,·
+        522 │ + ······isSending,·
+        523 │ + ······isNewConversation,·
+        524 │ + ······router,·
+        525 │ + ······connectStream,·
+        526 │ + ······resetStream,·
+        527 │ + ······enterDegradedFromEnvelope
+    529 528 │       ]
+    530 529 │     );
+  
+
+app/(drawer)/subscription-content/[groupKey].tsx:37:30 lint/correctness/useHookAtTopLevel ━━━━━━━━━━
+
+  ! This hook is being called conditionally, but all hooks must be called in the exact same order in every component render.
+  
+    35 │   }
+    36 │ 
+  > 37 │   const [rawRows, details] = useZeroQuery(subscriptionSourcesList(100));
+       │                              ^^^^^^^^^^^^
+    38 │   const subscriptions = (rawRows ?? []) as unknown as SourceRow[];
+    39 │   const isLoading = details.type !== 'complete' && subscriptions.length === 0;
+  
+  i Hooks should not be called after an early return.
+  
+    25 │   const subscriptionIds = groupKey ? decodeURIComponent(groupKey).split(',') : [];
+    26 │ 
+  > 27 │   if (subscriptionIds.length === 0) {
+       │                                      
+  > 28 │     return (
+        ...
+  > 33 │       </ScreenLayout>
+  > 34 │     );
+       │     ^^
+    35 │   }
+    36 │ 
+  
+  i For React to preserve state between calls, hooks needs to be called unconditionally and always in the same order.
+  
+  i See https://react.dev/reference/rules/rules-of-hooks
+  
+
+app/+not-found.tsx:11:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+     9 │     headline: {
+    10 │       fontSize: typography.h1.fontSize,
+  > 11 │       fontWeight: typography.h1.fontWeight as any,
+       │                                               ^^^
+    12 │     },
+    13 │     subtitle: {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app/+not-found.tsx:15:54 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    13 │     subtitle: {
+    14 │       fontSize: typography.bodyLarge.fontSize,
+  > 15 │       fontWeight: typography.bodyLarge.fontWeight as any,
+       │                                                      ^^^
+    16 │     },
+    17 │     buttonText: {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app/+not-found.tsx:19:50 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    17 │     buttonText: {
+    18 │       fontSize: typography.label.fontSize,
+  > 19 │       fontWeight: typography.label.fontWeight as any,
+       │                                                  ^^^
+    20 │     },
+    21 │   };
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app/toolbelt/add.tsx:78:3 lint/correctness/useExhaustiveDependencies ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This hook specifies a dependency more specific than its captures: params.description
+  
+    76 │   const didRun = useRef(false);
+    77 │ 
+  > 78 │   useEffect(() => {
+       │   ^^^^^^^^^
+    79 │     if (didRun.current) return;
+    80 │     didRun.current = true;
+  
+  i This capture is more generic than...
+  
+    94 │         const goal = `Add toolbelt entry: ${params.title}`;
+    95 │         // Pass full validated tool fields — do not drop after validate.
+  > 96 │         const result = await addToolOnce(params, goal);
+       │                                          ^^^^^^
+    97 │ 
+    98 │         setToolTitle(params.title);
+  
+  i ...this dependency.
+  
+    122 │     params.tags,
+    123 │     params.language,
+  > 124 │     params.description,
+        │     ^^^^^^^^^^^^^^^^^^
+    125 │   ]);
+    126 │ 
+  
+
+app/toolbelt/add.tsx:78:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━
+
+  ! This hook does not specify its dependency on params.
+  
+    76 │   const didRun = useRef(false);
+    77 │ 
+  > 78 │   useEffect(() => {
+       │   ^^^^^^^^^
+    79 │     if (didRun.current) return;
+    80 │     didRun.current = true;
+  
+  i This dependency is being used here, but is not specified in the hook dependency list.
+  
+    94 │         const goal = `Add toolbelt entry: ${params.title}`;
+    95 │         // Pass full validated tool fields — do not drop after validate.
+  > 96 │         const result = await addToolOnce(params, goal);
+       │                                          ^^^^^^
+    97 │ 
+    98 │         setToolTitle(params.title);
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Failing to specify dependencies can result in Effects not updating correctly when state changes.
+    These "stale closures" are a common source of surprising bugs.
+  
+  i Unsafe fix: Add the missing dependency params to the list.
+  
+    114 114 │       addToolFromParams();
+    115 115 │     }, [
+    116     │ - ····router.back,
+    117     │ - ····params.useCases,
+    118     │ - ····params.sourceUrl,
+    119     │ - ····params.title,
+    120     │ - ····params.sourceType,
+    121     │ - ····params.category,
+    122     │ - ····params.tags,
+    123     │ - ····params.language,
+    124     │ - ····params.description,
+        116 │ + ····router.back,·
+        117 │ + ····params.useCases,·
+        118 │ + ····params.sourceUrl,·
+        119 │ + ····params.title,·
+        120 │ + ····params.sourceType,·
+        121 │ + ····params.category,·
+        122 │ + ····params.tags,·
+        123 │ + ····params.language,·
+        124 │ + ····params.description,·params
+    125 125 │     ]);
+    126 126 │   
+  
+
+components/AnswerWithSourcesCard.tsx:58:24 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    56 │         <View className="gap-2">
+    57 │           {sources.map((source, index) => (
+  > 58 │             <View key={index} className="border-l-2 border-primary/50 pl-2 py-1 gap-0.5">
+       │                        ^^^^^
+    59 │               <Text className="text-sm font-medium text-primary leading-tight">
+    60 │                 [{index + 1}] {source.title}
+  
+  i This is the source of the key value.
+  
+    55 │         {/* Sources list */}
+    56 │         <View className="gap-2">
+  > 57 │           {sources.map((source, index) => (
+       │                                 ^^^^^
+    58 │             <View key={index} className="border-l-2 border-primary/50 pl-2 py-1 gap-0.5">
+    59 │               <Text className="text-sm font-medium text-primary leading-tight">
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/IterationCard.tsx:115:30 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    113 │               <View className="gap-1">
+    114 │                 {refinedQueries.map((query, index) => (
+  > 115 │                   <View key={index} className="bg-muted rounded px-2 py-1">
+        │                              ^^^^^
+    116 │                     <Text className="text-foreground text-sm">{query}</Text>
+    117 │                   </View>
+  
+  i This is the source of the key value.
+  
+    112 │               </Text>
+    113 │               <View className="gap-1">
+  > 114 │                 {refinedQueries.map((query, index) => (
+        │                                             ^^^^^
+    115 │                   <View key={index} className="bg-muted rounded px-2 py-1">
+    116 │                     <Text className="text-foreground text-sm">{query}</Text>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/ProgressIndicator.tsx:99:26 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+     97 │           <View className="flex-row flex-wrap gap-1">
+     98 │             {sources.slice(0, 5).map((source, index) => (
+   > 99 │               <View key={index} className="rounded bg-muted px-2 py-0.5">
+        │                          ^^^^^
+    100 │                 <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+    101 │                   {source}
+  
+  i This is the source of the key value.
+  
+     96 │           </View>
+     97 │           <View className="flex-row flex-wrap gap-1">
+   > 98 │             {sources.slice(0, 5).map((source, index) => (
+        │                                               ^^^^^
+     99 │               <View key={index} className="rounded bg-muted px-2 py-0.5">
+    100 │                 <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/ToolCard.tsx:148:24 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    146 │         <View className="mt-2.5 flex-row flex-wrap gap-1.5 pl-12">
+    147 │           {tags.slice(0, 5).map((tag, index) => (
+  > 148 │             <View key={index} className="rounded-md bg-muted px-2 py-0.5">
+        │                        ^^^^^
+    149 │               <Text className="text-[11px] text-muted-foreground">{tag}</Text>
+    150 │             </View>
+  
+  i This is the source of the key value.
+  
+    145 │       {tags && tags.length > 0 && !compact && (
+    146 │         <View className="mt-2.5 flex-row flex-wrap gap-1.5 pl-12">
+  > 147 │           {tags.slice(0, 5).map((tag, index) => (
+        │                                       ^^^^^
+    148 │             <View key={index} className="rounded-md bg-muted px-2 py-0.5">
+    149 │               <Text className="text-[11px] text-muted-foreground">{tag}</Text>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/cards/RecommendationListCard.tsx:34:30 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    32 │       {data.items.map((item, i) => (
+    33 │         <RecommendationItem
+  > 34 │           key={`${item.id}-${i}`}
+       │                              ^
+    35 │           item={item}
+    36 │           index={i}
+  
+  i This is the source of the key value.
+  
+    30 │       )}
+    31 │ 
+  > 32 │       {data.items.map((item, i) => (
+       │                              ^
+    33 │         <RecommendationItem
+    34 │           key={`${item.id}-${i}`}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+vitest.setup.ts:7:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    5 │  */
+    6 │ 
+  > 7 │ import { View } from 'react-native';
+      │        ^^^^^^^^
+    8 │ import { vi } from 'vitest';
+    9 │ 
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     1    │ - /**
+     2    │ - ·*·Vitest·setup·file·for·React·Native·testing
+     3    │ - ·*
+     4    │ - ·*·This·file·runs·before·all·tests·and·sets·up·mocks·for·problematic·modules.
+     5    │ - ·*/
+     6    │ - 
+     7    │ - import·{·View·}·from·'react-native';
+        1 │ + /**
+        2 │ + ·*·Vitest·setup·file·for·React·Native·testing
+        3 │ + ·*
+        4 │ + ·*·This·file·runs·before·all·tests·and·sets·up·mocks·for·problematic·modules.
+        5 │ + ·*/
+        6 │ + 
+     8  7 │   import { vi } from 'vitest';
+     9  8 │   
+  
+
+vitest.setup.ts:30:14 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    28 │     Animated: {
+    29 │       ...(actual.Animated as Record<string, unknown>),
+  > 30 │       loop: (animation: unknown) => ({
+       │              ^^^^^^^^^
+    31 │         start: vi.fn(),
+    32 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend animation with an underscore.
+  
+    28 28 │       Animated: {
+    29 29 │         ...(actual.Animated as Record<string, unknown>),
+    30    │ - ······loop:·(animation:·unknown)·=>·({
+       30 │ + ······loop:·(_animation:·unknown)·=>·({
+    31 31 │           start: vi.fn(),
+    32 32 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:34:16 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    32 │         stop: vi.fn(),
+    33 │       }),
+  > 34 │       timing: (value: unknown, config: unknown) => ({
+       │                ^^^^^
+    35 │         start: (callback?: () => void) => callback?.(),
+    36 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend value with an underscore.
+  
+    32 32 │           stop: vi.fn(),
+    33 33 │         }),
+    34    │ - ······timing:·(value:·unknown,·config:·unknown)·=>·({
+       34 │ + ······timing:·(_value:·unknown,·config:·unknown)·=>·({
+    35 35 │           start: (callback?: () => void) => callback?.(),
+    36 36 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:34:32 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    32 │         stop: vi.fn(),
+    33 │       }),
+  > 34 │       timing: (value: unknown, config: unknown) => ({
+       │                                ^^^^^^
+    35 │         start: (callback?: () => void) => callback?.(),
+    36 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend config with an underscore.
+  
+    32 32 │           stop: vi.fn(),
+    33 33 │         }),
+    34    │ - ······timing:·(value:·unknown,·config:·unknown)·=>·({
+       34 │ + ······timing:·(value:·unknown,·_config:·unknown)·=>·({
+    35 35 │           start: (callback?: () => void) => callback?.(),
+    36 36 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    37 │         reset: vi.fn(),
+    38 │       }),
+  > 39 │       sequence: (animations: unknown) => ({
+       │                  ^^^^^^^^^^
+    40 │         start: vi.fn(),
+    41 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend animations with an underscore.
+  
+    37 37 │           reset: vi.fn(),
+    38 38 │         }),
+    39    │ - ······sequence:·(animations:·unknown)·=>·({
+       39 │ + ······sequence:·(_animations:·unknown)·=>·({
+    40 40 │           start: vi.fn(),
+    41 41 │           stop: vi.fn(),
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 642.
+Checked 1417 files in 628ms. No fixes applied.
+Found 592 warnings.
+Found 70 infos.

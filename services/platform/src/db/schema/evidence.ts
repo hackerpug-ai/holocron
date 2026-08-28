@@ -6,6 +6,7 @@
 
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   doublePrecision,
   index,
@@ -29,6 +30,12 @@ import {
 } from '../columns';
 import { relationTypeValues, sourceKindValues, sqlInList } from '../enums';
 
+/** claims.status — admission lifecycle (CHECK claims_status_check, migration 0041). */
+export const claimStatusValues = ['admitted', 'provisional', 'contested', 'refuted'] as const;
+
+/** claims.polarity — evidence stance (CHECK claims_polarity_check, migration 0041). */
+export const claimPolarityValues = ['support', 'refute'] as const;
+
 export const sources = pgTable(
   'sources',
   {
@@ -41,6 +48,13 @@ export const sources = pgTable(
     title: text('title'),
     url: text('url'),
     metadataJson: typedJsonb('metadata_json'),
+    // Fulcrum fetch artifact (written at retrieve time; not an RRF snippet).
+    // A claim's quote_text MUST be an exact substring of normalized_text.
+    normalizedText: text('normalized_text'),
+    retrievedAt: timestamptz('retrieved_at'),
+    sourceDomain: text('source_domain'),
+    provenanceGroup: text('provenance_group'),
+    selfSourced: boolean('self_sourced').notNull().default(false),
     createdAt: createdAtColumn(),
     searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'url')),
   },
@@ -90,6 +104,15 @@ export const claims = pgTable(
     claimCategory: text('claim_category'),
     confidence: doublePrecision('confidence'),
     metadataJson: typedJsonb('metadata_json'),
+    // Fulcrum admission columns (additive; migration 0041).
+    candidateId: text('candidate_id'),
+    component: text('component'),
+    polarity: text('polarity'),
+    status: text('status').notNull().default('provisional'),
+    quoteText: text('quote_text'),
+    passesGate: boolean('passes_gate'),
+    qualifyingGrade: doublePrecision('qualifying_grade'),
+    targetClaimId: text('target_claim_id'),
     createdAt: createdAtColumn(),
     searchVector: searchVectorColumn(weightedSearchVectorSql('claim_text')),
   },
@@ -98,6 +121,8 @@ export const claims = pgTable(
     index('claims_source_id_idx').on(t.sourceId),
     index('claims_passage_id_idx').on(t.passageId),
     searchVectorGinIndex('claims_search_vector_gin', t.searchVector),
+    check('claims_status_check', sql`status IN (${sql.raw(sqlInList(claimStatusValues))})`),
+    check('claims_polarity_check', sql`polarity IN (${sql.raw(sqlInList(claimPolarityValues))})`),
   ]
 );
 

@@ -9,6 +9,7 @@ export * from './documents';
 export * from './etl';
 export * from './evals';
 export * from './evidence';
+export * from './fulcrum';
 export * from './inference';
 export * from './media';
 export * from './mission';
@@ -27,6 +28,7 @@ import * as documents from './documents';
 import * as etl from './etl';
 import * as evals from './evals';
 import * as evidence from './evidence';
+import * as fulcrum from './fulcrum';
 import * as inference from './inference';
 import * as media from './media';
 import * as mission from './mission';
@@ -48,6 +50,7 @@ export const schema = {
   ...media,
   ...mission,
   ...evidence,
+  ...fulcrum,
   ...others,
   ...outbox,
   ...queue,
@@ -103,6 +106,16 @@ export const DOMAIN_TABLE_NAMES = [
   'entities',
   'relations',
   'beliefs',
+  // fulcrum ledger (9)
+  'candidates',
+  'belief_scores',
+  'weight_versions',
+  'weight_components',
+  'domain_tier_versions',
+  'domain_tiers',
+  'touches',
+  'probes',
+  'claim_evidence_bindings',
   // mission engine (10)
   'mission_templates',
   'mission_template_versions',

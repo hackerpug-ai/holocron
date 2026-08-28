@@ -1,0 +1,16 @@
+# AC-3 seeded-value artifact (db_query, captured immediately after the AC-3 scenario run)
+ belief_scores_count 
+---------------------
+                   1
+(1 row)
+
+ weight_version | domain_tier_version 
+----------------+---------------------
+              1 |                   1
+(1 row)
+
+ null_stamped_rows 
+-------------------
+                 0
+(1 row)
+

@@ -1,0 +1,21 @@
+# AC-5 seeded-value artifact (db_query, captured immediately after the AC-5 scenario run)
+   status    | passes_gate | component | qualifying_grade | polarity 
+-------------+-------------+-----------+------------------+----------
+ provisional | f           | demand    |                  | 
+(1 row)
+
+       conname       
+---------------------
+ claims_status_check
+(1 row)
+
+ approved_rows 
+---------------
+             0
+(1 row)
+
+ provisional_scenario_rows 
+---------------------------
+                         1
+(1 row)
+

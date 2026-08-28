@@ -1,0 +1,80 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/ac-4-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/ac-5-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-4-output.txt"
+  },
+  {
+    "id": "TC-5",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-5-output.txt"
+  },
+  {
+    "id": "TC-6",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-6-output.txt"
+  },
+  {
+    "id": "TC-7",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-7-output.txt"
+  },
+  {
+    "id": "TC-8",
+    "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-PLAT-001/tc-8-output.txt"
+  }
+]
