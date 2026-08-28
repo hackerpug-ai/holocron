@@ -396,7 +396,9 @@ tools:
         embeddingStatus:
           type: string
           enum: [pending, completed, failed]
-        embeddingDimensions: { type: integer }
+        pendingEmbeddingCount: { type: integer, minimum: 0 }
+        passageCount: { type: integer, minimum: 0 }
+        embeddingJobId: { type: [string, "null"] }
     defaults:
       metadata: {}
       metadata.category: general
@@ -441,8 +443,9 @@ tools:
         embeddingStatus:
           type: string
           enum: [pending, completed, failed]
-        embeddingRegenerated: { type: boolean }
-        embeddingDimensions: { type: integer }
+        pendingEmbeddingCount: { type: integer, minimum: 0 }
+        passageCount: { type: integer, minimum: 0 }
+        embeddingJobId: { type: [string, "null"] }
     defaults: {}
     errors:
       - code: NOT_FOUND
@@ -908,8 +911,7 @@ tools:
         title: { type: string }
         embeddingStatus:
           type: string
-          enum: [completed, pending, failed]
-        embeddingDimensions: { type: integer }
+          enum: [not_ingested]
     defaults:
       status: draft
       description: null
@@ -1097,9 +1099,7 @@ tools:
         updated: { type: boolean }
         embeddingStatus:
           type: string
-          enum: [completed, pending, failed]
-        embeddingRegenerated: { type: boolean }
-        embeddingDimensions: { type: integer }
+          enum: [not_ingested]
     defaults: {}
     errors:
       - code: NOT_FOUND
