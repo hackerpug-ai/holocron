@@ -191,10 +191,48 @@ If ANY gate fails, the commit is rejected. This is by design. **Do not work arou
 
 ## When to Deploy
 
-When an orchestrator completes a plan or series of tasks that includes **client code changes** (files in `app/`, `components/`, `hooks/`, `screens/`, `lib/`, or `assets/`), it MUST trigger a deploy before reporting completion. Backend-only changes (e.g. `convex/`, `supabase/`) do NOT require a client deploy.
+Two deploy surfaces. Identify which your change touches **before reporting any work complete**.
 
-## How to Deploy
+### Server (platform) changes — deploy is MANDATORY and agent-owned
 
+Any change to the running holocron services — `services/platform/**`, `holocron-mcp/**`, `services/platform/deploy/**`, the edge worker — is **NOT done until it is rebuilt, deployed on the holocron host, and verified live**. Committed ≠ done. Merged ≠ done. A platform fix that is not deployed is a fix that does not exist.
+
+*Incident of record (2026-08-27): `store_document`'s declared output schema drifted from the actual async-embedding return payload. The code fix was trivial, but every MCP client kept failing until the image was rebuilt and redeployed — because the running server kept serving the stale schema. The agent's job includes the redeploy.*
+
+The agent that makes a platform change **owns its deploy end-to-end** and must not report completion before the live service exhibits the fix. "Ready to deploy" is not a completion state.
+
+Pipeline (run ON the holocron host — it has Docker and the registry; the laptop has neither):
+
+```bash
+# 0. Land the commit on the canonical line. The host clone ~/Projects/holocron IS canonical —
+#    it runs ahead of GitHub origin/main and CANNOT reach GitHub. Never deploy from a
+#    laptop-only SHA (it silently rolls back deployed production commits). From a laptop:
+#      git remote add holocron "holocron:Projects/holocron"
+#      git push holocron <sha>:refs/heads/tmp/<name>    # then cherry-pick on the host
+# 1. Stage (requires a clean tree at the exact SHA; fails closed):
+cd ~/Projects/holocron
+scripts/stage-holocron-release.sh \
+  --source-revision "$(git rev-parse HEAD)" \
+  --out ".tmp/DEPLOY-<slug>/stage-$(git rev-parse --short HEAD)" \
+  --previous-image "$(docker inspect holocron-production-mastra-1 --format '{{.Config.Image}}')"
+# 2. Apply (volume-preserving cold recreate of the 12 services, ~1 min blip; NEVER `down -v`):
+export HOLO_SECRET_STORE_ROOT="$HOME/Projects/holocron/services/platform/config"
+bun services/platform/src/cli/holo.ts deploy:apply --authorize \
+  --release <staged>/image-lock.json \
+  --base-url "https://holocron.tail011a51.ts.net:44111" \
+  --target holocron --json
+# 3. Verify LIVE before claiming done: observe the changed behavior on the running server
+#    (e.g. tools/list shows the new outputSchema), then:
+#      bun services/platform/src/cli/holo.ts deploy:verify --portable --json
+# 4. Publish the host line back to GitHub from a laptop (the host cannot push):
+#      git fetch holocron && git push origin holocron/main:main
+```
+
+### Client code changes — EAS release
+
+When an orchestrator completes a plan or series of tasks that includes **client code changes** (files in `app/`, `components/`, `hooks/`, `screens/`, `lib/`, or `assets/`), it MUST trigger the client deploy below before reporting completion.
+
+## How to Deploy (client — EAS)
 Deploying creates a GitHub Release, which triggers the EAS Deploy workflow (`.github/workflows/eas-deploy.yml`). The workflow runs quality gates (typecheck + tests), then builds iOS (with App Store submit) and Android in parallel on EAS.
 
 ```bash
@@ -214,7 +252,7 @@ gh release create v{X.Y.Z} --generate-notes --title "v{X.Y.Z}"
 - **Major** (`v2.0.0`): Breaking changes, major redesigns
 
 **Do NOT:**
-- Deploy for backend-only changes (`convex/`, `supabase/`)
+- Ship a client EAS release for backend-only changes (`services/platform/**` follows the server pipeline above instead)
 - Deploy if quality gates (typecheck, tests) are failing locally
 - Skip pushing to `main` before creating the release
 
