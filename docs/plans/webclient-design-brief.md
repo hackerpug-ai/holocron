@@ -2,7 +2,7 @@
 
 **Status:** brainstorm output, pre-PRD
 **Date:** 2026-08-28
-**Stack:** Next.js on Cloudflare Workers · tRPC (BFF) · shadcn/ui + AI Elements · AI SDK agent loop · platform-on-device over the tunnel
+**Stack:** Next.js on Cloudflare Workers via vinext · tRPC (BFF) · shadcn/ui + AI Elements · AI SDK agent loop · platform-on-device over the tunnel
 
 ---
 
@@ -44,6 +44,30 @@
                           ├─ /api/*                    documents, research, uploads, publish
                           └─ Postgres                  documents, conversations, sessions, BetterAuth
 ```
+
+### Hosting — vinext, not OpenNext
+
+Cloudflare's **default** Workers path for Next.js is **vinext**, a Vite plugin that reimplements the Next.js API surface. `app/`, `pages/`, `next.config.js` and `public/` stay as they are; no Cloudflare-specific template. OpenNext (`@opennextjs/cloudflare`) is now the fallback for existing apps that can't migrate — **not** the default for new work, whatever older guides say.
+
+```bash
+npx vinext check            # compatibility gate — run this before committing to the stack
+npx vinext init             # choose Cloudflare Workers
+npx @vinext/cloudflare deploy
+```
+
+**vinext is in beta.** Run the check and read the compatibility dashboard before treating this as settled.
+
+Three consequences that reach into the design:
+
+- **Bindings are server-only.** `import { env } from 'cloudflare:workers'`, never from a Client Component.
+- **Image optimization is only partial.** The public reader must serve document assets straight from the origin asset route rather than leaning on `next/image` optimization — which is fine, because that route already exists and already carries the correct `is_public` join.
+- **`middleware.ts` and `proxy.ts` are both supported**, so BetterAuth route protection has a normal home.
+
+### Component libraries are Open Code
+
+shadcn/ui and AI Elements are **not importable packages**. Their CLIs copy source into the repo — `components/ui/` and `components/ai-elements/` — and you edit the copies. AI Elements is a shadcn *registry*, not a second design system, installed with `npx ai-elements@latest` (which wraps the shadcn CLI). React 19, Tailwind v4 (`@import "shadcn/tailwind.css"`).
+
+This matters more than it looks: the holocron design language in §6 is implemented **by editing the copied components**, not by wrapping or overriding a vendored library. There is no upstream to fight.
 
 ### The domain envelopment
 
@@ -244,7 +268,8 @@ Consequences of running the agent in the BFF. All chosen deliberately; recorded 
 
 ## 9. Build order
 
-1. **`/d/<token>` in Next, at full URL compatibility** — real markdown, working images, `/assets/[id]`, and the exact cache semantics from §2. Retire `worker-docs-reader`. Fixes both live defects; independently shippable; touches nothing else.
+0. **`npx vinext check`** — before anything else. vinext is beta and it either supports this app shape or it doesn't; finding out after step 3 is expensive.
+1. **`/d/<token>` in Next, at full URL compatibility** — real markdown, working images served from the origin asset route, `/assets/[id]`, and the exact cache semantics from §2. Retire `worker-docs-reader`. Fixes both live defects; independently shippable; touches nothing else.
 2. **Shell + auth** — Next on Workers, BetterAuth, two destinations, the holocron design system with the chrome/column rule enforced from the first component.
 3. **tRPC BFF + Library** — router, TanStack Query, hybrid search, filters, document view, share toggle.
 4. **Chats** — `chat.stream` generator, AI SDK loop, MCP client attach, the `UIMessage` reducer, AI Elements, commands, record-keyed cards.

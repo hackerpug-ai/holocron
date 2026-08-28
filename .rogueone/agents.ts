@@ -190,6 +190,8 @@ Read AGENTS.md before touching a file. Its current project rules override generi
 
 - Device platform: Mastra on Bun, Postgres and Drizzle, with Zero serving the React Native client.
 - Web client: Next.js on Cloudflare Workers, tRPC as the BFF, shadcn and AI Elements for UI, an AI SDK agent loop attaching to the device MCP gateway over the tunnel, and BetterAuth guarding the operator surface. Scoped in docs/plans/webclient-design-brief.md — read it before touching web client code.
+- Cloudflare's default Next.js path is vinext, not OpenNext. Reject Vercel-only deploys and adapterless next start when the target is Workers. Bindings are server-only: import env from cloudflare:workers, never from a Client Component. Image optimization is partial, so the public reader serves document assets from the origin asset route rather than relying on it.
+- shadcn and AI Elements are Open Code, not importable packages. Their CLIs copy source into this repo; edit the copies. An import from an npm component package named for either library is wrong by construction.
 - Convex is decommissioned. Two build gates enforce it: verify:no-convex-client and verify-no-convex-env. Never add Convex code, imports or env aliases.
 - Public share links target docs.holocrnlib.com/d/<token>. That URL shape is promised by the MCP share_document tool description and must stay stable, including its 60s cache and revocation semantics.
 - Reasoning uses the real local LiteLLM fleet. Claude is a budgeted escape hatch, never a fabricated substitute.
@@ -392,6 +394,18 @@ export const agents: ProjectAgent[] = [
     'reviewer',
     'ai-sdk',
     'Holocron web agent review: v7 correctness, real-provider verification and stub detection.'
+  ),
+  graphed(
+    'shadcn-ai-elements-implementer',
+    'implementer',
+    'shadcn-ai-elements',
+    'Holocron web UI: real shadcn and AI Elements CLI installs, edited in place, over a real stream.'
+  ),
+  graphed(
+    'shadcn-ai-elements-reviewer',
+    'reviewer',
+    'shadcn-ai-elements',
+    'Holocron web UI review: Open Code installs, registry drift, chat composition and real-stream evidence.'
   ),
   graphed(
     'betterauth-implementer',
