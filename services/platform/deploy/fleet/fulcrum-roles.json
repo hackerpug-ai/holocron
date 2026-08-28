@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "description": "FUL-INFRA-001 — the single declaration of Fulcrum role expectations for the inference substrate. Role name -> oMLX model basename (directory name under the node model root). These are two separate namespaces: role expectations are NEVER derived from observed oMLX basenames at runtime (ADR-008). judge and every coder role are forbidden on the Fulcrum path (ADR-008); the laptop is never a Fulcrum node (ADR-007).",
+  "roles": {
+    "divergent": {
+      "basename": "Qwen3.8-27B-8bit",
+      "size_gb": 28,
+      "hf_repo": "mlx-community/Qwen3.8-27B-8bit",
+      "quantization": "8bit-affine-group64"
+    },
+    "convergent": {
+      "basename": "Muse-Glimmer-30B-4bit",
+      "size_gb": 17,
+      "hf_repo": "mlx-community/Muse-Glimmer-30B-4bit",
+      "quantization": "4bit"
+    },
+    "embed": {
+      "basename": "Qwen3-Embedding-0.6B-4bit-DWQ",
+      "size_gb": 1,
+      "hf_repo": "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ",
+      "quantization": "4bit-dwq"
+    }
+  },
+  "nodes": {
+    "inference1": {
+      "endpoint": "http://inference1.tail011a51.ts.net:8003/v1"
+    },
+    "inference2": {
+      "endpoint": "http://inference2.tail011a51.ts.net:8003/v1"
+    }
+  },
+  "forbidden_role_names": [
+    "judge",
+    "reviewer",
+    "implementer",
+    "orchestrator",
+    "qwen-coder",
+    "verifier"
+  ]
+}
