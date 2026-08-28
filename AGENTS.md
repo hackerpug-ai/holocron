@@ -69,27 +69,48 @@ When dispatching subagents for planning, review, or implementation, prefer these
 
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| `mcp-planner` | MCP server planning | TypeScript MCP server design: SDK choice, transport, tool/resource/prompt surface, auth, Zod schemas, semver strategy |
-| `mcp-implementer` | MCP server implementation | Tool/resource/prompt handlers, transport wiring, `isError` patterns, stdio-safe logging, TDD (RED → GREEN → REFACTOR) |
-| `mcp-reviewer` | MCP server review | Protocol compliance, Zod rigor, OAuth 2.1 + PKCE enforcement, path traversal, stdio logging audit, TDD evidence |
-| `mastra-planner` | **Backend + agent platform planning (MK-VI target)** | Mastra server architecture, mission-engine workflows, agents/tools/processors, Postgres+Drizzle data layer, local-fleet wiring, MCP rehost. **Primary backend/agentic planner post-migration.** |
+| **Web client — Next.js on Cloudflare** *(see `docs/plans/webclient-design-brief.md`)* | | |
+| `nextjs-planner` | Web app architecture | Route/segment design, Server vs Client boundary, the public `/d/<token>` reader, caching strategy |
+| `nextjs-implementer` | Web app implementation | Server Components, route handlers, Server Actions; TDD per AC |
+| `nextjs-reviewer` | Web app review | Server/Client boundary correctness, data fetching, caching, security |
+| `trpc-planner` | BFF design | Router tree, procedure schemas, context, link strategy (`httpBatchStreamLink` + async generators) |
+| `trpc-implementer` | BFF implementation | Routers, procedures, streaming generators, TanStack Query wiring |
+| `trpc-reviewer` | BFF review | Type safety, Zod validation, link/adapter correctness, stream lifecycle |
+| `cloudflare-workers-planner` | Edge deployment design | Worker entry, bindings, cache semantics, custom-domain routing |
+| `cloudflare-workers-implementer` | Edge deployment | Wrangler config, bindings, cache headers; TDD against real `wrangler dev` |
+| `cloudflare-workers-reviewer` | Edge deployment review | Binding usage, CPU/memory limits, cache correctness, anti-patterns |
+| `aisdk-planner` | Agent loop design | AI SDK v7 surface, model/provider strategy, tool loop, structured output |
+| `aisdk-implementer` | Agent loop implementation | `streamText`/Agent, MCP client attach; verified against a REAL provider stream |
+| `aisdk-reviewer` | Agent loop review | v7 correctness, real-provider verification, stub detection |
+| `betterauth-planner` | Auth design | Session strategy, plugin selection, schema, route protection |
+| `betterauth-implementer` | Auth implementation | Config, handler mounting, Drizzle migrations, client instance |
+| `betterauth-reviewer` | Auth review | Session security, handler mounting, token handling, migration safety |
+| `frontend-designer` | Visual presentation | Layout, styling, animation — owns the chrome-vs-column rule. NOT logic or state |
+| **Device platform — Bun + Hono + Postgres on the tailnet mini** | | |
+| `mastra-planner` | **Backend + agent platform planning** | Mastra server architecture, mission-engine workflows, agents/tools/processors, Postgres+Drizzle data layer, local-fleet wiring, MCP rehost. **Primary backend planner.** |
 | `mastra-implementer` | Backend + agent platform implementation | Mastra agents, tools, workflows, processors, memory; Hono services; Postgres/Drizzle; TDD against a REAL Mastra server + REAL Postgres + REAL fleet |
 | `mastra-reviewer` | Backend + agent platform review | Agent/tool/workflow correctness, mission-engine determinism seams, stub detection, tripwire coverage, TDD evidence |
-| `mastra-evals-implementer` | Evals + observability | Datasets, scorers, CI eval gating, live eval, drift tracking (Langfuse + local judge) — the detective-controls layer |
-| `convex-planner` | Convex backend planning *(legacy — migration source only)* | Understanding the Convex system being migrated OFF; schema/API archaeology for the MK-VI ETL. NOT for new backend work. |
-| `convex-implementer` | Convex backend implementation *(legacy — migration source only)* | Read-side extraction for the ETL; freezing Convex during cutover. NOT for new features. |
-| `convex-reviewer` | Convex backend review *(legacy — migration source only)* | Verifying the Convex export/ETL captured everything. NOT for new backend work. |
-| `pi-agent-planner` | *(superseded by `mastra-planner`)* | Retained for reference; use `mastra-planner` for agentic logic. |
-| `pi-agent-implementer` | *(superseded by `mastra-implementer`)* | Retained for reference; use `mastra-implementer`. |
-| `pi-agent-reviewer` | *(superseded by `mastra-reviewer`)* | Retained for reference; use `mastra-reviewer`. |
-| `react-native-ui-planner` | Frontend state/network planning | Expo, react-native-paper, mobile-specific state and data fetching patterns |
-| `react-native-ui-implementer` | Frontend state/network implementation | React Native components, state management, **Zero (Rocicorp) reactive hooks** (Convex hooks only during migration), navigation using TDD with Expo |
-| `react-native-ui-reviewer` | Frontend state/network review | Theme compliance, accessibility, state patterns, TDD quality with Expo |
-| `frontend-designer` | Rendered frontend / visual presentation | Layout, styling, animations ONLY — not for logic or state management |
+| `mastra-evals-implementer` | Evals + observability | Datasets, scorers, CI eval gating, live eval, drift tracking (Langfuse + local judge) |
+| `mcp-planner` | MCP surface planning | Tool/resource/prompt surface, transport, Zod schemas, semver. Also the BFF's MCP **client** attach |
+| `mcp-implementer` | MCP implementation | Tool handlers, transport wiring, `isError` patterns, stdio-safe logging, TDD |
+| `mcp-reviewer` | MCP review | Protocol compliance, Zod rigor, auth enforcement, path traversal, stdio logging audit |
+| **Mobile — Expo / React Native** | | |
+| `react-native-ui-planner` | Mobile state/network planning | Expo, react-native-paper, mobile state and data fetching patterns |
+| `react-native-ui-implementer` | Mobile state/network implementation | RN components, state, **Zero (Rocicorp) reactive hooks**, navigation; TDD with Expo |
+| `react-native-ui-reviewer` | Mobile state/network review | Theme compliance, accessibility, state patterns, TDD quality |
+| **Standing** | | |
+| `security-reviewer` | Security validation | Any change touching auth, share tokens, the public reader, or the tunnel boundary |
 
 **Dispatch priority**: Always check this table first. Only fall back to generic `general-purpose` agents when no domain expert matches the task.
 
-**MK-VI platform shift (2026-07-13):** Holocron is migrating off Convex to a **Mastra (Bun) + Postgres** platform running on the tailnet mini, with the RN app syncing via **Zero (Rocicorp)** and all reasoning on the **local inference fleet** (LiteLLM `:4545`, Claude API as a budgeted escape hatch only). The `mastra-*` suite are the platform experts for all new backend and agentic work; `convex-*` and `pi-agent-*` are retained only as migration-source / reference roles until Convex is fully decommissioned. This migration is scoped in `.spec/prds/mk6-migration/` and **precedes and contains** `.spec/prds/fulcrum/` (fulcrum becomes the first mission template on the new engine).
+**MK-VI platform (2026-07-13):** Holocron runs a **Mastra (Bun) + Postgres** platform on the tailnet mini, with the RN app syncing via **Zero (Rocicorp)** and reasoning on the **local inference fleet** (LiteLLM `:4545`, Claude API as a budgeted escape hatch only). The `mastra-*` suite are the platform experts for all backend and agentic work on the device. Scoped in `.spec/prds/mk6-migration/`, which **precedes and contains** `.spec/prds/fulcrum/`.
+
+**Convex is decommissioned (verified 2026-08-28).** `convex-*` and `pi-agent-*` were removed from this table — they no longer map to live work. Two build gates enforce it: `bun run verify:no-convex-client` and `verify:no-convex-env`. Only `legacyConvexId` columns remain.
+
+**Two knowledge gaps — no specialist currently covers these:**
+
+1. **AI Elements (web)** — `elements.ai-sdk.dev`, the chat UI library chosen for the web client. Brain has a Rosetta KB for `expo-ai-elements` (the React Native port) and for `assistant-ui` (a different library), but nothing for the web original. `aisdk-*` agents know AI SDK core, not the component registry. Fix: `/rosetta-bootstrap ai-elements https://elements.ai-sdk.dev`.
+2. **Next.js on Cloudflare Workers** — deploying Next to Workers goes through the `@opennextjs/cloudflare` adapter, which carries real constraints (node compat flags, ISR/cache bindings, runtime restrictions). The `nextjs` KB contains zero `opennext` references and mentions Cloudflare only as an image-loader name; the `cloudflare-workers` KB contains zero Next.js references. Neither `nextjs-*` nor `cloudflare-workers-*` owns this seam. Fix: extend one of the two KBs before the first deploy task.
 
 ## Codex Runtime Overrides
 
@@ -107,12 +128,9 @@ Runtime dispatch rules for Codex:
 
 | Logical Specialist | Runtime Agent Type | Model Override | When to Use |
 |---|---|---|---|
-| `convex-planner` | `default` | `gpt-5.4-mini` | Convex architecture, schema, API planning |
-| `convex-implementer` | `worker` | `gpt-5.3-codex` | Convex queries, mutations, actions, migrations |
-| `convex-reviewer` | `default` | `gpt-5.3-codex` | Convex review, API/data validation, TDD evidence review |
-| `pi-agent-planner` | `default` | `gpt-5.4-mini` | Agentic workflow/tool planning |
-| `pi-agent-implementer` | `worker` | `gpt-5.3-codex` | Agentic/AI logic implementation |
-| `pi-agent-reviewer` | `default` | `gpt-5.3-codex` | Agentic/AI logic review |
+| any `*-planner` | `default` | `gpt-5.4-mini` | Architecture, schema, API, agent-loop planning |
+| any `*-implementer` | `worker` | `gpt-5.3-codex` | Implementation — `worker` lets the orchestrator enforce file ownership |
+| any `*-reviewer` | `default` | `gpt-5.3-codex` | Adversarial review, TDD evidence review |
 
 Runtime policy:
 - Keep the logical specialist ownership in task specs, plans, and ledgers.
