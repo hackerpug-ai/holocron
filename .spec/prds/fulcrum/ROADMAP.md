@@ -14,7 +14,7 @@ pr_sequencing: true
 
 **Sprints:** 5  (1 committed · 4 provisional)
 **Total Tasks:** 15  (committed sprints only; provisional sprints carry a size band)
-**Current Sprint:** None — planning approved; no sprint is in flight
+**Current Sprint:** Sprint 01 — tasks expanded 2026-08-28; 15 task files under `tasks/sprint-01-produce-one-trustworthy-candidate-dossier-on-self-owned-inference/`
 
 > **PR sequencing enabled.** Lifecycle: 🔵 Planned → 🟠 In flight → 🟣 In review → ✅ Completed → 🔴 Blocked. PR cell required for Completed status. See [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/docs/PR-SEQUENCING.md) for the full convention.
 
@@ -22,8 +22,8 @@ pr_sequencing: true
 
 | # | Milestone | Sprint | Gate | Tasks | Dependencies | Status | Branch | PR |
 |---|-----------|--------|------|-------|--------------|--------|--------|----|
-| 1 | — | [Sprint 01: Produce one trustworthy candidate dossier on self-owned inference](#sprint-01-real-evidence-dossier) | Running `holo fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin'` against the deployed platform returns the literal values `status=committed`, `template=evidence-research`, and `admission=admitted` with non-empty `candidate_id` and `dossier_path` values. | 15 | — | 🔵 Planned | `—` | — |
-| 2 | — | [Sprint 02: Wake to a resilient evidence brief](#sprint-02-resilient-daily-brief) | The generated `.holocron/fulcrum/briefs/{YYYY-MM-DD}.md` surface contains non-empty `Movers`, `Seed pool`, `Discovery wildcard`, `Retired this cycle`, and `Loop health` sections, links to a regenerated dossier, identifies an aged or boosted item selected by the loop, attributes a later admitted refutation to its queued kill-question, reports every inference role and serving backend, and shows the literal value `Cloud fallback: disabled` after real degradation and restart playback. | — | Sprint 01 | 🔵 Planned | `—` | — |
+| 1 | — | [Sprint 01: Produce one trustworthy candidate dossier on self-owned inference](#sprint-01-real-evidence-dossier) | Running `holo fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin'` against the deployed platform returns the literal values `status=committed`, `template=evidence-research`, and `admission=admitted` with non-empty `candidate_id` and `dossier_path` values. | 15 | — | 🟠 In flight | `—` | — |
+| 2 | — | [Sprint 02: Wake to a resilient evidence brief](#sprint-02-resilient-daily-brief) | The generated `.holocron/fulcrum/briefs/{YYYY-MM-DD}.md` surface contains non-empty `Movers`, `Seed pool`, `Discovery wildcard`, `Retired this cycle`, and `Loop health` sections, links to a regenerated dossier, identifies an aged or boosted item selected by the loop, attributes a later admitted refutation to its queued kill-question, reports every inference role and serving backend, and shows the literal value `Cloud fallback: disabled` after real degradation and restart playback. | — | Sprint 01 | 🟠 In flight | `—` | — |
 | 3 | — | [Sprint 03: Change mission policy without losing score history](#sprint-03-versioned-mission-policy) | Running `holo fulcrum '<goal>'` for a mission whose versioned contract adds a previously missing domain tier returns `status=committed` and a non-empty `dossier_path`, and the generated dossier shows the formerly provisional evidence admitted under non-empty `Contract version`, `Domain tier version`, and `Weight version` values while preserving non-empty `Prior score` and `Current score` entries. | — | Sprint 02 | 🔵 Planned | `—` | — |
 | 4 | — | [Sprint 04: Compare a local model swap on identical evidence](#sprint-04-measured-role-binding) | The generated `.holocron/fulcrum/briefs/{YYYY-MM-DD}.md` surface contains a non-empty `Binding comparison` naming both resolved bindings and showing `ASSAY attempts: 20 or more`, `CHALLENGE attempts: 10 or more`, quote-check pass rate, refuting-claim gate-pass rate, later admitted-disconfirm rate, and the literal state `insufficient_n` whenever a required denominator is not met. | — | Sprint 03 | 🔵 Planned | `—` | — |
 | 5 | — | [Sprint 05: Advance or retire a candidate with enforced evidence](#sprint-05-governed-operator-verdict) | Using `holo fulcrum verdict <runId> <kill|advance|redirect|boost>` across candidates with and without cited claims, persisted probes, and an existing active build returns the literal accepted or rejection status required by each transition, preserves WIP=1, and produces a non-empty retirement closeout for an accepted kill. | — | Sprint 04 | 🔵 Planned | `—` | — |
@@ -36,7 +36,7 @@ pr_sequencing: true
 
 **Sequence:** 1
 **Timeline:** Phase 1
-**Status:** 🔵 Planned
+**Status:** In Progress
 **Fidelity:** committed
 **Proposed by:** mastra-planner + devops-engineer
 **Milestone:** —
@@ -61,27 +61,27 @@ pr_sequencing: true
 
 #### Tasks
 
-| ID | Title | Agent | Points | Wave |
-|----|-------|-------|--------|------|
-| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A |
-| FUL-INFRA-002 | Embed the Fulcrum LiteLLM router in the platform image | devops-engineer | 5 | B |
-| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A |
-| FUL-PLAT-002 | Decide deterministic claim admission | mastra-implementer | 5 | B |
-| FUL-PLAT-003 | Enforce provenance independence | mastra-implementer | 3 | C |
-| FUL-PLAT-004 | Compute the deterministic belief score | mastra-implementer | 3 | D |
-| FUL-PLAT-005 | Compile the versioned Fulcrum mission contract | mastra-implementer | 3 | B |
-| FUL-PLAT-006 | Retrieve one governed corpus fetch artifact | mastra-implementer | 5 | C |
-| FUL-PLAT-007 | Attest every Fulcrum inference call from router-truthful metadata | mastra-implementer | 5 | C |
-| FUL-PLAT-008 | Execute the typed Fulcrum cycle | mastra-implementer | 8 | E |
-| FUL-PLAT-009 | Commit the cycle atomically and replay safely | mastra-implementer | 5 | F |
-| FUL-PLAT-010 | Render the committed candidate dossier | mastra-implementer | 3 | G |
-| FUL-PLAT-011 | Publish and embed the dossier idempotently | mastra-implementer | 3 | H |
-| FUL-PLAT-012 | Return the committed dossier through the Fulcrum CLI | mastra-implementer | 3 | I |
-| FUL-INFRA-003 | Verify the dossier with real-service playback and evals | devops-engineer | 8 | J |
+| ID | Title | Agent | Points | Wave | Status |
+| ---- | ------- | ------- | -------- | ------ | -------- |
+| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A | ⬜ Pending |
+| FUL-INFRA-002 | Embed the Fulcrum LiteLLM router in the platform image | devops-engineer | 5 | B | ⬜ Pending |
+| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A | ⬜ Pending |
+| FUL-PLAT-002 | Decide deterministic claim admission | mastra-implementer | 5 | B | ⬜ Pending |
+| FUL-PLAT-003 | Enforce provenance independence | mastra-implementer | 3 | C | ⬜ Pending |
+| FUL-PLAT-004 | Compute the deterministic belief score | mastra-implementer | 3 | D | ⬜ Pending |
+| FUL-PLAT-005 | Compile the versioned Fulcrum mission contract | mastra-implementer | 3 | B | ⬜ Pending |
+| FUL-PLAT-006 | Retrieve one governed corpus fetch artifact | mastra-implementer | 5 | C | ⬜ Pending |
+| FUL-PLAT-007 | Attest every Fulcrum inference call from router-truthful metadata | mastra-implementer | 5 | C | ⬜ Pending |
+| FUL-PLAT-008 | Execute the typed Fulcrum cycle | mastra-implementer | 8 | E | ⬜ Pending |
+| FUL-PLAT-009 | Commit the cycle atomically and replay safely | mastra-implementer | 5 | F | ⬜ Pending |
+| FUL-PLAT-010 | Render the committed candidate dossier | mastra-implementer | 3 | G | ⬜ Pending |
+| FUL-PLAT-011 | Publish and embed the dossier idempotently | mastra-implementer | 3 | H | ⬜ Pending |
+| FUL-PLAT-012 | Return the committed dossier through the Fulcrum CLI | mastra-implementer | 3 | I | ⬜ Pending |
+| FUL-INFRA-003 | Verify the dossier with real-service playback and evals | devops-engineer | 8 | J | ⬜ Pending |
 
 **Waves:** A(2) → B(3) → C(3) → D(1) → E(1) → F(1) → G(1) → H(1) → I(1) → J(1) — 10 waves over 15 tasks
 
-**Next Sprint Tasks:** *(populated JIT when this sprint becomes active by kb-sprint-tasks-plan)*
+**Next Sprint Tasks:** *(generated 2026-08-28T06:06:27Z by `/kb-sprint-tasks-plan` — 15 tasks, 75 ACs, 122 TCs, 197 tracked requirements; validate_scenario exit 0 / 0 violations)*
 - FUL-INFRA-001-provision-compliant-fulcrum-roles-on-both-inference-minis.md
 - FUL-INFRA-002-embed-the-fulcrum-litellm-router-in-the-platform-image.md
 - FUL-PLAT-001-install-the-append-only-fulcrum-ledger-contract.md
