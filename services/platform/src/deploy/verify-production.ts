@@ -629,6 +629,42 @@ async function restartAndDurabilityProbe(options: {
   };
 }
 
+/**
+ * Parse an MCP streamable-HTTP response body. The server replies with SSE framing
+ * (`event: message\ndata: {...}`) whenever the request advertises
+ * `Accept: text/event-stream`, which this module's discovery requests do. Plain
+ * `response.json()` throws on that body — the reason mcpDiscovery never produced
+ * toolInvocations > 0. Handles both framings; the JSON-RPC envelope is identical.
+ */
+export function parseMcpResponseEnvelope(raw: string, label: string): unknown {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    const dataLines = trimmed
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim())
+      .filter((line) => line.length > 0);
+    if (dataLines.length === 0) {
+      verifyFail(`${label} was neither JSON nor an SSE data stream (head: ${trimmed.slice(0, 80)})`);
+    }
+    // Single-response discovery: the envelope is the (last) data payload.
+    try {
+      return JSON.parse(dataLines[dataLines.length - 1]);
+    } catch (error) {
+      verifyFail(
+        `${label} SSE data payload failed JSON.parse: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    verifyFail(
+      `${label} failed JSON.parse: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 async function mcpDiscovery(options: {
   record: DeploymentRecord;
   secretsPath: string;
@@ -658,7 +694,10 @@ async function mcpDiscovery(options: {
   });
   if (!initializeResponse.ok)
     verifyFail(`MCP initialize returned HTTP ${initializeResponse.status}`);
-  const initialize = asObject(await initializeResponse.json(), 'MCP initialize response');
+  const initialize = asObject(
+    parseMcpResponseEnvelope(await initializeResponse.text(), 'MCP initialize response'),
+    'MCP initialize response',
+  );
   if (!initialize.result) verifyFail('MCP initialize did not return a result');
 
   const listResponse = await options.fetchImpl(`${options.record.baseUrl}/mcp`, {
@@ -667,7 +706,10 @@ async function mcpDiscovery(options: {
     body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
   });
   if (!listResponse.ok) verifyFail(`MCP tools/list returned HTTP ${listResponse.status}`);
-  const list = asObject(await listResponse.json(), 'MCP tools/list response');
+  const list = asObject(
+    parseMcpResponseEnvelope(await listResponse.text(), 'MCP tools/list response'),
+    'MCP tools/list response',
+  );
   const result = asObject(list.result, 'MCP tools/list result');
   if (!Array.isArray(result.tools)) verifyFail('MCP tools/list result is missing tools');
 
