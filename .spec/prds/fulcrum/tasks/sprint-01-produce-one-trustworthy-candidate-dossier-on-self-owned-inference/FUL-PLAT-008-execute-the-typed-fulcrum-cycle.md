@@ -1114,3 +1114,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Nine-stage typed cycle runs end-to-end on local inference
+- [ ] AC-2: GENERATE emits a schema-valid typed output
+- [ ] AC-3: MAP emits a schema-valid niche action
+- [ ] AC-4: Budget cap ends the cycle as budget_exceeded with no partial candidate effects
+- [ ] AC-5: SENSE retrieval is corpus-only through the named registry tools

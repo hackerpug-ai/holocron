@@ -961,3 +961,10 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Byte-identical content across three domains collapses to one provenance group
+- [ ] AC-2: One group cannot solely support two components
+- [ ] AC-3: Self-sourced evidence never satisfies independence
+- [ ] AC-4: A caller-supplied group label cannot buy independence

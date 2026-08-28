@@ -1278,3 +1278,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Compiling the dev-revenue contract writes one versioned weight and tier set
+- [ ] AC-2: Publishing version 2 leaves version 1 rows untouched
+- [ ] AC-3: An unregistered tool grant fails compilation and writes nothing
+- [ ] AC-4: Source governance fields are Zod-validated and round-trip through Postgres
+- [ ] AC-5: The fulcrum instantiation compiles with the six corpus tool grants

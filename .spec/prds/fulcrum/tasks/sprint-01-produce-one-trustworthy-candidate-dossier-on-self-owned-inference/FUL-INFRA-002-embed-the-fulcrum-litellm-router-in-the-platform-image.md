@@ -1000,3 +1000,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): A real completion through the loopback router is served by a mini [PRIMARY]
+- [ ] AC-2: The router declares six deployments across both minis and both minis really serve them
+- [ ] AC-3: A stopped mini is covered by the other without a config change
+- [ ] AC-4: With no backend the router fails closed and no cloud endpoint is contacted
+- [ ] AC-5: Cycle code carries no per-device endpoint, only the loopback base URL

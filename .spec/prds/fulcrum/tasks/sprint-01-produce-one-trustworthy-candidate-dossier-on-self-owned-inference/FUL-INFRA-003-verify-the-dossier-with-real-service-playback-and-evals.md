@@ -1215,3 +1215,12 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Every dossier literal is recomputed from the committed ledger [PRIMARY]
+- [ ] AC-2: A dossier with no committed ledger row is rejected
+- [ ] AC-3: A deliberate role collision is detected from headers, not the response body
+- [ ] AC-4: With no inference backend nothing is committed and nothing is published
+- [ ] AC-5: A canned-claims run leaves the ledger and the dossier directory untouched
+- [ ] AC-6: The measurement path is deterministic and the live lane actually runs it

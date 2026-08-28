@@ -1,4 +1,9 @@
 # FUL-PLAT-001 — Install the append-only Fulcrum ledger contract
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: 4b41c3ca78e18a9870d03b356dfcccff0f5892dd
+> Reviewer: mastra-reviewer
+> Completed: 2026-08-28T08:22:40Z
 
 > **Sprint:** [sprint-01-produce-one-trustworthy-candidate-dossier-on-self-owned-inference](./SPRINT.md) · **Wave:** A
 > **Assignee:** mastra-implementer · **Reviewer:** mastra-reviewer
@@ -767,7 +772,8 @@ Verdict: [APPROVED | NEEDS_FIXES]
 ================================================================================
 ```
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
@@ -1167,3 +1173,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [x] AC-1 (PRIMARY): Fulcrum ledger tables accept an appended belief score
+- [x] AC-2: Append-only barrier rejects UPDATE and DELETE
+- [x] AC-3: Belief score requires both version stamps
+- [x] AC-4: Sources fetch-artifact columns dedupe on content hash
+- [x] AC-5: Claims admission columns reject an unknown status

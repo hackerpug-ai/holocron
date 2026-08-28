@@ -1180,3 +1180,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Component support saturates at the top three admitted grades
+- [ ] AC-2: Refuting evidence subtracts at the disconfirmation multiplier
+- [ ] AC-3: Identical ledger state recomputes to a byte-identical score
+- [ ] AC-4: A component with no admitted claims is UNKNOWN, never zero
+- [ ] AC-5: Judgment components use a neutral prior and never touch admission

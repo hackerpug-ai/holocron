@@ -1108,3 +1108,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Dossier renders the committed evidence chain and inference identity
+- [ ] AC-2: Per-component breakdown shows contributing claims and UNKNOWN components
+- [ ] AC-3: Re-render after a later commit replaces stale values in place
+- [ ] AC-4: A candidate with no committed score is refused, not rendered blank
+- [ ] AC-5: The render path is deterministic and model-free

@@ -1407,3 +1407,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): A quote-verified in-window classified claim is admitted and recorded
+- [ ] AC-2: Each admission failure mode leaves the claim provisional with its own reason
+- [ ] AC-3: A quote absent from normalized_text is rejected with its own reason
+- [ ] AC-4: Grade is a deterministic tier-by-recency product
+- [ ] AC-5: Gate modules contain no model call and no model role

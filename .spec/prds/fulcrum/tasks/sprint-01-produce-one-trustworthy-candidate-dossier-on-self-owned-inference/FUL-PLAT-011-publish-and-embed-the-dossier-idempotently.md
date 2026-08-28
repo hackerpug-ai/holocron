@@ -1039,3 +1039,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Dossier publishes once and embeds at 1024 dimensions
+- [ ] AC-2: Re-publishing the same run does not duplicate the document
+- [ ] AC-3: Published dossiers are self-sourced and grant no independence credit
+- [ ] AC-4: An unreachable embed role fails the publish closed
+- [ ] AC-5: Only the embed role receives embedding calls

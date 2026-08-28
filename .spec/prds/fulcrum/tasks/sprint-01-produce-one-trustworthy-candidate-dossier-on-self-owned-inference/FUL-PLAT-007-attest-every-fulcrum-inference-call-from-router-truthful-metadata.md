@@ -1123,3 +1123,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): Serving backend attested from router headers across both nodes
+- [ ] AC-2: ASSAY-vs-CHALLENGE distinctness enforced on resolved identity
+- [ ] AC-3: Embed-role call records 1024 dimensions
+- [ ] AC-4: Missing serving header fails closed
+- [ ] AC-5: Fulcrum vocabulary excludes judge and no forbidden role is requested

@@ -20,7 +20,7 @@ points_total: 69
 # Sprint 01: Produce one trustworthy candidate dossier on self-owned inference
 
 **Status:** In Progress
-> Progress: 0/15 tasks completed · updated 2026-08-28T07:00:59Z
+> Progress: 2/15 tasks completed · updated 2026-08-28T15:40:01Z
 **Sequence:** 1
 **Timeline:** Phase 1
 **Fidelity:** committed
@@ -85,8 +85,8 @@ below the 30% ceiling.
 
 | ID | Title | Agent | Points | Wave | Status |
 |----|-------|-------|--------|------|--------|
-| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A | ⬜ Pending |
-| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A | ⬜ Pending |
+| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A | ✅ Completed |
+| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A | ✅ Completed |
 | FUL-INFRA-002 | Embed the Fulcrum LiteLLM router in the platform image | devops-engineer | 5 | B | ⬜ Pending |
 | FUL-PLAT-002 | Decide deterministic claim admission | mastra-implementer | 5 | B | ⬜ Pending |
 | FUL-PLAT-005 | Compile the versioned Fulcrum mission contract | mastra-implementer | 3 | B | ⬜ Pending |

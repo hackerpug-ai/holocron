@@ -1227,3 +1227,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): One corpus retrieval persists a real fetch artifact on sources
+- [ ] AC-2: A banned-domain corpus hit is dropped before the gate
+- [ ] AC-3: A canned claims file is refused as corpus-only
+- [ ] AC-4: The executed query is recorded so the next cycle does not repeat it
+- [ ] AC-5: The artifact retains the full body, not the RRF snippet

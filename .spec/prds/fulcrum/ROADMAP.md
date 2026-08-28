@@ -63,9 +63,9 @@ pr_sequencing: true
 
 | ID | Title | Agent | Points | Wave | Status |
 | ---- | ------- | ------- | -------- | ------ | -------- |
-| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A | ⬜ Pending |
+| FUL-INFRA-001 | Provision compliant Fulcrum roles on both inference minis | devops-engineer | 5 | A | ✅ Completed |
 | FUL-INFRA-002 | Embed the Fulcrum LiteLLM router in the platform image | devops-engineer | 5 | B | ⬜ Pending |
-| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A | ⬜ Pending |
+| FUL-PLAT-001 | Install the append-only Fulcrum ledger contract | mastra-implementer | 5 | A | ✅ Completed |
 | FUL-PLAT-002 | Decide deterministic claim admission | mastra-implementer | 5 | B | ⬜ Pending |
 | FUL-PLAT-003 | Enforce provenance independence | mastra-implementer | 3 | C | ⬜ Pending |
 | FUL-PLAT-004 | Compute the deterministic belief score | mastra-implementer | 3 | D | ⬜ Pending |

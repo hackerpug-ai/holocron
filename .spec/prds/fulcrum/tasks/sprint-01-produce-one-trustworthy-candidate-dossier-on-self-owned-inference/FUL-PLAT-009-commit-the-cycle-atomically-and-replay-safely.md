@@ -1145,3 +1145,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): One cycle commits every effect in a single transaction
+- [ ] AC-2: Same idempotency key replays the stored commit
+- [ ] AC-3: A killed cycle leaves zero partial rows
+- [ ] AC-4: A budget-exceeded cycle writes an explicit run row and no candidate effects
+- [ ] AC-5: Same key with different args is refused, not replayed

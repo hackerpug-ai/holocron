@@ -1163,3 +1163,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [ ] AC-1 (PRIMARY): A committed run prints the five operator literals
+- [ ] AC-2: A second run under one idempotency key replays the same ids
+- [ ] AC-3: A budget-exceeded run emits no candidate keys
+- [ ] AC-4: Canned claims are refused with FULCRUM_CORPUS_ONLY
+- [ ] AC-5: holo fulcrum dossier prints the committed dossier surface

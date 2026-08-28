@@ -1,4 +1,9 @@
 # FUL-INFRA-001 — Provision compliant Fulcrum roles on both inference minis
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: adfeafcd0f6751eb6cf5f6bbb93ff1d9d6f0e51e
+> Reviewer: mastra-reviewer
+> Completed: 2026-08-28T15:38:48Z
 
 > **Sprint:** [sprint-01-produce-one-trustworthy-candidate-dossier-on-self-owned-inference](./SPRINT.md) · **Wave:** A
 > **Assignee:** devops-engineer · **Reviewer:** devops-engineer (peer) + mastra-reviewer
@@ -592,7 +597,8 @@ Verdict: [APPROVED | NEEDS_FIXES]
 ================================================================================
 ```
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
@@ -966,3 +972,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
 -->
 
 </details>
+
+## Acceptance Criteria
+
+- [x] AC-1 (PRIMARY): Both minis serve the full Fulcrum role set [PRIMARY]
+- [x] AC-2: Coder weights are cleared so the Fulcrum set fits each mini
+- [x] AC-3: A stopped oMLX on one mini is reported per node, not hidden
+- [x] AC-4: A serving endpoint with a short model list fails closed by role name
+- [x] AC-5: The Fulcrum role vocabulary excludes judge and every coder role
