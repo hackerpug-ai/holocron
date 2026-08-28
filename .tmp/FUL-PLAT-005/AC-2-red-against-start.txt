@@ -1,0 +1,23 @@
+# RED-against-start evidence for AC-2 (FUL-PLAT-005)
+# Source: .tmp/FUL-PLAT-005/red-output.txt (vitest capture, sha256 ddee3ec2f764...)
+# Captured at RED commit 2839e141 -- clean tree, NO GREEN code present:
+# compileFulcrumMissionContract was the RED skeleton (refuses before any write)
+# and mission/contract.ts toolGrants was still z.array(z.never()).
+# Verbatim vitest failure output (ANSI preserved).
+
+⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-2: publishing version 2 leaves version 1 rows untouched
+[31m[1mFulcrumContractError[22m: FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract compile entrypoint does not validate against the registry or persist ladder rows yet[39m
+[36m [2m❯[22m compileFulcrumMissionContract services/platform/src/fulcrum/contract-compile.ts:[2m56:9[22m[39m
+    [90m 54|[39m   _input[33m:[39m [33mFulcrumContractCompileInput[39m
+    [90m 55|[39m )[33m:[39m [33mPromise[39m[33m<[39m[33mFulcrumContractCompileResult[39m[33m>[39m {
+    [90m 56|[39m   [35mthrow[39m [35mnew[39m [33mFulcrumContractError[39m(
+    [90m   |[39m         [31m^[39m
+    [90m 57|[39m     [32m'FULCRUM_CONTRACT_INVALID'[39m[33m,[39m
+    [90m 58|[39m     'FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract co…
+[90m [2m❯[22m compileResilient services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m68:20[22m[39m
+[90m [2m❯[22m seedCompiledDevRevenueV1 services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m120:10[22m[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m248:24[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]

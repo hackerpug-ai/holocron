@@ -99,13 +99,13 @@ async function ladderCounts(db: Sql): Promise<{
   const [wc] = await db<
     { count: string }[]
   >`SELECT count(*)::text AS count FROM weight_components wc
-     JOIN weight_versions wv ON wv.id = wc.weight_version_id
+     JOIN weight_versions wv ON wv.id::text = wc.weight_version_id
      WHERE wv.mission_id = ${DEV_REVENUE_MISSION_ID}`;
   const [dtv] = await db<
     { count: string }[]
   >`SELECT count(*)::text AS count FROM domain_tier_versions WHERE mission_id = ${DEV_REVENUE_MISSION_ID}`;
   const [dt] = await db<{ count: string }[]>`SELECT count(*)::text AS count FROM domain_tiers dtr
-     JOIN domain_tier_versions dtv ON dtv.id = dtr.domain_tier_version_id
+     JOIN domain_tier_versions dtv ON dtv.id::text = dtr.domain_tier_version_id
      WHERE dtv.mission_id = ${DEV_REVENUE_MISSION_ID}`;
   return {
     weightVersions: Number(wv?.count ?? -1),
@@ -190,7 +190,7 @@ describe.sequential('FUL-PLAT-005 — versioned Fulcrum mission contract (real h
       const weightComponentRows = await sql`
       SELECT wc.component, wc.kind, wc.weight, wc.grade_floor, wc.recency_window_days
       FROM weight_components wc
-      JOIN weight_versions wv ON wv.id = wc.weight_version_id
+      JOIN weight_versions wv ON wv.id::text = wc.weight_version_id
       WHERE wv.mission_id = ${DEV_REVENUE_MISSION_ID}
     `;
       expect(weightComponentRows).toHaveLength(4);
@@ -206,7 +206,7 @@ describe.sequential('FUL-PLAT-005 — versioned Fulcrum mission contract (real h
       const domainTierRows = await sql`
       SELECT dtr.registrable_domain, dtr.tier, dtr.tier_value
       FROM domain_tiers dtr
-      JOIN domain_tier_versions dtv ON dtv.id = dtr.domain_tier_version_id
+      JOIN domain_tier_versions dtv ON dtv.id::text = dtr.domain_tier_version_id
       WHERE dtv.mission_id = ${DEV_REVENUE_MISSION_ID}
     `;
       expect(domainTierRows).toHaveLength(8);
@@ -214,10 +214,12 @@ describe.sequential('FUL-PLAT-005 — versioned Fulcrum mission contract (real h
       expect(secGov).toBeDefined();
       expect(Number(secGov?.tier_value)).toBe(1.0);
 
-      // MUST_NOT: empty ladders / NULL weights
-      expect(before.weightVersions).not.toBe(0);
-      expect(weightVersionRows.length).not.toBe(0);
-      expect(domainTierRows.length).not.toBe(0);
+      // MUST_NOT: empty ladders / NULL weights — on the END state (the GIVEN
+      // start state is 0 rows by definition; MUST_NOT_OBERVE forbids 0 AFTER
+      // the compile, so re-count the persisted ladder).
+      const after = await ladderCounts(sql);
+      expect(after.weightVersions).not.toBe(0);
+      expect(after.domainTiers).not.toBe(0);
       expect(weightComponentRows.some((row) => row.weight === null)).toBe(false);
 
       const path = captureArtifact('AC-1-seeded-artifact.json', {
@@ -267,7 +269,7 @@ describe.sequential('FUL-PLAT-005 — versioned Fulcrum mission contract (real h
       const demandRows = await sql`
       SELECT wv.version AS version, wc.weight AS weight
       FROM weight_components wc
-      JOIN weight_versions wv ON wv.id = wc.weight_version_id
+      JOIN weight_versions wv ON wv.id::text = wc.weight_version_id
       WHERE wv.mission_id = ${DEV_REVENUE_MISSION_ID} AND wc.component = 'demand'
       ORDER BY wv.version
     `;
@@ -380,7 +382,7 @@ describe.sequential('FUL-PLAT-005 — versioned Fulcrum mission contract (real h
       const snapshotRows = await sql`
       SELECT wc.rubric_json AS snapshot
       FROM weight_components wc
-      JOIN weight_versions wv ON wv.id = wc.weight_version_id
+      JOIN weight_versions wv ON wv.id::text = wc.weight_version_id
       WHERE wv.mission_id = ${DEV_REVENUE_MISSION_ID} AND wc.component = 'demand'
     `;
       const snapshot = snapshotRows[0]?.snapshot as

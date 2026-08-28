@@ -1,0 +1,83 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-005[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 284[2mms[22m[39m
+[31m     [31m×[31m AC-1: compiling the dev-revenue contract writes one versioned weight and tier set[39m[32m 44[2mms[22m[39m
+[31m     [31m×[31m AC-2: publishing version 2 leaves version 1 rows untouched[39m[32m 14[2mms[22m[39m
+[31m     [31m×[31m AC-3: an unregistered tool grant fails compilation and writes nothing[39m[32m 8[2mms[22m[39m
+[31m     [31m×[31m AC-4: source governance fields are Zod-validated and round-trip through Postgres[39m[32m 9[2mms[22m[39m
+[31m     [31m×[31m AC-5: the fulcrum instantiation compiles with the six corpus tool grants[39m[32m 8[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-1: compiling the dev-revenue contract writes one versioned weight and tier set
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-3: an unregistered tool grant fails compilation and writes nothing
+[31m[1mPostgresError[22m: operator does not exist: uuid = text[39m
+[90m [2m❯[22m ErrorResponse node_modules/postgres/src/connection.js:[2m815:30[22m[39m
+[90m [2m❯[22m handle node_modules/postgres/src/connection.js:[2m489:6[22m[39m
+[90m [2m❯[22m Socket.data node_modules/postgres/src/connection.js:[2m324:9[22m[39m
+[90m [2m❯[22m cachedError node_modules/postgres/src/query.js:[2m170:23[22m[39m
+[90m [2m❯[22m new Query node_modules/postgres/src/query.js:[2m36:24[22m[39m
+[90m [2m❯[22m sql node_modules/postgres/src/index.js:[2m112:11[22m[39m
+[36m [2m❯[22m ladderCounts services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m101:4[22m[39m
+    [90m 99|[39m   [35mconst[39m [wc] [33m=[39m [35mawait[39m db[33m<[39m
+    [90m100|[39m     { count[33m:[39m string }[]
+    [90m101|[39m   [33m>[39m[32m`SELECT count(*)::text AS count FROM weight_components wc
+    [90m   |[39m    [31m^[39m
+    [90m102|[39m      JOIN weight_versions wv ON wv.id = wc.weight_version_id
+    [90m103|[39m      WHERE wv.mission_id = [39m[36m${[39m[33mDEV_REVENUE_MISSION_ID[39m[36m}[39m[32m`[39m[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-2: publishing version 2 leaves version 1 rows untouched
+[31m[1mFulcrumContractError[22m: FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract compile entrypoint does not validate against the registry or persist ladder rows yet[39m
+[36m [2m❯[22m compileFulcrumMissionContract services/platform/src/fulcrum/contract-compile.ts:[2m56:9[22m[39m
+    [90m 54|[39m   _input[33m:[39m [33mFulcrumContractCompileInput[39m
+    [90m 55|[39m )[33m:[39m [33mPromise[39m[33m<[39m[33mFulcrumContractCompileResult[39m[33m>[39m {
+    [90m 56|[39m   [35mthrow[39m [35mnew[39m [33mFulcrumContractError[39m(
+    [90m   |[39m         [31m^[39m
+    [90m 57|[39m     [32m'FULCRUM_CONTRACT_INVALID'[39m[33m,[39m
+    [90m 58|[39m     'FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract co…
+[90m [2m❯[22m compileResilient services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m68:20[22m[39m
+[90m [2m❯[22m seedCompiledDevRevenueV1 services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m120:10[22m[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m248:24[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-4: source governance fields are Zod-validated and round-trip through Postgres
+[31m[1mAssertionError[22m: expected 'FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMEN…' to contain 'sourceRules.banList.0'[39m
+
+Expected: [32m"sourceRules.banList.0"[39m
+Received: [31m"FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract compile entrypoint does not validate against the registry or persist ladder rows yet"[39m
+
+[36m [2m❯[22m services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m370:38[22m[39m
+    [90m368|[39m       [35mconst[39m malformedError [33m=[39m malformedCaught [35mas[39m [33mFulcrumContractError[39m[33m;[39m
+    [90m369|[39m       [34mexpect[39m(malformedError[33m.[39mcode)[33m.[39m[34mtoBe[39m([32m'FULCRUM_CONTRACT_INVALID'[39m)[33m;[39m
+    [90m370|[39m       expect(malformedError.message).toContain('sourceRules.banList.0'…
+    [90m   |[39m                                      [31m^[39m
+    [90m371|[39m       expect(malformedError.message).toContain('expected string, recei…
+    [90m372|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-5: the fulcrum instantiation compiles with the six corpus tool grants
+[31m[1mFulcrumContractError[22m: FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract compile entrypoint does not validate against the registry or persist ladder rows yet[39m
+[36m [2m❯[22m compileFulcrumMissionContract services/platform/src/fulcrum/contract-compile.ts:[2m56:9[22m[39m
+    [90m 54|[39m   _input[33m:[39m [33mFulcrumContractCompileInput[39m
+    [90m 55|[39m )[33m:[39m [33mPromise[39m[33m<[39m[33mFulcrumContractCompileResult[39m[33m>[39m {
+    [90m 56|[39m   [35mthrow[39m [35mnew[39m [33mFulcrumContractError[39m(
+    [90m   |[39m         [31m^[39m
+    [90m 57|[39m     [32m'FULCRUM_CONTRACT_INVALID'[39m[33m,[39m
+    [90m 58|[39m     'FULCRUM_CONTRACT_COMPILE_NOT_IMPLEMENTED: the fitness-contract co…
+[90m [2m❯[22m compileResilient services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m68:20[22m[39m
+[90m [2m❯[22m seedCompiledDevRevenueV1 services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m120:10[22m[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m425:13[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[90m (5)[39m
+[2m   Start at [22m 10:14:10
+[2m   Duration [22m 1.10s[2m (transform 239ms, setup 191ms, import 541ms, tests 284ms, environment 0ms)[22m
+

@@ -1,0 +1,36 @@
+# RED-against-start evidence for AC-3 (FUL-PLAT-005) -- shared with AC-1 (identical error)
+# Source: .tmp/FUL-PLAT-005/red-output.txt (vitest capture, sha256 ddee3ec2f764...)
+# Captured at RED commit 2839e141 -- clean tree, NO GREEN code present:
+# compileFulcrumMissionContract was the RED skeleton (refuses before any write)
+# and mission/contract.ts toolGrants was still z.array(z.never()).
+# Verbatim vitest failure output -- vitest deduplicated the identical error raised by both ACs (ANSI preserved).
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-005[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 284[2mms[22m[39m
+[31m     [31m×[31m AC-1: compiling the dev-revenue contract writes one versioned weight and tier set[39m[32m 44[2mms[22m[39m
+[31m     [31m×[31m AC-2: publishing version 2 leaves version 1 rows untouched[39m[32m 14[2mms[22m[39m
+[31m     [31m×[31m AC-3: an unregistered tool grant fails compilation and writes nothing[39m[32m 8[2mms[22m[39m
+[31m     [31m×[31m AC-4: source governance fields are Zod-validated and round-trip through Postgres[39m[32m 9[2mms[22m[39m
+[31m     [31m×[31m AC-5: the fulcrum instantiation compiles with the six corpus tool grants[39m[32m 8[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-1: compiling the dev-revenue contract writes one versioned weight and tier set
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-mission-contract.test.ts[2m > [22mFUL-PLAT-005 — versioned Fulcrum mission contract (real holocron_nonprod)[2m > [22mAC-3: an unregistered tool grant fails compilation and writes nothing
+[31m[1mPostgresError[22m: operator does not exist: uuid = text[39m
+[90m [2m❯[22m ErrorResponse node_modules/postgres/src/connection.js:[2m815:30[22m[39m
+[90m [2m❯[22m handle node_modules/postgres/src/connection.js:[2m489:6[22m[39m
+[90m [2m❯[22m Socket.data node_modules/postgres/src/connection.js:[2m324:9[22m[39m
+[90m [2m❯[22m cachedError node_modules/postgres/src/query.js:[2m170:23[22m[39m
+[90m [2m❯[22m new Query node_modules/postgres/src/query.js:[2m36:24[22m[39m
+[90m [2m❯[22m sql node_modules/postgres/src/index.js:[2m112:11[22m[39m
+[36m [2m❯[22m ladderCounts services/platform/tests/integration/fulcrum-mission-contract.test.ts:[2m101:4[22m[39m
+    [90m 99|[39m   [35mconst[39m [wc] [33m=[39m [35mawait[39m db[33m<[39m
+    [90m100|[39m     { count[33m:[39m string }[]
+    [90m101|[39m   [33m>[39m[32m`SELECT count(*)::text AS count FROM weight_components wc
+    [90m   |[39m    [31m^[39m
+    [90m102|[39m      JOIN weight_versions wv ON wv.id = wc.weight_version_id
+    [90m103|[39m      WHERE wv.mission_id = [39m[36m${[39m[33mDEV_REVENUE_MISSION_ID[39m[36m}[39m[32m`[39m[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]
