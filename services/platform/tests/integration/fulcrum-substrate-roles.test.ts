@@ -292,7 +292,10 @@ describe('FUL-INFRA-001 — Fulcrum substrate role-set readiness (live minis)', 
         // Perform: the real CLI check must name the dead node and exit 1.
         const r = substrateCheck(['--json']);
         console.log(r.stdout);
-      emitForVerifyGrep(r.stdout);
+        // TC-4 observes the contract's `exit=1` from the seeded run's raw
+        // stdout, so emit the status line ahead of the check output (the same
+        // shape AC-3-green.txt captures).
+        emitForVerifyGrep(`exit=${r.status}\n${r.stdout}`);
         capture('AC-3-green.txt', `exit=${r.status}\n${r.stdout}\n${r.stderr}`);
 
         // Assert.
@@ -358,7 +361,7 @@ describe('FUL-INFRA-001 — Fulcrum substrate role-set readiness (live minis)', 
         // Perform: probe THAT endpoint through the real CLI.
         const r = substrateCheck(['--endpoint', INFERENCE2_ENDPOINT, '--json']);
         console.log(r.stdout);
-      emitForVerifyGrep(r.stdout);
+        emitForVerifyGrep(r.stdout);
         capture('AC-4-green.txt', `exit=${r.status}\n${r.stdout}\n${r.stderr}`);
 
         // Assert: fails closed BY ROLE NAME, not on liveness.

@@ -1,0 +1,7 @@
+exit=1
+endpoint=http://inference2.tail011a51.ts.net:8013/v1
+expected_roles=convergent,divergent,embed
+present=embed
+FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent
+{"mode":"endpoint","expected_roles":["convergent","divergent","embed"],"ready":false,"nodes":[{"node":"inference2.tail011a51.ts.net","endpoint":"http://inference2.tail011a51.ts.net:8013/v1","reachable":true,"error":null,"models":["Qwen3-Embedding-0.6B-4bit-DWQ"],"roles":[{"role":"convergent","basename":"Muse-Glimmer-30B-4bit","present":false},{"role":"divergent","basename":"Qwen3.8-27B-8bit","present":false},{"role":"embed","basename":"Qwen3-Embedding-0.6B-4bit-DWQ","present":true}],"missing_roles":["convergent","divergent"],"present_roles":["embed"],"resident_gb":1,"ready":false}],"nodes_ready":0,"roles_per_node":1,"unreachable_nodes":[],"present_roles":["embed"],"missing_roles":["convergent","divergent"]}
+

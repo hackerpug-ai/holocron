@@ -1,0 +1,1 @@
+FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent

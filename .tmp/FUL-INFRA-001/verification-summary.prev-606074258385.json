@@ -1,0 +1,161 @@
+{
+  "task_id": "FUL-INFRA-001",
+  "timestamp": "2026-08-28T15:12:20Z",
+  "commit_sha": "2442298841d906fd9c3a823af6eb770e5fbfc951",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 589
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '\"unreachable_nodes\":[\"inference1\"]'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '\"nodes_ready\":2'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F 'exit=1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-6-output.txt"
+    },
+    {
+      "id": "TC-7",
+      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F 'forbidden_role_hits=0'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-INFRA-001/tc-7-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-28T15:12:20Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "87b14fc0f16d05833b63953750f7d6b65caecc138fcb231c90526268bbe582b9"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "d5d51ea3d3136d1aff962226ddd5669cecb4ee0da1adb5b6e95f1dead3da26c2"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "1f9b523662e104c210e9adb289ecc825b0bfc40a2096f1f94e4d33812d59add3"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "160069b1e32fccf8101a8b0e318eae5aeab06b88d7bb22795b20d149aaeebf48"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "796b4042a0697006df4f886f8e087145341f503f3a945084253fd39ccdfcac1e"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "25a22ee1c8ad0317e42bbe064985b159f69f804cb579bf2ced0c547f93450df8"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "c3cce4dc3ed2828d8b956a363e6c39999b3845ea6a781ca0e64670ea33d17697"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "de7f5e24926aa9b95a6ac0b5d05e3e44356e0f1590ded26b593782752a910704"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "160069b1e32fccf8101a8b0e318eae5aeab06b88d7bb22795b20d149aaeebf48"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "40562c9aafb49ec63e581812a48a3f2fb9ad0fdf850cb7f80d5a7a1a93b61428"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "796b4042a0697006df4f886f8e087145341f503f3a945084253fd39ccdfcac1e"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "cf205dbb8cea84897b488abcc281bf96698d5e94b1096b16657b4caba9082a22"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "c3cce4dc3ed2828d8b956a363e6c39999b3845ea6a781ca0e64670ea33d17697"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "de7f5e24926aa9b95a6ac0b5d05e3e44356e0f1590ded26b593782752a910704"
+      },
+      {
+        "path": "tc-7-output.txt",
+        "sha256": "83a8a37d51bc9d94039579bce74d2f3f8c36822d0cdd213328f72383ef388fe6"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "5c949bc9ccd93475e3dc7be6679a76fb877e26bb2620ab5b2a1f5b3c0175f840"
+      }
+    ]
+  }
+}

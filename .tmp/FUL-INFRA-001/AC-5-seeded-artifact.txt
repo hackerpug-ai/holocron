@@ -1,0 +1,2 @@
+# AC-5 seeded-value artifact — must_observe values captured from the GREEN run (2026-08-28T09:10:12Z)
+forbidden_role_hits=0

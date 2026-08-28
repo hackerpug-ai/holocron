@@ -1,0 +1,13 @@
+== provisioning inference2 (clear-coder-weights=0) ==
+   roles: Muse-Glimmer-30B-4bit Qwen3.8-27B-8bit Qwen3-Embedding-0.6B-4bit-DWQ
+-- [1/5] farm expected basenames (resumable, skips complete weights) --
+   farm: Muse-Glimmer-30B-4bit complete — skip download
+   farm: Qwen3.8-27B-8bit complete — skip download
+   farm: Qwen3-Embedding-0.6B-4bit-DWQ complete — skip download
+-- [2/5] coder weights left in place (--clear-coder-weights not passed) --
+-- [3/5] rebuild Fulcrum serve bind ~/models/fulcrum --
+   bind entries: Muse-Glimmer-30B-4bit Qwen3.8-27B-8bit Qwen3-Embedding-0.6B-4bit-DWQ
+-- [4/5] restart oMLX on :8003 serving the Fulcrum bind --
+-- [5/5] readiness + expected-basename verification --
+PROVISION OK inference2: serving 3 Fulcrum basenames on :8003
+== inference2 provisioned ==

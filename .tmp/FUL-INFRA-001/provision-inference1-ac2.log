@@ -1,0 +1,15 @@
+== provisioning inference1 (clear-coder-weights=1) ==
+   roles: Muse-Glimmer-30B-4bit Qwen3.8-27B-8bit Qwen3-Embedding-0.6B-4bit-DWQ
+-- [1/5] farm expected basenames (resumable, skips complete weights) --
+   farm: Muse-Glimmer-30B-4bit complete — skip download
+   farm: Qwen3.8-27B-8bit complete — skip download
+   farm: Qwen3-Embedding-0.6B-4bit-DWQ complete — skip download
+-- [2/5] retire coder weights out of every served root --
+   retired: no coder weights at /Users/inference1/models/mlx-community/Qwen3.6-35B-A3B-MLX-8bit (already clear)
+   retired: no coder weights at /Users/inference1/models/lmstudio-community/Qwen3.6-35B-A3B-MLX-8bit (already clear)
+-- [3/5] rebuild Fulcrum serve bind ~/models/fulcrum --
+   bind entries: Muse-Glimmer-30B-4bit Qwen3.8-27B-8bit Qwen3-Embedding-0.6B-4bit-DWQ
+-- [4/5] restart oMLX on :8003 serving the Fulcrum bind --
+-- [5/5] readiness + expected-basename verification --
+PROVISION OK inference1: serving 3 Fulcrum basenames on :8003
+== inference1 provisioned ==

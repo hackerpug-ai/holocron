@@ -1,0 +1,17 @@
+# AC-5 RED against start (data-path stub: expectation file missing 'embed', 2026-08-28T09:03:04Z)
+# FULCRUM_ROLES_FILE=stub-roles-missing-embed.json — schema refuses the incomplete vocabulary, the check
+# fails closed INVALID, and the '"expected_roles":["convergent","divergent","embed"]' assertion fails:
+check_exit=1
+FULCRUM_SUBSTRATE_INVALID fulcrum roles file rejected (fail-closed): [
+  {
+    "expected": "object",
+    "code": "invalid_type",
+    "path": [
+      "roles",
+      "embed"
+    ],
+    "message": "Invalid input: expected object, received undefined"
+  }
+]
+{"mode":"invalid","error":"[\n  {\n    \"expected\": \"object\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"roles\",\n      \"embed\"\n    ],\n    \"message\": \"Invalid input: expected object, received undefined\"\n  }\n]","ready":false}
+grep '"expected_roles":["convergent","divergent","embed"]' → NO MATCH (assertion RED against start ✓)

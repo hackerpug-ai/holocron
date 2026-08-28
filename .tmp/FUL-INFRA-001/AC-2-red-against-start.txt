@@ -1,0 +1,18 @@
+# AC-2 RED against start (data-path stub: stub-roles-divergent-variant.json binds divergent to the
+# lmstudio variant basename 'Qwen3.8-27B-MLX-8bit', which NO node serves) — 2026-08-28T09:05:33Z
+# The AC-2 test asserts the exact tally 'coder_basenames_served=0 fulcrum_basenames_served=6'.
+# Against this start the tally is computed from the two real per-node responses and diverges:
+check_exit=1
+inference1 convergent=Muse-Glimmer-30B-4bit
+inference1 missing=divergent (expected Qwen3.8-27B-MLX-8bit)
+inference1 embed=Qwen3-Embedding-0.6B-4bit-DWQ
+inference2 convergent=Muse-Glimmer-30B-4bit
+inference2 missing=divergent (expected Qwen3.8-27B-MLX-8bit)
+inference2 embed=Qwen3-Embedding-0.6B-4bit-DWQ
+nodes_ready=0 roles_per_node=2
+coder_basenames_served=2 fulcrum_basenames_served=4
+inference1 resident_gb=18
+inference2 resident_gb=18
+FULCRUM_SUBSTRATE_INCOMPLETE missing=divergent
+{"mode":"fleet","expected_roles":["convergent","divergent","embed"],"ready":false,"nodes":[{"node":"inference1","endpoint":"http://inference1.tail011a51.ts.net:8003/v1","reachable":true,"error":null,"models":["Muse-Glimmer-30B-4bit","Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.8-27B-8bit"],"roles":[{"role":"convergent","basename":"Muse-Glimmer-30B-4bit","present":true},{"role":"divergent","basename":"Qwen3.8-27B-MLX-8bit","present":false},{"role":"embed","basename":"Qwen3-Embedding-0.6B-4bit-DWQ","present":true}],"missing_roles":["divergent"],"present_roles":["convergent","embed"],"resident_gb":18,"ready":false},{"node":"inference2","endpoint":"http://inference2.tail011a51.ts.net:8003/v1","reachable":true,"error":null,"models":["Muse-Glimmer-30B-4bit","Qwen3-Embedding-0.6B-4bit-DWQ","Qwen3.8-27B-8bit"],"roles":[{"role":"convergent","basename":"Muse-Glimmer-30B-4bit","present":true},{"role":"divergent","basename":"Qwen3.8-27B-MLX-8bit","present":false},{"role":"embed","basename":"Qwen3-Embedding-0.6B-4bit-DWQ","present":true}],"missing_roles":["divergent"],"present_roles":["convergent","embed"],"resident_gb":18,"ready":false}],"nodes_ready":0,"roles_per_node":2,"unreachable_nodes":[]}
+grep 'coder_basenames_served=0 fulcrum_basenames_served=6' → NO MATCH (assertion RED against start ✓)
