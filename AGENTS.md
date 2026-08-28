@@ -85,6 +85,9 @@ When dispatching subagents for planning, review, or implementation, prefer these
 | `betterauth-planner` | Auth design | Session strategy, plugin selection, schema, route protection |
 | `betterauth-implementer` | Auth implementation | Config, handler mounting, Drizzle migrations, client instance |
 | `betterauth-reviewer` | Auth review | Session security, handler mounting, token handling, migration safety |
+| `shadcn-ai-elements-planner` | Web UI + chat surface design | shadcn `init`/registry choices, which AI Elements items to add, how the chat transcript / tool / reasoning parts map onto the copied components |
+| `shadcn-ai-elements-implementer` | Web UI + chat surface implementation | Real `shadcn` + `ai-elements` CLI installs edited in place; Conversation/Message/PromptInput/Tool trees over a REAL stream |
+| `shadcn-ai-elements-reviewer` | Web UI + chat surface review | Open Code installs (no npm-library imports), Tailwind v4 + `components.json`, `Message from` vs `role`, PromptInput submit rules, deprecated `Loader`/`ConversationMessage` |
 | `frontend-designer` | Visual presentation | Layout, styling, animation — owns the chrome-vs-column rule. NOT logic or state |
 | **Device platform — Bun + Hono + Postgres on the tailnet mini** | | |
 | `mastra-planner` | **Backend + agent platform planning** | Mastra server architecture, mission-engine workflows, agents/tools/processors, Postgres+Drizzle data layer, local-fleet wiring, MCP rehost. **Primary backend planner.** |
@@ -107,10 +110,12 @@ When dispatching subagents for planning, review, or implementation, prefer these
 
 **Convex is decommissioned (verified 2026-08-28).** `convex-*` and `pi-agent-*` were removed from this table — they no longer map to live work. Two build gates enforce it: `bun run verify:no-convex-client` and `verify:no-convex-env`. Only `legacyConvexId` columns remain.
 
-**Two knowledge gaps — no specialist currently covers these:**
+**Both former knowledge gaps closed 2026-08-28** (the entries below replace them — one of them recorded the wrong answer):
 
-1. **AI Elements (web)** — `elements.ai-sdk.dev`, the chat UI library chosen for the web client. Brain has a Rosetta KB for `expo-ai-elements` (the React Native port) and for `assistant-ui` (a different library), but nothing for the web original. `aisdk-*` agents know AI SDK core, not the component registry. Fix: `/rosetta-bootstrap ai-elements https://elements.ai-sdk.dev`.
-2. **Next.js on Cloudflare Workers** — deploying Next to Workers goes through the `@opennextjs/cloudflare` adapter, which carries real constraints (node compat flags, ISR/cache bindings, runtime restrictions). The `nextjs` KB contains zero `opennext` references and mentions Cloudflare only as an image-loader name; the `cloudflare-workers` KB contains zero Next.js references. Neither `nextjs-*` nor `cloudflare-workers-*` owns this seam. Fix: extend one of the two KBs before the first deploy task.
+1. **AI Elements (web)** — CLOSED. Brain now carries a `shadcn-ai-elements` Rosetta KB (upstream AI Elements `6.0.0`) plus the planner/implementer/reviewer triad listed above. Note the reason that KB exists: **shadcn/ui and AI Elements are Open Code, not importable packages.** Their CLIs copy source into this repo (`components/ui/`, `components/ai-elements/`) and you edit the copies; AI Elements is a shadcn *registry*, not a second design system. An import from an npm component package named for either library is wrong by construction.
+2. **Next.js on Cloudflare Workers** — CLOSED, and the previous entry was wrong. The `nextjs` KB was refreshed to 16.3.3 with a `cloudflare-hosting.md` lens: Cloudflare's **default** path is now **vinext** (a Vite plugin reimplementing the Next API surface), and `@opennextjs/cloudflare` is the fallback for existing apps that cannot migrate — explicitly **not** the default for new work. vinext is beta: run `npx vinext check` before committing to it. Bindings are server-only (`import { env } from 'cloudflare:workers'`, never from a Client Component) and image optimization is only partial, so the public `/d/<token>` reader serves document assets from the origin asset route.
+
+**Project constraint the AI Elements agents must respect:** the BFF streams through tRPC (`httpBatchStreamLink` + async generators), and per [trpc#6103](https://github.com/trpc/trpc/issues/6103) tRPC transforms all outputs, so **`useChat`/`useCompletion` are unavailable here**. AI Elements components take plain props (`ToolHeader` → `type`/`state`, `ToolInput` → `input`, `ToolOutput` → `output`/`errorText`) and are driven from our own `UIMessage`-shaped state. Do not restructure the BFF to make `useChat` work.
 
 ## Codex Runtime Overrides
 
