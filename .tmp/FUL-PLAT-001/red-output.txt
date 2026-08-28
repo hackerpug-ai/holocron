@@ -1,0 +1,230 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/FUL-PLAT-001[39m
+
+ [31m❯[39m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[32m 239[2mms[22m[39m
+[31m     [31m×[31m AC-1: appends one doubly-stamped belief_scores row as holocron_app across all 9 tables[39m[32m 6[2mms[22m[39m
+[31m     [31m×[31m AC-2: holocron_app cannot UPDATE or DELETE belief_scores; trigger blocks privileged roles too[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m AC-2b: weight_components UPDATE and domain_tiers DELETE are append-only; 8 tier rows persist[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m AC-3: omitting domain_tier_version raises not-null violation and belief_scores stays empty[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m AC-3b: a stamped insert persists weight_version 1 and domain_tier_version 1[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m AC-4: seeded 1200-char fetch artifact rejects a duplicate content_hash insert[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m AC-5: status CHECK (claims_status_check) rejects approved; provisional row persists[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 7 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-1: ledger tables accept an appended belief score (PRIMARY)[2m > [22mAC-1: appends one doubly-stamped belief_scores row as holocron_app across all 9 tables
+[31m[1mAssertionError[22m: AC-1: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m387:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-2: append-only barrier rejects UPDATE and DELETE[2m > [22mAC-2: holocron_app cannot UPDATE or DELETE belief_scores; trigger blocks privileged roles too
+[31m[1mAssertionError[22m: AC-2: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m441:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-2: append-only barrier rejects UPDATE and DELETE[2m > [22mAC-2b: weight_components UPDATE and domain_tiers DELETE are append-only; 8 tier rows persist
+[31m[1mAssertionError[22m: AC-2: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m493:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-3: belief score requires both version stamps[2m > [22mAC-3: omitting domain_tier_version raises not-null violation and belief_scores stays empty
+[31m[1mAssertionError[22m: AC-3: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m534:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-3: belief score requires both version stamps[2m > [22mAC-3b: a stamped insert persists weight_version 1 and domain_tier_version 1
+[31m[1mAssertionError[22m: AC-3: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m556:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-4: sources fetch-artifact columns dedupe on content hash[2m > [22mAC-4: seeded 1200-char fetch artifact rejects a duplicate content_hash insert
+[31m[1mAssertionError[22m: AC-4: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m578:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m [30m[45m integration [49m[39m services/platform/tests/integration/fulcrum-ledger-contract.test.ts[2m > [22mFUL-PLAT-001 AC-5: claims admission columns reject an unknown status[2m > [22mAC-5: status CHECK (claims_status_check) rejects approved; provisional row persists
+[31m[1mAssertionError[22m: AC-5: migration 0041_fulcrum_ledger.sql must create the Fulcrum tables (missing: candidates, belief_scores, weight_versions, weight_components, domain_tier_versions, domain_tiers, touches, probes, claim_evidence_bindings): expected [ 'candidates', 'belief_scores', …(7) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "candidates",[39m
+[31m+   "belief_scores",[39m
+[31m+   "weight_versions",[39m
+[31m+   "weight_components",[39m
+[31m+   "domain_tier_versions",[39m
+[31m+   "domain_tiers",[39m
+[31m+   "touches",[39m
+[31m+   "probes",[39m
+[31m+   "claim_evidence_bindings",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m requireLedgerReady services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m307:5[22m[39m
+    [90m305|[39m     state[33m.[39mmissingTables[33m,[39m
+    [90m306|[39m     `${scope}: migration 0041_fulcrum_ledger.sql must create the Fulcr…
+    [90m307|[39m   )[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   |[39m     [31m^[39m
+    [90m308|[39m   [34mexpect[39m(
+    [90m309|[39m     state[33m.[39mforbiddenPresent[33m,[39m
+[90m [2m❯[22m services/platform/tests/integration/fulcrum-ledger-contract.test.ts:[2m635:5[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[90m (7)[39m
+[2m   Start at [22m 01:48:03
+[2m   Duration [22m 897ms[2m (transform 197ms, setup 149ms, import 413ms, tests 239ms, environment 0ms)[22m
+
