@@ -1,0 +1,29 @@
+{
+  "mustObserve": {
+    "weight_versions": "2 rows with versions 1 and 2",
+    "demand_v1_weight": 0.4,
+    "demand_v2_weight": 0.6,
+    "active_version": 2
+  },
+  "db_query": {
+    "versions": [
+      {
+        "version": 1
+      },
+      {
+        "version": 2
+      }
+    ],
+    "demandRows": [
+      {
+        "version": 1,
+        "weight": 0.4
+      },
+      {
+        "version": 2,
+        "weight": 0.6
+      }
+    ],
+    "active": 2
+  }
+}

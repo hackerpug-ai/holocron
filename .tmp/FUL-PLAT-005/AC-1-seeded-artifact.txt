@@ -1,0 +1,113 @@
+{
+  "mustObserve": {
+    "weight_versions": "1 row, version=1, disconfirmation_multiplier=2",
+    "weight_components": "4 rows incl demand at weight 0.4",
+    "domain_tier_versions": "1 row, version=1",
+    "domain_tiers": "8 rows incl sec.gov at tier_value 1.0"
+  },
+  "db_query": {
+    "weight_versions": [
+      {
+        "version": 1,
+        "disconfirmation_multiplier": 2
+      }
+    ],
+    "weight_components": [
+      {
+        "component": "demand",
+        "kind": "evidence",
+        "weight": 0.4,
+        "grade_floor": 0.3,
+        "recency_window_days": 90
+      },
+      {
+        "component": "competition",
+        "kind": "evidence",
+        "weight": 0.2,
+        "grade_floor": 0.2,
+        "recency_window_days": 180
+      },
+      {
+        "component": "reachability",
+        "kind": "evidence",
+        "weight": 0.2,
+        "grade_floor": 0.2,
+        "recency_window_days": 120
+      },
+      {
+        "component": "operator_judgment",
+        "kind": "judgment",
+        "weight": 0.2,
+        "grade_floor": null,
+        "recency_window_days": null
+      }
+    ],
+    "domain_tier_versions": [
+      {
+        "version": 1
+      }
+    ],
+    "domain_tiers": [
+      {
+        "registrable_domain": "sec.gov",
+        "tier": "primary",
+        "tier_value": 1
+      },
+      {
+        "registrable_domain": "irs.gov",
+        "tier": "official",
+        "tier_value": 0.9
+      },
+      {
+        "registrable_domain": "arxiv.org",
+        "tier": "academic",
+        "tier_value": 0.8
+      },
+      {
+        "registrable_domain": "acm.org",
+        "tier": "academic",
+        "tier_value": 0.8
+      },
+      {
+        "registrable_domain": "github.com",
+        "tier": "code",
+        "tier_value": 0.6
+      },
+      {
+        "registrable_domain": "news.ycombinator.com",
+        "tier": "community",
+        "tier_value": 0.5
+      },
+      {
+        "registrable_domain": "medium.com",
+        "tier": "blog",
+        "tier_value": 0.3
+      },
+      {
+        "registrable_domain": "reddit.com",
+        "tier": "community",
+        "tier_value": 0.2
+      }
+    ]
+  },
+  "compile_result": {
+    "ok": true,
+    "missionId": "dev-revenue",
+    "weightVersion": 1,
+    "domainTierVersion": 1,
+    "weightComponents": 4,
+    "domainTiers": 8,
+    "templateKey": "evidence-research",
+    "instantiation": "fulcrum",
+    "templateVersion": "1.0.7+fulcrum",
+    "templateCreated": true,
+    "toolGrants": [
+      "hybrid_search",
+      "search_fts",
+      "search_vector",
+      "search_research",
+      "get_research_session",
+      "get_document"
+    ]
+  }
+}

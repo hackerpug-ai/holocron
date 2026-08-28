@@ -1,0 +1,34 @@
+{
+  "mustObserve": {
+    "rejection_path": "sourceRules.banList.0",
+    "rejection_expected_received": "expected string, received number",
+    "weight_versions_after_refusal": 0,
+    "persisted_ban_list": [
+      "contentfarm.example",
+      "seospam.example"
+    ],
+    "persisted_courtesyDelayMs": 1500,
+    "weight_versions_after_valid_compile": 1
+  },
+  "api_response": {
+    "code": "FULCRUM_CONTRACT_INVALID",
+    "message": "fulcrum contract invalid — sourceRules.banList.0: Invalid input: expected string, received number"
+  },
+  "db_query": {
+    "persisted_snapshot": {
+      "sourceRules": {
+        "banList": [
+          "contentfarm.example",
+          "seospam.example"
+        ],
+        "courtesyDelayMs": 1500
+      }
+    },
+    "counts_after_valid_compile": {
+      "weightVersions": 1,
+      "weightComponents": 4,
+      "domainTierVersions": 1,
+      "domainTiers": 8
+    }
+  }
+}

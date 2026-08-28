@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FULCRUM_CORPUS_TOOL_IDS } from '../fulcrum/contract.ts';
 
 const BANNED_EXECUTABLE_KEYS = {
   inlineZod: 'inline Zod payloads are not allowed in mission templates',
@@ -100,7 +101,13 @@ export const MissionTemplateSchema = z
     description: z.string().min(1),
     trigger: MissionTriggerSchema,
     stageGraph: z.array(MissionStageSchema).min(1),
-    toolGrants: z.array(z.never()).default([]),
+    /**
+     * Closed enum over the registered Fulcrum corpus tool ids (FUL-PLAT-005) —
+     * the single const array the registry surface and this schema share, so
+     * they cannot drift. Shipped templates keep the empty-array default;
+     * FUL-PLAT-008 owns relaxing the DSL-v1 compiler refusal for non-empty lists.
+     */
+    toolGrants: z.array(z.enum(FULCRUM_CORPUS_TOOL_IDS)).default([]),
     modelRoleBindings: z.record(z.string().min(1), z.string().min(1)).default({}),
     budgets: MissionBudgetsSchema,
     gateRubric: z.null(),

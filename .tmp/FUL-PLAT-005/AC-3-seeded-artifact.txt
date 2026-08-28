@@ -1,0 +1,19 @@
+{
+  "mustObserve": {
+    "thrown_code": "FULCRUM_TOOL_GRANT_UNREGISTERED",
+    "message_names_rejected_grant": "exa_search",
+    "weight_versions_after_refusal": 0,
+    "domain_tier_versions_after_refusal": 0
+  },
+  "api_response": {
+    "code": "FULCRUM_TOOL_GRANT_UNREGISTERED",
+    "message": "tool grant 'exa_search' is not a registered Fulcrum corpus tool (allowed: hybrid_search, search_fts, search_vector, search_research, get_research_session, get_document)",
+    "name": "FulcrumContractError"
+  },
+  "db_query": {
+    "weightVersions": 0,
+    "weightComponents": 0,
+    "domainTierVersions": 0,
+    "domainTiers": 0
+  }
+}

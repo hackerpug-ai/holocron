@@ -1,0 +1,26 @@
+{
+  "mustObserve": {
+    "toolGrants": [
+      "hybrid_search",
+      "search_fts",
+      "search_vector",
+      "search_research",
+      "get_research_session",
+      "get_document"
+    ],
+    "templateKey": "evidence-research",
+    "mission_template_versions_for_key": "at least 1"
+  },
+  "db_query": {
+    "template_key": "evidence-research",
+    "version": "1.0.7+fulcrum",
+    "definition_json_toolGrants": [
+      "hybrid_search",
+      "search_fts",
+      "search_vector",
+      "search_research",
+      "get_research_session",
+      "get_document"
+    ]
+  }
+}
