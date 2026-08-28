@@ -1,0 +1,13 @@
+# AC-1 db_query — persisted claim row after the AC-1 verify run (real Postgres holocron_nonprod)
+# MUST_OBSERVE: status=admitted, passes_gate=true, qualifying_grade=0.92 (tier_value 1.0 decayed over 30 days under the 365-day window), reason=admitted_quote_verified; NOT provisional; grade NOT NULL/0
+-[ RECORD 1 ]---------+------------------------------------------------------------------------
+claim_id              | 01a04947-fe24-7f26-989a-b10e5f06a9e4
+status                | admitted
+passes_gate           | t
+qualifying_grade      | 0.92
+quote_text            | Quarterly revenue grew 12% year-over-year according to the 10-K filing.
+admission_reasons     | ["admitted_quote_verified"]
+source_domain         | sec.gov
+normalized_text_len   | 1200
+contains_10k_sentence | t
+

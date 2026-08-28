@@ -1,0 +1,27 @@
+# AC-3 db_query — persisted claims after the AC-3 verify run (real Postgres holocron_nonprod)
+# MUST_OBSERVE: fabricated + RRF-sliced rows provisional with reason quote_unverified + passes_gate=false; verbatim control row admitted
+-[ RECORD 1 ]-----+-------------------------------------------------------------
+claim_id          | 01a04946-f8cc-7f6d-bc2f-057789ea0891
+status            | admitted
+passes_gate       | t
+qualifying_grade  | 0.92
+quote_head        | Quarterly revenue grew 12% year-over-year according to the 1
+admission_reasons | ["admitted_quote_verified"]
+source_domain     | sec.gov
+-[ RECORD 2 ]-----+-------------------------------------------------------------
+claim_id          | 01a04946-f847-742b-8418-ff289783ef30
+status            | provisional
+passes_gate       | f
+qualifying_grade  | 
+quote_head        | FULCRUM-IT admission fetch artifact run 4cf25e15-f180-41fb-b
+admission_reasons | ["quote_unverified"]
+source_domain     | sec.gov
+-[ RECORD 3 ]-----+-------------------------------------------------------------
+claim_id          | 01a04946-f7b3-7159-af7c-399e3ac3b29d
+status            | provisional
+passes_gate       | f
+qualifying_grade  | 
+quote_head        | holocron guarantees 70% margin
+admission_reasons | ["quote_unverified"]
+source_domain     | sec.gov
+

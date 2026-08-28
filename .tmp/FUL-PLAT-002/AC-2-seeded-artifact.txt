@@ -1,0 +1,33 @@
+# AC-2 db_query — persisted claims after the AC-2 verify run (real Postgres holocron_nonprod)
+# MUST_OBSERVE: 3 rows, all status=provisional, distinct reasons: domain_unclassified (qualifying_grade NULL) / evidence_out_of_window / grade_below_floor (qualifying_grade 0.92)
+-[ RECORD 1 ]---------+---------------------------------------------------------------------------------
+claim_id              | 01a04946-ae3a-7201-9a86-42b137a9827f
+status                | provisional
+passes_gate           | f
+qualifying_grade      | 0.92
+quote_text            | Quarterly revenue grew 12% year-over-year according to the 10-K filing.
+admission_reasons     | ["grade_below_floor"]
+source_domain         | sec.gov
+normalized_text_len   | 1200
+contains_10k_sentence | t
+-[ RECORD 2 ]---------+---------------------------------------------------------------------------------
+claim_id              | 01a04946-ad97-76bc-9a84-2d0069496abe
+status                | provisional
+passes_gate           | f
+qualifying_grade      | 
+quote_text            | Quarterly revenue grew 12% year-over-year according to the 10-K filing.
+admission_reasons     | ["evidence_out_of_window"]
+source_domain         | sec.gov
+normalized_text_len   | 1200
+contains_10k_sentence | t
+-[ RECORD 3 ]---------+---------------------------------------------------------------------------------
+claim_id              | 01a04946-ad02-7968-816d-d461c8c5a60e
+status                | provisional
+passes_gate           | f
+qualifying_grade      | 
+quote_text            | Community adoption doubled across the pilot cohort during the last two quarters.
+admission_reasons     | ["domain_unclassified"]
+source_domain         | randomblog.example
+normalized_text_len   | 1200
+contains_10k_sentence | f
+
