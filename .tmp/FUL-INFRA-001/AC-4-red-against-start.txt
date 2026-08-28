@@ -1,0 +1,9 @@
+# AC-4 RED against start (restricted :8013 process absent, 2026-08-28T09:03:04Z)
+# The AC-4 test asserts 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent' and 'present=embed'.
+# With :8013 not started there is no serving endpoint to probe — the check reports UNREACHABLE:
+check_exit=1
+endpoint=http://inference2.tail011a51.ts.net:8013/v1
+expected_roles=convergent,divergent,embed
+FULCRUM_SUBSTRATE_UNREACHABLE endpoint=http://inference2.tail011a51.ts.net:8013/v1 probe failed for http://inference2.tail011a51.ts.net:8013/v1/models: Unable to connect. Is the computer able to access the url?
+{"mode":"endpoint","expected_roles":["convergent","divergent","embed"],"ready":false,"nodes":[{"node":"inference2.tail011a51.ts.net","endpoint":"http://inference2.tail011a51.ts.net:8013/v1","reachable":false,"error":"probe failed for http://inference2.tail011a51.ts.net:8013/v1/models: Unable to connect. Is the computer able to access the url?","models":[],"roles":null,"missing_roles":[],"present_roles":[],"resident_gb":0,"ready":false}],"nodes_ready":0,"roles_per_node":null,"unreachable_nodes":["inference2.tail011a51.ts.net"],"present_roles":[],"missing_roles":[]}
+grep 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent' → NO MATCH (assertion RED against start ✓)

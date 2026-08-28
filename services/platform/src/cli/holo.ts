@@ -27,6 +27,7 @@
  * Sprint 20 D03-02: ci runner:status --lane e2e (simulator + Expo dev build probes)
  * Sprint 13 D02-07: prd:consistency
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
+ * Sprint 29 FUL-INFRA-001: fulcrum:substrate-check — per-node Fulcrum role-set readiness
  * Sprint 24 DEPENDENCY-S24: seed:e2e --reset | verify:no-convex-client | zero_cache boot
  * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
  * Sprint 27 D04-03: backup:wal | backup:base | backup:status — WAL archive + base backups
@@ -188,6 +189,14 @@ interface CliArgs {
   dataset: string | null;
   /** evals:run --judge-endpoint (fail-closed probe override) */
   judgeEndpoint: string | null;
+  /** fulcrum:substrate-check --endpoint <url> (single-endpoint mode) */
+  endpoint: string | null;
+  /** fulcrum:substrate-check --print-expected */
+  printExpected: boolean;
+  /** fulcrum:substrate-check --report-basenames */
+  reportBasenames: boolean;
+  /** fulcrum:substrate-check --trace-requested-roles */
+  traceRequestedRoles: boolean;
   /** prd:consistency --root / inventory:convex-callsites --root / verify:no-shells --root */
   root: string | null;
   /** mcp:verify-rehost --executor <path> (throw-only negative-control seeds) */
@@ -509,6 +518,9 @@ Usage:
   mission status <run-id>   Show persisted mission run status/output/provenance
   mission:cycle <run-id>    Execute one mid-run cycle (steering + ASSAY≠CHALLENGE)
   fulcrum:authorable-check  Compile fulcrum (evidence-research alias) against 5 seams
+  fulcrum:substrate-check   Prove the Fulcrum role set per node from real /v1/models
+                            (--endpoint <url> | --print-expected | --report-basenames |
+                             --trace-requested-roles) — exit 1 when any role is missing
   fulcrum <goal>            Run fulcrum instantiation of evidence-research (CLI alias)
   article:compat <token>    Verify legacy public article URL shape
   mission run research      Run a research mission with per-run Langfuse trace export
@@ -741,6 +753,10 @@ function parseArgs(argv: string[]): CliArgs {
     sample: null,
     dataset: null,
     judgeEndpoint: null,
+    endpoint: null,
+    printExpected: false,
+    reportBasenames: false,
+    traceRequestedRoles: false,
     root: null,
     executorPath: null,
     output: null,
@@ -878,6 +894,16 @@ function parseArgs(argv: string[]): CliArgs {
       args.judgeEndpoint = argv[++i] ?? null;
     } else if (a.startsWith('--judge-endpoint=')) {
       args.judgeEndpoint = a.slice('--judge-endpoint='.length);
+    } else if (a === '--endpoint') {
+      args.endpoint = argv[++i] ?? null;
+    } else if (a.startsWith('--endpoint=')) {
+      args.endpoint = a.slice('--endpoint='.length);
+    } else if (a === '--print-expected') {
+      args.printExpected = true;
+    } else if (a === '--report-basenames') {
+      args.reportBasenames = true;
+    } else if (a === '--trace-requested-roles') {
+      args.traceRequestedRoles = true;
     } else if (a === '--explain') {
       args.explain = true;
     } else if (a === '--surface') {
@@ -7163,6 +7189,33 @@ async function main(): Promise<void> {
           );
         } else {
           console.error(`mission:cycle failed: ${message}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'fulcrum:substrate-check': {
+      // FUL-INFRA-001: expected-role-set readiness per node from each node's own
+      // real /v1/models. Fail-closed: exit 1 on unreachable node, short model
+      // list, or invalid expectation file (fulcrum-roles.json is the only source).
+      try {
+        const { formatSubstrateCheckText, runFulcrumSubstrateCheck } = await import(
+          './commands/fulcrum-substrate-check.ts'
+        );
+        const result = await runFulcrumSubstrateCheck({
+          endpoint: args.endpoint,
+          printExpected: args.printExpected,
+          reportBasenames: args.reportBasenames,
+          traceRequestedRoles: args.traceRequestedRoles,
+        });
+        console.log(formatSubstrateCheckText(result, args.json));
+        process.exit(result.ok ? 0 : 1);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`fulcrum:substrate-check failed: ${message}`);
+        if (args.json) {
+          console.log(JSON.stringify({ mode: 'invalid', ready: false, error: message }));
         }
         process.exit(1);
       }

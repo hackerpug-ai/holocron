@@ -1,0 +1,4 @@
+# AC-4 seeded-value artifact — must_observe values captured from the GREEN run (2026-08-28T09:10:12Z)
+exit=1
+present=embed
+FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent

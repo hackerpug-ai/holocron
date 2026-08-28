@@ -1,0 +1,74 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '\"unreachable_nodes\":[\"inference1\"]'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/ac-4-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/ac-5-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '\"nodes_ready\":2'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F 'exit=1'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-4-output.txt"
+  },
+  {
+    "id": "TC-5",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-5-output.txt"
+  },
+  {
+    "id": "TC-6",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-6-output.txt"
+  },
+  {
+    "id": "TC-7",
+    "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F 'forbidden_role_hits=0'",
+    "exit_code": 0,
+    "output_file": ".tmp/FUL-INFRA-001/tc-7-output.txt"
+  }
+]

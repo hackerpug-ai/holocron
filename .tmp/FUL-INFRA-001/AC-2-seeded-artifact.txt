@@ -1,0 +1,4 @@
+# AC-2 seeded-value artifact — must_observe values captured from the GREEN run (2026-08-28T09:10:12Z)
+coder_basenames_served=0 fulcrum_basenames_served=6
+inference1 resident_gb=46
+inference2 resident_gb=46
