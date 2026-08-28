@@ -17,7 +17,7 @@ import { getSecretValue } from '../../src/config/secrets';
 import { createSql, type Sql } from '../../src/db/client';
 import { embed } from '../../src/inference/embed';
 import { executePostgresMcpTool } from '../../src/mcp/executor';
-import { getTool, listTools, toolsAsRecord } from '../../src/tools/registry';
+import { getTool, listTools, toolsAsRecord, type ZodSchema } from '../../src/tools/registry';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
@@ -183,6 +183,20 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value as Record<string, unknown>;
 }
 
+/**
+ * Strict output-contract parse (imp-mcp-schema-drift-hardening T1): plain
+ * safeParse strips unknown keys, hiding executor↔schema drift. Object schemas
+ * expose .strict() — non-object kinds (records/arrays) have no unknown-key
+ * semantics and parse with the declared schema unchanged.
+ */
+function strictOutputParse(schema: ZodSchema, output: unknown) {
+  const candidate = schema as { strict?: () => ZodSchema };
+  if (typeof candidate.strict === 'function') {
+    return candidate.strict().safeParse(output);
+  }
+  return schema.safeParse(output);
+}
+
 describe('MCP production tool audit', () => {
   let sql: Sql | undefined;
   let mcpKey = '';
@@ -270,7 +284,9 @@ describe('MCP production tool audit', () => {
   it('executes every registered tool against real Postgres or live HTTP', async () => {
     if (!sql) throw new Error('Postgres required');
     const tools = listTools();
-    expect(tools.length).toBeGreaterThanOrEqual(44);
+    // imp-mcp-schema-drift-hardening: the sweep covers exactly the registry —
+    // never a hardcoded tool-count literal (the count drifts as tools land).
+    expect(tools.length).toBe(Object.keys(toolsAsRecord()).length);
 
     const storedDoc = (await executePostgresMcpTool(
       'store_document',
@@ -348,6 +364,16 @@ describe('MCP production tool audit', () => {
       VALUES (${researchId}::uuid, 'simple', ${`${NS} research topic`}, 'completed')
     `;
     created.research.push(researchId);
+
+    // imp-mcp-schema-drift-hardening sweep gap: deep_research_control needs a
+    // steerable (non-terminal) session — a dedicated 'running' row, cleaned up
+    // with the rest of created.research.
+    const controlResearchId = randomUUID();
+    await sql`
+      INSERT INTO research_sessions (id, system, topic, status)
+      VALUES (${controlResearchId}::uuid, 'simple', ${`${NS} control target`}, 'running')
+    `;
+    created.research.push(controlResearchId);
 
     const whatsNewId = randomUUID();
     await sql`
@@ -429,6 +455,7 @@ describe('MCP production tool audit', () => {
       cancelSessionId: created.assimilations[2] ?? '',
       steerSessionId: created.assimilations[3] ?? '',
       researchSessionId: researchId,
+      controlResearchSessionId: controlResearchId,
       profileId: creatorId,
       contentId,
       embedding: queryVector,
@@ -438,6 +465,14 @@ describe('MCP production tool audit', () => {
       switch (id) {
         case 'get_research_session':
           return { sessionId: seed.researchSessionId };
+        case 'deep_research_result':
+          return { sessionId: seed.researchSessionId };
+        case 'deep_research_control':
+          return {
+            sessionId: seed.controlResearchSessionId,
+            action: 'steer',
+            note: `${NS}-control-steer`,
+          };
         case 'search_research':
           return { query: NS, limit: 5 };
         case 'search_fts':
@@ -602,8 +637,16 @@ describe('MCP production tool audit', () => {
 
       const serialized = JSON.stringify(output);
       if (/convex/i.test(serialized)) reasons.push('convex_residue');
-      const parsed = getTool(row.id).outputSchema.safeParse(output);
-      if (!parsed.success) reasons.push('output_schema_mismatch');
+      // imp-mcp-schema-drift-hardening: plain safeParse STRIPS unknown keys, so a
+      // drifted executor payload with undeclared fields passed silently. Object
+      // schemas are parsed .strict() (unknown keys fail); non-object schema kinds
+      // (records/arrays — no unknown-key semantics) use the declared schema as-is.
+      const parsed = strictOutputParse(getTool(row.id).outputSchema, output);
+      if (!parsed.success) {
+        reasons.push(
+          `output_schema_mismatch:${JSON.stringify(parsed.error.issues).slice(0, 400)}`
+        );
+      }
 
       if (row.id === 'hybrid_search') {
         const record = asRecord(output);
@@ -719,7 +762,9 @@ describe('MCP production tool audit', () => {
       const listed = await productionRpc('tools/list', {}, run * 10 + 2, mcpKey);
       const tools = (asRecord(listed.result)?.tools ?? []) as Array<{ name?: string }>;
       const ids = tools.map((tool) => String(tool.name)).sort();
-      expect(ids.length).toBeGreaterThanOrEqual(44);
+      // Registry-derived exact match: the deployed MCP must advertise exactly
+      // what the current registry registers — never a stale count literal.
+      expect(ids.length).toBe(listTools().length);
 
       const listDocs = await productionRpc(
         'tools/call',
