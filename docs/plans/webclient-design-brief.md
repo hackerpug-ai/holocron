@@ -2,79 +2,120 @@
 
 **Status:** brainstorm output, pre-PRD
 **Date:** 2026-08-28
-**Stack:** Next.js + shadcn/ui + AI Elements, deployed on Cloudflare Workers, reaching the holocron device over the existing tunnel
+**Stack:** Next.js on Cloudflare Workers · tRPC (BFF) · shadcn/ui + AI Elements · AI SDK agent loop · platform-on-device over the tunnel
 
 ---
 
-## 1. The six decisions
+## 1. Decisions
 
 | # | Question | Decision |
 |---|---|---|
 | 1 | Who loads it? | **Operator cockpit behind auth + edge-cached public read pages**, one codebase, two faces |
-| 2 | What's it for? | Reading/searching the archive, talking to the agent, packaging research to send — **feed/triage cut** until a real recommendation engine exists |
-| 3 | Shape? | **Two destinations: Chats + Library.** No feed. Mobile app is the functional reference, not the design reference |
-| 4 | Agent ceremony? | **It answers and executes.** Tools = the MCP surface, executed with Claude-Code-style inline feel. No plan/confirm/approve ladder |
-| 5 | Share unit? | **One document, one link.** No collections, no shared chat threads |
-| 6 | Look & feel? | **Holocron — lean into the name.** Governed by the discipline rule in §6 |
+| 2 | What's it for? | Reading/searching the archive, talking to the agent, packaging research to send. **Feed/triage cut** until a real recommendation engine exists |
+| 3 | Shape? | **Two destinations: Chats + Library.** Mobile app is the functional reference, not the design reference |
+| 4 | Agent ceremony? | **It answers and executes.** Tools = the MCP surface, Claude-Code-style inline feel. No plan/confirm/approve ladder |
+| 5 | Share unit? | **One document, one link** |
+| 6 | Look & feel? | **Holocron — lean into the name**, governed by the chrome-vs-column rule (§6) |
+| 7 | Auth? | **BetterAuth**, tables in the platform Postgres |
+| 8 | Data transport? | **tRPC as BFF** — requests + TanStack Query caching. Zero stays mobile-only |
+| 9 | Agent location? | **AI SDK loop runs in the BFF**, calling the device's MCP gateway over the tunnel |
+| 10 | Domain? | **The Next app envelops `docs.holocrnlib.com`** — existing share links keep working unchanged |
 
-**Auth:** BetterAuth (not Cloudflare Access) for the operator side.
-
-**Scope:** complete UI/UX rewrite. Non-visual backend logic may be lifted where it earns its place.
+**Scope:** complete UI/UX rewrite. Non-visual backend logic lifted only where it earns its place.
 
 ---
 
-## 2. What already exists — do not rebuild
+## 2. Architecture
+
+```
+                          docs.holocrnlib.com          ← Next.js on Cloudflare Workers
+                          ├─ /d/<token>                PUBLIC. Server Component, no auth, no tRPC.
+                          │                            Edge-cached 60s. Renders markdown + assets.
+                          └─ /*                        OPERATOR. BetterAuth. tRPC + TanStack Query.
+                               ├─ tRPC router          the BFF
+                               │   ├─ queries          documents, search, conversations
+                               │   └─ chat.stream      async generator → httpBatchStreamLink
+                               └─ AI SDK agent loop    streamText + MCP tools
+
+                                        │ tunnel (CF Access service token)
+                                        ▼
+                          origin-docs.holocrnlib.com   ← Hono on the holocron device
+                          ├─ /mcp, /mcp/*              Streamable HTTP MCP gateway (stateless)
+                          ├─ /api/*                    documents, research, uploads, publish
+                          └─ Postgres                  documents, conversations, sessions, BetterAuth
+```
+
+### The domain envelopment
+
+Today `docs.holocrnlib.com` is a standalone Worker (`holocron-docs-reader`) that serves exactly `^/d/<token>$`. The Next app takes over that hostname; the standalone Worker retires.
+
+**Hard constraint: `/d/<token>` URLs must keep working, byte for byte.** They are already in the wild, and more importantly the MCP `share_document` tool *promises that URL shape in its description* to every agent session that calls it — see `holocron-mcp/src/mastra/stdio.ts:213` and `services/platform/src/tools/registry.ts:196`. The constant is duplicated in two files carrying an explicit lockstep comment:
+
+- `services/platform/src/public-docs.ts` → `PUBLIC_DOCS_ORIGIN` + `buildPublicShareUrl()`
+- `app/zero/platform.ts` → `PUBLIC_DOCS_ORIGIN`
+
+Neither changes. Only what answers the request changes.
+
+**Carry these cache semantics over verbatim** — they are easy to lose and expensive to lose:
+
+- `Cache-Control: public, max-age=60, s-maxage=60`
+- `Cloudflare-CDN-Cache-Control: max-age=60` — this exists specifically to beat the free-plan zone's **7200s edge TTL floor**. Drop it and unsharing takes two hours to take effect.
+- **Cache 404s too.** Unshare → origin 404 → cached "no longer shared" page. This is what keeps revocation cheap instead of hammering the device.
+- 60s is simultaneously the freshness window and the revocation SLA. That's the deal; it's a good deal; don't renegotiate it accidentally.
+
+**Public pages do not go through tRPC.** `/d/[token]` is a Server Component that queries the device directly and sets its own cache headers. tRPC exists for the authenticated app, where TanStack Query's cache is the point. Routing public traffic through tRPC adds a serialization layer and fights the caching model for zero benefit.
+
+### The agent
+
+The BFF runs the AI SDK loop and attaches to the device's MCP gateway as an MCP client over Streamable HTTP.
+
+This works because the gateway already exists and is already stateless: `createMcpServer()` registers every tool from `listTools()` — the same registry, the same schemas, the same executor that Claude Code talks to. `sessionIdGenerator: undefined`, `enableJsonResponse` toggled by the `Accept` header, progress notifications forwarded. Mounted at `app.all('/mcp')` and `app.all('/mcp/*')`.
+
+**One thing to verify on first contact:** the transport sets `allowedOrigins: [request.url origin]` with `enableDnsRebindingProtection: true`. Server-to-server calls from a Worker normally send no `Origin` header, so this should pass — but prove it with a real call before building on it.
+
+### Streaming through tRPC
+
+`httpBatchStreamLink` + an async-generator procedure. Verified against the reference you gave:
+
+> **tRPC #6103 (closed, unresolved):** tRPC transforms every output, so you cannot hand back the raw HTTP response the AI SDK expects. Streaming works by combining tRPC streaming with the `ai` package — but **`useChat` and `useCompletion` are unavailable.**
+
+That cost is bounded, because **AI Elements do not require `useChat`.** Verified from the component API: `ToolHeader` takes `type` and `state` (`input-streaming | input-available | output-available | output-error`), `ToolInput` takes `input`, `ToolOutput` takes `output` and `errorText`; the docs state the components can be driven independently of the hook.
+
+So: keep client state in AI SDK's `UIMessage` shape, fold streamed parts into it with a reducer (~150 lines), and every AI Element renders natively. You trade one hook for full end-to-end type safety across the whole app.
+
+### Data flow rule that kills the duplicate-card bug
+
+> **The stream carries invalidations. The query carries truth.**
+
+A card renders from `trpc.documents.byId` / `trpc.research.byId`, keyed by record id. The chat stream never carries a card's contents — it carries "record X changed," and the client invalidates that query. A card cannot double, because there is only ever one of it and it has one source.
+
+---
+
+## 3. What already exists — do not rebuild
 
 Verified in the repo, not recalled.
 
-### Zero sync covers the whole data layer
+**MCP gateway** — `src/mcp/gateway.ts` + `src/mcp/executor.ts` (75KB). Stateless Streamable HTTP, shared registry. The BFF agent's entire tool surface.
 
-`app/zero/schema.ts` already syncs 19 tables: `conversations`, `chatMessages`, `toolCalls`, `agentPlans`, `agentPlanSteps`, `researchSessions`, `researchIterations`, `documents`, `audioJobs`, `audioSegments`, `feedItems`, `subscriptionSources`, `subscriptionContent`, `whatsNewReports`, `appSettings`, `improvementRequests`, `assimilationSessions`, `notifications`, `fileObjects`.
+**The Library is one table.** `documents` carries `title`, `content`, `category`, `status`, `researchType`, `iterations`, `isPublic`, `shareToken`, `publishedAt`, plus a generated `search_vector` with a GIN index. Research outputs, transcripts, and digests all land here. Hybrid search (FTS + vector) exists server-side.
 
-Zero has a first-class browser client. The web app reuses this exact schema instead of inventing a REST layer — and gets reactive updates plus a local IndexedDB cache for free. **Consequence: the Library stays browsable when your device is asleep.**
+**The share flow** — `POST /api/documents/:id/publish` flips `is_public` and mints `share-<uuid>`. Origin `GET /article/:shareToken` and `GET /article/:shareToken/assets/:fileObjectId` both exist with correct `is_public` joins. The asset route is *already written* — it has simply never been reachable (§4).
 
-### The Library is essentially one table
+**Convex is gone and enforced.** `bun run verify:no-convex-client` → `zero convex/react client imports (clean)`, plus a `verify-no-convex-env` build gate. Only `legacyConvexId` columns remain. Nothing to migrate.
 
-`documents` carries `title`, `content`, `category`, `status`, `researchType`, `iterations`, `isPublic`, `shareToken`, `publishedAt`, plus a generated `search_vector` with a GIN index. Research outputs, transcripts, and digests all land here. Hybrid search (FTS + vector) already exists server-side.
+**Zero stays on mobile.** `app/zero/schema.ts` syncs 19 tables for the RN app. The web client does not use it — tRPC replaces it there. Don't delete it; don't extend it for web.
 
-"Browse the library" is **one well-indexed surface**, not eight verticals.
-
-### The public read path is built
-
-```
-docs.holocrnlib.com/d/<token>          Cloudflare Worker `holocron-docs-reader`
-  ├─ caches.default hit → return (60s TTL)
-  └─ miss → origin-docs.holocrnlib.com/article/<token>
-             with CF-Access-Client-Id/Secret service headers, 10s timeout
-             → Hono on the device → Postgres WHERE share_token = ? AND is_public = true
-             → self-contained HTML
-```
-
-Notable details worth preserving:
-
-- The Worker sets `Cloudflare-CDN-Cache-Control: max-age=60` specifically to beat the free-plan zone's 7200s edge TTL floor. **60s is simultaneously the freshness window and the revocation SLA.**
-- 404s are cached too, so unsharing propagates in ≤60s and doesn't hammer origin.
-- Token shapes accepted: `share-<uuid>`, `mcp-<uuid>`, bare uuid, `share-word-word`.
-
-### Chat is a durable run with a replayable event log
-
-- `POST /api/chat-runs` → creates a run
-- `GET /api/chat-runs/:id/events` → SSE, honours `Last-Event-ID`, replays from `listChatEvents(runId, cursor)`, 30s window per connection
-- `POST /api/chat-runs/:id/cancel` → cancel
-
-This is materially better than a raw provider stream: **reload the page mid-answer and it resumes from the event log.** The web client must not throw this away by adopting a transport that assumes a single unrepeatable stream.
-
-### MCP tools are already server-side
-
-`src/mcp/executor.ts` (75KB) + `src/mcp/gateway.ts`. The agent's tool surface already exists and is already the same surface Claude Code sees. The web client does not define its own tools.
+**The platform chat pipeline stays on mobile.** `POST /api/chat-runs`, `GET /api/chat-runs/:id/events` (SSE with `Last-Event-ID` replay), `POST /api/chat-runs/:id/cancel`. Web does not use it (see §7).
 
 ---
 
-## 3. What's broken — verified by execution
+## 4. Verified defects — fixed by the rewrite, deliberately
 
-### Defect 1: images vanish from every shared document
+Both confirmed by executing the real code.
 
-The public renderer's markdown converter has **no image rule**. Ran against the real function:
+### Images vanish from every shared document
+
+The public renderer has **no image rule**:
 
 ```
 "![Chart](https://example.com/a.png)"
@@ -86,7 +127,7 @@ The public renderer's markdown converter has **no image rule**. Ran against the 
 
 The link regex swallows the `[alt](url)` half and leaves a literal `!`. Relative paths collapse to `href="#"` because the sanitizer only permits `http`-prefixed URLs.
 
-### Defect 2: the Worker cannot serve assets
+### The Worker cannot serve assets
 
 Route regex is `^/d/([^/]+)$`. Ran the real handler:
 
@@ -95,127 +136,116 @@ Route regex is `^/d/([^/]+)$`. Ran the real handler:
 /d/share-1111…1111/assets/abc   => 404  "No longer shared"
 ```
 
-The origin *does* implement `GET /article/:shareToken/assets/:fileObjectId` with a correct `is_public` join — but it's behind Access on the tunnel and nothing on the public domain routes to it.
+The origin implements the asset route correctly; nothing on the public domain routes to it.
 
-**Combined impact: every shared document is silently text-only.** Charts, screenshots, and diagrams are replaced by a stray `!` and a dead link, with no error surfaced anywhere. This is in the MVP, not the backlog.
+**Combined: every shared document is silently text-only** — charts, screenshots and diagrams replaced by a stray `!` and a dead link, no error anywhere.
 
-### Defect 3: duplicate cards (the mobile jank you named)
+Both die when Next renders `/d/[token]`: a real markdown renderer handles images, and `/d/[token]/assets/[id]` is just another route proxying the origin endpoint that already works.
 
-Root cause, plainly: **a card is currently both a message row and a live view of a record, and both render.**
+### Duplicate cards
 
-The backend writes `message_type: 'result_card' | 'agent_plan' | 'tool_approval'` rows into `chatMessages`. Separately, components like `DeepResearchLoadingCardWithPolling` watch the underlying `researchSessions` record in Zero and render their own card. Two sources of truth for one fact.
+Root cause: **a card is currently both a message row and a live view of a record, and both render.** The backend writes `message_type: 'result_card' | 'agent_plan' | 'tool_approval'` rows into `chatMessages`, while components like `DeepResearchLoadingCardWithPolling` separately watch the record in Zero. `MessageBubble.tsx` (30KB) already contains a literal *"Suppress iteration cards entirely"* branch and an *"if renderResultCard returns null, suppress the entire message"* path — symptom patches.
 
-The code already knows: `MessageBubble.tsx` (30KB) contains a literal *"Suppress iteration cards entirely — they're consolidated in DeepResearchLoadingCard"* branch and an *"if renderResultCard returns null, suppress the entire message"* path. Those are symptom patches.
-
-**The rewrite rule that fixes it structurally:**
-
-> A card renders **from the record**, keyed by its id. A message row holds only a *reference* to a record. A card can never double, because there is only ever one of it.
+Structurally impossible under the §2 rule: stream carries invalidations, query carries truth.
 
 ---
 
-## 4. MVP — two surfaces
+## 5. MVP — two surfaces
 
 ### Chats
 
-ChatGPT-shaped. Conversation list on the left, thread in the center.
+ChatGPT-shaped. Conversation list left, thread center.
 
-- Streaming answers over the existing chat-run SSE, with **resume after reload** (the `Last-Event-ID` path already supports this — use it).
-- Tool execution inline and unceremonious: one collapsed line per tool (`searched holocron · 12 results`), expandable to see arguments and output. Claude Code's register — terse, factual, no approval gate.
-- Tools are the **MCP surface**, unmodified.
-- **Commands carry over** from mobile (`/research`, `/deep-research`, `/search`, `/browse`, `/stats`, `/help`) with a `⌘K`-style palette in the composer. Execution feel matches a local Claude Code run: the command echoes, streams, and lands as a result.
-- **Cards render from records.** Deep research and returned documents get one card each, keyed by session/document id, live-updating via Zero.
-- Cancel is always available on an in-flight run.
+- `chat.stream` tRPC procedure: async generator, `httpBatchStreamLink`, yielding `UIMessage` parts.
+- AI SDK agent loop in the BFF; tools from the device MCP gateway.
+- Tool calls render inline and unceremonious — one collapsed `<Tool>` per call (`searched holocron · 12 results`), expandable for input/output. Claude Code's register: terse, factual, no approval gate.
+- **Commands carry over** (`/research`, `/deep-research`, `/search`, `/browse`, `/stats`, `/help`) via `PromptInput` with a `⌘K` palette. Execution feel matches a local Claude Code run.
+- Cards render from records, keyed by id, refreshed by stream invalidations.
+- Cancel always available on an in-flight run.
+- **Long research runs stay device jobs.** The agent kicks off a `researchSession` and returns; the card polls. A twenty-minute run must never live inside a Worker request.
 
 ### Library
 
 Everything in `documents`, one searchable surface.
 
-- Hybrid search (FTS + vector) — already server-side, just needs a query surface.
-- Filter chips over `category`, `researchType`, `status`, and shared/not-shared.
-- Document view: clean markdown reading column, working images, citations, headings with anchors.
-- **Share:** toggle public → get `docs.holocrnlib.com/d/<token>` → copy. Unshare kills it in ≤60s. Show the share state on the row so "what have I published" is answerable at a glance.
-- Select text → *Ask about this* → opens Chats with the passage quoted as context. **This is the only AI affordance in the Library.**
+- Hybrid search (FTS + vector), already server-side — needs a tRPC procedure and a query surface.
+- Filter chips over `category`, `researchType`, `status`, shared/not-shared.
+- Document view: clean reading column, working images, citations, heading anchors.
+- **Share:** toggle public → `https://docs.holocrnlib.com/d/<token>` → copy. Unshare kills it in ≤60s. Share state visible on the row, so "what have I published" is answerable at a glance.
+- Select text → *Ask about this* → opens Chats with the passage quoted. **The only AI affordance in the Library.**
 
-### Public page
+### Public reader — `/d/[token]`
 
-The reader a stranger sees. Same design identity in header and edges, calm paper for the body. Fixes Defects 1 and 2. Real markdown renderer, working images, OG tags, fast.
+Server Component, no auth, no tRPC, own cache headers. Real markdown, working images, OG tags, fast. Same design identity in header and edges; calm paper in the body.
 
-### Explicitly out of MVP
+### Out of MVP
 
-Feed / triage · collections · shared chat threads · narration & TTS · subscriptions management · toolbelt · improvements tracker · shop · assimilation UI · voice · podcast transcription UI · multi-user accounts.
+Feed/triage · collections · shared chat threads · narration & TTS · subscriptions management · toolbelt · improvements tracker · shop · assimilation UI · voice · podcast transcription UI · multi-user accounts.
 
-Most of these stay reachable **through commands in chat** rather than as nav destinations. That is the point of wiring the MCP surface in: the verticals don't each need a screen.
+Most stay reachable **through commands in chat** rather than as nav destinations. That's the payoff of wiring the MCP surface in: the verticals don't each need a screen.
 
-### Recommendations on the two things you left open
+### On lifting from mobile
 
-**The reader — keep the substance, drop the rig.** `article-detail.tsx` is 900+ lines dominated by narration: per-paragraph highlight maps, playback progress persisted per document, a control bar. That value is *walking around with headphones*; almost none of it transfers to a desktop browser. Keep markdown rendering, citations, heading anchors, and text selection. Leave narration on mobile where it earns its keep.
+**Keep the reader's substance, drop the rig.** `article-detail.tsx` is 900+ lines dominated by narration — per-paragraph highlight maps, playback progress per document, a control bar. That value is *walking around with headphones*; it doesn't transfer to a desktop browser. Keep markdown rendering, citations, heading anchors, text selection. Leave narration on mobile.
 
-**Lift these, rewrite the rest.** Worth lifting: the markdown→AST utilities, citation/source extraction, search query shapes, and the share/publish flow. Not worth lifting: any component under `components/` (mobile idioms, Paper, NativeWind) and the card rendering in `MessageBubble`/`ChatThread` — that's the code carrying Defect 3.
+**Worth lifting:** markdown→AST utilities, citation/source extraction, search query shapes, the publish/share flow.
+**Not worth lifting:** anything under `components/` (Paper, NativeWind, mobile idioms), and the card rendering in `MessageBubble`/`ChatThread` — that's the code carrying the duplicate-card defect.
 
 ---
 
-## 5. Look & feel — "the shell is a holocron, the page is paper"
+## 6. Look & feel — "the shell is a holocron, the page is paper"
 
-The chosen direction leans into the name: deep dark field, luminous edges, crystalline geometry, one or two vivid accents, motion on state change.
+Deep dark field, luminous edges, crystalline geometry, one or two vivid accents, motion on state change.
 
-The obvious failure mode is that sci-fi chrome and 4,000-word research documents fight each other. One rule resolves it:
+The failure mode is obvious — sci-fi chrome versus 4,000-word research documents. One rule resolves it:
 
 > **Identity lives in the chrome. Calm lives in the column.**
 
-| Gets the holocron treatment | Stays quiet |
+| Holocron treatment | Stays quiet |
 |---|---|
 | Nav rail, conversation list, headers | The reading column |
 | Chat surface, message frames, streaming cursor | Long-form body text |
-| Cards (research, documents, tools) | Search results text |
+| Cards (research, documents, tools) | Search result text |
 | Loading, progress, state transitions | The public page body |
 | Empty states, edges, focus rings | Anything over ~500 words |
 
-Concretely: a research card can glow at its edges and animate as it fills; the 4,000 words inside the document it produced are set in a high-contrast, generously-spaced column with no chrome inside the measure. The public page keeps the identity in a slim header and its edges, and is otherwise a well-set essay — because a stranger with no context needs legibility, not atmosphere.
+A research card can glow at its edges and animate as it fills; the 4,000 words inside the document it produced sit in a high-contrast, generously-spaced column with no chrome inside the measure. The public page keeps the identity in a slim header and its edges and is otherwise a well-set essay — a stranger with no context needs legibility, not atmosphere.
 
-Dark is the default and the native register. Light exists and must be genuinely good, because shared links get opened in daylight on other people's screens.
+Dark is default and native. Light must be genuinely good: shared links get opened in daylight on other people's screens.
 
-Token names carry over from the existing shadcn-style CSS variables (`--background`, `--foreground`, `--primary`, `--card`, `--muted`, …). New values, same contract — so the mobile app and web client stay conceptually aligned without sharing components.
-
----
-
-## 6. Architecture
-
-```
-Browser
- ├─ Next.js app (Cloudflare Workers)      operator UI, BetterAuth, route handlers
- ├─ Zero client (WebSocket → tunnel)      documents, conversations, messages, records
- └─ SSE (via Next route handler → tunnel) in-flight chat run events only
-
-docs.holocrnlib.com/d/<token>             existing Worker, public read (+ new assets route)
-```
-
-**Zero is truth. SSE is in-flight only.**
-Message rows, documents, research sessions, and tool calls all arrive via Zero. The SSE stream carries only tokens and progress for a run that is currently executing. Once a run completes, the stream contributes nothing Zero doesn't already have. This split is what makes Defect 3 structurally impossible to reintroduce.
-
-**AI Elements as presentation.** AI Elements are shadcn-style components; they don't require AI SDK's default transport. Recommended: implement a small custom `ChatTransport` mapping the platform's chat-run SSE events into AI SDK UI message parts (~100 lines), which lets `useChat` own message state and lets AI Elements render tool parts natively. Alternative if that fights back: drive the components from a hand-rolled hook over the SSE. **Do not** adopt a transport that assumes an unrepeatable single stream — that discards the `Last-Event-ID` resume the platform already gives you.
-
-**BetterAuth tables in the platform Postgres.** One database, one migration system (Drizzle is already there), no new infrastructure. Enable BetterAuth's session cookie cache so ordinary navigation doesn't round-trip to the device.
-*Skipped: an edge session store (D1/hosted Postgres). Add it when you actually want to log in while the device is asleep — noting that logging into an empty app is of limited use, since Zero's local cache already covers read-only browsing of what you've already synced.*
-
-**Two auth mechanisms, deliberately.** The operator app uses BetterAuth. The public reader Worker keeps its Cloudflare Access service token to reach origin. These are separate paths with separate threat models; that's fine as long as it's written down. It is now.
-
-**Device offline:** Library browsable from Zero's local cache; chat unavailable with an honest banner; public links keep serving from edge cache for their 60s window and then fail.
+Token names carry over from the existing shadcn-style CSS variables (`--background`, `--foreground`, `--primary`, `--card`, `--muted`, …). New values, same contract.
 
 ---
 
-## 7. Open decisions
+## 7. Accepted costs
 
-1. **Does the RN app stay maintained?** If yes, lifted logic needs to live somewhere both consume. If it's headed for retirement, the web client can fork freely and move faster.
-2. **Which commands survive the port**, and does `/deep-research` need *any* supervision affordance given a run can burn 20 minutes and real API spend? Cancel exists; the question is whether cancel is sufficient.
-3. **Custom `ChatTransport` vs hand-rolled hook** — decide after one spike against the real SSE endpoint.
-4. **Does the public page get its own design pass or inherit the operator document view?** Leaning: shares the reading column, differs in header and navigation.
+Consequences of running the agent in the BFF. All chosen deliberately; recorded so they don't get rediscovered as surprises.
+
+**Two agents.** The BFF agent serves web; the platform's Mastra chat-run pipeline continues serving mobile. They will drift — prompts, tool selection, memory. Accepted. Revisit if mobile is ever migrated to the same BFF.
+
+**A tunnel round trip per tool call.** A six-tool turn pays six Worker→device round trips. Mitigation if it bites: batch or coarsen tools at the registry level, which benefits Claude Code too.
+
+**No reload-resume.** The platform's durable event log with `Last-Event-ID` replay stays on the device and serves mobile; a stateless Worker has no equivalent. Drop the connection mid-answer and the turn is gone. Cheapest later fix: write agent events back through tRPC (batched — not per token) and accept a cursor in `chat.stream`. Second option: a Durable Object per run.
+
+**Workers Paid is probably required.** An agent loop needs real CPU; Workers Free allows 10ms per request. Time spent awaiting `fetch` doesn't count against CPU, so a long streaming turn is fine on Paid. **Confirm the account's Workers plan before building** — note the existing Worker's comment implies a *free zone* plan, which is a separate thing from the Workers plan and doesn't answer this.
+
+**No offline Library.** Zero's local cache was the thing that made the library browsable while the device slept; tRPC has no equivalent. Public links still survive on edge cache for their 60s window.
 
 ---
 
-## 8. Build order
+## 8. Open decisions
 
-1. **Fix public sharing** — real markdown renderer with images, `/d/<token>/assets/<id>` route on the Worker. Smallest diff, largest visible gain, independently shippable today.
-2. **Shell + auth** — Next.js on Workers, BetterAuth, two destinations, the holocron design system with the chrome/column rule enforced from the first component.
-3. **Library** — Zero-backed list, hybrid search, filters, document view, share toggle.
-4. **Chats** — SSE transport with resume, MCP tool lines, commands, record-keyed cards.
+1. **Does the RN app stay maintained?** Determines whether lifted logic needs a shared home or the web client can fork freely.
+2. **Does `/deep-research` need any supervision affordance** beyond cancel, given a run can burn 20 minutes and real API spend?
+3. **Should the apex `holocrnlib.com` also bind to the app**, with `docs.` kept as a permanent alias? Costs nothing, and "docs" is an odd name for what is now the whole product.
+4. **Where do BetterAuth sessions live** if you ever want to log in while the device is asleep. Default for now: platform Postgres with the session cookie cache enabled, so ordinary navigation doesn't round-trip.
+
+---
+
+## 9. Build order
+
+1. **`/d/<token>` in Next, at full URL compatibility** — real markdown, working images, `/assets/[id]`, and the exact cache semantics from §2. Retire `worker-docs-reader`. Fixes both live defects; independently shippable; touches nothing else.
+2. **Shell + auth** — Next on Workers, BetterAuth, two destinations, the holocron design system with the chrome/column rule enforced from the first component.
+3. **tRPC BFF + Library** — router, TanStack Query, hybrid search, filters, document view, share toggle.
+4. **Chats** — `chat.stream` generator, AI SDK loop, MCP client attach, the `UIMessage` reducer, AI Elements, commands, record-keyed cards.
 5. **Ask-about-this** — the single bridge from Library into Chats.
