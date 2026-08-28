@@ -773,7 +773,7 @@ describe('FUL-PLAT-002 AC-4: grade is a deterministic tier-by-recency product', 
       const tierRows = await owner<{ tier_value: number }[]>`
       SELECT dt.tier_value
       FROM domain_tiers dt
-      JOIN domain_tier_versions dtv ON dtv.id = dt.domain_tier_version_id
+      JOIN domain_tier_versions dtv ON dtv.id::text = dt.domain_tier_version_id
       WHERE dtv.mission_id = ${MISSION_ID} AND dt.registrable_domain = 'sec.gov'
       ORDER BY dtv.version DESC, dtv.created_at DESC
       LIMIT 1
@@ -815,7 +815,7 @@ describe('FUL-PLAT-002 AC-4: grade is a deterministic tier-by-recency product', 
       const ladderRows = await owner<{ registrable_domain: string }[]>`
       SELECT dt.registrable_domain
       FROM domain_tiers dt
-      JOIN domain_tier_versions dtv ON dtv.id = dt.domain_tier_version_id
+      JOIN domain_tier_versions dtv ON dtv.id::text = dt.domain_tier_version_id
       WHERE dtv.mission_id = ${MISSION_ID} AND dt.registrable_domain = 'randomblog.example'
     `;
       expect(ladderRows.length).toBe(0);
