@@ -1,1 +1,0 @@
-AC-5 red-against-start: full-repo biome pre-existing failures outside write_allowed; task-scoped biome+tsgo proven green after implementation. RED suite failed on missing modules prior to GREEN.

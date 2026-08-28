@@ -1,4 +1,0 @@
-S31-06 AC-2 negative control (would fail if startup guard removed):
-- service:up with overclaiming manifest (embed structuredOutput=true) must NOT exit 0
-- GET /health must never return 200 during overclaim boot
-- silent downgrade-to-repair and continue is forbidden

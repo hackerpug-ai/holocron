@@ -1,5 +1,0 @@
-
-> @holocron/mcp-unified@1.0.0 start /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-02/holocron-mcp
-> bun run dist/stdio.js
-
-{"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"logging":{"enabled":true}},"serverInfo":{"name":"holocron","version":"1.0.0"}},"jsonrpc":"2.0","id":1}

@@ -1,3 +1,0 @@
-AC-2 seeded-value artifact (static/integration proof)
-cluster rewired to Zero/Hono; behavioral Maestro requires simulator+seed substrate.
-green tests: tests/integration/s-rewrite-01-chat-cluster-zero.test.ts (25 passed)

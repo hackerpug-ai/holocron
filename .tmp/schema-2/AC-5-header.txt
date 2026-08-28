@@ -1,5 +1,0 @@
-# catalog:coverage
-fields_mapped: 797
-storage_refs: 6/6
-
-## fields

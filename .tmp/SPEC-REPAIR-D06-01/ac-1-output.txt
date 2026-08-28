@@ -1,5 +1,0 @@
-{
-  "ok": true,
-  "scenario_count": 8,
-  "violations": []
-}

@@ -1,8 +1,0 @@
-  documents: 17
-  categories: 17
-  feed_items: 5
-  subscription_sources: 4
-  subscription_content: 4
-  assimilation_sessions: 3
-  whats_new_reports: 1
-  status: OK

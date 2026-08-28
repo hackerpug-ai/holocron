@@ -1,4 +1,0 @@
-{
-  "status": 0,
-  "out": "PASS: file symlink race refused (exit=2)\nPASS: parent symlink race refused (exit=2)\nPASS: production prove canary-clean on failure path\nPASS: production-path race+canary (no harness overrides)\n\n"
-}

@@ -1,4 +1,0 @@
-{
-  "status": 2,
-  "out": "\nerror: not root-owned: /Users/justinrich\nFAIL: GATE-FIX-S28R3-QA24 refused untrusted ENV_BIN=/Users/justinrich/Projects/holocron/.tmp/GATE-FIX-S28R3-QA25/evil-env-bin.sh\n"
-}

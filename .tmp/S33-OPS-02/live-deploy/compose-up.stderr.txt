@@ -1,6 +1,0 @@
- Network holocron-router_default Creating 
- Network holocron-router_default Created 
- Container holocron-router-litellm-router-1 Creating 
- Container holocron-router-litellm-router-1 Created 
- Container holocron-router-litellm-router-1 Starting 
- Container holocron-router-litellm-router-1 Started 

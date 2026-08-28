@@ -1,6 +1,0 @@
-Output format is aligned.
-                  id                  |            run_id             |     step_id      |   role    | provider  |         endpoint          |         model_id          | input_tokens | output_tokens | total_tokens | wall_ms | status  |           budget_ledger_id           |          created_at           
---------------------------------------+-------------------------------+------------------+-----------+-----------+---------------------------+---------------------------+--------------+---------------+--------------+---------+---------+--------------------------------------+-------------------------------
- 019f7389-29c1-7976-8027-2f50a44d3d77 | obs2-ac3-escape-1784349795926 | obs2-escape-step | divergent | anthropic | https://api.anthropic.com | claude-haiku-4-5-20251001 |           16 |             5 |           21 |     866 | success | 019f7389-29ab-7253-a3f1-9b71bc3df063 | 2026-07-17 22:43:16.800889-06
-(1 row)
-

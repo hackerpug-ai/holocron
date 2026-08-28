@@ -378,12 +378,6 @@ const ENTRIES: RegisteredTool[] = [
     S.regenerateTranscriptInputSchema,
     S.regenerateTranscriptOutputSchema
   ),
-  register(
-    'transcribe_video_url',
-    'Fetch plain-text captions for a YouTube video URL (no API key, no Deepgram). Returns NO_CAPTIONS for caption-less videos.',
-    S.transcribeVideoUrlInputSchema,
-    S.transcribeVideoUrlOutputSchema
-  ),
   // Improvements
   register(
     'search_improvements',

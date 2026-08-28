@@ -1,5 +1,0 @@
-{
-  "owner_current_user": "inference1",
-  "app_url": "postgres://holocron_app@127.0.0.1:5432/holocron_s31_01_ddl",
-  "app_role": "holocron_app"
-}

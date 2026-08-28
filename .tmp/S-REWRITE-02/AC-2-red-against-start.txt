@@ -1,9 +1,0 @@
-=== AC-2 RED against start (pre-rewire) ===
-timestamp: captured via AC-6-red-against-start baseline
-evidence: documents cluster imported from convex/react (3 files)
-  app/articles.tsx: import { useAction, useQuery } from 'convex/react'
-  app/document/[id].tsx: import { useAction, useMutation, useQuery } from 'convex/react'
-  components/articles/ArticleImportModal.tsx: import { useMutation, useQuery } from 'convex/react'
-negative_control: would observe No documents empty / Document not found / .convex.site share URL /
-  import no-op / disabled Play when Zero not wired and Postgres unseeded
-STATUS: RED (baseline before S-REWRITE-02 rewire)

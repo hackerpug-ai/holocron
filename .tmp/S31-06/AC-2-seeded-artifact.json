@@ -1,6 +1,0 @@
-{
-  "exitCode": 1,
-  "health200Count": 0,
-  "stderr": "MANIFEST_CAPABILITY_UNCONFIRMED: role=embed declaredCapability=structuredOutput probedValue=false\nMANIFEST_CAPABILITY_UNCONFIRMED: role 'embed' declares structuredOutput=true but live probe could not confirm (probedValue=false)\n",
-  "stdout": ""
-}

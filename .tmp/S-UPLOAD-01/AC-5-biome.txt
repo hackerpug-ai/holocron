@@ -1,2 +1,0 @@
-Checked 7 files in 7ms. No fixes applied.
-biome_scoped_exit:0

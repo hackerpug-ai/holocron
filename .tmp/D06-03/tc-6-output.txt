@@ -1,1 +1,0 @@
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: length: command not found

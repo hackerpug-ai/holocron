@@ -1,4 +1,0 @@
-S31-06 AC-3 negative control:
-- Pre-reconcile: 3 roles structuredOutput=true while probe mode=repair for all 5 → drift length 3
-- Flipping divergent structuredOutput on reconciled manifest → drift length exactly 1 naming divergent
-- Cached/fixture probe map or unreachable fleet invalidates the comparison

@@ -1,1 +1,0 @@
-RED against mainline (feature missing) — see red-queue-*.txt and AC-1-*.json

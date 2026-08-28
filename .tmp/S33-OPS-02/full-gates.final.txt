@@ -1,2 +1,0 @@
-pnpm_tsc_noemit=0
-pnpm_test_exit=1

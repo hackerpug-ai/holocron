@@ -1,7 +1,0 @@
-{
-  "expectedMissionSuccessCount": 1,
-  "expectedDegradedCount": 1,
-  "localTraceCount": 1,
-  "missionFailureCount": 0,
-  "externalState": "degraded"
-}

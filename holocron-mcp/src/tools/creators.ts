@@ -18,10 +18,6 @@ export interface RegenerateTranscriptInput {
   profileId?: string;
 }
 
-export interface TranscribeVideoUrlInput {
-  url: string;
-}
-
 export async function assimilateCreator(
   client: PlatformMcpClient,
   input: AssimilateCreatorInput
@@ -47,11 +43,4 @@ export async function regenerateTranscript(
     videoId: input.videoId,
     ...(input.profileId !== undefined && { profileId: input.profileId }),
   });
-}
-
-export async function transcribeVideoUrl(
-  client: PlatformMcpClient,
-  input: TranscribeVideoUrlInput
-): Promise<unknown> {
-  return client.callTool("transcribe_video_url", { url: input.url });
 }

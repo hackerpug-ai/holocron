@@ -1,4 +1,0 @@
-seeded_value: Mastra share URL shape
-share_url=https://mastra.example.com/article/seed-public-token
-has_article_path=true
-convex_site_segments=0

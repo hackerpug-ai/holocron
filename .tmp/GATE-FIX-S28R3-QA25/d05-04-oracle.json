@@ -1,9 +1,0 @@
-{
-  "ok": true,
-  "bundle": "d05-04-bundle",
-  "source_run": "d05-04-run",
-  "matched_objects": 11,
-  "total_rows": 56,
-  "parity_sha256": "b720b8717ed7c1537e96048090731e03bc427907db6f039fc3c6d1a6d47e3f38",
-  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020"
-}

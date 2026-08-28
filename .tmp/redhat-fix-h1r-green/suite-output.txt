@@ -1,9 +1,0 @@
-
-[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/inference1/Projects/holocron[39m
-
-
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
-[2m   Start at [22m 23:12:39
-[2m   Duration [22m 66.96s[2m (transform 151ms, setup 152ms, import 558ms, tests 66.16s, environment 0ms)[22m
-

@@ -1,9 +1,0 @@
-holo db:migrate — apply Drizzle domain migrations
-  extension vector: ok
-  applied: 0000_groovy_stellaris.sql
-  migrations applied: 1
-  already applied:    0
-  tables created:     57
-  domain tables:      57/57
-  0 errors
-  status: OK

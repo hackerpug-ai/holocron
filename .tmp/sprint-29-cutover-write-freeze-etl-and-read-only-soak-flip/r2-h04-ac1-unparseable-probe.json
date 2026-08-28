@@ -1,8 +1,0 @@
-{
-  "rejected": false,
-  "message": "cross_process_probe_fail_closed: unparseable_child_stdout (status=0, signal=null, stdout_len=27, stderr_len=0)",
-  "surface": "documents.mutations.create",
-  "documentsBefore": -1,
-  "documentsAfter": -1,
-  "child_pid": 61728
-}

@@ -1,9 +1,0 @@
-{
-  "unreachableFailed": true,
-  "wrongAuthFailed": true,
-  "lastSuccessAdvancedOnFailure": false,
-  "queueSaturationVisible": true,
-  "recovered": true,
-  "lastSuccessAt": "2026-08-21T02:30:21.095Z",
-  "wrongAuthStatus": 401
-}

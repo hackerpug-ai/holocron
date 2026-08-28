@@ -1,8 +1,0 @@
-=== AC-6 GREEN: no convex/react in chat cluster ===
-0 convex/react import lines
-PASS
-=== Zero imports in hooks ===
-hooks/use-agent-activity.ts:8:import { useQuery } from '@rocicorp/zero/react';
-hooks/use-agent-activity.ts:9:import { agentActivityByOwner } from '@/app/zero/queries';
-hooks/use-chat-history.ts:8:import { useQuery } from '@rocicorp/zero/react';
-hooks/use-chat-history.ts:9:import { chatMessagesByConversation } from '@/app/zero/queries';

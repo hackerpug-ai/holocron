@@ -1,6 +1,0 @@
-{
-  "range": "4630c1b4aa6019507af13435862801777b11a93d..HEAD",
-  "ok": false,
-  "out": ".maestro/reactive/run-offline-contract-airplane-reads.sh:785: trailing whitespace.\n+**Proven conjunct (1 of 5):** airplane-mode reads  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:786: trailing whitespace.\n+**Flow:** .maestro/reactive/offline-contract-airplane-reads.yml  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:787: trailing whitespace.\n+**Harness:** .maestro/reactive/run-offline-contract-airplane-reads.sh  \n.maestro/reactive/run-offline-contract-airplane-reads.sh:7",
-  "note": "must be clean on freeze tip"
-}

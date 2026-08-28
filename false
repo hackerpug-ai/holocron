@@ -1,0 +1,36 @@
+# Fulcrum unblock plan
+
+## Findings
+
+- The requested `.spec/prds/fulcrum/09-technical-requirements/04-contracts.md` does not exist; use `.spec/prds/fulcrum/09-technical-requirements/04-api-design.md` only as the current source, then create/declare the canonical contract artifact before implementation.
+- Root `package.json` has `seed:e2e`, `test:integration`, and `test:live`, but no `fulcrum:e2e`. `services/platform/package.json` has no scripts.
+- S01's roadmap gate is ahead of implementation: `services/platform/src/cli/holo.ts` has no `--budget-usd`; `services/platform/src/mission/templates/evidence-research.ts` has `toolGrants: []`; and `services/platform/src/mission/contract.ts` plus `services/platform/src/mission/registry.ts` reject every non-empty tool grant.
+- Corpus-only is currently not enforceable: the CLI accepts `--claims`, while the Fulcrum API contract requires named corpus tools and no Exa/Jina/outbound host. `services/platform/src/web/provider.ts`, `services/platform/src/web/exa.ts`, and `services/platform/src/web/jina.ts` demonstrate why a no-egress assertion is required, not assumed.
+- Good durable primitives already exist: `services/platform/src/db/schema/mission.ts` has run idempotency, leases, usage/provenance, WIP index, and `budget_exceeded`; `services/platform/src/mission/runtime.ts` persists/enforces per-run budgets. There is not yet demonstrated durable Fulcrum daily-budget/breaker/selector state.
+
+## Ordered unblock tasks
+
+1. **Freeze the contracts first.** Establish the missing contracts document and author concrete S01–S05 AC/TC tables now (the roadmap currently defers S02–S05). Specify strict `--budget-usd` syntax, scope, persistence, and failure result; closed corpus-tool IDs; durable daily budget/breaker/selector state; audit schema; lane/skip policy.
+   - Evidence: unknown flags/tools fail before a run exists; no contradictory PRD/CLI contract remains.
+
+2. **Make the Fulcrum invocation real.** Update `services/platform/src/cli/holo.ts`, `services/platform/src/mission/contract.ts`, `services/platform/src/mission/registry.ts`, `services/platform/src/mission/compiler.ts`, and `services/platform/src/mission/templates/evidence-research.ts` so only the six named corpus grants compile, `--budget-usd` is persisted with the run, and `holo fulcrum --claims` fails pre-dispatch with `FULCRUM_CORPUS_ONLY`.
+   - Evidence: template snapshot has exact grants and cost policy; invalid input creates no ledger rows; low budget yields a durable `mission_runs.status='budget_exceeded'`.
+
+3. **Add durable state and forbidden-effect oracles.** Use Postgres, leases, and idempotency rather than process memory for daily ceiling/breaker/degradation/selection/cycle keys. Add append-only allowed-tool/egress audit or enforced egress denial.
+   - Evidence: restart/replay yields one run, commit, and effect set; breaker/budget blocks new dispatch and records why; a deliberate Exa/Jina/outbound attempt fails with no successful commit; allowed audit entries are only corpus tools.
+
+4. **Add `bun run fulcrum:e2e`.** Register a root script and dedicated Fulcrum seed/runner, reusing real-boundary patterns in `services/platform/tests/integration/mission-engine-red.test.ts`, `services/platform/tests/integration/mission-red.helpers.ts`, and `services/platform/src/db/seed-e2e.ts`. It must use real Postgres and the running Mastra/Hono service; no mocked DB/router.
+   - Lanes: always-run gate/ledger/dispatch; tailnet-nightly inference/cycle. Fleet unavailability is a loud structured SKIP, never green success.
+   - Evidence: direct SQL/API readback keyed by run ID verifies source artifacts, admitted claims, scores, relations, published dossier, tags, and idempotency; quote is an exact substring of `sources.normalized_text`, never an RRF slice.
+
+5. **Prove S01 before S02.** Run the roadmap command against the real service/corpus and assert literal `status=committed`, `template=evidence-research`, `admission=admitted`, candidate ID, and dossier path. Capture the budget-negative run separately.
+   - Inference evidence must validate `x-litellm-model-api-base` / `x-litellm-model-id` against `GET /model/info`; never use LiteLLM response-body `model`. Embeddings assert 1024 dimensions.
+
+6. **Implement S02–S05 only after their contracts land.** S02 depends on S01 durable state/harness; S03 depends on S02 evidence history; S04 depends on S03 version snapshots and identical-evidence model identity oracle; S05 depends on shared durable candidate/WIP state. Each sprint needs acceptance and negative-effect tests before feature code.
+
+## Non-negotiable oracle rules
+
+- Deterministic gate/ledger/dispatch lanes: 0% flake, real Postgres.
+- Live degradation: stop real oMLX on a mini; do not simulate an outage or substitute a role.
+- Assert per-run durable records, not aggregate counts or Markdown alone.
+- A corpus-only test passes only when prohibited provider/network effects are observed as absent by the runtime audit/denial boundary.

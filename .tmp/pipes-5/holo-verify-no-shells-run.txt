@@ -1,6 +1,0 @@
-=== run holo verify:no-shells ===
---- via bun ---
-holo verify:no-shells — 0 per-domain modules found
-exit=0
---- via npx tsx ---
-holo verify:no-shells — 0 per-domain modules found

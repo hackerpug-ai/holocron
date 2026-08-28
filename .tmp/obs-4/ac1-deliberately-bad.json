@@ -1,5 +1,0 @@
-{
-  "status": 1,
-  "stdout": "{\n  \"fixture\": \"deliberately-bad\",\n  \"datasetVersion\": \"research_v1\",\n  \"baselineVersion\": \"research_v1\",\n  \"modelVersion\": \"judge_v1\",\n  \"promptVersion\": \"research-quality_v1\",\n  \"score\": 0,\n  \"rawJudgeScore\": 0,\n  \"baseline\": 0.8,\n  \"threshold\": 0.8,\n  \"verdict\": \"failed\",\n  \"exitCode\": 1,\n  \"failureReason\": \"threshold_regression\",\n  \"exitReason\": \"score 0 < threshold 0.8\",\n  \"errorCode\": null,\n  \"deterministicFailures\": [\n    {\n      \"invariantId\": \"required-citation\",\n      \"reason\": \"missing required citation markers ([n], URL, doi, or Sources: block)\"\n    }\n  ],\n  \"runId\": \"ci-5f20be80-87f6-4381-a0fc-5bc3a61b38c2\",\n  \"scoreId\": \"019fe632-129e-71ea-bab9-3fa3f263a37d\",\n  \"sampleId\": \"deliberately-bad\",\n  \"meetsThreshold\": false,\n  \"invariantPassed\": false,\n  \"reason\": \"The response is a flippant, one-line joke containing no research value. It lacks specific evidence, structure, completeness (no benefits, limitations, or bottom line), calibrated uncertainty, and citations.\"\n}\n",
-  "stderr": ""
-}

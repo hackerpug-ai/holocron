@@ -1,4 +1,0 @@
-=== AC-4 frozen markers ===
-5:frozen_at: S31-FE-06
-11:## Convex source catalog
-16:    reason: Convex export system metadata; not a domain table

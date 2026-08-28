@@ -1,5 +1,0 @@
-S31-06 AC-4 GREEN (probe-repair role + always-malformed fixture):
-- terminal error code EXTRACTION_FAILED
-- status extraction_failed, committed false
-- attempts=3 (= MAX_REPAIR_ATTEMPTS)
-- schemaErrors length 3; no persisted result object

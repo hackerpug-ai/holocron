@@ -1,6 +1,0 @@
-command: curl -fsS http://inference2.tail011a51.ts.net:8003/v1/models
-{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-MLX-8bit","object":"model","created":1786920114,"owned_by":"omlx","max_model_len":262144},{"id":"Qwen3.8-27B-8bit","object":"model","created":1786920114,"owned_by":"omlx","max_model_len":262144}]}
-command: ssh inference2 'find ~/models/mlx-community/Qwen3.8-27B-8bit -type f | wc -l; shasum -a 256 ~/models/mlx-community/Qwen3.8-27B-8bit/config.json'
-      40
-8f80874ac3ad8fa386d3f6dc0ea85377f703376e009a03dee0360e08e289a25d  /Users/inference1/models/mlx-community/Qwen3.8-27B-8bit/config.json
-command: ssh inference2 'find ~/models/mlx-community/Qwen3.8-27B-8bit -name ".*.safetensors.*" -print'

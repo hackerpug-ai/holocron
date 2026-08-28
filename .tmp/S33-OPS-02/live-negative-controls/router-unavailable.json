@@ -1,4 +1,0 @@
-{
-  "router_reachable": false,
-  "detail": "curl: (7) Failed to connect to holocron.tail011a51.ts.net port 4545 after 7 ms: Couldn't connect to server"
-}

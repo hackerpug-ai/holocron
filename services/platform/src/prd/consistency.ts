@@ -66,7 +66,7 @@ function loadManifest(path: string): { tool_count: number; expected: number | nu
 function extractClaimedCounts(text: string): { tables: number | null; tools: number | null } {
   let tables: number | null = null;
   let tools: number | null = null;
-  // patterns: "60 tables", "60/60 tables", "50 tools", "50/50"
+  // patterns: "60 tables", "60/60 tables", "49 tools", "49/49"
   const t1 = text.match(/\b(\d+)\s*(?:\/\s*\d+\s*)?tables?\b/i);
   if (t1) tables = Number(t1[1]);
   const t2 =
@@ -219,8 +219,8 @@ export function runPrdConsistency(options?: { root?: string; today?: Date }): Co
   }
   if (!uc_unique) errors.push('duplicate UC IDs detected');
 
-  // Live PRD expectation: 60 tables, 50 tools when those files are the real ones
-  // Only enforce 60/50 when expected fields or claims demand it OR when using default tree with full catalog
+  // Live PRD expectation: 60 tables, 49 tools when those files are the real ones
+  // Only enforce 60/49 when expected fields or claims demand it OR when using default tree with full catalog
   if (catalog.table_count === 0 && existsSync(catalogPath)) {
     errors.push('derived table_count is 0');
   }
@@ -233,7 +233,7 @@ export function runPrdConsistency(options?: { root?: string; today?: Date }): Co
     table_count: catalog.table_count,
     table_count_expected: catalog.expected,
     tool_count: manifest.tool_count,
-    tool_count_expected: manifest.expected ?? 50,
+    tool_count_expected: manifest.expected ?? 49,
     uc_count: ucOrder.length,
     uc_unique,
     uc_ids: ucOrder,

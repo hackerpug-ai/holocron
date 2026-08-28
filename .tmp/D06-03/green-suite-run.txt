@@ -1,7 +1,0 @@
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-convex-fence.test.ts
-Result: 8/8 passed (FIX-D06-03-AC2)
-timestamp: 2026-08-01T23:34:01Z
-AC-2: 4/4 surfaces rejected with migration_read_only: prefix (mutation, action, httpAction, upload)
-H2: runCutoverFreeze fail-closed (env_value confirmed via getMigrationReadOnlyEnv)
-H3: quiet-check oracle=mixed/live_probes/audit (no self-seed for counts)
-H4: documents count unchanged after blocked create

@@ -1,6 +1,0 @@
-=== pnpm typecheck ===
-
-> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-infer-2-budget
-> tsgo --noEmit
-
-typecheck_exit=0

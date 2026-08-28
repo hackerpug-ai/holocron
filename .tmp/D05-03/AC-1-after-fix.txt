@@ -1,8 +1,0 @@
-=== prove-isolation (mini=203.0.113.1:5432) ===
-PASS: no route to mini Postgres
-PASS: no mini PGDATA mount
-PASS: no mini blob mount
-  detail: WARN placeholder R2 keys — declarative scope only; AC-2 needs live prove-r2-readonly.sh
-PASS: R2 credentials are read-only scoped
-=== RESULT: PASS (all isolation checks) ===
-ac1_exit=0

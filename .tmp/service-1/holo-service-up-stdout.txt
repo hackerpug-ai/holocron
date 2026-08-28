@@ -1,2 +1,0 @@
-Starting Mastra service on :4111
-Listening on :4111

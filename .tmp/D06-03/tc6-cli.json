@@ -1,5 +1,0 @@
-{
-  "status": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"matches\": [],\n  \"files_scanned\": 243,\n  \"convex_root\": \"/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/convex\"\n}\n",
-  "stderr": ""
-}

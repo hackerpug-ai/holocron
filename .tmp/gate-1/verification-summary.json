@@ -1,7 +1,0 @@
-{
-  "task_id": "gate-1",
-  "status": "green",
-  "ac": {"AC-1":0,"AC-2":0,"AC-3":0,"AC-4":0},
-  "tc": {"TC-1":0,"TC-2":0,"TC-3":0,"TC-4":0},
-  "notes": "AC-4 crash/restart flake fixed: AbortController-handled fetch, ephemeral ports, always-kill finally, pg_terminate_backend after SIGKILL (client_connection_check_interval=0 leaves PgSleep holding FOR UPDATE)."
-}

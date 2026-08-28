@@ -1,4 +1,0 @@
-seeded real inference2 service: model-presence assertion succeeds
-command: curl -fsS http://inference2.tail011a51.ts.net:8003/v1/models | grep -q 'Qwen3.8-27B-8bit'
-{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-MLX-8bit","object":"model","created":1786920269,"owned_by":"omlx","max_model_len":262144},{"id":"Qwen3.8-27B-8bit","object":"model","created":1786920269,"owned_by":"omlx","max_model_len":262144}]}
-verification_exit_code=0

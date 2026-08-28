@@ -1,9 +1,0 @@
-holo verify:blob --last — content-addressed upload proof
-  file_objects rows: 1
-  id:             00000000-0000-7be0-bbed-9f221dec86c4
-  SHA-256:        db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb
-  byte_size:      8669
-  mime_type:      image/jpeg
-  storage_path:   db/6f/db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb
-  fixture_sha256: db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb
-  status: OK

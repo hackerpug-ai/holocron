@@ -1,8 +1,0 @@
-holo search:recall — RRF recall@k vs baseline
-  golden:   /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-holo-search-cli/.tmp/GATE-FIX-holo-search-cli/set.json
-  k:        10
-  queries:  1
-  hits:     1
-    HIT   how to combine vector and keyword rankings in one database query
-recall new=1 baseline=1
-  status: OK

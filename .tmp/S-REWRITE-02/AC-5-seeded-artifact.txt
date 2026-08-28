@@ -1,8 +1,0 @@
-seeded_value: audioSegmentsByDocument + buildBlobAudioUrl
-app/document/[id].tsx:32:  buildBlobAudioUrl,
-app/document/[id].tsx:38:  audioSegmentsByDocument,
-app/document/[id].tsx:280:    narrationEnabled && documentId ? audioSegmentsByDocument(documentId) : undefined,
-app/document/[id].tsx:309:    audioUrl: buildBlobAudioUrl(s.blob_id),
-app/zero/platform.ts:37:export function buildBlobAudioUrl(blobId: string | null | undefined): string | null {
-app/zero/queries.ts:37:/** Audio segments for a document (contract: audioSegmentsByDocument). */
-app/zero/queries.ts:38:export const audioSegmentsByDocument = (documentId: string) =>

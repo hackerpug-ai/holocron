@@ -1,8 +1,0 @@
-T-DATA-021 steps 1-7 PASS
-- seed:e2e --reset OK
-- Maestro upload.yaml Passed 66s (junit failures=0)
-- verify:blob --last: rows=1 SHA-256=db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb
-- idempotency + unique constraint: rows stay 1
-- verify:blob --orphans: 0
-- verify:no-convex-client: OK; convex/react grep EMPTY
-artifact: sprint-26-upload-lifecycle.png

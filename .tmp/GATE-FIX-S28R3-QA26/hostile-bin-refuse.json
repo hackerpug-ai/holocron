@@ -1,9 +1,0 @@
-{
-  "evil_psql": "/Users/justinrich/.cache/agent-scratch/qa26-hostile-bin-kTBzKH/evil-psql",
-  "evil_pg_ctl": "/Users/justinrich/.cache/agent-scratch/qa26-hostile-bin-kTBzKH/evil-pg_ctl",
-  "ran_log_absent": true,
-  "restore_export": true,
-  "r2_export": true,
-  "baseline_export": true,
-  "fire_export": true
-}

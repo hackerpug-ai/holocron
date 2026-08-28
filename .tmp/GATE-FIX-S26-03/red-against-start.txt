@@ -1,3 +1,0 @@
-{"n":5,"text":"Re-submit the identical image — the attach is idempotent, still one `file_objects` row.","type":"native-ui","method":"real-native-ui","literal_cmd":null,"wiring_gap_reason":"No scoped Maestro flow for the idempotent re-submit action distinct from the all-in-one .maestro/upload.yaml. The machine-checkable postcondition (rows still == 1) is covered by re-running verify:blob --last, but the re-submit native action itself has no distinct driver.","assertion":{"kind":"exit_and_log_regex","expected_exit":0}}
-missing flow:
-flow missing: wiring_gap

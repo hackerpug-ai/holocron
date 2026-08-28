@@ -1,5 +1,0 @@
-tsgo_exit:0
-scoped_biome_exit:0
-full_repo_biome_exit:1
-pre_existing:true
-paths:app/zero/schema.ts,app/zero/queries.ts,hooks/use-file-object-by-content-hash.ts,components/improvements/ImprovementSubmitSheet.tsx,components/improvements/ImageUploadStatus.tsx,tests/integration/uploads/*

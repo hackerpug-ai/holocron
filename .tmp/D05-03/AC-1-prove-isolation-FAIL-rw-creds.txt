@@ -1,8 +1,0 @@
-=== prove-isolation (mini=203.0.113.1:5432) ===
-PASS: no route to mini Postgres
-PASS: no mini PGDATA mount
-PASS: no mini blob mount
-  detail: forbidden env R2_PARENT_SECRET_ACCESS_KEY is set
-  detail: R2_CREDENTIAL_KIND must be object-read-only or read-only (got: 'object-read-write')
-FAIL: R2 credentials are not read-only scoped
-=== RESULT: FAIL (1 check(s) failed) ===

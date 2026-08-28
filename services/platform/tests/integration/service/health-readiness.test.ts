@@ -517,7 +517,7 @@ describe('D06-07 production health readiness', () => {
         expectedDigest: digest,
         expectedTargetFqdnHash: targetHash,
       });
-      expect(peer.mcp_tool_count).toBe(50);
+      expect(peer.mcp_tool_count).toBe(49);
       expect(peer.serve_https_port).toBe(44_111);
 
       // Wrong identity digest must reject.
@@ -564,7 +564,7 @@ describe('D06-07 production health readiness', () => {
       expect(sealed.status).toBe('pass');
       expect(sealed.real_device_count).toBe(2);
       expect(sealed.second_device_health_status).toBe(200);
-      expect(sealed.mcp_tool_count).toBe(50);
+      expect(sealed.mcp_tool_count).toBe(49);
       expect(sealed.funnel_endpoint_count).toBe(0);
       expect(sealed.credential_value_count).toBe(0);
       expect(sealed.raw_environment_present).toBe(false);

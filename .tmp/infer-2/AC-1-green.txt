@@ -1,2 +1,0 @@
-AC-1 GREEN: budget_ledger migration 0008 applied; logEscape INSERT writes reason/tokens/cost>0/run_id/step_id/timestamp
-PLATFORM_IT=1 vitest infer-budget-ledger-persistence.test.ts — pass

@@ -1,5 +1,0 @@
-{
-  "has_inprocess_probe_fallback_success_path": false,
-  "requires_child_pid_before_arm": true,
-  "note": "GREEN requires has_fallback===false && requires_child_pid===true"
-}

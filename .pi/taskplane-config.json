@@ -56,8 +56,8 @@
       "worktreePrefix": "holocron-wt",
       "batchIdFormat": "timestamp",
       "spawnMode": "subprocess",
-      "tmuxPrefix": "holocron-orch",
-      "operatorId": ""
+      "operatorId": "",
+      "sessionPrefix": "holocron-orch"
     },
     "dependencies": {
       "source": "prompt",

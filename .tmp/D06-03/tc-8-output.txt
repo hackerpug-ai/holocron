@@ -1,2 +1,0 @@
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: eval: line 142: syntax error near unexpected token `('
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: eval: line 142: `holo cutover:capture-article-baseline --token <t> (fence disengaged); echo $?'

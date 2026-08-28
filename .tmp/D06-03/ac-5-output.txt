@@ -1,2 +1,0 @@
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: eval: line 142: syntax error near unexpected token `;'
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: eval: line 142: `holo cutover:freeze --reason drill --json; jq .fence_armed_at freeze-report.json; holo cutover:capture-article-baseline --token <t>; jq '.sha256,.byteLength,.capturedAtMs' article-baseline.json'

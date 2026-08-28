@@ -1,6 +1,0 @@
-Residual risk probe (2026-07-15 review):
-- SET ROLE holocron_app; INSERT open belief → SUCCEEDED (INSERT intentionally granted)
-- SET ROLE holocron_app; INSERT closed historical row (tx_from/tx_to in past) → SUCCEEDED
-- Implication: ledger history can be forged via INSERT; immutability is UPDATE/DELETE only.
-- Default resolveDatabaseUrl uses OS/trust user (inference1), not holocron_app.
-  holocron_app is used by probeRawSql / tests only today.

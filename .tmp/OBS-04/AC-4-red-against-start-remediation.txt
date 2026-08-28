@@ -1,9 +1,0 @@
-RED (remediation): observability-backup-restore.test.ts AC-4 asserts
-evaluateLangfuseRollback({ previousImage, postgresContainer }) with
-probeMethod === 'previous-image-prisma-migrations' and incompatible older
-image sha256:cff59a… → ROLLBACK_SCHEMA_INCOMPATIBLE + incompatibleApplyCount=0.
-
-Pre-GREEN implementation still used string/digest heuristics
-(currentSchemaVersion.startsWith('incompatible') / all-zero digest) and
-did not accept postgresContainer — RED landed in commit 8ad2647c before
-GREEN product changes.

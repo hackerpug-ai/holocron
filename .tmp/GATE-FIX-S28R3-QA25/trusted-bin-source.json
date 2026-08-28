@@ -1,8 +1,0 @@
-{
-  "no_bare_aws_psql_pgctl": true,
-  "files": [
-    "restore",
-    "r2",
-    "baseline"
-  ]
-}

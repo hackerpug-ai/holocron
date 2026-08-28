@@ -1,4 +1,0 @@
-{
-  "reason": "bundle not yet produced by real D05-04; consumer path exercised via mutations on fixture copy when present",
-  "consumer": "scripts/consume-d05-04-bundle.sh"
-}

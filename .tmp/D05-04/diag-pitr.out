@@ -1,4 +1,0 @@
-starting restore {
-  scratch: "/tmp/d05-04-diag",
-  pitr: "2026-07-29T00:20:00Z",
-}

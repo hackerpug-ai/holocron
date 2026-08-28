@@ -1,9 +1,0 @@
-S31-06 AC-1 negative control (would fail if probe not wired):
-- extract-structured.ts with 0 references to probe-capability → TC-1 fails
-- disconnect fleet → probe/extract cannot produce attempts=1 committed success
-- empty/static capability map → status.initialMode would not match live probe mode
-
-Observed RED signature (pre-implementation / unproven path):
-  extract-structured.ts historically read resolved.structuredOutput only
-  (0 probe-capability imports) → constrained path burned attempts=1 then adaptive repair
-  Gate evidence 2026-07-17: 0 of 213 real extractions succeeded at attempts=1

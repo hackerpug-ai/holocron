@@ -1,9 +1,0 @@
-
- RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02
-
-
- Test Files  1 passed (1)
-      Tests  7 passed (7)
-   Start at  09:12:31
-   Duration  54.91s (transform 406ms, setup 699ms, import 115ms, tests 53.81s, environment 0ms)
-

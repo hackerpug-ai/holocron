@@ -1,6 +1,0 @@
-
-> holocron@1.0.0 prd:consistency /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-MCP-02-r3
-> bun services/platform/src/cli/holo.ts prd:consistency
-
-prd consistency OK — tables=60 tools=44 uc=26
-EXIT_CODE:0

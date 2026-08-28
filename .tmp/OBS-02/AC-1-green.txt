@@ -1,9 +1,0 @@
-13- ✓ |integration| services/platform/tests/integration/observability-otel-v4.test.ts (4 tests) 80586ms
-14:     ✓ AC-1: real mission/model call yields identical local Postgres and Langfuse v2 identities  19403ms
-15-     ✓ AC-2: isolated Langfuse outage keeps mission success, local span, and degraded export  44272ms
-16-     ✓ AC-3: secret/disallowed sentinels have zero matches in SQL, Langfuse, and evidence  12206ms
---
-27- ✓ |integration| services/platform/tests/integration/observability-traces.test.ts (4 tests) 67060ms
-28:     ✓ AC-1/TC-1: one Langfuse trace per research mission run (serviceName holocron-platform)  20123ms
-29-     ✓ AC-2/TC-2: model-generation child span correlates to parent run (role metadata)  13892ms
-30-     ✓ AC-3/TC-3: export failure when Langfuse endpoint is unavailable (soft degrade)  14558ms

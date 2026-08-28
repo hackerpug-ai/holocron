@@ -1,5 +1,0 @@
-{
-  "status": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"already_recorded\": false,\n  \"ponr_id\": \"1080eb6b-094e-45a1-b49b-d8863e3f72e0\",\n  \"write_row_id\": \"d2f9458c-b13b-4ac5-8a3c-8c50dab9f5df\",\n  \"write_row_digest_sha256\": \"e2d56dbe17fc899437b69ba5ea5a88e5c7b92f8f7f7091625dd48bcfa04ed054\",\n  \"write_surface\": \"hono.POST /api/documents\",\n  \"write_table\": \"documents\",\n  \"fence_lifted_at\": \"2026-08-07T07:06:39.133Z\",\n  \"write_committed_at\": \"2026-08-07T07:06:39.140Z\",\n  \"base_url\": \"http://127.0.0.1:51302\",\n  \"export_watermark_ms\": 1786172790703,\n  \"convex_fence_audit_id\": \"vn750swtvq28332gb4xm67qgc98bxkst\",\n  \"convex_documents_total\": 1623,\n  \"convex_accepted_writes_since_watermark\": 0,\n  \"report_path\": \"/private/tmp/holocron-s30-D07-05/.tmp/D07-01/enable-writes-report.json\"\n}\n",
-  "stderr": ""
-}

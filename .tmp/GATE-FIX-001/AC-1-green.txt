@@ -1,1 +1,0 @@
-AC1_OK "assayChallengeDistinct"\s*:\s*true

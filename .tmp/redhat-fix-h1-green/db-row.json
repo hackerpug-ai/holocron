@@ -1,7 +1,0 @@
-{
-  "run_id": "ci-5ea7724f-ef59-4dc7-b0b4-372aa6f1a94d",
-  "sample_id": "deterministic-invariant-regression",
-  "score": 0.8,
-  "baseline_threshold": 0.8,
-  "analysis": "{\"score\":0.8,\"reasoning\":\"The response is a high-quality, structured brief covering benefits, limitations/safety, and a bottom-line judgment. It is well-grounded in specific findings (e.g., '3-8% body-weight reduction', 'HOMA-IR') and properly calibrated (e.g., 'mixed-to-positive', 'benefits largely track caloric deficit'). Despite the absence of explicit citation markers (e.g., [1]) resulting in hasCitations=false, the rubric mandates a score >= 0.8 for a structured, complete, grounded, and calibrated brief.\",\"hasCitations\":false,\"isGrounded\":true,\"isStructured\":true,\"isComplete\":true,\"invariantScore\":0.67,\"deterministicInvariants\":{\"nonEmpty\":true,\"minLength\":true,\"hasCitationMarker\":false,\"length\":1515},\"deterministicFailures\":[{\"invariantId\":\"required-citation\",\"reason\":\"missing required citation markers ([n], URL, doi, or Sources: block)\"}],\"fixture\":\"deterministic-invariant-regression\",\"threshold\":0.8,\"meetsThreshold\":true,\"invariantPassed\":false}"
-}

@@ -1,8 +1,0 @@
-
- RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-01
-
-
- Test Files  1 passed (1)
-      Tests  2 passed (2)
-
-EXIT_CODE:0

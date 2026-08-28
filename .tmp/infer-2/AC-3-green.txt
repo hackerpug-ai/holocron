@@ -1,6 +1,0 @@
-AC-3 FAIL-CLOSED without ANTHROPIC_API_KEY (remediation):
-- Removed expect(true).toBe(true) greenwash gate
-- PLATFORM_IT=1 without key → suite exits 1 (cannot harvest greenwash)
-- ALLOW_SKIP_ANTHROPIC=1 only for local-dev (not harvest)
-- holo infer:call --escape wired to runBudgetedEscape (checkBudget → generateText → logEscape)
-- Live generate + ledger tokens>0 cost>0 pending key arrival (single re-run will capture AC-3-escape-telemetry.json)

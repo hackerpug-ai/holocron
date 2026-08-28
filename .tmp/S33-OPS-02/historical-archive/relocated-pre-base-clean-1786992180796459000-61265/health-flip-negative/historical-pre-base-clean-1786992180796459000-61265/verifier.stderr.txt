@@ -1,3 +1,0 @@
- Container holocron-router-litellm-router-1 Stopping 
- Container holocron-router-litellm-router-1 Stopped 
-S33-OPS-02 verifier failed: intentional fail-after-stop control

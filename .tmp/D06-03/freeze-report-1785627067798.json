@@ -1,9 +1,0 @@
-{
-  "ok": true,
-  "fence_armed_at": 1785627067798,
-  "env": "HOLO_MIGRATION_READ_ONLY",
-  "env_value": "1",
-  "reason": "sprint-29 D06-03 integration drill",
-  "audit_id": "vn76t4c566cdcv06mp47qrkk5x8bmxf9",
-  "report_path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/freeze-report.json"
-}

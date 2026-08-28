@@ -1,3 +1,0 @@
-fail_branch: OKC=0 WIPC=0 → exit 1, stdout NO_WIP_IN_BURST
-ok_branch: OKC=1 WIPC=1 → exit 0, stdout STEP2_PROOF=ok+wip_body
-assert: expected_exit=0 cannot pass when fail branch runs

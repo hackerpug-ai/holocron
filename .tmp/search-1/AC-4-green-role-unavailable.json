@@ -1,9 +1,0 @@
-{
-  "errorName": "RoleUnavailableError",
-  "code": "ROLE_UNAVAILABLE",
-  "message": "fleet role 'embed' unreachable at http://127.0.0.1:1 (degradation=fail-closed): health probe failed at http://127.0.0.1:1/v1/models: fetch failed",
-  "must_observe": {
-    "throws RoleUnavailableError": true,
-    "error code === 'ROLE_UNAVAILABLE'": true
-  }
-}

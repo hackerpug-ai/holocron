@@ -1,5 +1,0 @@
-{
-  "status": 0,
-  "out": "redactor_exit=2\nCHILD_LOG_RETAINED=0\n\nerror: GATE-FIX-S28R3-QA25 redactor fail-closed: FD 3 unreadable: [Errno 9] Bad file descriptor\n",
-  "child_exists": false
-}

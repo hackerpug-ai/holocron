@@ -1,6 +1,0 @@
-S31-06 RED-first gate (pre-implementation contradiction evidence):
-- .gate-evidence/2026-07-17 step1.log: mode=repair for all 5 roles
-- 0 of 213 real extractions succeeding at attempts=1
-- extract-structured.ts had 0 probe-capability references; read resolved.structuredOutput only
-- Live pre-change probe (.tmp/S31-06/probe/pre-change-probe.json): all roles mode=repair
-  while manifest declared structuredOutput=true for divergent/convergent/judge

@@ -1,6 +1,0 @@
-seeded_value: createImportDocument Zero mutator (append-to-existing)
-contract_note: .tmp/S-REWRITE-02/AC-4-contract-note.md
-components/articles/ArticleImportModal.tsx: import { mutators } from '@/app/zero/mutators'
-components/articles/ArticleImportModal.tsx: mutators.createImportDocument({ documentId, source, text })
-app/zero/mutators.ts: createImportDocument updates documents.content (append)
-app/zero/mutators.ts: insertDocument available but unused by import modal (assumptions_made)

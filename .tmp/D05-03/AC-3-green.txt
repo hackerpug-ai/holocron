@@ -1,5 +1,0 @@
-AC-3 green: empty writable dirs
-host pgdata count=0
-host blob count=0
-container_pg=0
-container_blob=0

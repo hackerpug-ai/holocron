@@ -1,4 +1,0 @@
-115:    max_iterations: number().optional(),
-116:    current_iteration: number().optional(),
-362:    current_iteration: number().optional(),
-363:    max_iterations: number().optional(),

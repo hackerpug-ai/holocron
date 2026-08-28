@@ -1,7 +1,0 @@
-holo db:probe --status
-  zod rejects 'in-progress': true
-  zod accepts 'in_progress': true
-  'in-progress' rejected by CHECK: true
-  constraint violation error: new row for relation "tasks" violates check constraint "tasks_status_check"
-  'in_progress' accepted: true
-  status: OK

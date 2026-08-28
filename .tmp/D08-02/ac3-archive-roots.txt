@@ -1,5 +1,0 @@
-archive_bytes= 39422731
-ratatui-playground/Cargo.toml
-ratatui-playground/Cargo.lock
-ratatui-playground/src/main.rs
-roots: convex=1 python=1 cli=1 ratatui=1

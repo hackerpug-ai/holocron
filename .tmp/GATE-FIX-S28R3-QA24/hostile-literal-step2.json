@@ -1,8 +1,0 @@
-{
-  "status": 1,
-  "reached": true,
-  "out": "=== prove-r2-readonly (live aws → real R2) ===\nFAIL: R2 credentials/endpoint are placeholders or empty — not a live RO identity\nINFO: key_present=yes secret_present=yes endpoint=<empty>\nhuman_required: mint R2 object-read-only (List/Get only) credentials\n\nCloudflare dashboard (durable — preferred for restore target):\n  1. R2 → Overview → Manage R2 API Tokens → Create API token\n  2. Permissions: Object Read only on bucket holocron-backup\n     (do NOT grant Object Write / Admin Read & Write)\n  3. Export on the restore target only:\n       export R2_RESTORE_ACCESS_KEY_ID=<Access Key ID>\n       export R2_RESTORE_SECRET_ACCESS_KEY=<Secret Access Key>\n       export R2_ACCOUNT_ID=<account id>\n       export R2_BUCKET_NAME=holocron-backup\n       export R2_ENDPOINT=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\n       export R2_CREDENTIAL_KIND=object-read-only\n  4. Re-run: REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh\n\nAutomated mint (when admin secrets available — temporary ≤7d):\n  export CLOUDFLARE_API_TOKEN=[redacted]          # Account API token with R2 write\n  export R2_PARENT_ACCESS_KEY_ID=...      # Parent S3 access key id\n  export R2_PARENT_SECRET_ACCESS_KEY=...  # Parent S3 secret (not used by mint body; keep ambient-free on restore)\n  export R2_ACCOUNT_ID=...\n  export R2_BUCKET_NAME=holocron-backup\n  ./scripts/prove-r2-readonly.sh --try-mint\n\nNEVER reuse D04-02 backup writer keys (object-read-write / Put+Delete) as restore RO.\nRESIDUAL: DEPENDENCY-S28-R2-RO\n=== RESULT: FAIL (REQUIRE_LIVE_R2_RO=1; no live RO credentials; DEPENDENCY-S28-R2-RO) ===\n\n",
-  "ranLog": "",
-  "isolationExists": false,
-  "r2Exists": true
-}

@@ -1,6 +1,0 @@
-{
-  "expectedServiceCount": 12,
-  "expectedVolumeCount": 8,
-  "decisionCount": 1,
-  "decision": "BLOCKED_CAPACITY"
-}

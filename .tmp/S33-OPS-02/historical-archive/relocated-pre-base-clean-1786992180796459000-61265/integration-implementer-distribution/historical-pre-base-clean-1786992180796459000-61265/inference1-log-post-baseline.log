@@ -1,7 +1,0 @@
-2026-08-17 09:13:02,342 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=110.1ms/71, store_cache_main_boundary=0.4ms/71
-2026-08-17 09:13:02,344 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 4.14s (23.2 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96
-2026-08-17 09:13:02,391 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=110.2ms/72, store_cache_main_boundary=0.4ms/72
-2026-08-17 09:13:02,393 - omlx.patches.mlx_lm_mtp.batch_generator - INFO - MTP singleton recovery: multirow marker cleared (compact cache)
-2026-08-17 09:13:02,428 - omlx.scheduler - INFO - Cache phase timings: cleanup_finished_sync=110.2ms/73, store_cache_main_boundary=0.4ms/73
-2026-08-17 09:13:02,428 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 3.86s (24.9 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96
-2026-08-17 09:13:02,429 - omlx.server - INFO - Chat completion: model=Qwen3.6-35B-A3B-MLX-8bit, 96 tokens in 3.69s (26.0 tok/s), prompt: 31, finish_reason=length, max_tokens=96, request_max_tokens=96

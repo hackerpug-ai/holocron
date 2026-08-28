@@ -1,2 +1,0 @@
-postgres (PostgreSQL) 18.4
-AC-4: fresh-restore-01 container running on isolated network

@@ -1,6 +1,0 @@
-{
-  "provider_status": 0,
-  "fire_status": 2,
-  "scanned_files": 4,
-  "fire_snippet": "\nerror: DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 requires both explicit pgbackrest restore prefixes\nRESIDUAL: DEPENDENCY-S28-R2-RO\n"
-}

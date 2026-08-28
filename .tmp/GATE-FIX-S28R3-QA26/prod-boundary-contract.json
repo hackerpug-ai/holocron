@@ -1,8 +1,0 @@
-{
-  "env_discovered": true,
-  "secrets_discovered": true,
-  "env_path_redacted": "/Users/[redacted]/Projects/holocron/.env",
-  "soft_pass_refused": true,
-  "fire_script_exists": true,
-  "provision_script_exists": true
-}

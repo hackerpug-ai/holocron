@@ -1,8 +1,0 @@
-{
-  "rejected": true,
-  "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
-  "surface": "documents.mutations.create",
-  "documentsBefore": 1596,
-  "documentsAfter": 1596,
-  "child_pid": 63074
-}

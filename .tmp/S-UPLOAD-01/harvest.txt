@@ -1,3 +1,0 @@
-harvest cycle2: real Zero builder query + mounted error UI
-commit: 8e57740f0b824b1f27735401786705a7d31ed17e
-AC-1..AC-4 exit 0; AC-5 full-repo biome exit 1 pre-existing

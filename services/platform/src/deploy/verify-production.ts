@@ -588,7 +588,7 @@ async function mcpDiscovery(options: {
   const list = asObject(await listResponse.json(), 'MCP tools/list response');
   const result = asObject(list.result, 'MCP tools/list result');
   if (!Array.isArray(result.tools)) verifyFail('MCP tools/list result is missing tools');
-  if (result.tools.length !== 50)
+  if (result.tools.length !== 49)
     verifyFail(`MCP tools/list count must be 44, got ${result.tools.length}`);
   return {
     ok: true,
@@ -1193,7 +1193,7 @@ export function verifyCrossTailnetPeerReceipt(options: {
   if (receipt.health_status !== 200 || receipt.health_after_restart_status !== 200) {
     verifyFail('peer health before/after restart must be HTTP 200');
   }
-  if (receipt.mcp_tool_count !== 50 || receipt.mcp_after_restart_tool_count !== 50) {
+  if (receipt.mcp_tool_count !== 49 || receipt.mcp_after_restart_tool_count !== 49) {
     verifyFail('peer authenticated MCP tool count must be 44 before and after restart');
   }
   if (receipt.unreachable_serve_rejection_count !== 1) {
@@ -1269,8 +1269,8 @@ export function sealCrossTailnetDrillEvidence(options: {
     server.recovered_health_status === 200 &&
     peer.health_status === 200 &&
     peer.health_after_restart_status === 200 &&
-    peer.mcp_tool_count === 50 &&
-    peer.mcp_after_restart_tool_count === 50 &&
+    peer.mcp_tool_count === 49 &&
+    peer.mcp_after_restart_tool_count === 49 &&
     server.mastra_restart_count >= 1 &&
     server.postgres_sentinel_rows === 1 &&
     server.blob_sentinel_objects === 1 &&

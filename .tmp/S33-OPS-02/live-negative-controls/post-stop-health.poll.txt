@@ -1,1 +1,0 @@
-attempt=1 status=503 degraded=yes

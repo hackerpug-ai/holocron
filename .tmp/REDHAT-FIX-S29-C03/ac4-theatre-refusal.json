@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "QUIET_CHECK_REQUIRED",
-    "message": "Quiet-check missing real drain proof (drain.ok/drainCompletedAtMs/consumersHonored/convexDrainOk). Pre-fix theatre (env flag + audit row without consumers reading HOLO_CUTOVER_SCHEDULES_DISABLED) is refused. Re-run holo cutover:quiet-check (C-03)."
-  }
-}

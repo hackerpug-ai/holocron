@@ -1,2 +1,0 @@
-AC-2 GREEN: checkBudget($2)=false with spent=9 ceiling=10; checkBudget($1)=true; resolveModel over-budget + infer:call --cost 999 blocked with anthropicCount=0
-PLATFORM_IT=1 vitest infer-budget-precheck.test.ts — pass

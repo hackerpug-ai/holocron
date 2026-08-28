@@ -1,4 +1,0 @@
-=== AC-5 maestro test .maestro/chat/cancel-works.yml MAESTRO_APP_ID=com.holocron.app ===
-SUBSTRATE_MISSING: Metro :8081 down, Zero :4848 down, holo seed:e2e unknown
-Skipping full maestro re-run; prior probe exit=1 (app launch without Metro cannot reach chat-screen).
-exit_code=1

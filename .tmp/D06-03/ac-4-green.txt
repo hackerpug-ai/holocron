@@ -1,6 +1,0 @@
-{
-  "ok": true,
-  "matches": [],
-  "files_scanned": 243,
-  "convex_root": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/convex"
-}

@@ -1,3 +1,0 @@
-typecheck: N/A for SPEC-REPAIR-D06-01 (REQUIREMENT-CONTRACT markdown/JSON only; no TypeScript source changed)
-status: skipped_not_applicable
-2026-08-01T22:29:03Z

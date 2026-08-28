@@ -1,6 +1,0 @@
-S31-06 AC-1 GREEN against live_fleet_probed:
-- probe:capabilities --json → 5 roles, each mode non-null
-- extract --role divergent --fixture good --json → ok
-- extract:status → status=success committed=true attempts=1
-  initialMode=repair modeSource=boot-probe (probe-selected)
-- extract-structured.ts contains probe-capability / ensureBootCapabilityMap / bootCapabilityMap

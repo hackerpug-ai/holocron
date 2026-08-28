@@ -1,3 +1,0 @@
-0
-0
-AC-3: host staging + container dirs empty and writable

@@ -1,5 +1,0 @@
-{
-  "status": 1,
-  "stdout": "",
-  "stderr": "npm warn Unknown env config \"manage-package-manager-versions\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown project config \"node-linker\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n✖ No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project\n"
-}

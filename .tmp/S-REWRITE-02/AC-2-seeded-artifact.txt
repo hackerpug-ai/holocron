@@ -1,8 +1,0 @@
-seeded_value: documentById Zero query bound in app/document/[id].tsx
-1:import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
-39:  documentById,
-200:  const [docById, docStatus] = useZeroQuery(isValidId ? documentById(id) : undefined, {
-203:  const [docByLegacy] = useZeroQuery(isValidId ? documentByLegacyId(id) : undefined, {
-279:  const [rawSegments] = useZeroQuery(
-283:  const [rawJobs] = useZeroQuery(
-444:    const published = (await zero.run(documentById(document.id))) as ZeroDocument | undefined;

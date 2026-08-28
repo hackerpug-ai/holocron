@@ -1,4 +1,0 @@
-{
-  "status": 2,
-  "out": "/Users/justinrich/.bashrc: line 9: /.cargo/env: No such file or directory\nerror: GATE-FIX-S28R3-QA25 exec-env-from-fd FD 3 missing terminating NUL (truncated/malformed)\n"
-}

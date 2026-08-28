@@ -1,9 +1,0 @@
-{
-  "path": "A",
-  "task": "REDHAT-FIX-10",
-  "finding": "F-E2",
-  "siteA": "XHR-onError-destroyActive",
-  "singleSiteA": "KILLED",
-  "singleSiteB": "KILLED",
-  "dualSite": "KILLED"
-}

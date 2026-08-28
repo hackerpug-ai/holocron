@@ -1,6 +1,0 @@
-{
-  "runId": "obs2-ac4-tail-1784349796821",
-  "status": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"runId\": \"obs2-ac4-tail-1784349796821\",\n  \"count\": 1,\n  \"rows\": [\n    {\n      \"id\": \"019f7389-2e0b-7bcc-871d-c007d5cce339\",\n      \"runId\": \"obs2-ac4-tail-1784349796821\",\n      \"stepId\": \"research-step-1\",\n      \"traceId\": \"2449eece-cd0a-4777-aae6-1a22d7ab01c9\",\n      \"role\": \"divergent\",\n      \"provider\": \"fleet\",\n      \"endpoint\": \"http://127.0.0.1:4545/v1\",\n      \"modelId\": \"implementer\",\n      \"inputTokens\": 12,\n      \"outputTokens\": 32,\n      \"totalTokens\": 44,\n      \"tokens\": 44,\n      \"wallMs\": 1066,\n      \"status\": \"success\",\n      \"errorCode\": null,\n      \"budgetLedgerId\": null,\n      \"createdAt\": \"2026-07-18T04:43:17.899Z\"\n    }\n  ]\n}\n",
-  "stderr": ""
-}

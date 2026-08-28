@@ -1,6 +1,0 @@
-holo verify:no-convex-client
-roots=app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles
-convex_react_import_hits=0
-zero_import_hits=9
-STATUS: PASS
-EXIT_CODE:0

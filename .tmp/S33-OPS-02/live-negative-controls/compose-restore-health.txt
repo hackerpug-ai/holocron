@@ -1,6 +1,0 @@
-attempt=1 state=running starting
-attempt=2 state=running starting
-attempt=3 state=running starting
-attempt=4 state=running starting
-attempt=5 state=running starting
-attempt=6 state=running healthy

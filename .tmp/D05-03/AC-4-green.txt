@@ -1,4 +1,0 @@
-AC-4 green: provisioned container
-fresh-restore-01 Up 31 seconds (healthy)
-postgres (PostgreSQL) 18.4
-b62e95246ee6   fresh-restore-01-net                            bridge    local

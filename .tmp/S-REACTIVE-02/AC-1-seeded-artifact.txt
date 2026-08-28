@@ -1,6 +1,0 @@
-AC-1 seeded evidence — live research progress via Zero
-- Fixture: seeded-research-session 00000000-0000-4000-8000-e00000000033 (holo seed:e2e --reset)
-- Progress bound to research_sessions.current_iteration/max_iterations via useResearchProgress → researchSessionById
-- Live advances 1/5 → 2/5 → 3/5 via Postgres UPDATE (Sprint 17 engine write surface) + Zero WAL; 0 manual refreshes
-- Maestro: .maestro/reactive/research-progress-advances.yml exit 0
-- Screenshots: S-REACTIVE-02-AC-1-progress-{1,2,3}-of-5 + sim-progress-*-of-5.png

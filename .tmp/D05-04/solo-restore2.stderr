@@ -1,2 +1,0 @@
-backup chain integrity check failed
-timestamp is outside available WAL range (not in retention window) — refuse restore
