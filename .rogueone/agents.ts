@@ -231,12 +231,7 @@ function shadow(name: string, role: string, description: string): ProjectAgent {
  * passed structurally as `knowledgeGraph`. Fails closed when the block is
  * missing rather than silently shipping an agent with no domain knowledge.
  */
-function graphed(
-  name: string,
-  role: string,
-  domain: string,
-  description: string
-): ProjectAgent {
+function graphed(name: string, role: string, domain: string, description: string): ProjectAgent {
   const source = readBrainSource(name);
   const target = targetForRole(role);
   const kb = readGraph(domain);
