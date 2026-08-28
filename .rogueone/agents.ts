@@ -91,29 +91,85 @@ function readBrainSource(name: string): BrainSource {
   };
 }
 
-function readMastraGraph(): {
+type KnowledgeGraph = {
   readonly graph: unknown;
   readonly path: string;
   readonly sha256: string;
-} {
-  const path = join(requireAgentRoot(), '.rosetta', 'docs', 'mastra', 'fact-graph.json');
+  /** Non-wire top-level keys folded into `w` to satisfy the host schema. */
+  readonly folded: readonly string[];
+};
+
+const graphCache = new Map<string, KnowledgeGraph>();
+
+/**
+ * Top-level keys the RogueOne host accepts in the passive fact-graph wire
+ * format (see its FactGraphSchema). Any other top-level key makes the WHOLE
+ * project config invalid, with `config_invalid` as the only diagnostic.
+ */
+const WIRE_KEYS = new Set(['v', 'w', 'r', 'a', 'x', 't', '_meta']);
+
+/**
+ * Fold non-wire top-level blocks into `w` so a KB that carries extra sections
+ * still validates. Lossless on purpose: dropping them would silently delete
+ * real domain knowledge (the trpc graph's `patterns` block, for instance,
+ * catalogues its per-runtime adapter examples). Throws on collision rather
+ * than overwriting.
+ */
+function conformGraph(domain: string, parsed: Record<string, unknown>): Record<string, unknown> {
+  const extra = Object.keys(parsed).filter((key) => !WIRE_KEYS.has(key));
+  if (extra.length === 0) return parsed;
+  const w: Record<string, unknown> = { ...((parsed.w as Record<string, unknown>) ?? {}) };
+  for (const key of extra) {
+    const folded = `${key} (folded from a non-wire top-level block)`;
+    if (folded in w) {
+      throw new Error(
+        `holocron agent pack: '${domain}' fact graph cannot fold '${key}' — '${folded}' already exists in w.`
+      );
+    }
+    w[folded] = parsed[key];
+  }
+  const conformed: Record<string, unknown> = { ...parsed, w };
+  for (const key of extra) delete conformed[key];
+  return conformed;
+}
+
+/**
+ * Read one Rosetta domain's fact graph from the Brain root.
+ *
+ * Cached per domain: an implementer and its reviewer share a domain, and the
+ * graphs are large enough that re-reading and re-hashing per agent is waste.
+ */
+function readGraph(domain: string): KnowledgeGraph {
+  const cached = graphCache.get(domain);
+  if (cached) return cached;
+  const path = join(requireAgentRoot(), '.rosetta', 'docs', domain, 'fact-graph.json');
   let raw: string;
   try {
     raw = readFileSync(path, 'utf8');
   } catch (cause) {
-    throw new Error(`holocron agent pack: cannot read the Mastra fact graph at ${path}`, { cause });
+    throw new Error(`holocron agent pack: cannot read the '${domain}' fact graph at ${path}`, {
+      cause,
+    });
   }
-  let graph: unknown;
+  let graph: Record<string, unknown>;
   try {
-    graph = JSON.parse(raw);
+    graph = JSON.parse(raw) as Record<string, unknown>;
   } catch (cause) {
-    throw new Error(`holocron agent pack: Mastra fact graph is invalid JSON at ${path}`, { cause });
+    throw new Error(`holocron agent pack: '${domain}' fact graph is invalid JSON at ${path}`, {
+      cause,
+    });
   }
-  return {
-    graph,
+  const folded = Object.keys(graph).filter((key) => !WIRE_KEYS.has(key));
+  const entry: KnowledgeGraph = {
+    graph: conformGraph(domain, graph),
     path,
+    folded,
+    // Hash the raw file, not the conformed shape: provenance points at the
+    // Brain source on disk.
     sha256: createHash('sha256').update(raw).digest('hex'),
   };
+  graphCache.set(domain, entry);
+  return entry;
 }
 
 const HOLOCRON_DOCTRINE = `
@@ -125,7 +181,10 @@ Read AGENTS.md before touching a file. Its current project rules override generi
 
 ## Platform boundary
 
-- New backend and agentic work targets Mastra on Bun, Postgres and Drizzle, with Zero serving the React Native client. Convex and pi-agent code are migration sources only unless the task explicitly says otherwise.
+- Device platform: Mastra on Bun, Postgres and Drizzle, with Zero serving the React Native client.
+- Web client: Next.js on Cloudflare Workers, tRPC as the BFF, shadcn and AI Elements for UI, an AI SDK agent loop attaching to the device MCP gateway over the tunnel, and BetterAuth guarding the operator surface. Scoped in docs/plans/webclient-design-brief.md — read it before touching web client code.
+- Convex is decommissioned. Two build gates enforce it: verify:no-convex-client and verify-no-convex-env. Never add Convex code, imports or env aliases.
+- Public share links target docs.holocrnlib.com/d/<token>. That URL shape is promised by the MCP share_document tool description and must stay stable, including its 60s cache and revocation semantics.
 - Reasoning uses the real local LiteLLM fleet. Claude is a budgeted escape hatch, never a fabricated substitute.
 - Never disconnect Wi-Fi, alter interfaces, or simulate failure by disrupting the host network.
 
@@ -167,15 +226,24 @@ function shadow(name: string, role: string, description: string): ProjectAgent {
   };
 }
 
-const mastraGraph = readMastraGraph();
-
-function mastra(name: string, role: string, description: string): ProjectAgent {
+/**
+ * A Brain agent whose embedded Rosetta block is lifted out of the prompt and
+ * passed structurally as `knowledgeGraph`. Fails closed when the block is
+ * missing rather than silently shipping an agent with no domain knowledge.
+ */
+function graphed(
+  name: string,
+  role: string,
+  domain: string,
+  description: string
+): ProjectAgent {
   const source = readBrainSource(name);
   const target = targetForRole(role);
+  const kb = readGraph(domain);
   ROSETTA_BLOCK.lastIndex = 0;
   if (!ROSETTA_BLOCK.test(source.body)) {
     throw new Error(
-      `holocron agent pack: '${name}' has no embedded Mastra Rosetta block; refusing to duplicate or silently lose its knowledge graph.`
+      `holocron agent pack: '${name}' has no embedded '${domain}' Rosetta block; refusing to duplicate or silently lose its knowledge graph.`
     );
   }
   ROSETTA_BLOCK.lastIndex = 0;
@@ -193,13 +261,15 @@ function mastra(name: string, role: string, description: string): ProjectAgent {
     description,
     role,
     ...(target ?? {}),
-    knowledgeGraph: mastraGraph.graph,
+    knowledgeGraph: kb.graph,
     metadata: {
       project: 'holocron',
       brain_source_profile: source.path,
       brain_source_sha256: source.sha256,
-      brain_knowledge_graph: mastraGraph.path,
-      brain_knowledge_graph_sha256: mastraGraph.sha256,
+      brain_knowledge_domain: domain,
+      brain_knowledge_graph: kb.path,
+      brain_knowledge_graph_sha256: kb.sha256,
+      ...(kb.folded.length > 0 ? { brain_knowledge_graph_folded: kb.folded } : {}),
       ...(target ?? {}),
     },
   };
@@ -212,7 +282,13 @@ const DESIGN_REVIEW_MODE = `
 
 # REVIEW MODE
 
-Judge the rendered Holocron surface; do not implement it. Apply the frontend-designer system prompt as the review standard. Inspect real screenshots or a real simulator/browser surface when the task changes presentation. Report only evidence-backed findings with file and line, violated project rule, observed result and required correction. Verify semantic tokens, Paper Text usage, accessibility, ScreenLayout on drawer routes, interactive test IDs, co-located stories and light/dark behavior.
+Judge the rendered Holocron surface; do not implement it. Apply the frontend-designer system prompt as the review standard. Inspect real screenshots or a real simulator/browser surface when the task changes presentation. Report only evidence-backed findings with file and line, violated project rule, observed result and required correction.
+
+Always verify: semantic tokens over literal values, accessibility, interactive test IDs, co-located stories, and light/dark behavior.
+
+On the React Native surface also verify Paper Text usage and ScreenLayout on drawer routes.
+
+On the web surface also verify the chrome-vs-column rule: identity (glow, depth, crystalline geometry, motion) belongs to nav, cards, chat frames and state transitions; any reading column past roughly 500 words stays calm and high contrast, with no chrome inside the measure. Public /d/<token> pages carry identity only in the header and edges.
 `.trim();
 
 function designerVariant(
@@ -249,40 +325,83 @@ export const agents: ProjectAgent[] = [
     'reviewer',
     'Holocron MCP protocol, schema, transport and real-service review.'
   ),
-  mastra(
+  graphed(
     'mastra-implementer',
     'implementer',
+    'mastra',
     'Holocron MK-VI Mastra, Postgres, Drizzle, fleet and mission-engine implementation.'
   ),
-  mastra(
+  graphed(
     'mastra-reviewer',
     'reviewer',
+    'mastra',
     'Holocron MK-VI Mastra review with stub detection and real-service evidence.'
   ),
-  mastra(
+  graphed(
     'mastra-evals-implementer',
     'implementer',
+    'mastra',
     'Holocron evals, live scoring, drift detection and observability implementation.'
   ),
-  shadow(
-    'convex-implementer',
-    'migration-implementer',
-    'Read-side Convex extraction and cutover support only; no new Convex features.'
+  graphed(
+    'nextjs-implementer',
+    'implementer',
+    'nextjs',
+    'Holocron web client: Server Components, route handlers and the public /d/<token> reader.'
   ),
-  shadow(
-    'convex-reviewer',
-    'migration-reviewer',
-    'Review completeness of the Convex export and MK-VI migration source.'
+  graphed(
+    'nextjs-reviewer',
+    'reviewer',
+    'nextjs',
+    'Holocron web client review: Server/Client boundary, data fetching, caching and security.'
   ),
-  shadow(
-    'pi-agent-implementer',
-    'migration-implementer',
-    'Legacy pi-agent reference work only when an explicit migration task requires it.'
+  graphed(
+    'trpc-implementer',
+    'implementer',
+    'trpc',
+    'Holocron BFF: routers, procedures, streaming generators and TanStack Query wiring.'
   ),
-  shadow(
-    'pi-agent-reviewer',
-    'migration-reviewer',
-    'Legacy pi-agent migration-source review only.'
+  graphed(
+    'trpc-reviewer',
+    'reviewer',
+    'trpc',
+    'Holocron BFF review: type safety, Zod validation, link correctness and stream lifecycle.'
+  ),
+  graphed(
+    'cloudflare-workers-implementer',
+    'implementer',
+    'cloudflare-workers',
+    'Holocron edge deployment: Wrangler config, bindings and the public reader cache semantics.'
+  ),
+  graphed(
+    'cloudflare-workers-reviewer',
+    'reviewer',
+    'cloudflare-workers',
+    'Holocron edge review: bindings, CPU and size limits, cache correctness and revocation SLA.'
+  ),
+  graphed(
+    'aisdk-implementer',
+    'implementer',
+    'ai-sdk',
+    'Holocron web agent loop against a REAL provider stream and the device MCP gateway.'
+  ),
+  graphed(
+    'aisdk-reviewer',
+    'reviewer',
+    'ai-sdk',
+    'Holocron web agent review: v7 correctness, real-provider verification and stub detection.'
+  ),
+  graphed(
+    'betterauth-implementer',
+    'implementer',
+    'betterauth',
+    'Holocron operator auth: config, handler mounting, Drizzle migrations and client instance.'
+  ),
+  graphed(
+    'betterauth-reviewer',
+    'reviewer',
+    'betterauth',
+    'Holocron auth review: session security, handler mounting, token handling and migrations.'
   ),
   shadow(
     'react-native-ui-implementer',
