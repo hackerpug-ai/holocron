@@ -1,0 +1,16 @@
+# AC-4 seeded-value artifact (db_query, captured immediately after the AC-4 scenario run)
+ normalized_text_len | retrieved_at_set | source_domain | provenance_group | self_sourced |                           content_hash                           
+---------------------+------------------+---------------+------------------+--------------+------------------------------------------------------------------
+                1200 | t                | example.com   | web              | f            | 2d207f460f8c19963ede18786cc27363322025738f6c94e3a0787cc431d19831
+(1 row)
+
+ rows_for_seeded_digest 
+------------------------
+                      1
+(1 row)
+
+         indexname         
+---------------------------
+ sources_content_hash_uidx
+(1 row)
+

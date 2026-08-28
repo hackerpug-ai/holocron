@@ -1,0 +1,21 @@
+# AC-1 seeded-value artifact (db_query, captured immediately after the AC-1 scenario run)
+ belief_scores_count 
+---------------------
+                   1
+(1 row)
+
+ score | weight_version | domain_tier_version 
+-------+----------------+---------------------
+  0.62 |              1 |                   1
+(1 row)
+
+ fulcrum_tables_in_information_schema 
+--------------------------------------
+                                    9
+(1 row)
+
+ forbidden_names_present 
+-------------------------
+                       0
+(1 row)
+

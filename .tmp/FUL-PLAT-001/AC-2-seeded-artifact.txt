@@ -1,0 +1,21 @@
+# AC-2 seeded-value artifact (db_query, captured immediately after the AC-2 scenario run)
+ belief_scores_count | preserved_score 
+---------------------+-----------------
+                   1 |            0.62
+(1 row)
+
+ domain_tiers_count 
+--------------------
+                  8
+(1 row)
+
+ append_only_triggers 
+----------------------
+                    8
+(1 row)
+
+ holocron_app_privs_on_belief_scores 
+-------------------------------------
+ INSERT, SELECT
+(1 row)
+
