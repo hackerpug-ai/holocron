@@ -20,7 +20,7 @@ type ProjectAgent = {
 };
 
 type AgentTarget = {
-  readonly harness: 'claude-code' | 'codex' | 'opencode' | 'grok';
+  readonly harness: 'claude-code' | 'codex' | 'opencode' | 'grok' | 'pi';
   readonly provider: string;
   readonly model: string;
 };
@@ -32,17 +32,24 @@ type AgentTarget = {
  * assignment does not require editing every agent or the dispatch config.
  * The RogueOne config imports these values only because its schema requires
  * role targets to be present there as well.
+ *
+ * On the `pi` harness the bridge cannot switch models mid-session (pi-acp does
+ * not implement ACP `session/set_model`), so the model is selected at pi boot
+ * via `pi --mode rpc --model "$ROGUEONE_PI_MODEL"`. `model` must therefore be
+ * a real pi identifier in `provider/model` form — check with `pi models`.
+ * RogueOne itself treats provider and model as passthrough strings and only
+ * enforces non-empty; a bad identifier fails at the ACP agent, not here.
  */
 export const IMPLEMENTER_TARGET: AgentTarget = {
-  harness: 'opencode',
-  provider: 'deepseek',
-  model: 'deepseek/deepseek-v4-pro',
+  harness: 'pi',
+  provider: 'zai',
+  model: 'zai/glm-5.3-flash',
 };
 
 export const REVIEWER_TARGET: AgentTarget = {
-  harness: 'opencode',
-  provider: 'openrouter',
-  model: 'openrouter/deepseek/deepseek-v4-pro-0813',
+  harness: 'pi',
+  provider: 'openai-codex',
+  model: 'openai-codex/gpt-5.6-terra',
 };
 
 function targetForRole(role: string): AgentTarget | undefined {
