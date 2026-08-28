@@ -1,0 +1,211 @@
+{
+  "task_id": "FUL-PLAT-005",
+  "timestamp": "2026-08-28T18:41:11Z",
+  "commit_sha": "41e6877932f0f0e08b816d05f98b530718d54d39",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-6-output.txt"
+    },
+    {
+      "id": "TC-7",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-7-output.txt"
+    },
+    {
+      "id": "TC-8",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-8-output.txt"
+    },
+    {
+      "id": "TC-9",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-9-output.txt"
+    },
+    {
+      "id": "TC-10",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-10-output.txt"
+    },
+    {
+      "id": "TC-11",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-11-output.txt"
+    },
+    {
+      "id": "TC-12",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
+      "exit_code": 0,
+      "output_file": ".tmp/FUL-PLAT-005/tc-12-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-28T18:41:11Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "a7a957e4cd7a10f4637b13cab517d658d798fff41a89abc245f6ef8fb330a543"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "5388877885abde956eb462f40a241e6b42106c40050578da6cfe1f69207cc184"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "9447680d0ec6f234cd9cea060564ab7cf7d6bbb34427d488dbba896f284fe5c2"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "9d4d2ae00f83d1ee5da1ffa3fe19fb12968d4d1a7bdb091fe36b8f907ff4f862"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "a5c0be0fd6b8024cf14eedda288bd8d974807f8732fe28b634221d82e0d06f96"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "a42fd55664ab4bd1ecf683609c2ec43888a5c6ca518778f757d3e52c5223802a"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "da9b86136ac872e5a8eb753e9503124342a51aaca06ac281a3f5536c85396401"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "eaf8eabfd6b943ffa149bdb37649819bf622e2bdda90f7fe547313904fd67a55"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "bf25ee3e4c87f103ce6c09471e6374f10704a07ee4aadf3a1d97a0c6e1c00842"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "7c41765c4eef35938ccf5ae0b24267a02ec332bd5980fec72728fbc39ac46c7a"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "f2d0385eed5612acf856a017db8523f9b7df5c0690a830db232e1a86ddf86a2e"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "4d184ccc6c76133d83a52758a2266b6a2ec34915f3270cafc3a74712e87b4856"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "eefa0ff2ddd04274c3618aace515f09b6be126de1eb0a358f20656ffedaf8d4b"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "ccb31319c4d13153bcb046bed859f99ef87b582fcb8bfb9464355cc9aaad0beb"
+      },
+      {
+        "path": "tc-7-output.txt",
+        "sha256": "c0ae8f2bbe5d7694d0aad1b3b3edd036c45d468c389705ffcdcf8bbf98c8e8b3"
+      },
+      {
+        "path": "tc-8-output.txt",
+        "sha256": "22d3701ea3accca73b76a37c5228fe5629d130562f9d8aa1e3f7c464e42c4d68"
+      },
+      {
+        "path": "tc-9-output.txt",
+        "sha256": "64ebee21b41fb09b83578ba7ed507530eff45e9da79dc2f34981fe02126a8b68"
+      },
+      {
+        "path": "tc-10-output.txt",
+        "sha256": "053bce994f0b47c4b07ba53731306a87eaeef0d00b7196ce62f34236e55eb12f"
+      },
+      {
+        "path": "tc-11-output.txt",
+        "sha256": "0479962eda410061a515ef55a00c4621799195c7e24ab03cb3402cb1a5148640"
+      },
+      {
+        "path": "tc-12-output.txt",
+        "sha256": "c70fccdc0366e45969fa3ea42e9e946e451f85f0124bbe242dea7810f2516538"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "3898a05480b904824f4ee57e864886beaa5cde48435188db1484b80723f60b82"
+      }
+    ]
+  }
+}
