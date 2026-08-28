@@ -25,6 +25,87 @@ import {
   type ServiceMemoryLimits,
 } from './production-deploy.ts';
 import { REQUIRED_SERVICES, REQUIRED_VOLUME_NAMES } from './production-release.ts';
+import { listTools } from '../tools/registry.ts';
+import { z } from 'zod';
+
+/**
+ * Canonicalize a JSON Schema for comparison/evidence: strip `$schema`, sort
+ * object keys (deep) so schema diffs are stable across serializers.
+ */
+export function canonicalizeJsonSchema(schema: unknown): Record<string, unknown> {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return {};
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(schema as Record<string, unknown>).sort()) {
+    if (key === '$schema') continue;
+    const value = (schema as Record<string, unknown>)[key];
+    sorted[key] =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? canonicalizeJsonSchema(value)
+        : value;
+  }
+  return sorted;
+}
+
+function jsonSchemaExtrasAllowed(value: unknown): boolean {
+  // JSON Schema semantics: absent additionalProperties ≡ true (extras allowed).
+  return value === undefined || value === true;
+}
+
+/**
+ * imp-mcp-schema-drift-hardening T3 — compare a DEPLOYED MCP tool's advertised
+ * outputSchema against the DECLARED registry schema (as z.toJSONSchema output).
+ * Compares property-name sets, required sets, and additionalProperties. Returns
+ * a list of diff reasons (empty = equivalent). Pure — unit-tested in isolation.
+ */
+export function compareAdvertisedOutputSchema(advertised: unknown, declared: unknown): string[] {
+  const diffs: string[] = [];
+  if (!advertised || typeof advertised !== 'object' || Array.isArray(advertised)) {
+    return ['advertised_output_schema_not_an_object'];
+  }
+  if (!declared || typeof declared !== 'object' || Array.isArray(declared)) {
+    return ['declared_output_schema_not_an_object'];
+  }
+  const a = advertised as Record<string, unknown>;
+  const d = declared as Record<string, unknown>;
+  const aProps = new Set(Object.keys((a.properties ?? {}) as Record<string, unknown>));
+  const dProps = new Set(Object.keys((d.properties ?? {}) as Record<string, unknown>));
+  for (const key of [...dProps].sort()) {
+    if (!aProps.has(key)) diffs.push(`missing_property:${key}`);
+  }
+  for (const key of [...aProps].sort()) {
+    if (!dProps.has(key)) diffs.push(`unexpected_property:${key}`);
+  }
+  const aRequired = new Set(Array.isArray(a.required) ? a.required.map(String) : []);
+  const dRequired = new Set(Array.isArray(d.required) ? d.required.map(String) : []);
+  for (const key of [...dRequired].sort()) {
+    if (!aRequired.has(key)) diffs.push(`missing_required:${key}`);
+  }
+  for (const key of [...aRequired].sort()) {
+    if (!dRequired.has(key)) diffs.push(`unexpected_required:${key}`);
+  }
+  if (jsonSchemaExtrasAllowed(a.additionalProperties) !== jsonSchemaExtrasAllowed(d.additionalProperties)) {
+    diffs.push(
+      `additionalProperties_mismatch:advertised=${String(a.additionalProperties ?? 'absent')},declared=${String(d.additionalProperties ?? 'absent')}`
+    );
+  }
+  return diffs;
+}
+
+/**
+ * Source revision of the tree RUNNING this verifier (the declared contracts
+ * come from its registry imports). Null when git is unavailable — callers
+ * then fail closed on schema mismatch instead of downgrading to a warning.
+ */
+function currentSourceRevision(cwd: string): string | null {
+  try {
+    const probe = spawnSync('git', ['rev-parse', 'HEAD'], { cwd });
+    if (probe.status !== 0) return null;
+    const revision = probe.stdout?.toString().trim() ?? '';
+    return revision.length > 0 ? revision : null;
+  } catch {
+    return null;
+  }
+}
 
 export type VerifyProductionOptions = {
   releasePath: string;
@@ -551,6 +632,7 @@ async function restartAndDurabilityProbe(options: {
 async function mcpDiscovery(options: {
   record: DeploymentRecord;
   secretsPath: string;
+  cwd: string;
   fetchImpl: typeof fetch;
 }): Promise<Record<string, unknown>> {
   const key = getSecretValue('HOLO_KEY_MCP', { secretsPath: options.secretsPath });
@@ -588,13 +670,85 @@ async function mcpDiscovery(options: {
   const list = asObject(await listResponse.json(), 'MCP tools/list response');
   const result = asObject(list.result, 'MCP tools/list result');
   if (!Array.isArray(result.tools)) verifyFail('MCP tools/list result is missing tools');
-  if (result.tools.length !== 50)
-    verifyFail(`MCP tools/list count must be 44, got ${result.tools.length}`);
+
+  // ── imp-mcp-schema-drift-hardening T3 — deploy-time contract proof ─———
+  // READ-ONLY (no live-write smoke, no cleanup path): the deployed MCP's
+  // advertised outputSchemas must match the DECLARED registry schemas this
+  // verifier was built from. A stale advertised contract is exactly the
+  // store_document output-schema incident's signature.
+  const declaredTools = listTools();
+  const expectedCount = declaredTools.length;
+  if (result.tools.length !== expectedCount) {
+    verifyFail(
+      `MCP tools/list count must equal the registry (${expectedCount}), got ${result.tools.length}`
+    );
+  }
+  const advertisedTools = result.tools as Array<Record<string, unknown>>;
+  const advertisedIds = advertisedTools.map((tool) => String(tool.name)).sort();
+  const expectedIds = declaredTools.map((tool) => tool.id).sort();
+  if (JSON.stringify(advertisedIds) !== JSON.stringify(expectedIds)) {
+    const missing = expectedIds.filter((id) => !advertisedIds.includes(id));
+    const extra = advertisedIds.filter((id) => !expectedIds.includes(id));
+    verifyFail(
+      `MCP tools/list ids diverge from registry (missing=${missing.join(',')} extra=${extra.join(',')})`
+    );
+  }
+
+  const verifySourceRevision = currentSourceRevision(options.cwd);
+  const revisionComparable = verifySourceRevision !== null && Boolean(options.record.sourceRevision);
+  const revisionsMatch =
+    revisionComparable && verifySourceRevision === options.record.sourceRevision;
+
+  const contractFindings: Array<Record<string, unknown>> = [];
+  let compared = 0;
+  for (const tool of advertisedTools) {
+    const declared = declaredTools.find((row) => row.id === tool.name);
+    if (!declared) continue; // covered by the id-set check above
+    const advertisedSchema = tool.outputSchema;
+    if (advertisedSchema === undefined || advertisedSchema === null) continue;
+    const declaredJson = z.toJSONSchema(declared.outputSchema, { io: 'output' });
+    const diffs = compareAdvertisedOutputSchema(advertisedSchema, declaredJson);
+    compared += 1;
+    if (diffs.length > 0) {
+      contractFindings.push({
+        tool: tool.name,
+        diffs,
+        advertised: canonicalizeJsonSchema(advertisedSchema),
+        declared: canonicalizeJsonSchema(declaredJson),
+      });
+    }
+  }
+
+  const severity =
+    contractFindings.length === 0
+      ? 'none'
+      : revisionsMatch || !revisionComparable
+        ? 'fail'
+        : 'warning';
+  if (severity === 'fail') {
+    verifyFail(
+      `MCP advertised outputSchema diverges from declared registry schemas: ${JSON.stringify(
+        contractFindings.map((finding) => ({ tool: finding.tool, diffs: finding.diffs })),
+        null,
+        2
+      )}`
+    );
+  }
+
   return {
     ok: true,
     baseUrl: options.record.baseUrl,
     initialize: true,
+    sourceRevision: options.record.sourceRevision,
+    verifySourceRevision,
+    sourceRevisionMatch: revisionComparable ? revisionsMatch : null,
     toolsListCount: result.tools.length,
+    toolsContractProof: {
+      compared,
+      mismatched: contractFindings.map((finding) => finding.tool),
+      severity,
+      findings: contractFindings,
+    },
     toolInvocations: 0,
     soakInvocations: 0,
   };
@@ -1047,7 +1201,7 @@ export async function verifyProductionDeployment(
   const secretsPath = resolve(options.secretsPath ?? resolveSecretsPathFromEnv(process.env, cwd));
   const mcp =
     (options.mcpDiscovery ?? options.restartProbe)
-      ? await mcpDiscovery({ record, secretsPath, fetchImpl })
+      ? await mcpDiscovery({ record, secretsPath, cwd, fetchImpl })
       : null;
 
   const evidenceDir = resolve(cwd, DEPLOY_EVIDENCE_DIR);
