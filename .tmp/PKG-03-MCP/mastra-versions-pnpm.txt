@@ -1,0 +1,7 @@
+Legend: production dependency, optional only, dev only
+
+@holocron/mcp-unified@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp
+
+dependencies:
+@mastra/core 1.50.1
+@mastra/mcp 1.13.1

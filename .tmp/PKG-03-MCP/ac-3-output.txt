@@ -1,0 +1,17 @@
+Scope: all 4 workspace projects
+(node:69396) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 0, reused 1, downloaded 0, added 0
+Packages: +22 -249
+++++++--------------------------------------------------------------------------
+Progress: resolved 0, reused 187, downloaded 6, added 22, done
+
+packages/mcp prepare$ lefthook install
+. prepare$ lefthook install
+packages/mcp prepare: sync hooks: ✔️ (pre-commit)
+. prepare: sync hooks: ✔️ (pre-commit)
+packages/mcp prepare: Done
+. prepare: Done
+Done in 1.7s
+@holocron/mcp-unified@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp

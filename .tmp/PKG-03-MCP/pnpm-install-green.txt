@@ -1,0 +1,52 @@
+Scope: all 4 workspace projects
+(node:6727) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Progress: resolved 1, reused 0, downloaded 0, added 0
+ WARN  deprecated @storybook/jest@0.2.3: In Storybook 8, this package functionality has been integrated to a new package called @storybook/test, which uses Vitest APIs for an improved experience. When upgrading to Storybook 8 with 'npx storybook@latest upgrade', you will get prompted and will get an automigration for the new package. Please migrate when you can.
+ WARN  deprecated @storybook/testing-library@0.2.2: In Storybook 8, this package functionality has been integrated to a new package called @storybook/test, which uses Vitest APIs for an improved experience. When upgrading to Storybook 8 with 'npx storybook@latest upgrade', you will get prompted and will get an automigration for the new package. Please migrate when you can.
+ WARN  deprecated elevenlabs@1.59.0: This package has moved to @elevenlabs/elevenlabs-js
+ WARN  deprecated react-native-vector-icons@10.3.0: react-native-vector-icons package has moved to a new model of per-icon-family packages. See the https://github.com/oblador/react-native-vector-icons/blob/master/MIGRATION.md on how to migrate
+Progress: resolved 781, reused 0, downloaded 0, added 0
+Progress: resolved 1855, reused 0, downloaded 0, added 0
+ WARN  15 deprecated subdependencies found: @esbuild-kit/core-utils@3.3.2, @esbuild-kit/esm-loader@2.6.5, @rocicorp/resolver@1.0.2, @storybook/expect@28.1.3-5, @ungap/structured-clone@1.3.0, @xmldom/xmldom@0.8.11, cron-parser@4.9.0, glob@10.5.0, glob@7.2.3, inflight@1.0.6, node-domexception@1.0.0, prebuild-install@7.1.3, rimraf@3.0.2, uuid@7.0.3, uuid@8.3.2
+
+ WARN  Issues with peer dependencies found
+.
+├─┬ @mastra/core 1.50.1
+│ └─┬ chat 4.35.0
+│   └── ✕ unmet peer ai@"^6.0.182 || ^7.0.0": found 6.0.116
+├─┬ vite 8.0.1
+│ └── ✕ unmet peer esbuild@^0.27.0: found 0.28.1
+├─┬ @storybook/react-native 10.3.0
+│ └─┬ @storybook/mcp 0.4.1
+│   └─┬ @tmcp/adapter-valibot 0.1.5
+│     └─┬ @valibot/to-json-schema 1.6.0
+│       └── ✕ unmet peer valibot@^1.3.0: found 1.2.0 in @storybook/mcp
+├─┬ @testing-library/react 16.3.2
+│ └── ✕ unmet peer @testing-library/dom@^10.0.0: found 9.3.4
+├─┬ @testing-library/react-hooks 8.0.1
+│ ├── ✕ unmet peer react@"^16.9.0 || ^17.0.0": found 19.2.0
+│ ├── ✕ unmet peer react-dom@"^16.9.0 || ^17.0.0": found 19.2.0
+│ ├── ✕ unmet peer @types/react@"^16.9.0 || ^17.0.0": found 19.2.14
+│ └── ✕ unmet peer react-test-renderer@"^16.9.0 || ^17.0.0": found 19.2.0
+└─┬ @rocicorp/zero 1.8.0
+  └── ✕ unmet peer react@^19.2.6: found 19.2.0
+
+packages/mcp
+└─┬ @mastra/core 1.50.1
+  └─┬ @ai-sdk/ui-utils 1.2.11
+    ├── ✕ unmet peer zod@^3.23.8: found 4.4.3
+    └─┬ @ai-sdk/provider-utils 2.2.8
+      └── ✕ unmet peer zod@^3.23.8: found 4.4.3
+
+Progress: resolved 1925, reused 0, downloaded 0, added 0
+Packages: +43 -189
+++++++++++++++------------------------------------------------------------------
+Progress: resolved 1925, reused 203, downloaded 7, added 43, done
+packages/mcp prepare$ lefthook install
+. prepare$ lefthook install
+packages/mcp prepare: sync hooks: ✔️ (pre-commit)
+. prepare: sync hooks: ✔️ (pre-commit)
+packages/mcp prepare: Done
+. prepare: Done
+Done in 4.6s

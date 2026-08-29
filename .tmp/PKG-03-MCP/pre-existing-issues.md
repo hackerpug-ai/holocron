@@ -17,3 +17,17 @@
 
 - Root pre-commit runs `pnpm test:unit` (not full integration). Full `pnpm test`
   has many live-service failures unrelated to this package move.
+
+## Post-GREEN Mastra ceiling (recorded, not hidden)
+
+pnpm resolved caret ranges higher than `packages/mcp/bun.lock`:
+- pnpm: `@mastra/core@1.50.1`, `@mastra/mcp@1.13.1`
+- bun.lock: `@mastra/core@1.10.0`, `@mastra/mcp@1.1.0`
+
+Documented as `kb:ceiling:` in `packages/mcp/README.md`. Dual-lock retained.
+
+## lefthook mcp-lint still targets holocron-mcp/
+
+Root `lefthook.yml` `mcp-lint` glob/root still say `holocron-mcp`. Outside
+WRITE-ALLOWED for this task; command skips when no matching staged paths.
+Follow-up: retarget to `packages/mcp`.

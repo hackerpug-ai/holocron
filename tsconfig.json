@@ -11,7 +11,7 @@
   "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts", "vitest-env.d.ts"],
   "exclude": [
     "supabase/**/*",
-    "holocron-mcp/**/*",
+    "packages/mcp/**/*",
     "holocron-mcp.backup/**/*",
     "holocron-general-mcp.old/**/*",
     "scripts/**/*",

@@ -33,6 +33,7 @@
     "@mastra/core": "^1.10.0",
     "zod": "^4.3.6"
   },
+  "//kb:ceiling": "pnpm hoist 2026-08-29: @mastra/core@1.50.1 @mastra/mcp@1.13.1 vs bun.lock pins 1.10.0 / 1.1.0 — dual-lock retained; do not silently delete bun.lock",
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
     "@types/bun": "latest",

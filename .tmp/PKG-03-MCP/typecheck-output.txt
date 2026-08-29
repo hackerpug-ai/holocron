@@ -1,0 +1,22 @@
+
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP
+> tsgo --noEmit
+
+packages/mcp/src/config/env.ts(87,37): error TS2868: Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.
+packages/mcp/src/mastra/stdio.ts(12,21): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(13,35): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(14,29): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(15,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(23,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(28,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(29,30): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(37,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(38,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(39,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(40,52): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(41,63): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(47,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(56,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(64,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+packages/mcp/src/mastra/stdio.ts(65,56): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+ ELIFECYCLE  Command failed with exit code 2.

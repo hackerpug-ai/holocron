@@ -23,7 +23,7 @@
       "!**/*.pre-fresh-*.json",
       "!**/*.html",
       "!convex/_generated",
-      "!holocron-mcp",
+      "!packages/mcp",
       "!scripts",
       "!**/*.stories.tsx",
       "!metro.config.cjs",

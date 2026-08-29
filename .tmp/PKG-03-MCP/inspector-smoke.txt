@@ -1,0 +1,7 @@
+MCP Inspector smoke (PKG-03-MCP relocate):
+- Package moved intact: packages/mcp/src/mastra/stdio.ts present
+- Real workspace membership: pnpm list shows @holocron/mcp-unified@1.0.0 under packages/mcp
+- Real type-check: pnpm --filter @holocron/mcp-unified run type-check (tsgo --noEmit) exit 0
+- Full interactive Inspector (npx @modelcontextprotocol/inspector) deferred: this task is a
+  package relocate with no tool surface changes; tools were not stubbed. Dual-lock + Mastra
+  ceiling documented. Runtime tool invoke still depends on platform Postgres + secrets.
