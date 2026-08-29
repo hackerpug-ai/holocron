@@ -1,7 +1,7 @@
 # HANDOFF — packages/ monorepo landed on main; secrets + live platform process not cut over
 
 **Written** 2026-08-29T22:32:00Z by grok/grok-4.6
-**Repo** holocron · **Branch** main · **HEAD** 0b2c99af
+**Repo** holocron · **Branch** main · **HEAD** f542e41a (handoff commit; monorepo merge is parent `0b2c99af`)
 **How to use this**: read §1–§2, run the checks in §4, then start at §2.
 Claims are labeled VERIFIED / CLAIMED / ASSUMED — re-verify anything not VERIFIED
 before you rely on it. Raw evidence is in §10.
@@ -23,8 +23,8 @@ client beyond `@holocron/web` placeholder; App Store / EAS / simulator UI; pushi
 
 ## 2. Start Here
 
-In the primary checkout `/Users/justinrich/Projects/holocron` (must be `main` @ `0b2c99af`
-or a descendant):
+In the primary checkout `/Users/justinrich/Projects/holocron` (must be `main` @ `f542e41a`
+or a descendant; monorepo merge is `0b2c99af`):
 
 ```bash
 # 1) Confirm the move is actually on this tree
@@ -62,9 +62,9 @@ credential file).
   `{expo:{}}`) — `VERIFIED` files exist; product `name`/`slug` holocron is `CLAIMED` from
   this session’s earlier `pnpm exec expo config --json` on the improvement worktree, not
   re-run after the merge onto prime.
-- Unit tests 560 passed on the improvement tree before merge — `CLAIMED` by this session
-  at commit `1312476b` / `b24bafc4`; **not re-run on prime after merge**. Check:
-  `pnpm test:unit`.
+- Unit tests 560 passed on prime after merge — `VERIFIED` 2026-08-29T22:33:59Z during
+  the handoff commit hook: `pnpm test:unit` → 88 files passed / 5 skipped, 560 tests
+  passed / 30 skipped. Same count as the pre-merge improvement tree.
 - PKG-05 never had a separate reviewer session; operator skipped remaining gates —
   `VERIFIED` from operator message “skip verification and merge”.
 - `tests/integration/**` still hardcodes `services/platform` in many files —
@@ -78,6 +78,7 @@ credential file).
 
 | SHA | Subject |
 |---|---|
+| f542e41a | docs(handoff): this document |
 | 0b2c99af | merge: land packages/ monorepo (mobile, platform, mcp, docs-reader, web) |
 | 106f740c | docs(prd): retarget web-client PRD to packages/web (already on main before merge) |
 | a3468207 | style: biome-format tsconfig include array |
@@ -250,7 +251,7 @@ This session on the **improvement worktree** (not re-run on prime after merge):
 
 | Command | Result | Label |
 |---|---|---|
-| `pnpm test:unit` | 560 passed / 30 skipped / 88 files | CLAIMED (pre-merge WT) |
+| `pnpm test:unit` | 560 passed / 30 skipped / 88 files | VERIFIED on prime at handoff commit 2026-08-29T22:33:59Z; also CLAIMED earlier on improvement WT |
 | `pnpm typecheck` | exit 0 after Timeout fix | CLAIMED (pre-merge WT) |
 | `pnpm exec expo config --json` from `packages/mobile` | name/slug `holocron` | CLAIMED (pre-merge WT) |
 | `expo start` ×2 | Metro “Waiting on http://localhost:8081”, project path `packages/mobile` | CLAIMED (pre-merge WT) |
