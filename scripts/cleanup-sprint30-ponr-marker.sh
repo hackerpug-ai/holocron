@@ -31,7 +31,7 @@ fi
 
 set +e
 REPORT_JSON="$(cd "$ROOT" && bun --eval '
-  import { cleanupExactPonrMarkerFromEnv } from "./services/platform/src/cutover/ponr-marker.ts";
+  import { cleanupExactPonrMarkerFromEnv } from "./packages/platform/src/cutover/ponr-marker.ts";
   try {
     const report = await cleanupExactPonrMarkerFromEnv();
     process.stdout.write(JSON.stringify(report));

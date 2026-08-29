@@ -1,0 +1,32 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "test -f packages/platform/package.json && test ! -f services/platform/package.json",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-04-PLATFORM/ac-1-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-04-PLATFORM/ac-5-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "test -f packages/platform/package.json && test ! -f services/platform/package.json",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-04-PLATFORM/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-04-PLATFORM/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "bash -lc 'pids=$(lsof -tiTCP:4111 -sTCP:LISTEN 2>/dev/null || true); if [[ -n \"$pids\" ]]; then kill $pids 2>/dev/null || true; sleep 1; fi; out=$(timeout 20 bun packages/platform/src/index.ts 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; echo exit_code=$ec; printf \"%s\\n\" \"$out\" | rg -q \"Starting Mastra service on :4111\" && ! printf \"%s\\n\" \"$out\" | rg -qi \"Failed to start server|module not found\" && [[ $ec -eq 124 || $ec -eq 143 ]]'",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-04-PLATFORM/tc-3-output.txt"
+  }
+]

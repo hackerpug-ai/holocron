@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "runId": "d06-04-immutable-r2-c03-export-catalog-bound",
+  "unexplainedVariance": 0,
+  "exportArchiveHash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+  "parityHash": "30eaf05d22ec5bb931595240fbc3b17a2646dad7656ad2cff09322c88cd9c67f",
+  "exportRelPath": "packages/platform/tests/fixtures/export-sample",
+  "parityRelPath": "packages/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json",
+  "loadedByTable": {
+    "documents": 1627,
+    "conversations": 106,
+    "subscriptionSources": 77,
+    "researchSessions": 142,
+    "chatMessages": 1110,
+    "tasks": 305,
+    "improvementRequests": 36
+  },
+  "reconcile": {
+    "ok": true,
+    "unexplainedVariance": 0
+  },
+  "stages": {
+    "reconcile": true,
+    "fkAudit": true,
+    "vectors": true
+  },
+  "provenance": {
+    "kind": "immutable-export-catalog-bound-watermark",
+    "source": "R2-C03: watermark supplies runId; table set+counts authority is cutover-parity.json bound to content-addressed export archive",
+    "boundExportArchiveHash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+    "parityHash": "84d4e32ab64b2cf36ec2157442066cf7d7f7f69c9beda01b90c1abf35842b12d",
+    "note": "Do not rewrite loadedByTable from live SELECT count(*) in tests. Truncated loadedByTable is rejected when full parity inventory is larger."
+  }
+}

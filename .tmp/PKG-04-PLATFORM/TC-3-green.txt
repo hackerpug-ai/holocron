@@ -1,0 +1,8 @@
+Starting Mastra service on :4111
+Listening on :4111
+  health:  http://127.0.0.1:4111/health
+  storage: PostgresStore → postgres://mortal_context:mortal_context_dev@localhost:5432/mortal_context
+  queue:   backend=pg-boss (Postgres leased queue)
+  mastra:  single composition root (44 shared-registry tools; agents/workflows later)
+exit_code=124
+PASS: bound and lived until timeout

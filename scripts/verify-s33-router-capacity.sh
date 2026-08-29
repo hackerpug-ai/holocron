@@ -24,7 +24,7 @@ EXPECTED_INFERENCE1_BASE=http://inference1.tail011a51.ts.net:8003/v1
 EXPECTED_INFERENCE2_BASE=http://inference2.tail011a51.ts.net:8003/v1
 LOG_PATH='${HOME}/local-llm/logs/omlx-mini-8003.log'
 REMOTE_HOLOCRON_HOST=holocron
-REMOTE_COMPOSE_FILE_DEFAULT=/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml
+REMOTE_COMPOSE_FILE_DEFAULT=/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/packages/platform/deploy/compose/router.compose.yaml
 REMOTE_DOCKER_BIN_DEFAULT=/usr/local/bin/docker
 
 die() { echo "S33-OPS-02 verifier failed: $*" >&2; exit 1; }
@@ -62,7 +62,7 @@ case "$MODE" in
     [[ "$REQUEST_COUNT" == 6 ]] || die "request count is not valid for health-flip"
     [[ "$LOG_PATH" == '${HOME}/local-llm/logs/omlx-mini-8003.log' ]] || die "remote log path is not valid for health-flip"
     [[ "$HOLOCRON_HOST" == holocron ]] || die "--holocron-host must be exactly holocron"
-    [[ "$REMOTE_COMPOSE_FILE" == /Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml ]] || die "--remote-compose-file must be the exact deployed isolated compose file"
+    [[ "$REMOTE_COMPOSE_FILE" == /Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/packages/platform/deploy/compose/router.compose.yaml ]] || die "--remote-compose-file must be the exact deployed isolated compose file"
     [[ "$REMOTE_DOCKER_BIN" == /usr/local/bin/docker ]] || die "--remote-docker-bin must be exactly /usr/local/bin/docker"
     [[ "$ROUTER_URL" == http://holocron.tail011a51.ts.net:4545 ]] || die "--router-url must be the canonical router URL"
     [[ "$HEALTH_URL" == https://holocron.tail011a51.ts.net:44111/health ]] || die "--health-url must be the canonical health URL"
@@ -395,7 +395,7 @@ if labels.get('com.docker.compose.project') != 'holocron-router':
     raise SystemExit('router compose project label is not holocron-router')
 if labels.get('com.docker.compose.service') != 'litellm-router':
     raise SystemExit('router compose service label is not litellm-router')
-if labels.get('com.docker.compose.project.config_files') != '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml':
+if labels.get('com.docker.compose.project.config_files') != '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/packages/platform/deploy/compose/router.compose.yaml':
     raise SystemExit('router compose file label is not the exact isolated file')
 state = record.get('State', {})
 if expected == 'running-healthy' and (state.get('Status') != 'running' or state.get('Health', {}).get('Status') != 'healthy'):
@@ -690,7 +690,7 @@ def art(path):
     return {'path': os.path.relpath(absolute, os.getcwd()), 'exists': True, 'byte_length': size}
 files = ('health.pre.json', 'health.degraded.json', 'health.restored.json', 'production-containers.pre.json', 'production-containers.post.json', 'remote-primary.pre.json', 'remote-primary.post.json')
 manifest = {name.replace('.', '_'): art(os.path.join(root, name)) for name in files}
-result = {'ok': True, 'mode': 'health-flip', 'run_id': os.path.basename(root), 'run_dir': os.path.relpath(root, os.getcwd()), 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/services/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
+result = {'ok': True, 'mode': 'health-flip', 'run_id': os.path.basename(root), 'run_dir': os.path.relpath(root, os.getcwd()), 'ssh_host': 'holocron', 'remote_docker_bin': '/usr/local/bin/docker', 'remote_compose_file': '/Users/holocron/Projects/holocron/.kb-run-sprint/worktrees/S33-OPS-02/packages/platform/deploy/compose/router.compose.yaml', 'cleanup_restore_armed': True, 'restore_succeeded': True, 'pre_health': {'status': 'ok', 'fleet_ready': True, 'failing_dependency': None}, 'degraded_health': {'status': 'degraded', 'fleet_ready': False, 'failing_dependency': 'fleet'}, 'restored_health': json.loads(restored), 'deployment_identity_unchanged': True, 'deployment_pid_unchanged': True, 'deployment_uptime_monotonic': True, 'production_service_identities_unchanged': True, 'remote_primary_unchanged': True, 'final_router': json.loads(router), 'raw_invariant_comparison': json.loads(comparison), 'artifact_manifest': manifest}
 if os.path.lexists(out):
     raise SystemExit('result manifest would overwrite an existing path')
 temporary = f'{out}.tmp-{os.getpid()}'

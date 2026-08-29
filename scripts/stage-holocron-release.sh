@@ -81,7 +81,7 @@ run_stage_bun() {
     export OUT_DIR="$OUT"
     export ASSUME_CLEAN_ARCHIVE="$assume"
     bun -e '
-      import { stageExactRelease } from "./services/platform/src/deploy/production-release.ts";
+      import { stageExactRelease } from "./packages/platform/src/deploy/production-release.ts";
       const sourceRevision = process.env.SOURCE_REVISION!;
       const outDir = process.env.OUT_DIR!;
       const registry = process.env.HOLO_OCI_REGISTRY;
@@ -122,7 +122,7 @@ else
     export OUT_DIR='$REMOTE_ROOT/out'
     export ASSUME_CLEAN_ARCHIVE=1
     bun -e '
-      import { stageExactRelease } from \"./services/platform/src/deploy/production-release.ts\";
+      import { stageExactRelease } from \"./packages/platform/src/deploy/production-release.ts\";
       const sourceRevision = process.env.SOURCE_REVISION!;
       const outDir = process.env.OUT_DIR!;
       const registry = process.env.HOLO_OCI_REGISTRY;

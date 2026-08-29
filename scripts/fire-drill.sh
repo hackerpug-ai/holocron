@@ -45,4 +45,4 @@ if [[ -z "$BUN_BIN" ]]; then
   echo "error: GATE-FIX-S28R3-QA23 fire-drill.sh requires root-owned bun at /usr/local/bin/bun or /usr/bin/bun" >&2
   exit 2
 fi
-exec "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" restore:fire-drill "$@"
+exec "$BUN_BIN" "$ROOT/packages/platform/src/cli/holo.ts" restore:fire-drill "$@"

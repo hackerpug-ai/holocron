@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "sha256": "8774761a66d76b01f8f38470a09a5781a1e7a9b88253847e10eef44d1e7912b9",
+  "byteLength": 4026,
+  "capturedAtMs": 1700000000000,
+  "fence_armed_at": 0,
+  "shareToken": "e2e-share-token-00000000-0000-4000-8000-000000000001",
+  "url": "pre-freeze://renderPublicArticle/article/e2e-share-token-00000000-0000-4000-8000-000000000001",
+  "status": 200,
+  "path": "packages/platform/tests/fixtures/sprint29/article-baseline-pre-freeze.json",
+  "phase": "pre-freeze",
+  "provenance": {
+    "kind": "immutable-pre-freeze-article-baseline",
+    "source": "renderPublicArticle-e2e-seed-document-1",
+    "note": "R2-H03 frozen comparator for e2e-share-token …0001 (stable seed content). Integration suite seals a working copy via capturePreFreezeArticleBaseline BEFORE the post-fence SUT child starts; verify only READs that file — never fetch post-fence /article and rewrite expected."
+  }
+}

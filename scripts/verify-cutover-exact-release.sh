@@ -44,8 +44,8 @@ mkdir -p "$EVIDENCE"
 STAGE_SCRIPT="$ROOT/scripts/stage-holocron-release.sh"
 DEPLOY_HOST="${HOLO_DEPLOY_TARGET:-holocron}"
 BASE_URL="${HOLO_PRODUCTION_BASE_URL:-https://holocron.tail011a51.ts.net:44111}"
-COMPOSE_FILE="$ROOT/services/platform/deploy/compose/compose.yaml"
-PGBACKREST_CONF="$ROOT/services/platform/deploy/compose/pgbackrest.conf"
+COMPOSE_FILE="$ROOT/packages/platform/deploy/compose/compose.yaml"
+PGBACKREST_CONF="$ROOT/packages/platform/deploy/compose/pgbackrest.conf"
 REGISTRY="${HOLO_OCI_REGISTRY:-localhost:5000}"
 PREVIOUS_IMAGE="${HOLO_PREVIOUS_PLATFORM_IMAGE:-localhost:5000/holocron-platform@sha256:e20d53470c936831bf2ed9e7b4bf6a1a509baab5fcd89eb6d7ec0c6fece23a4f}"
 PRIOR_RELEASE="${HOLO_PRIOR_VERIFIED_RELEASE_PATH:-$HOME/Projects/holocron/.tmp/S33-PLAT-05/final-0c469717d5f0acc680ffae0eb254dbcae7023628/image-lock.json}"
@@ -180,7 +180,7 @@ PY
     if [[ "${HOLO_CUTOVER_RELEASE_AUTHORIZE:-}" != "1" ]]; then
       fail_json "set HOLO_CUTOVER_RELEASE_AUTHORIZE=1 to authorize real production deploy for deployed-identity"
     fi
-    SECRETS_PATH="${HOLO_SECRETS_PATH:-/Users/holocron/Projects/holocron/services/platform/config/secrets.yaml}"
+    SECRETS_PATH="${HOLO_SECRETS_PATH:-/Users/holocron/Projects/holocron/packages/platform/config/secrets.yaml}"
     SECRET_ROOT="${HOLO_SECRET_STORE_ROOT:-$(dirname "$SECRETS_PATH")}"
     ssh_holocron "test -f '$SECRETS_PATH'" || fail_json "secrets path missing on $DEPLOY_HOST"
 
@@ -205,7 +205,7 @@ PY
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       HOLO_DEPLOY_TARGET='$DEPLOY_HOST' HOLO_PRODUCTION_BASE_URL='$BASE_URL' \
       bun -e '
-        import { applyProductionDeployment } from \"./services/platform/src/deploy/production-deploy.ts\";
+        import { applyProductionDeployment } from \"./packages/platform/src/deploy/production-deploy.ts\";
         const record = applyProductionDeployment({
           authorized: true,
           releasePath: \"$REMOTE_EVIDENCE/image-lock.json\",
@@ -273,7 +273,7 @@ for row in insp:
 # Durable fence from secrets on host
 fence=subprocess.check_output([
   "ssh","-o","BatchMode=yes",host,
-  "python3 - <<'P'\nfrom pathlib import Path\np=Path('/Users/holocron/Projects/holocron/services/platform/config/secrets.yaml')\nval=None\nfor line in p.read_text().splitlines():\n s=line.strip()\n if s.startswith('HOLO_MIGRATION_READ_ONLY:'):\n  val=s.split(':',1)[1].strip().strip('\"')\nprint(val or '')\nP"
+  "python3 - <<'P'\nfrom pathlib import Path\np=Path('/Users/holocron/Projects/holocron/packages/platform/config/secrets.yaml')\nval=None\nfor line in p.read_text().splitlines():\n s=line.strip()\n if s.startswith('HOLO_MIGRATION_READ_ONLY:'):\n  val=s.split(':',1)[1].strip().strip('\"')\nprint(val or '')\nP"
 ], text=True).strip()
 
 errors=[]
@@ -316,7 +316,7 @@ PY
     require_file "$PRIOR_RELEASE"
     PRE="$(ssh_holocron "export PATH=/usr/local/bin:\$PATH; docker volume inspect holocron-postgres holocron-blobs --format '{{.Name}}|{{.CreatedAt}}|{{.Mountpoint}}'")"
     printf '%s\n' "$PRE" >"$EVIDENCE/volumes-pre.txt"
-    SECRETS_PATH="${HOLO_SECRETS_PATH:-/Users/holocron/Projects/holocron/services/platform/config/secrets.yaml}"
+    SECRETS_PATH="${HOLO_SECRETS_PATH:-/Users/holocron/Projects/holocron/packages/platform/config/secrets.yaml}"
     SECRET_ROOT="${HOLO_SECRET_STORE_ROOT:-$(dirname "$SECRETS_PATH")}"
     if [[ "${HOLO_CUTOVER_RELEASE_AUTHORIZE:-}" != "1" ]]; then
       fail_json "set HOLO_CUTOVER_RELEASE_AUTHORIZE=1 to authorize rollback deploy"
@@ -341,7 +341,7 @@ PY
       FLEET_URL='${HOLO_FLEET_URL:-http://host.docker.internal:4545/v1}' \
       HOLO_SECRETS_PATH='$SECRETS_PATH' HOLO_SECRET_STORE_ROOT='$SECRET_ROOT' \
       bun -e '
-        import { applyProductionDeployment } from \"./services/platform/src/deploy/production-deploy.ts\";
+        import { applyProductionDeployment } from \"./packages/platform/src/deploy/production-deploy.ts\";
         const record = applyProductionDeployment({
           authorized: true,
           releasePath: \"$REMOTE_PRIOR/image-lock.json\",

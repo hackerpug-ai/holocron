@@ -15,7 +15,7 @@ EVID_ROOT=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipe
 CAP_DIR="${EVID_ROOT}/${GATE_RUN_ID:-manual}"
 mkdir -p "$CAP_DIR"
 
-HOLO=(bun services/platform/src/cli/holo.ts)
+HOLO=(bun packages/platform/src/cli/holo.ts)
 
 # Force production default threshold for every CLI child in this step.
 run_default() {

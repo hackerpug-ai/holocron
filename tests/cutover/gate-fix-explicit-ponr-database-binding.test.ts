@@ -24,8 +24,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   EXACT_PONR_MARKER,
   seedExactPonrMarker,
-} from '../../services/platform/src/cutover/ponr-marker.ts';
-import { createSql } from '../../services/platform/src/db/client.ts';
+} from '../../packages/platform/src/cutover/ponr-marker.ts';
+import { createSql } from '../../packages/platform/src/db/client.ts';
 
 const REPO_ROOT = new URL('../..', import.meta.url).pathname;
 const ADMIN_URL = process.env.GATE_FIX_TEST_ADMIN_URL ?? 'postgres://127.0.0.1:5432/postgres';
@@ -53,8 +53,8 @@ function runDatabaseUrlTypeContract(): {
   const tsconfigPath = `${evidenceDir}/${Date.now()}-${process.pid}-tsconfig.json`;
   writeFileSync(
     fixturePath,
-    `import { runRollbackRepoint } from '../../../../services/platform/src/cutover/rollback-repoint.ts';
-import { runRollbackDrill, spawnRollbackRepointCli } from '../../../../services/platform/src/cutover/rollback-drill.ts';
+    `import { runRollbackRepoint } from '../../../../packages/platform/src/cutover/rollback-repoint.ts';
+import { runRollbackDrill, spawnRollbackRepointCli } from '../../../../packages/platform/src/cutover/rollback-drill.ts';
 
 // Each expected error is on an otherwise valid options object. If databaseUrl
 // becomes optional, TypeScript reports TS2578 (unused @ts-expect-error).
@@ -76,7 +76,7 @@ void omittedChild;
     tsconfigPath,
     `${JSON.stringify(
       {
-        extends: '../../../../services/platform/tsconfig.json',
+        extends: '../../../../packages/platform/tsconfig.json',
         include: [
           fixturePath.slice(evidenceDir.length + 1),
           dependencyShimPath.slice(evidenceDir.length + 1),
@@ -1802,7 +1802,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     'RED-6: runVerifyTools must preserve ambient DATABASE_URL during an explicit-target call',
     () => {
       const script = `
-      import { runVerifyTools } from './services/platform/src/cutover/soak-fence.ts';
+      import { runVerifyTools } from './packages/platform/src/cutover/soak-fence.ts';
       const explicitA = process.env.S30_EXPLICIT_A;
       const explicitB = process.env.S30_EXPLICIT_B;
       if (!explicitA || !explicitB) throw new Error('real explicit fixture targets missing');

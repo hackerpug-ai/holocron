@@ -11,10 +11,10 @@ import {
   DRILL_FENCE_NOT_ARMED,
   extractAcceptedWriteIdentities,
   type FiveWriteSurfaceProbes,
-} from '../../services/platform/src/cutover/rollback-drill.ts';
+} from '../../packages/platform/src/cutover/rollback-drill.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
-const DRILL_SRC = resolve(REPO_ROOT, 'services/platform/src/cutover/rollback-drill.ts');
+const DRILL_SRC = resolve(REPO_ROOT, 'packages/platform/src/cutover/rollback-drill.ts');
 
 describe('GATE-FIX-drill-fence-precondition (unit)', () => {
   it('TC-9/TC-10: source has DRILL_FENCE_NOT_ARMED and fence precondition before probeFiveWriteSurfaces', () => {

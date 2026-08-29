@@ -442,7 +442,7 @@ run_production_sse_parser() {
   [[ -f "$body" && ! -L "$body" ]] || return 1
   command -v bun >/dev/null 2>&1 || return 1
   bun -e '
-    import { parseChatRunSse } from "./services/platform/src/http/chat-runs.ts";
+    import { parseChatRunSse } from "./packages/platform/src/http/chat-runs.ts";
     const input = await new Response(Bun.stdin.stream()).text();
     parseChatRunSse(input);
   ' <"$body" >/dev/null 2>&1
@@ -969,8 +969,8 @@ artifact_hash_or_error() {
 normalized_diagnostic_delta() {
   local base="$1" candidate="$2"
   local base_norm="$TEMP_DIR/base.norm" candidate_norm="$TEMP_DIR/candidate.norm"
-  sed -E 's#^.*services/platform/#services/platform/#' "$base" | sed '/^[[:space:]]*$/d' | sort -u >"$base_norm"
-  sed -E 's#^.*services/platform/#services/platform/#' "$candidate" | sed '/^[[:space:]]*$/d' | sort -u >"$candidate_norm"
+  sed -E 's#^.*packages/platform/#packages/platform/#' "$base" | sed '/^[[:space:]]*$/d' | sort -u >"$base_norm"
+  sed -E 's#^.*packages/platform/#packages/platform/#' "$candidate" | sed '/^[[:space:]]*$/d' | sort -u >"$candidate_norm"
   comm -23 "$candidate_norm" "$base_norm" | wc -l | tr -d ' '
 }
 
@@ -1007,13 +1007,13 @@ run_final_lineage() {
   red_parent=$(git rev-parse "${RED_SHA}^" 2>/dev/null) || json_error "RED_ANCESTRY_INVALID" "RED commit has no readable parent"
   [[ "$red_parent" == "$IMPLEMENTATION_BASE_SHA" ]] || json_error "RED_ANCESTRY_INVALID" "RED commit is not the first child of the implementation base"
   red_paths=$(git diff-tree --no-commit-id --name-only -r "$RED_SHA" | sed '/^$/d')
-  [[ "$red_paths" == "services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts" ]] || json_error "RED_SCOPE_INVALID" "RED commit changed more than the integration test"
+  [[ "$red_paths" == "packages/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts" ]] || json_error "RED_SCOPE_INVALID" "RED commit changed more than the integration test"
   git merge-base --is-ancestor "$RED_SHA" "$CANDIDATE_SHA" || json_error "CANDIDATE_ANCESTRY_INVALID" "candidate does not descend from RED"
   git merge-base --is-ancestor "$CANDIDATE_SHA" "$EXPECTED_LANDED_MAIN_SHA" || json_error "LANDED_ANCESTRY_INVALID" "landed main does not contain candidate"
   regular_nonsymlink "$RED_FAILURE_EVIDENCE_PATH" || json_error "RED_EVIDENCE_INVALID" "RED failure evidence must be regular and non-symlink"
   local red_evidence_sha; red_evidence_sha=$(artifact_hash_or_error "$RED_FAILURE_EVIDENCE_PATH" "RED_EVIDENCE_INVALID")
-  local red_test_file='services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts'
-  local expected_red_command='PLATFORM_IT=1 FLEET_URL=http://holocron.tail011a51.ts.net:4545/v1 DATABASE_URL=<private-canonical-nonprod> HOLO_KEY_RN=<private-canonical> pnpm exec vitest run --project integration services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts --disableConsoleIntercept'
+  local red_test_file='packages/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts'
+  local expected_red_command='PLATFORM_IT=1 FLEET_URL=http://holocron.tail011a51.ts.net:4545/v1 DATABASE_URL=<private-canonical-nonprod> HOLO_KEY_RN=<private-canonical> pnpm exec vitest run --project integration packages/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts --disableConsoleIntercept'
   local red_test_blob red_raw_output red_raw_output_sha red_observation red_marker_count
   red_test_blob=$(git rev-parse "${RED_SHA}:${red_test_file}" 2>/dev/null) || json_error "RED_EVIDENCE_INVALID" "RED test blob was not readable from the exact RED commit"
   jq -e --arg red "$RED_SHA" --arg parent "$IMPLEMENTATION_BASE_SHA" --arg test_file "$red_test_file" --arg test_blob "$red_test_blob" --arg command "$expected_red_command" '
@@ -1060,7 +1060,7 @@ run_final_lineage() {
     json_error "RED_EVIDENCE_INVALID" "RED output did not retain an independently selected mini response header"
   grep -Eiq 'health probe failed|refuses non-nonprod|permission denied for table|requires DATABASE_URL|requires FLEET_URL' "$red_raw_output" &&
     json_error "RED_EVIDENCE_SETUP_FAILURE" "RED output shows unavailable fleet/database setup rather than the accounting failure"
-  local typecheck_command='pnpm exec tsgo --noEmit -p services/platform/tsconfig.json'
+  local typecheck_command='pnpm exec tsgo --noEmit -p packages/platform/tsconfig.json'
   local base_typecheck candidate_typecheck
   regular_nonsymlink "$LINEAGE_RECEIPT_PATH" || json_error "LINEAGE_RECEIPT_INVALID" "lineage receipt must be regular and non-symlink"
   jq -e '
@@ -1143,7 +1143,7 @@ run_final_lineage() {
     --arg lock "$RELEASE_LOCK_PATH" --arg lock_hash "$lock_hash" --arg image "$LOCK_IMAGE_DIGEST" --arg compose "$LOCK_COMPOSE_SHA" \
     --arg proof "$PROOF_RECEIPT_PATH" --arg proof_hash "$proof_hash" --arg proof_finished "$proof_finished" --arg command "$typecheck_command" --arg base_tc_sha "$base_tc_sha" --arg candidate_tc_sha "$candidate_tc_sha" \
     --argjson source "[$source_mastra,$source_product]" --argjson final "[$final_mastra,$final_product]" \
-    '{ok:true,schema:"s33-plat-05-lineage/v1",git:{recomputed:true,baseSha:$base,redSha:$red,redParentSha:$red_parent,redDiffPaths:["services/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts"],redRealPublicPathReached:true,redFailureClass:"missing_public_chat_accounting",redFailureEvidencePath:$red_evidence,redFailureEvidenceRegular:true,redFailureEvidenceSymlink:false,redFailureEvidenceIndependentlyHashed:true,redFailureEvidenceSha256:$red_evidence_sha,candidateSha:$candidate,candidateDescendsFromRed:true,landedMainSha:$landed,landedMainContainsCandidate:true},typecheck:{command:$command,authorizedBy:"orchestrator",baseSha:$base,candidateSha:$candidate,sameToolchain:true,addedNormalizedDiagnostics:0,baseRawOutputSha256:$base_tc_sha,candidateRawOutputSha256:$candidate_tc_sha},release:{recomputed:true,lockPath:$lock,lockRegular:true,lockSymlink:false,lockSha256:$lock_hash,sourceRevision:$landed,imageDigest:$image,composeSha256:$compose},proof:{recomputed:true,receiptPath:$proof,receiptRegular:true,receiptSymlink:false,receiptIndependentlyHashed:true,receiptSha256:$proof_hash,expectedMainSha:$landed,sourceRevision:$landed,imageDigest:$image,composeSha256:$compose,finishedAt:$proof_finished},reviews:{source:$source,final:$final},ordering:{sourceReviewsBeforeLanding:true,packageDeployBeforeProof:true,finalReviewsAfterProof:true},receipt:{path:$receipt,regular:true,symlink:false,independentlyHashed:true,sha256:$receipt_hash,strictSchemaValidated:true,verifiedAgainstCallerInputs:true}}'
+    '{ok:true,schema:"s33-plat-05-lineage/v1",git:{recomputed:true,baseSha:$base,redSha:$red,redParentSha:$red_parent,redDiffPaths:["packages/platform/tests/integration/s33-plat-05-mini-served-turn.test.ts"],redRealPublicPathReached:true,redFailureClass:"missing_public_chat_accounting",redFailureEvidencePath:$red_evidence,redFailureEvidenceRegular:true,redFailureEvidenceSymlink:false,redFailureEvidenceIndependentlyHashed:true,redFailureEvidenceSha256:$red_evidence_sha,candidateSha:$candidate,candidateDescendsFromRed:true,landedMainSha:$landed,landedMainContainsCandidate:true},typecheck:{command:$command,authorizedBy:"orchestrator",baseSha:$base,candidateSha:$candidate,sameToolchain:true,addedNormalizedDiagnostics:0,baseRawOutputSha256:$base_tc_sha,candidateRawOutputSha256:$candidate_tc_sha},release:{recomputed:true,lockPath:$lock,lockRegular:true,lockSymlink:false,lockSha256:$lock_hash,sourceRevision:$landed,imageDigest:$image,composeSha256:$compose},proof:{recomputed:true,receiptPath:$proof,receiptRegular:true,receiptSymlink:false,receiptIndependentlyHashed:true,receiptSha256:$proof_hash,expectedMainSha:$landed,sourceRevision:$landed,imageDigest:$image,composeSha256:$compose,finishedAt:$proof_finished},reviews:{source:$source,final:$final},ordering:{sourceReviewsBeforeLanding:true,packageDeployBeforeProof:true,finalReviewsAfterProof:true},receipt:{path:$receipt,regular:true,symlink:false,independentlyHashed:true,sha256:$receipt_hash,strictSchemaValidated:true,verifiedAgainstCallerInputs:true}}'
 }
 
 main() {

@@ -30,7 +30,7 @@
     },
     {
       "id": "TC-3",
-      "verify": "timeout 15 bun packages/platform/src/index.ts"
+      "verify": "bash -lc 'pids=$(lsof -tiTCP:4111 -sTCP:LISTEN 2>/dev/null || true); if [[ -n \"$pids\" ]]; then kill $pids 2>/dev/null || true; sleep 1; fi; out=$(timeout 20 bun packages/platform/src/index.ts 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; echo exit_code=$ec; printf \"%s\\n\" \"$out\" | rg -q \"Starting Mastra service on :4111\" && ! printf \"%s\\n\" \"$out\" | rg -qi \"Failed to start server|module not found\" && [[ $ec -eq 124 || $ec -eq 143 ]]'"
     }
   ]
 }

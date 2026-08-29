@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { REQUIRED_SECRET_KEYS } from '../../../services/platform/src/config/secrets.ts';
+import { REQUIRED_SECRET_KEYS } from '../../../packages/platform/src/config/secrets.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../..');
 
@@ -20,14 +20,14 @@ describe('JINA_API_KEY / EXA_API_KEY passthrough', () => {
   });
 
   it('secrets.example.yaml documents both as placeholders only', () => {
-    const example = readRepo('services/platform/config/secrets.example.yaml');
+    const example = readRepo('packages/platform/config/secrets.example.yaml');
     expect(example).toMatch(/^JINA_API_KEY:\s*replace-me-/m);
     expect(example).toMatch(/^EXA_API_KEY:\s*replace-me-/m);
     expect(example).not.toMatch(/^JINA_API_KEY:\s*jina_[A-Za-z0-9]/m);
   });
 
   it('compose.yaml mastra env uses non-strict ${VAR} (not ${VAR:?})', () => {
-    const compose = readRepo('services/platform/deploy/compose/compose.yaml');
+    const compose = readRepo('packages/platform/deploy/compose/compose.yaml');
     expect(compose).toMatch(/JINA_API_KEY:\s*\$\{JINA_API_KEY\}/);
     expect(compose).toMatch(/EXA_API_KEY:\s*\$\{EXA_API_KEY\}/);
     expect(compose).not.toMatch(/JINA_API_KEY:\s*\$\{JINA_API_KEY:\?/);
@@ -35,13 +35,13 @@ describe('JINA_API_KEY / EXA_API_KEY passthrough', () => {
   });
 
   it('production-release render map pins both to stage-render-placeholder', () => {
-    const release = readRepo('services/platform/src/deploy/production-release.ts');
+    const release = readRepo('packages/platform/src/deploy/production-release.ts');
     expect(release).toMatch(/JINA_API_KEY:\s*'stage-render-placeholder'/);
     expect(release).toMatch(/EXA_API_KEY:\s*'stage-render-placeholder'/);
   });
 
   it('production.env.example lists both as commented names-only', () => {
-    const envExample = readRepo('services/platform/deploy/compose/production.env.example');
+    const envExample = readRepo('packages/platform/deploy/compose/production.env.example');
     expect(envExample).toMatch(/^# JINA_API_KEY=$/m);
     expect(envExample).toMatch(/^# EXA_API_KEY=$/m);
   });

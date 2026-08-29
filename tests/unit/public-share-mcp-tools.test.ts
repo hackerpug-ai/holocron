@@ -7,14 +7,14 @@ import { PUBLIC_DOCS_ORIGIN as RnPublicDocsOrigin } from '../../app/zero/platfor
 import {
   buildPublicShareUrl,
   PUBLIC_DOCS_ORIGIN,
-} from '../../services/platform/src/public-docs.ts';
-import { listTools } from '../../services/platform/src/tools/registry.ts';
+} from '../../packages/platform/src/public-docs.ts';
+import { listTools } from '../../packages/platform/src/tools/registry.ts';
 import {
   shareDocumentInputSchema,
   shareDocumentOutputSchema,
   unshareDocumentInputSchema,
   unshareDocumentOutputSchema,
-} from '../../services/platform/src/tools/schemas/documents.ts';
+} from '../../packages/platform/src/tools/schemas/documents.ts';
 
 describe('public share MCP tool schemas', () => {
   it('registers unshare_document and a share_document that does not require isPublic', () => {

@@ -112,18 +112,18 @@ load_secrets_if_present() {
     secrets="$HOLO_SECRETS_PATH"
     secrets_explicit=1
   else
-    secrets="$ROOT/services/platform/config/secrets.yaml"
+    secrets="$ROOT/packages/platform/config/secrets.yaml"
   fi
   # Worktree/default path only: prefer toplevel secrets when default path is missing.
   if [[ "$secrets_explicit" -eq 0 && ! -f "$secrets" ]]; then
     local main_secrets
-    main_secrets="$(cd "$ROOT" && git rev-parse --show-toplevel 2>/dev/null)/services/platform/config/secrets.yaml" || true
+    main_secrets="$(cd "$ROOT" && git rev-parse --show-toplevel 2>/dev/null)/packages/platform/config/secrets.yaml" || true
     if [[ -n "${main_secrets:-}" && -f "$main_secrets" ]]; then
       secrets="$main_secrets"
     fi
   fi
-  if [[ "$secrets_explicit" -eq 0 && ! -f "$secrets" && -f /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml ]]; then
-    secrets=/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
+  if [[ "$secrets_explicit" -eq 0 && ! -f "$secrets" && -f /Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml ]]; then
+    secrets=/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml
   fi
   [[ -f "$secrets" ]] || return 0
   # Keep the restore credential tuple source-atomic. A complete env keypair may

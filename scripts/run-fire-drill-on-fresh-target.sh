@@ -95,7 +95,7 @@ fi
 BUN_BIN=""
 BUN_TRUSTED=0
 # Defer candidate resolution until after r2_ro_init is available; placeholder only.
-HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"
+HOLO_CLI="$ROOT/packages/platform/src/cli/holo.ts"
 
 usage() {
   /bin/cat <<'EOF'
@@ -177,15 +177,15 @@ r2_tuple_fp16() {
 # Precedence: HOLOCRON_SECRETS_PATH → HOLO_SECRETS_PATH → $ROOT/.../secrets.yaml →
 # primary checkout operator secrets (worktree has no secrets.yaml). Fail closed if none readable.
 # Operator secrets source for worktree isolation (never log secret values):
-#   /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
-PRIMARY_OPERATOR_SECRETS="/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml"
+#   /Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml
+PRIMARY_OPERATOR_SECRETS="/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml"
 
 resolve_absolute_secrets_path() {
   local cand=""
   for cand in \
     "${HOLOCRON_SECRETS_PATH:-}" \
     "${HOLO_SECRETS_PATH:-}" \
-    "$ROOT/services/platform/config/secrets.yaml" \
+    "$ROOT/packages/platform/config/secrets.yaml" \
     "$PRIMARY_OPERATOR_SECRETS"; do
     [[ -n "$cand" ]] || continue
     # Absolute only for child FD binding; expand relative against ROOT.

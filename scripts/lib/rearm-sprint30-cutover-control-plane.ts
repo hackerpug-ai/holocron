@@ -9,7 +9,7 @@ import YAML from 'yaml';
 import {
   writeDurableDataPlane,
   writeDurableMigrationReadOnly,
-} from '../../services/platform/src/cutover/soak-fence.ts';
+} from '../../packages/platform/src/cutover/soak-fence.ts';
 
 const secretsPath = process.env.HOLO_SECRETS_PATH;
 if (!secretsPath) {

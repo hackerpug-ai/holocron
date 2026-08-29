@@ -3,7 +3,7 @@
 #
 # Requires real vitest on PATH (node_modules/.bin). Rejects exit 127 / command-not-found.
 # Mutates the production reselect/independentHttp201Id path in
-# services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts under a trap,
+# packages/platform/tests/integration/sprint30-redhat-rh-s30.test.ts under a trap,
 # validates raw framework FAIL before metadata prepend, restores the file.
 #
 # Usage:
@@ -15,7 +15,7 @@ OUT="${1:-.tmp/REDHAT-FIX-RH-S30-22}"
 mkdir -p "$OUT"
 export PATH="${ROOT}/node_modules/.bin:${PATH:-}"
 
-PROD_TEST="services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts"
+PROD_TEST="packages/platform/tests/integration/sprint30-redhat-rh-s30.test.ts"
 if [[ ! -f "$PROD_TEST" ]]; then
   echo "error: missing production M-3 test $PROD_TEST" >&2
   exit 2

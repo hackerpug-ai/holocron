@@ -17,7 +17,7 @@
     "scripts/**/*",
     "tests/**/*",
     "src/**/__tests__/**/*",
-    "services/platform/**/*",
+    "packages/platform/**/*",
     "**/*.stories.tsx",
     ".rnstorybook/**/*",
     "convex/creators/**/*",

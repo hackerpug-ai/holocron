@@ -366,7 +366,7 @@ describe('REDHAT-FIX-H10 — namespace reset returns conversation 020 to a deter
     const res = spawnSync(
       'bun',
       [
-        resolve(REPO_ROOT, 'services', 'platform', 'src', 'cli', 'holo.ts'),
+        resolve(REPO_ROOT, 'packages', 'platform', 'src', 'cli', 'holo.ts'),
         'namespace',
         'reset',
         '--json',

@@ -48,7 +48,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install platform dependencies
-        working-directory: services/platform
+        working-directory: packages/platform
         run: bun install
 
       - name: Typecheck
