@@ -3,25 +3,25 @@
   "tdd_mode": "red_first",
   "red": {
     "file": "red-output.txt",
-    "sha": "2739793d4ae59c1d20a2722ecd24c7677d9e1787",
-    "mtime": 1788034598,
+    "sha": "1e6e39fffd26aeaf042c2e9ed71aad2415295a65",
+    "mtime": 1788038062,
     "sha256": "087c6ac5ab9f2f5393bc7e10465ba686034c2392312b779443bc7d56cd8f6a6a"
   },
   "green": {
     "file": "green-output.txt",
-    "sha": "12fe6ed925f9d7e8a1fb2498e75b24427f7f31d0",
-    "mtime": 1788034599,
-    "sha256": "e0fca16a1c1f8654cdce7afd276af9f15cf75cc753469b2555c32d0f094b9b1c"
+    "sha": "cb02472a7a4c024fca2da3063e92738daae634a9",
+    "mtime": 1788038487,
+    "sha256": "351fef80c207f8cb2e325c46c6dd81b3ec7a281faa298522a7e75abf93156151"
   },
   "distinct_commits": true,
   "waiver": false,
   "ok": true,
   "failure_codes": [],
-  "checked_at": "2026-08-29T20:46:15Z",
+  "checked_at": "2026-08-29T21:23:20Z",
   "generator": {
     "tool": "verify-tdd-lineage.sh",
     "version": "1.1",
-    "generated_at": "2026-08-29T20:46:15Z",
+    "generated_at": "2026-08-29T21:23:20Z",
     "inputs": [
       {
         "path": "red-output.txt",
@@ -29,7 +29,7 @@
       },
       {
         "path": "green-output.txt",
-        "sha256": "e0fca16a1c1f8654cdce7afd276af9f15cf75cc753469b2555c32d0f094b9b1c"
+        "sha256": "351fef80c207f8cb2e325c46c6dd81b3ec7a281faa298522a7e75abf93156151"
       }
     ]
   }
