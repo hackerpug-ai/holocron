@@ -1,0 +1,24 @@
+harvest-evidence: task=PKG-02-DOCS-READER manifest=.tmp/PKG-02-DOCS-READER/verify-manifest.json
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test (suite): pnpm test
+  requirements: 4
+  [AC-1] test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json
+  [AC-3] pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'
+  [TC-1] test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json
+  [TC-2] pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'
+
+harvest-evidence: done
+  task:       PKG-02-DOCS-READER
+  commit:     f7491cef
+  typecheck:  exit=0
+  lint:       exit=0 warnings=593
+  evidence:   4 pass, 0 fail (of 4 requirements)
+  output:     .tmp/PKG-02-DOCS-READER/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/PKG-02-DOCS-READER/red-output.txt                 (if requires_red_evidence)
+    .tmp/PKG-02-DOCS-READER/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/PKG-02-DOCS-READER/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/PKG-02-DOCS-READER/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/PKG-02-DOCS-READER/pre-existing-issues.md         (if pre-existing failures)
