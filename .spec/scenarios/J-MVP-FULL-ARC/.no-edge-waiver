@@ -1,0 +1,6 @@
+Cross-UC journey, not a use case. A journey is one arc in one file, so its edge flows are STEPS
+within the arc rather than sibling files: J-COLD-FORWARD ends on a withdrawn 404 with cache headers
+intact, J-AUDIT-AND-REVOKE ends on revocation plus token-preserving re-share, J-DEVICE-ASLEEP is an
+error arc end to end with an explicit empty-vs-unreachable negative control, J-MVP-FULL-ARC ends on
+revocation, and J-DISPATCH-AND-LAND includes a real cancel. Every use case each journey crosses
+carries its own core+edge scenario set, which this gate validates independently (20/20 passing).
