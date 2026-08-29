@@ -11,6 +11,7 @@
       "!node_modules",
       "!.expo",
       "!.rnstorybook",
+      "!packages/mobile/.rnstorybook",
       "!.pi-subagents",
       "!.tmp",
       "!.firecrawl",
@@ -23,10 +24,11 @@
       "!**/*.pre-fresh-*.json",
       "!**/*.html",
       "!convex/_generated",
-      "!holocron-mcp",
+      "!packages/mcp",
       "!scripts",
       "!**/*.stories.tsx",
       "!metro.config.cjs",
+      "!packages/mobile/metro.config.cjs",
       "!.opencode",
       "!.pi"
     ]

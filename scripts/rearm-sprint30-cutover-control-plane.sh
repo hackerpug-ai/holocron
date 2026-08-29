@@ -56,7 +56,7 @@ if [[ -n "$TARGET" && -z "$PLANE" ]]; then
   exit 2
 fi
 
-export HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+export HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/packages/platform/config/secrets.yaml}"
 if [[ ! -f "$HOLO_SECRETS_PATH" ]]; then
   echo "error: secrets missing: $HOLO_SECRETS_PATH" >&2
   exit 2

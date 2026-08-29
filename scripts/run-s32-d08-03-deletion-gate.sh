@@ -6,7 +6,7 @@
 #
 # Usage (from repo root, after loading operator .env):
 #   set -a; source /Users/inference1/Projects/holocron/.env; set +a
-#   export HOLO_SECRETS_PATH=/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
+#   export HOLO_SECRETS_PATH=/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml
 #   bash scripts/run-s32-d08-03-deletion-gate.sh
 #
 # Environment:
@@ -44,8 +44,8 @@ load_secrets_file() {
   local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-}}"
   if [[ -z "$secrets" ]]; then
     for cand in \
-      "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml" \
-      "$ROOT/services/platform/config/secrets.yaml"; do
+      "/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml" \
+      "$ROOT/packages/platform/config/secrets.yaml"; do
       if [[ -f "$cand" && -r "$cand" ]]; then secrets="$cand"; break; fi
     done
   fi
@@ -202,7 +202,7 @@ resolve_pitr() {
       R2_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-}" \
       HOLO_SECRETS_PATH="$HOLO_SECRETS_PATH" \
       HOLOCRON_SECRETS_PATH="$HOLOCRON_SECRETS_PATH" \
-      "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" restore:window --json 2>"$EVID/restore-window.stderr"
+      "$BUN_BIN" "$ROOT/packages/platform/src/cli/holo.ts" restore:window --json 2>"$EVID/restore-window.stderr"
   )" || true
   printf '%s\n' "$window_json" >"$EVID/restore-window.json"
   if [[ -z "$provided" ]]; then
@@ -617,7 +617,7 @@ EOF
     if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
       # Fall back to worktree fixture so the contract command still runs against
       # restored Postgres (export missing is itself an integrity residual).
-      export_dir="$ROOT/services/platform/tests/fixtures/etl-valid-export"
+      export_dir="$ROOT/packages/platform/tests/fixtures/etl-valid-export"
       log "CONVEX_EXPORT_DIR unset/missing; using fixture export for etl:fk-audit: $export_dir"
     else
       log "CONVEX_EXPORT_DIR from etl_runs: $export_dir"
@@ -640,7 +640,7 @@ EOF
     HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
     CONVEX_EXPORT_DIR="$export_dir" \
     CATALOG_PATH="$catalog_path" \
-    "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" etl:fk-audit \
+    "$BUN_BIN" "$ROOT/packages/platform/src/cli/holo.ts" etl:fk-audit \
       --json \
       --export "$export_dir" \
       --catalog "$catalog_path" \
@@ -735,7 +735,7 @@ run_ac3() {
     HOLO_KEY_CONTROL="$keys_ctl" \
     PORT="$plat_port" \
     "$BUN_BIN" -e '
-import { createHonoApp } from "./services/platform/src/http/hono-app.ts";
+import { createHonoApp } from "./packages/platform/src/http/hono-app.ts";
 const port = Number(process.env.PORT || 0);
 const app = createHonoApp({
   keys: {
@@ -795,7 +795,7 @@ console.log("s32-d08-03-platform-ready " + server.port);
     HOLO_KEY_CONTROL="$keys_ctl" \
     PATH="$ROOT/node_modules/.bin:${PATH:-/usr/bin:/bin}" \
     pnpm exec vitest run --project integration \
-      services/platform/tests/integration/sprint31-legacy-mcp-repoint.test.ts \
+      packages/platform/tests/integration/sprint31-legacy-mcp-repoint.test.ts \
       -t 'AC-4 legacy package serves Postgres over stdio with no Convex references' \
     >"$EVID/ac3-mcp-integration.txt" 2>&1
   local mcp_rc=$?
@@ -1655,7 +1655,7 @@ EOF
         "SELECT export_root FROM etl_runs WHERE status='succeeded' ORDER BY created_at DESC LIMIT 1" 2>/dev/null)"
       set -e
       if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
-        export_dir="$ROOT/services/platform/tests/fixtures/etl-valid-export"
+        export_dir="$ROOT/packages/platform/tests/fixtures/etl-valid-export"
         log "resume: CONVEX_EXPORT_DIR fallback fixture $export_dir"
       fi
     fi
@@ -1666,7 +1666,7 @@ EOF
       HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
       CONVEX_EXPORT_DIR="$export_dir" \
       CATALOG_PATH="$catalog_path" \
-      "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" etl:fk-audit \
+      "$BUN_BIN" "$ROOT/packages/platform/src/cli/holo.ts" etl:fk-audit \
         --json \
         --export "$export_dir" \
         --catalog "$catalog_path" \

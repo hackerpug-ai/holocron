@@ -222,12 +222,12 @@ print("true" if ok else "false")
   fi
 
   # 3) holo CLI fallback (may fail closed without token or e2e sim/build)
-  if command -v bun >/dev/null 2>&1 && [[ -f "$repo_root/services/platform/src/cli/holo.ts" ]]; then
+  if command -v bun >/dev/null 2>&1 && [[ -f "$repo_root/packages/platform/src/cli/holo.ts" ]]; then
     runner_source="holo"
     local holo_out holo_rc=0
     holo_out="$(
       cd "$repo_root" &&
-      bun services/platform/src/cli/holo.ts ci runner:status --json --lane e2e 2>/dev/null
+      bun packages/platform/src/cli/holo.ts ci runner:status --json --lane e2e 2>/dev/null
     )" || holo_rc=$?
     if [[ -n "$holo_out" ]]; then
       local online

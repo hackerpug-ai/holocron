@@ -1,0 +1,9 @@
+=== AC-3 / TC-2 RED against start ===
+rg_exit_code=1
+--- full workspace file ---
+# GATE-FIX-S28R3-QA13 — install services/platform deps via root frozen lock
+packages:
+  - "."
+  - "services/platform"
+--- packages dir ---
+ls: packages: No such file or directory

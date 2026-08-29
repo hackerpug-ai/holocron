@@ -7,7 +7,7 @@ import type {
   RecommendationListCardData,
   RecommendationListCardProps,
   RecommendationSource,
-} from '../../../components/cards/types/recommendation';
+} from '@/components/cards/types/recommendation';
 
 describe('REC-UI-001: Recommendation types contract', () => {
   describe('AC-1: Types file exists and compiles', () => {
@@ -15,13 +15,16 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       expect(fs.existsSync(filePath)).toBe(true);
     });
 
     it('should export all 8 types (compile-time verified by import)', async () => {
       // Dynamic import to verify the module exists and compiles
-      const mod = await import('../../../components/cards/types/recommendation');
+      const mod = await import('@/components/cards/types/recommendation');
       expect(mod).toBeDefined();
       expect(typeof mod).toBe('object');
     });
@@ -96,7 +99,10 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       const content = fs.readFileSync(filePath, 'utf-8');
 
       expect(content).not.toContain('react-native-paper');
@@ -108,7 +114,10 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       const content = fs.readFileSync(filePath, 'utf-8');
 
       // Check exported type definitions don't use `any`

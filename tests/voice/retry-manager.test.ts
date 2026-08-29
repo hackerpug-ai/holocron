@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRetryManager } from '../../lib/voice/retry-manager';
+import { createRetryManager } from '@/lib/voice/retry-manager';
 
 // Use fake timers for all tests to control setTimeout precisely
 beforeEach(() => {

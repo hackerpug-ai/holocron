@@ -17,8 +17,8 @@ import { spawnSync } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const EVIDENCE = resolve(ROOT, '.tmp/OBS-01');
-const PACKAGE_JSON = resolve(ROOT, 'services/platform/package.json');
-const SOURCE_LOCK = resolve(ROOT, 'services/platform/deploy/compose/observability-source-lock.json');
+const PACKAGE_JSON = resolve(ROOT, 'packages/platform/package.json');
+const SOURCE_LOCK = resolve(ROOT, 'packages/platform/deploy/compose/observability-source-lock.json');
 const PNPM_LOCK = resolve(ROOT, 'pnpm-lock.yaml');
 
 const CANDIDATE_A = {
@@ -380,11 +380,11 @@ function runReconcile(json: boolean, negative: boolean): never {
 
   // Retained writers overlapping OBS-01 write-allowed paths.
   const writeAllowed = [
-    'services/platform/package.json',
+    'packages/platform/package.json',
     'pnpm-lock.yaml',
-    'services/platform/deploy/compose/observability-source-lock.json',
+    'packages/platform/deploy/compose/observability-source-lock.json',
     'scripts/verify-observability-baseline.ts',
-    'services/platform/tests/integration/observability-compatibility-gate.test.ts',
+    'packages/platform/tests/integration/observability-compatibility-gate.test.ts',
   ];
   const wtPaths = worktrees
     .split('\n')

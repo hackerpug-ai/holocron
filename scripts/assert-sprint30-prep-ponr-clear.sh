@@ -30,9 +30,9 @@ done
 
 RESULT="$(
   bun -e '
-import { resolveDatabaseUrl } from "./services/platform/src/db/connection.ts";
-import { createSql } from "./services/platform/src/db/client.ts";
-import { readDataPlanePonr } from "./services/platform/src/cutover/ponr.ts";
+import { resolveDatabaseUrl } from "./packages/platform/src/db/connection.ts";
+import { createSql } from "./packages/platform/src/db/client.ts";
+import { readDataPlanePonr } from "./packages/platform/src/cutover/ponr.ts";
 
 const platformUrl = resolveDatabaseUrl({ preferHolocron: true });
 const row = await readDataPlanePonr({ databaseUrl: platformUrl });

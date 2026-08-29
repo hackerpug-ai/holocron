@@ -1,0 +1,81 @@
+{
+  "task_id": "PKG-02-DOCS-READER",
+  "timestamp": "2026-08-29T21:39:02Z",
+  "commit_sha": "f7491cef7a144227ff250fdfdae870d085082081",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-02-DOCS-READER/ac-1-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-02-DOCS-READER/ac-3-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-02-DOCS-READER/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-02-DOCS-READER/tc-2-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-29T21:39:02Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "f2980a09dda502523eb60cbe9ef2643d433fdbe1ebd3218e25d1d59ea79bde85"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "e87b9da624a6ec282c534180f59c12931c403f1f228431046a2f623a5c91d944"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "8e46796bb3f770ccb850ad75e34c6b9a0e220b74095aac1d4376a3278d9fd23d"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "ad224c890ece2aad29e58e56b3b42b6ddb6a2f4621ee9a481ffadd14bc04edaf"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "069cdb6cc020b0b014482a1786402aa238718b583bb61a74b31b25b1719f246a"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "b4642d64e93bb451b07afb1127c147f0f7f3885f248f28bd5f6313dcdb7f12c1"
+      }
+    ]
+  }
+}

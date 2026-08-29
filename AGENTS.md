@@ -4,6 +4,21 @@ This file is the single source of truth for all project rules, conventions, and 
 
 ---
 
+## Package map
+
+Installable product modules live under `packages/`. Root `package.json` is the private workspace
+orchestrator only.
+
+| Path | Role |
+|------|------|
+| `packages/mobile` | Expo / React Native client (`@holocron/mobile`) |
+| `packages/platform` | Mastra + Hono + Postgres backend. **Fulcrum** is in-process here (`holo.ts` instantiation `fulcrum`), not a separate package |
+| `packages/mcp` | Unified MCP server (`@holocron/mcp-unified`) |
+| `packages/docs-reader` | Cloudflare public document reader (`holocron-docs-reader`) |
+| `packages/web` | Placeholder for a future web client (`@holocron/web`) — no product app code yet |
+
+---
+
 ## Network Continuity (Non-negotiable)
 
 Never disconnect the agent, host, simulator, or test device from the internet. Do not disable Wi-Fi, change network settings, toggle interfaces, or use network disruption as a test technique unless the user explicitly authorizes that exact action for a one-off run.
@@ -19,9 +34,9 @@ This is a value-free index. Never put secret values, tokens, passwords, or priva
 
 - `.env` — operator-local environment file; ignored by Git. Gate and restore commands must load it
   explicitly when live credentials are intended: `set -a; source .env; set +a`.
-- `services/platform/config/secrets.yaml` — ignored application/operator secret store. Prefer an
+- `packages/platform/config/secrets.yaml` — ignored application/operator secret store. Prefer an
   explicit `HOLOCRON_SECRETS_PATH` or `HOLO_SECRETS_PATH` when running from a worktree.
-- `.env.example` and `services/platform/config/secrets.example.yaml` — templates only; they contain
+- `.env.example` and `packages/platform/config/secrets.example.yaml` — templates only; they contain
   names/placeholders, not live credentials.
 - `.tmp/**/restore-target.env` — generated ephemeral restore credentials; treat as sensitive and do
   not use as a substitute for the operator's live restore tuple unless the task explicitly requires it.

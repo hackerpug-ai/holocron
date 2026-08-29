@@ -67,7 +67,7 @@ mkdir -p "$EVID_DIR" .tmp/REDHAT-FIX-RH-S30-06 .tmp/REDHAT-FIX-RH-S30-07 .tmp/RE
 : "${DATABASE_URL:?DATABASE_URL required (gate target)}"
 : "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:?HOLO_PROBE_MARKER_MISS_DATABASE_URL required (marker target)}"
 TARGET_JSON="$(DATABASE_URL="$DATABASE_URL" HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" bun --eval '
-  import { databaseTargetIdentitiesEqual, parseDatabaseTargetIdentity } from "./services/platform/src/db/connection.ts";
+  import { databaseTargetIdentitiesEqual, parseDatabaseTargetIdentity } from "./packages/platform/src/db/connection.ts";
   const gate = parseDatabaseTargetIdentity(process.env.DATABASE_URL!);
   const marker = parseDatabaseTargetIdentity(process.env.HOLO_PROBE_MARKER_MISS_DATABASE_URL!);
   if (gate.database.toLowerCase() === "holocron_nonprod") {
@@ -135,7 +135,7 @@ fi
 # REDHAT-FIX-RH-S30-12: irreversible CLIs require cutover operator secret.
 # Load from secrets.yaml when not already in env (never print value).
 if [[ -z "${HOLO_CUTOVER_OPERATOR_SECRET:-}" ]]; then
-  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/packages/platform/config/secrets.yaml}"
   if [[ -f "$SECRETS_PATH" ]]; then
     export HOLO_CUTOVER_OPERATOR_SECRET="$(
       python3 - "$SECRETS_PATH" <<'PY'
@@ -161,7 +161,7 @@ fi
 # Real step5 oracle unchanged: after step4 enable-writes records PONR, step5
 # must still exit 2 with POST_PONR_INELIGIBLE (not a weakened accept).
 if [[ "${HOLO_GATE_RESET_LEDGER:-1}" == "1" ]]; then
-  RESET_TARGET_JSON="$(DATABASE_URL="$DATABASE_URL" bun --eval 'import { parseDatabaseTargetIdentity } from "./services/platform/src/db/connection.ts"; const x=parseDatabaseTargetIdentity(process.env.DATABASE_URL!); process.stdout.write(JSON.stringify(x));')"
+  RESET_TARGET_JSON="$(DATABASE_URL="$DATABASE_URL" bun --eval 'import { parseDatabaseTargetIdentity } from "./packages/platform/src/db/connection.ts"; const x=parseDatabaseTargetIdentity(process.env.DATABASE_URL!); process.stdout.write(JSON.stringify(x));')"
   RESET_TARGET_OK="$(python3 - "$TARGET_JSON" "$RESET_TARGET_JSON" <<'PY'
 import json, sys
 gate = json.loads(sys.argv[1]).get('gate_database_target')
@@ -212,7 +212,7 @@ if [[ "${HOLO_GATE_REARM_FENCE:-1}" == "1" ]]; then
   cp "$EVID_DIR/preflight-rearm.json" .tmp/GATE-FIX-gate-preflight-fence-rearm/ac1-preflight-rearm-wired.json 2>/dev/null || true
 
   # Durable fence line shape (quoted "1", never "1"")
-  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/packages/platform/config/secrets.yaml}"
   python3 - "$SECRETS_PATH" "$EVID_DIR/preflight-durable-fence-shape.json" <<'PY'
 import json, re, sys
 from pathlib import Path

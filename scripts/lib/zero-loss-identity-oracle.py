@@ -44,8 +44,8 @@ def psql_ledger_rows() -> tuple[int, list[dict[str, Any]]]:
             "bun",
             "-e",
             """
-import { resolveDatabaseUrl } from './services/platform/src/db/connection.ts';
-import { createSql } from './services/platform/src/db/client.ts';
+import { resolveDatabaseUrl } from './packages/platform/src/db/connection.ts';
+import { createSql } from './packages/platform/src/db/client.ts';
 const u = resolveDatabaseUrl({ preferHolocron: true });
 const sql = createSql(u);
 try {

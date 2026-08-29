@@ -66,7 +66,7 @@ fi
 
 # Resolve DATABASE_URL without printing it
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/packages/platform/config/secrets.yaml}"
   if [[ -f "$SECRETS_PATH" ]]; then
     export DATABASE_URL="$(
       python3 - "$SECRETS_PATH" <<'PY'
@@ -200,7 +200,7 @@ PY
 # 1) Authoritative Postgres ledger
 export PATH="${ROOT}/node_modules/.bin:${PATH:-}"
 if ! bun -e '
-import { clearPostExportWriteAuditLedger } from "./services/platform/src/cutover/post-export-write-audit.ts";
+import { clearPostExportWriteAuditLedger } from "./packages/platform/src/cutover/post-export-write-audit.ts";
 await clearPostExportWriteAuditLedger({ databaseUrl: process.env.DATABASE_URL });
 ' >/dev/null 2>&1; then
   echo "error: POSTGRES_LEDGER_CLEAR_FAILED" >&2

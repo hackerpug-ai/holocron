@@ -27,7 +27,7 @@ database_identity() {
   env -u DATABASE_URL -u HOLO_PROBE_MARKER_MISS_DATABASE_URL \
     S30_IDENTITY_CHILD=1 S30_TARGET_URL="$1" bun --eval '
     try {
-      const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
+      const { parseDatabaseTargetIdentity } = await import("./packages/platform/src/db/connection.ts");
       process.stdout.write(JSON.stringify(parseDatabaseTargetIdentity(process.env.S30_TARGET_URL!)));
     } catch {
       process.stderr.write("error: DATABASE_TARGET_IDENTITY_FAILED\n");

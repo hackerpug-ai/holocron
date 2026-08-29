@@ -1,0 +1,91 @@
+{
+  "task_id": "PKG-04-PLATFORM",
+  "timestamp": "2026-08-29T21:44:03Z",
+  "commit_sha": "3ef3af08854491ee7b41902639a27d30bba35b24",
+  "typecheck": {
+    "exit_code": 2
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "test -f packages/platform/package.json && test ! -f services/platform/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-04-PLATFORM/ac-1-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-04-PLATFORM/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f packages/platform/package.json && test ! -f services/platform/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-04-PLATFORM/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-04-PLATFORM/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "bash -lc 'pids=$(lsof -tiTCP:4111 -sTCP:LISTEN 2>/dev/null || true); if [[ -n \"$pids\" ]]; then kill $pids 2>/dev/null || true; sleep 1; fi; out=$(timeout 20 bun packages/platform/src/index.ts 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; echo exit_code=$ec; printf \"%s\\n\" \"$out\" | rg -q \"Starting Mastra service on :4111\" && ! printf \"%s\\n\" \"$out\" | rg -qi \"Failed to start server|module not found\" && [[ $ec -eq 124 || $ec -eq 143 ]]'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-04-PLATFORM/tc-3-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-29T21:44:03Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "52197b2a66918a189a0eba556f4af9dd1b4f28a870c41267f877b9eb6fceeb5e"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "cd2a11e3dc2bb91db8746ab3200cd7b5a07cc5d3d2205e6ddbf95398ce5618df"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "95dacbe2d83b028eb92a690ef44a4864a7fc67a8928d3c2dc32c71afbe931051"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "75914f84f1a9dd406044f41c8e36fbc5c1104937d96d7b2721be0d304a3807a5"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "75914f84f1a9dd406044f41c8e36fbc5c1104937d96d7b2721be0d304a3807a5"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "1c7dc64d5a897f8a45ee1de69c42462f43c9a5c4c9c8535a53cc66494c187b23"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "03e47ab176389cb82ce14f0d0b2e59aadd473793133ac8024d5dbe7a971382e1"
+      }
+    ]
+  }
+}

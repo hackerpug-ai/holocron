@@ -1,0 +1,7 @@
+=== TC-2 / AC-5 Dockerfile + bin/holo ===
+7:COPY packages/platform/package.json packages/platform/bun.lock ./
+dockerfile_exit=0
+7:HOLO_TS="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"
+holo_exit=0
+--- no live services/platform in bin/holo Dockerfile package.json ---
+NONE

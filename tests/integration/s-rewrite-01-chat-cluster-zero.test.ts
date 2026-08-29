@@ -16,16 +16,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
 const CLUSTER_ROOTS = [
-  join(REPO_ROOT, 'app', '(drawer)', 'chat'),
+  join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat'),
   join(REPO_ROOT, 'components', 'chat'),
-  join(REPO_ROOT, 'hooks', 'use-chat-history.ts'),
-  join(REPO_ROOT, 'hooks', 'use-agent-activity.ts'),
-  join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'),
+  join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts'),
+  join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-agent-activity.ts'),
+  join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', '_layout.tsx'),
   join(REPO_ROOT, 'components', 'agent', 'ToolApprovalCard.tsx'),
 ] as const;
 
-const QUERIES_PATH = join(REPO_ROOT, 'app', 'zero', 'queries.ts');
-const SCHEMA_PATH = join(REPO_ROOT, 'app', 'zero', 'schema.ts');
+const QUERIES_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'queries.ts');
+const SCHEMA_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'schema.ts');
 
 const CONVEX_REACT_IMPORT = /from\s+['"]convex\/react['"]/;
 const CONVEX_API_IMPORT = /from\s+['"]@\/convex\/_generated\/api['"]/;
@@ -77,10 +77,10 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
 
     it('cluster hooks/screens do not import @/convex/_generated/api', () => {
       const roots = [
-        join(REPO_ROOT, 'hooks', 'use-chat-history.ts'),
-        join(REPO_ROOT, 'hooks', 'use-agent-activity.ts'),
-        join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'),
-        join(REPO_ROOT, 'app', '(drawer)', 'chat', '[conversationId].tsx'),
+        join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts'),
+        join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-agent-activity.ts'),
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', '_layout.tsx'),
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx'),
         join(REPO_ROOT, 'components', 'chat', 'ChatPickerSheet.tsx'),
         join(REPO_ROOT, 'components', 'chat', 'MessageBubble.tsx'),
         join(REPO_ROOT, 'components', 'agent', 'ToolApprovalCard.tsx'),
@@ -96,8 +96,8 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     });
 
     it('cluster hooks import from app/zero/queries (>=1 Zero import)', () => {
-      const history = read(join(REPO_ROOT, 'hooks', 'use-chat-history.ts'));
-      const agent = read(join(REPO_ROOT, 'hooks', 'use-agent-activity.ts'));
+      const history = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts'));
+      const agent = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-agent-activity.ts'));
       const combined = history + '\n' + agent;
       expect(
         combined,
@@ -157,21 +157,23 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
 
   describe('AC-1/AC-3 wiring — drawer + history bind to Zero useQuery', () => {
     it('drawer layout imports useQuery from @rocicorp/zero/react (not convex)', () => {
-      const src = read(join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'));
+      const src = read(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', '_layout.tsx'));
       expect(src).toMatch(/from\s+['"]@rocicorp\/zero\/react['"]/);
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
       expect(src).toMatch(/conversationsByOwner/);
     });
 
     it('use-chat-history uses chatMessagesByConversation', () => {
-      const src = read(join(REPO_ROOT, 'hooks', 'use-chat-history.ts'));
+      const src = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts'));
       expect(src).toMatch(/chatMessagesByConversation/);
       expect(src).toMatch(/from\s+['"]@rocicorp\/zero\/react['"]/);
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
     });
 
     it('chat screen send path posts to Hono /api/chat-runs (no useAction)', () => {
-      const src = read(join(REPO_ROOT, 'app', '(drawer)', 'chat', '[conversationId].tsx'));
+      const src = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx')
+      );
       expect(src).toMatch(/\/api\/chat-runs/);
       expect(src).not.toMatch(/\buseAction\b/);
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
@@ -179,8 +181,10 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
 
     it('useVoiceSession has zero convex/react so chat cold-boots without ConvexProvider', () => {
       // CAP-CUT-01: no convex/react at all — voice is a pure no-op on Zero-only boot.
-      const voice = read(join(REPO_ROOT, 'hooks', 'use-voice-session.ts'));
-      const bridge = read(join(REPO_ROOT, 'hooks', 'use-voice-result-bridge.ts'));
+      const voice = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-session.ts'));
+      const bridge = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-result-bridge.ts')
+      );
       expect(voice).not.toMatch(/\buseAction\s*\(/);
       expect(voice).not.toMatch(/\buseMutation\s*\(/);
       expect(voice).not.toMatch(/\buseConvex\s*\(/);
@@ -191,14 +195,16 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     });
 
     it('chat screen cancel path posts to Hono /api/chat-runs/:id/cancel', () => {
-      const src = read(join(REPO_ROOT, 'app', '(drawer)', 'chat', '[conversationId].tsx'));
+      const src = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx')
+      );
       expect(src).toMatch(/\/api\/chat-runs\/.*cancel|chat-runs\/\$\{.*\}\/cancel/);
       expect(src).not.toMatch(/api\.chat\.agentMutations\.cancelAgent/);
     });
 
     it('drawer rename uses the Hono command bridge and reads the result through Zero', () => {
-      const src = read(join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'));
-      const bridge = read(join(REPO_ROOT, 'app', 'zero', 'platform.ts'));
+      const src = read(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', '_layout.tsx'));
+      const bridge = read(join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'platform.ts'));
       expect(src).toMatch(/renameConversationOnPlatform/);
       expect(bridge).toMatch(/PATCH/);
       expect(bridge).toMatch(/\/api\/conversations\/\$\{id\}/);
@@ -207,7 +213,7 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     });
 
     it('drawer long-press wires setActionMenuConversation so rename is user-reachable', () => {
-      const layout = read(join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'));
+      const layout = read(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', '_layout.tsx'));
       const drawer = read(join(REPO_ROOT, 'screens', 'DrawerContent.tsx'));
 
       // Parent holds action-menu conversation state and rename handler

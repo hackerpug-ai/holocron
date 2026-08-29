@@ -4,12 +4,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HOLO_TS="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"
+HOLO_TS="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"
 BUN_BIN="${BUN_BIN:-bun}"
 
 # Prefer primary checkout platform node_modules when worktree lacks them
 # (git worktrees often symlink only the root node_modules).
-if [[ ! -d "$ROOT/services/platform/node_modules" ]]; then
+if [[ ! -d "$ROOT/packages/platform/node_modules" ]]; then
   PRIMARY_CANDIDATES=(
     "${HOLO_PRIMARY_ROOT:-}"
     "$(cd "$ROOT/../../.." 2>/dev/null && pwd)"
@@ -17,8 +17,8 @@ if [[ ! -d "$ROOT/services/platform/node_modules" ]]; then
   )
   for cand in "${PRIMARY_CANDIDATES[@]}"; do
     [[ -z "$cand" || "$cand" == "$ROOT" ]] && continue
-    if [[ -d "$cand/services/platform/node_modules" ]]; then
-      export NODE_PATH="${cand}/services/platform/node_modules${NODE_PATH:+:$NODE_PATH}"
+    if [[ -d "$cand/packages/platform/node_modules" ]]; then
+      export NODE_PATH="${cand}/packages/platform/node_modules${NODE_PATH:+:$NODE_PATH}"
       break
     fi
   done

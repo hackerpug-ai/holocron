@@ -1,0 +1,20 @@
+=== TC-1 / AC-1 verify (expect FAIL: packages/mcp/package.json missing; holocron-mcp still present) ===
+test -f packages/mcp/package.json → exit=1 (want 0)
+test ! -f holocron-mcp/package.json → exit=1 (want 0)
+FAILED as expected: MCP still at old path / packages/mcp absent
+EXIT_CODE:1
+
+=== TC-2 / AC-3 verify (expect FAIL: @holocron/mcp-unified not a workspace member) ===
+pnpm list -r --depth -1:
+holocron@1.0.0 (PRIVATE)
+@holocron/web@0.0.0 packages/web (PRIVATE)
+platform services/platform (PRIVATE)
+rg '@holocron/mcp-unified' → exit=1
+FAILED as expected: @holocron/mcp-unified not listed
+EXIT_CODE:1
+
+=== Start-state observation ===
+packages/ exists? yes (web only from PKG-01)
+packages/mcp/? no
+holocron-mcp/package.json? yes
+pnpm-workspace.yaml packages: ".", "services/platform", "packages/*"

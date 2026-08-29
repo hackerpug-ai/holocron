@@ -69,7 +69,7 @@ describe('S-REACTIVE-02 research progress Zero seam', () => {
   });
 
   it('AC-1 binding: useResearchProgress uses researchSessionById via Zero useQuery', () => {
-    const hookPath = join(REPO_ROOT, 'hooks/useResearchProgress.ts');
+    const hookPath = join(REPO_ROOT, 'packages/mobile/hooks/useResearchProgress.ts');
     expect(existsSync(hookPath), 'hooks/useResearchProgress.ts must exist').toBe(true);
     const src = read('hooks/useResearchProgress.ts');
     expect(src).toMatch(/from\s+['"]@rocicorp\/zero\/react['"]/);

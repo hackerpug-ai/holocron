@@ -8,7 +8,7 @@ zero_url="${ZERO_CACHE_URL:-${EXPO_PUBLIC_ZERO_CACHE_URL:-http://127.0.0.1:4848}
 
 reset_log="$(mktemp "${TMPDIR:-/tmp}/holocron-reset.XXXXXX")"
 trap 'rm -f -- "$reset_log"' EXIT
-bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$reset_log"
+bun "$repo_root/packages/platform/src/cli/holo.ts" namespace reset --json >"$reset_log"
 reset_json="$(python3 - "$reset_log" <<'PY'
 import json, sys
 text = open(sys.argv[1]).read()

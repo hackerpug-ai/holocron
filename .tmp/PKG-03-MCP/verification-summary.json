@@ -1,0 +1,81 @@
+{
+  "task_id": "PKG-03-MCP",
+  "timestamp": "2026-08-29T21:40:38Z",
+  "commit_sha": "b218e5d69c0a4779ab5d534c679b19aed43b2689",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-03-MCP/ac-1-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-03-MCP/ac-3-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-03-MCP/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-03-MCP/tc-2-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-29T21:40:38Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "4f02b60b86187d76ac4302e28d23de20c9289fa8090c10c881f352911d432e27"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "00a4eb296d54231700c6ba3b953e2b80f7bd2fba0276025a8a240c8d18d01804"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "14e9349069ba27a45165ca84773d0f38a27e4c15a39dfe6e512e58b357f23a23"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "87511565e3f39b48eb8a088aa8074b89472515785b151b04890b3c229a935720"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "5aa5b82f8aa64b48d8a6ffce639ca9b24df1701c43998b1cce52eb64ffb10dab"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "db9569fcaebd34fadfa0afb70c5707de7e6f6adfb47767bae09394ab8c998607"
+      }
+    ]
+  }
+}

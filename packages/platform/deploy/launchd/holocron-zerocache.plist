@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-zerocache — real zero-cache against zero_pub (Sprint 24 e2e substrate).
+
+  ProgramArguments runs scripts/run-zero-cache.sh (not /usr/bin/true).
+  Unit stays Disabled=true by default; enable with:
+
+    export HOLO_ENABLE_ZERO_CACHE=1
+    # ZERO_ADMIN_PASSWORD may instead live in canonical secrets.yaml; the
+    # wrapper resolves it without persisting the value in this plist.
+    export DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod
+    holo stack up
+
+  Or follow docs/ops/zero-cache-enable.md for launchctl / foreground steps.
+
+  Stack status is healthy only when http://127.0.0.1:4848/keepalive succeeds
+  (or a real PID is running the wrapper) — never fake-healthy.
+-->
+<plist version="1.0">
+<dict>
+<key>Label</key>
+<string>holocron-zerocache</string>
+<key>Disabled</key>
+<true/>
+<key>ProgramArguments</key>
+<array>
+<string>/bin/bash</string>
+<string>@HOLO_ROOT@/scripts/run-zero-cache.sh</string>
+</array>
+<key>WorkingDirectory</key>
+<string>@HOLO_ROOT@</string>
+<key>EnvironmentVariables</key>
+<dict>
+<key>HOME</key>
+<string>@HOME@</string>
+<key>HOLO_ROOT</key>
+<string>@HOLO_ROOT@</string>
+<key>HOLO_SECRETS_PATH</key>
+<string>@HOLO_ROOT@/packages/platform/config/secrets.yaml</string>
+<key>PATH</key>
+<string>@HOLO_ROOT@/node_modules/.bin:@BUN_DIR@:@NODE_DIR@:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+<key>ZERO_PUBLICATION</key>
+<string>zero_pub</string>
+<key>ZERO_PORT</key>
+<string>4848</string>
+</dict>
+<key>RunAtLoad</key>
+<false/>
+<key>KeepAlive</key>
+<false/>
+<key>StandardOutPath</key>
+<string>@HOME@/Library/Logs/holocron/zerocache.out.log</string>
+<key>StandardErrorPath</key>
+<string>@HOME@/Library/Logs/holocron/zerocache.err.log</string>
+</dict>
+</plist>

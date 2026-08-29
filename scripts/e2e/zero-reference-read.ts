@@ -10,11 +10,11 @@
  *   REFERENCE_CONVERSATION_ID conversation id (default 00000000-...-020)
  *
  * Prints a single JSON line on stdout with the canonical ZeroReadResult shape
- * (see services/platform/tests/integration/helpers/zero-oneshot.ts). Exit 0 iff
+ * (see packages/platform/tests/integration/helpers/zero-oneshot.ts). Exit 0 iff
  * a 'complete' resultType was observed — callers (the verifier) interpret the
  * JSON fields; this script itself never fabricates an agent row.
  */
-import { readConversationViaZero } from '../../services/platform/tests/integration/helpers/zero-oneshot.ts';
+import { readConversationViaZero } from '../../packages/platform/tests/integration/helpers/zero-oneshot.ts';
 
 const server = process.env.ZERO_CACHE_URL || 'http://127.0.0.1:4848';
 const conversationId =

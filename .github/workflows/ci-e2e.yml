@@ -82,7 +82,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install platform dependencies
-        run: pnpm install --dir services/platform --frozen-lockfile
+        run: pnpm install --dir packages/platform --frozen-lockfile
 
       - name: Provision pinned Rocicorp Litestream
         run: |
@@ -154,7 +154,7 @@ jobs:
           # Remove API credentials so holo cannot fall back to the forbidden runners API.
           env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_REPOSITORY \
             HOLO_RUNNER_STATUS_FILE="$status_file" \
-            bun services/platform/src/cli/holo.ts ci runner:status --json --lane e2e
+            bun packages/platform/src/cli/holo.ts ci runner:status --json --lane e2e
 
       - name: Check real device, build, and backend prerequisites
         run: scripts/e2e/run-maestro-reference-flow.sh --check
@@ -304,7 +304,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install platform dependencies
-        run: pnpm install --dir services/platform --frozen-lockfile
+        run: pnpm install --dir packages/platform --frozen-lockfile
 
       - name: Provision pinned Rocicorp Litestream
         run: |

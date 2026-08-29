@@ -6,10 +6,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
-import { verifyMcpRehost } from '../../../services/platform/src/mcp/verify-rehost';
+import { verifyMcpRehost } from '../../../packages/platform/src/mcp/verify-rehost';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../..');
-const COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/router.compose.yaml');
+const COMPOSE_PATH = resolve(REPO_ROOT, 'packages/platform/deploy/compose/router.compose.yaml');
 const MINI_BASES = [
   'http://inference1.tail011a51.ts.net:8003/v1',
   'http://inference2.tail011a51.ts.net:8003/v1',

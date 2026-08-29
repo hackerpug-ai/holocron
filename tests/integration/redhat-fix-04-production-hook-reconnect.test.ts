@@ -540,7 +540,7 @@ describe('REDHAT-FIX-04 production-hook SSE reconnect', () => {
     }
 
     // --- Production assemblyRef-reset mutant at reconnect sites ---
-    const hookPath = join(REPO_ROOT, 'hooks', 'use-resumable-sse-stream.ts');
+    const hookPath = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-resumable-sse-stream.ts');
     const original = readFileSync(hookPath, 'utf8');
     const mutantWipe =
       "assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };\n                ";
@@ -712,7 +712,7 @@ describe('REDHAT-FIX-04 production-hook SSE reconnect', () => {
       lines.push(correct.out.split('\n').slice(-40).join('\n'));
     }
 
-    const hookPath = join(REPO_ROOT, 'hooks', 'use-resumable-sse-stream.ts');
+    const hookPath = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-resumable-sse-stream.ts');
     const original = readFileSync(hookPath, 'utf8');
     const mutantWipe =
       "assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };\n                ";

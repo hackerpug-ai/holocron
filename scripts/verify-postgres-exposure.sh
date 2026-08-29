@@ -29,7 +29,7 @@ info() { echo "INFO: $*"; }
 RESTORE_PGDATA="${RESTORE_PGDATA:-/tmp/d05-04-fire-scratch}"
 RESTORE_PG_PORT="${RESTORE_PG_PORT:-55432}"
 RESTORE_CONTAINER="${RESTORE_CONTAINER:-fresh-restore-01}"
-FIRE_DRILL_SRC="${FIRE_DRILL_SRC:-$ROOT/services/platform/src/backup/fire-drill.ts}"
+FIRE_DRILL_SRC="${FIRE_DRILL_SRC:-$ROOT/packages/platform/src/backup/fire-drill.ts}"
 
 echo "=== verify-postgres-exposure ==="
 echo "INFO: RESTORE_PGDATA=${RESTORE_PGDATA}"

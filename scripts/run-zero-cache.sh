@@ -28,7 +28,7 @@ fi
 upstream="${ZERO_UPSTREAM_DB:-${DATABASE_URL:-}}"
 if [[ -z "$upstream" ]]; then
   upstream="$("$bun_bin" --eval '
-    import { getSecretValue } from "./services/platform/src/config/secrets.ts";
+    import { getSecretValue } from "./packages/platform/src/config/secrets.ts";
     const value = getSecretValue("DATABASE_URL");
     if (!value) process.exit(1);
     process.stdout.write(value);
@@ -40,7 +40,7 @@ fi
 
 if [[ -z "${ZERO_ADMIN_PASSWORD:-}" ]]; then
   ZERO_ADMIN_PASSWORD="$("$bun_bin" --eval '
-    import { getSecretValue } from "./services/platform/src/config/secrets.ts";
+    import { getSecretValue } from "./packages/platform/src/config/secrets.ts";
     const value = getSecretValue("ZERO_ADMIN_PASSWORD");
     if (!value) process.exit(1);
     process.stdout.write(value);

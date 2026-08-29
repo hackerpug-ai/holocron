@@ -9,7 +9,7 @@ import {
   countAcceptedPostExportWrites,
   loadPostExportWriteAudit,
   writePostExportWriteAudit,
-} from '../../../services/platform/src/cutover/post-export-write-audit.ts';
+} from '../../../packages/platform/src/cutover/post-export-write-audit.ts';
 
 const TMP = resolve(process.cwd(), '.tmp/REDHAT-FIX-RH-S30-03/unit');
 

@@ -1,0 +1,10 @@
+rewrote tests/research-evidence-gate.test.ts
+rewrote tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts
+rewrote tests/cutover/gate-fix-drill-fence-precondition.test.ts
+rewrote tests/cutover/gate-fix-prove-fence-no-mint-disarmed.test.ts
+rewrote tests/cutover/gate-fix-post-ponr-gate-meta-parse.test.ts
+rewrote tests/unit/public-share-mcp-tools.test.ts
+rewrote tests/unit/platform/mcp-embed-rehost-static.test.ts
+rewrote tests/unit/platform/post-export-write-audit-fail-closed.test.ts
+rewrote tests/unit/platform/soak-fence-durable-lift.test.ts
+rewrote tests/unit/platform/jina-exa-secret-passthrough.test.ts

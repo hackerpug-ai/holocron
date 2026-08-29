@@ -6,8 +6,8 @@ set -euo pipefail
 # through environment variables and are deliberately absent from argv/output.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="$ROOT/services/platform/deploy/nonprod/mk6-verification.compose.yaml"
-HELPER="$ROOT/services/platform/tests/integration/helpers/mk6-live-services.ts"
+COMPOSE_FILE="$ROOT/packages/platform/deploy/nonprod/mk6-verification.compose.yaml"
+HELPER="$ROOT/packages/platform/tests/integration/helpers/mk6-live-services.ts"
 EVIDENCE_DIR="$ROOT/.tmp/MK6-DEP-001"
 
 if [[ $# -ne 2 || "$1" != "--provision-isolated" || "$2" != "--json" ]]; then
@@ -170,7 +170,7 @@ ln -s legacy-alias.ts "$ZERO_SCHEMA_DIR/legacy-alias"
 PLATFORM_IMAGE="${MK6_PLATFORM_IMAGE:-${HOLO_PLATFORM_IMAGE:-}}"
 if [[ -z "$PLATFORM_IMAGE" ]]; then
   PLATFORM_IMAGE="holocron-platform:${RUN_ID}"
-  if ! docker build --file "$ROOT/services/platform/Dockerfile" \
+  if ! docker build --file "$ROOT/packages/platform/Dockerfile" \
     --build-arg "SOURCE_REVISION=$SOURCE_REVISION" \
     --tag "$PLATFORM_IMAGE" "$ROOT" >"$EVIDENCE_DIR/${RUN_ID}-image-build.log" 2>&1; then
     json_error 'real Mastra image build failed; see image-build evidence'
@@ -235,7 +235,7 @@ fi
 FLEET_PROXY_URL="http://127.0.0.1:${FLEET_PROXY_PORT}"
 FLEET_CONTAINER_URL="http://host.docker.internal:${FLEET_PROXY_PORT}"
 FLEET_MANIFEST_URL="$FLEET_CONTAINER_URL" perl -0pe 's#http://127\.0\.0\.1:4545#$ENV{FLEET_MANIFEST_URL}#g; s#http://localhost:4545#$ENV{FLEET_MANIFEST_URL}#g' \
-  "$ROOT/services/platform/fleet/manifest.json" >"$EVIDENCE_DIR/${RUN_ID}-fleet-manifest.json"
+  "$ROOT/packages/platform/fleet/manifest.json" >"$EVIDENCE_DIR/${RUN_ID}-fleet-manifest.json"
 FLEET_URL="$FLEET_PROXY_URL"
 
 DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/${DB_NAME}"

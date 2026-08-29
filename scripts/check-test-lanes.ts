@@ -9,7 +9,7 @@
  *
  * Lanes (must match vitest.workspace.ts):
  *   unit         — test files outside integration/live roots (~100+ files / ~970+ tests)
- *   integration  — tests/integration/** + services/platform/tests/integration/**
+ *   integration  — tests/integration/** + packages/platform/tests/integration/**
  *                  minus 8 bun:test files (different runner) → ~231 vitest files
  *   live         — seed-e2e + zero-cache-boot (real Postgres + PLATFORM_IT)
  *
@@ -22,7 +22,7 @@ import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
 
-// --- bun:test files in services/platform/tests/integration — excluded from vitest lanes ---
+// --- bun:test files in packages/platform/tests/integration — excluded from vitest lanes ---
 const BUN_TEST_FILES = new Set([
   'db-migrate.test.ts',
   'jsonb-roundtrip.test.ts',
@@ -94,15 +94,15 @@ function checkWorkspaceDefinesLanes(): string[] {
 
 // integration lane
 const integrationTop = walk('tests/integration');
-const integrationPlatform = walk('services/platform/tests/integration').filter(
+const integrationPlatform = walk('packages/platform/tests/integration').filter(
   (f) => !BUN_TEST_FILES.has(f.split('/').pop()!),
 );
 const integrationFiles = [...new Set([...integrationTop, ...integrationPlatform])].sort();
 
 // live lane (Postgres + PLATFORM_IT)
 const liveCandidates = [
-  'services/platform/src/cli/__tests__/seed-e2e.test.ts',
-  'services/platform/src/cli/__tests__/zero-cache-boot.test.ts',
+  'packages/platform/src/cli/__tests__/seed-e2e.test.ts',
+  'packages/platform/src/cli/__tests__/zero-cache-boot.test.ts',
 ];
 const liveFiles = liveCandidates.filter((f) => existsSync(join(ROOT, f)));
 const liveSet = new Set(liveFiles);
@@ -113,21 +113,21 @@ const unitRoots = [
   'tests',
   'hooks',
   'components',
-  'services/platform/src/cli/__tests__',
-  'services/platform/src/cli/commands/__tests__',
+  'packages/platform/src/cli/__tests__',
+  'packages/platform/src/cli/commands/__tests__',
 ];
 const unitFiles: string[] = [];
 for (const root of unitRoots) {
   const files = walk(root);
   for (const f of files) {
     if (f.startsWith('tests/integration/')) continue;
-    if (f.startsWith('services/platform/tests/integration/')) continue;
+    if (f.startsWith('packages/platform/tests/integration/')) continue;
     if (liveSet.has(f)) continue;
     unitFiles.push(f);
   }
 }
 // standalone unit file declared explicitly in the workspace
-const evidence = 'services/platform/src/research/evidence-gate.test.ts';
+const evidence = 'packages/platform/src/research/evidence-gate.test.ts';
 if (existsSync(join(ROOT, evidence))) unitFiles.push(evidence);
 const unitSet = [...new Set(unitFiles)].sort();
 

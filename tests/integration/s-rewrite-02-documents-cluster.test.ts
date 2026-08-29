@@ -8,21 +8,21 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { isRetiredCloudHost } from '../../app/zero/legacy-alias';
-import { mutators } from '../../app/zero/mutators';
+import { isRetiredCloudHost } from '@/app/zero/legacy-alias';
+import { mutators } from '@/app/zero/mutators';
 import {
   buildArticleShareUrl,
   buildBlobAudioUrl,
   getMastraHost,
   PUBLIC_DOCS_ORIGIN,
-} from '../../app/zero/platform';
+} from '@/app/zero/platform';
 import {
   audioJobByDocument,
   audioSegmentsByDocument,
   documentById,
   documentsByOwner,
-} from '../../app/zero/queries';
-import { schema } from '../../app/zero/schema';
+} from '@/app/zero/queries';
+import { schema } from '@/app/zero/schema';
 
 const ROOT = join(__dirname, '../..');
 const CLUSTER_ROOTS = [

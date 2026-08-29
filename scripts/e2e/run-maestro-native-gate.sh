@@ -146,7 +146,7 @@ if [[ "$step" == "1" ]]; then
   cleanup_session
   rm -rf "$session_dir"/zero-data
   mkdir -p "$session_dir"/zero-data
-  bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
+  bun "$repo_root/packages/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
   NODE_ENV=production pnpm exec zero-cache \
     --upstream-db "$DATABASE_URL" \
     --cvr-db "${ZERO_CVR_DB:-$DATABASE_URL}" \

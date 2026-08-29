@@ -100,8 +100,8 @@ done
 SECRETS="${HOLOCRON_SECRETS_PATH:-}"
 if [[ -z "$SECRETS" ]]; then
   for cand in \
-    "$ROOT/services/platform/config/secrets.yaml" \
-    "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml"
+    "$ROOT/packages/platform/config/secrets.yaml" \
+    "/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml"
   do
     [[ -f "$cand" ]] && SECRETS="$cand" && break
   done

@@ -1,0 +1,30 @@
+=== TC-1 / AC-1 verify (expect FAIL) ===
+packages_platform_pkg_exit=1
+old_path_gone_exit=1
+combined_exit=1
+packages/platform/package.json exists? no
+services/platform/package.json exists? yes
+
+=== TC-2 Dockerfile+holo ===
+rg: packages/platform/Dockerfile: IO error for operation on packages/platform/Dockerfile: No such file or directory (os error 2)
+dockerfile_exit=2
+holo_exit=1
+
+=== TC-3 / AC-5 start from new path (expect FAIL: module not found) ===
+error: Module not found "packages/platform/src/index.ts"
+start_exit=1
+
+=== Start-state observation ===
+packages/ listing:
+web
+pnpm-workspace.yaml:
+# GATE-FIX-S28R3-QA13 — install services/platform deps via root frozen lock
+packages:
+  - "."
+  - "services/platform"
+  - "packages/*"
+caller_count_before=434
+Dockerfile still has COPY services/platform:
+7:COPY services/platform/package.json services/platform/bun.lock ./
+bin/holo still defaults to services/platform:
+7:HOLO_TS="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"

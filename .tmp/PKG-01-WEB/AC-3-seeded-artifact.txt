@@ -1,0 +1,12 @@
+=== AC-3 / TC-2 GREEN (honest packages/web project line; no web-runtime/npm:ms) ===
+5:  - "packages/*"
+--- pnpm list -r --depth -1 | rg @holocron/web@ ---
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/packages/web (PRIVATE)
+--- human list excerpt ---
+holocron@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB (PRIVATE)
+
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/packages/web (PRIVATE)
+
+platform /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/services/platform (PRIVATE)
+--- negative control: no listing-hack ---
+OK: no listing-hack in packages/web

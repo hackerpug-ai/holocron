@@ -1,0 +1,32 @@
+{
+  "task_id": "PKG-01-WEB",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\""
+    },
+    {
+      "id": "AC-3",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'"
+    },
+    {
+      "id": "TC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\""
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'"
+    }
+  ]
+}

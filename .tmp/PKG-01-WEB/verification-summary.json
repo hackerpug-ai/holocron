@@ -1,0 +1,81 @@
+{
+  "task_id": "PKG-01-WEB",
+  "timestamp": "2026-08-29T21:21:07Z",
+  "commit_sha": "46b691a26825664ec01f287457ccf8030ec490fc",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/ac-1-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/ac-3-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/tc-2-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-29T21:21:07Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "1bfba567e3487dd560d7ebf80ab3b37e4190ef7b472ea6618f68ae122c94d823"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "004df5d64037ad99740d5cec008c2669d30f42a39a77e39fce4aa60a05572a9b"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "cf900f3fff180115fc8b502ba2fdbe15c84bbed37282fef3b530b9bfe51bfde5"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "7e6360668d4c887df9981efc54bea083c3254794590c9eb314f92d747074515c"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "90ae61f20e81438e854b559ab0ee9e4ef0366021ad1f1c429a7bc0eac7a2c79e"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "ec13ae722e01b077319b46f4f8a3bff0281ce2e967e26fbea518a5ed822bb85b"
+      }
+    ]
+  }
+}

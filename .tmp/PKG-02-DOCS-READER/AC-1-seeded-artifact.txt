@@ -1,0 +1,5 @@
+=== AC-1 / TC-1 GREEN ===
+packages/docs-reader/package.json exists? yes
+services/worker-docs-reader/package.json exists? no
+package name: holocron-docs-reader
+exit_code=0

@@ -50,8 +50,8 @@ done
 
 DAEMON_DIR="$HOME/.docker"
 DAEMON_JSON="$DAEMON_DIR/daemon.json"
-POLICY_JSON="$ROOT/services/platform/deploy/docker/daemon-resilience.json"
-PLIST_TEMPLATE="$ROOT/services/platform/deploy/launchd/holocron-docker-disk-guard.plist"
+POLICY_JSON="$ROOT/packages/platform/deploy/docker/daemon-resilience.json"
+PLIST_TEMPLATE="$ROOT/packages/platform/deploy/launchd/holocron-docker-disk-guard.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/holocron-docker-disk-guard.plist"
 LOG_DIR="$HOME/Library/Logs/holocron"
 

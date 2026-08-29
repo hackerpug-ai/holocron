@@ -10,7 +10,7 @@ on:
     - cron: "17 6 * * *"
   pull_request:
     paths:
-      - "services/platform/**"
+      - "packages/platform/**"
       - "tests/**"
       - ".github/workflows/**"
       - "package.json"
@@ -64,7 +64,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install platform dependencies
-        working-directory: services/platform
+        working-directory: packages/platform
         run: bun install
 
       - name: Fail-closed runner label contract
@@ -72,7 +72,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          bun services/platform/src/cli/holo.ts ci runner:status --json
+          bun packages/platform/src/cli/holo.ts ci runner:status --json
 
       - name: Provision + seed nonprod namespace
         env:
@@ -90,10 +90,10 @@ jobs:
               exit 1
               ;;
           esac
-          bun services/platform/src/cli/holo.ts db seed --reset --json
+          bun packages/platform/src/cli/holo.ts db seed --reset --json
 
       - name: PRD consistency gate
-        run: bun services/platform/src/cli/holo.ts prd:consistency --json
+        run: bun packages/platform/src/cli/holo.ts prd:consistency --json
 
       - name: Real-service integration suite
         env:

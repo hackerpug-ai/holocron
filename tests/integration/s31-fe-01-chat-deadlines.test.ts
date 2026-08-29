@@ -165,8 +165,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const HOOK_PATH = join(REPO_ROOT, 'hooks', 'use-resumable-sse-stream.ts');
-const CHAT_SCREEN_PATH = join(REPO_ROOT, 'app', '(drawer)', 'chat', '[conversationId].tsx');
+const HOOK_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-resumable-sse-stream.ts');
+const CHAT_SCREEN_PATH = join(
+  REPO_ROOT,
+  'packages',
+  'mobile',
+  'app',
+  '(drawer)',
+  'chat',
+  '[conversationId].tsx'
+);
 const STALL_SERVER = join(REPO_ROOT, 'scripts', 'e2e', 'stall-sse-server.py');
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const itLive = PLATFORM_IT ? it : it.skip;

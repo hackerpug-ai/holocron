@@ -1,0 +1,22 @@
+=== PKG-04-PLATFORM GREEN summary ===
+AC-1: packages/platform/package.json EXISTS; services/platform GONE
+AC-5: Dockerfile COPY packages/platform/package.json; bin/holo → packages/platform/src/cli/holo.ts
+TC-3: Listening on :4111 (see TC-3-start-green.txt)
+unit: 87 passed | 5 skipped (555 tests passed)
+
+Starting Mastra service on :4111
+Listening on :4111
+  health:  http://127.0.0.1:4111/health
+  storage: PostgresStore → postgres://mortal_context:mortal_context_dev@localhost:5432/mortal_context
+  queue:   backend=pg-boss (Postgres leased queue)
+  mastra:  single composition root (44 shared-registry tools; agents/workflows later)
+exit_code=124
+PASS: bound and lived until timeout
+
+holocron@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-04-PLATFORM (PRIVATE)
+
+platform /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-04-PLATFORM/packages/platform (PRIVATE)
+
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-04-PLATFORM/packages/web (PRIVATE)
+
+caller_count_after=119

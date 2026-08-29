@@ -2,7 +2,7 @@
 # D06-07 + REDHAT-FIX-S29-R2-H01/R3-C01 — Re-run all eight Sprint 29 gate steps.
 #
 # Executes gate-plan.json literal_cmd for steps 1–8 via real deployment/cutover CLI
-# (bun services/platform/src/cli/holo.ts). Writes:
+# (bun packages/platform/src/cli/holo.ts). Writes:
 #   - .gate-evidence/{run_id}/step{1..8}.log  (real command transcripts)
 #   - .gate-evidence/{run_id}/meta.json
 #   - gate-results.json + GATE-RESULTS.md (honest pass/fail; never forge 8/8)
@@ -120,10 +120,10 @@ mkdir -p "$EVID_DIR" "$TMP_ROOT" "$TMP_ROOT_R2" \
 
 # Prefer operator secrets when available (worktrees often lack local secrets.yaml).
 if [[ -z "${HOLO_SECRETS_PATH:-}" ]]; then
-  if [[ -f "$ROOT/services/platform/config/secrets.yaml" ]]; then
-    export HOLO_SECRETS_PATH="$ROOT/services/platform/config/secrets.yaml"
-  elif [[ -f "${HOME}/Projects/holocron/services/platform/config/secrets.yaml" ]]; then
-    export HOLO_SECRETS_PATH="${HOME}/Projects/holocron/services/platform/config/secrets.yaml"
+  if [[ -f "$ROOT/packages/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="$ROOT/packages/platform/config/secrets.yaml"
+  elif [[ -f "${HOME}/Projects/holocron/packages/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="${HOME}/Projects/holocron/packages/platform/config/secrets.yaml"
   fi
 fi
 
@@ -250,7 +250,7 @@ steps = plan.get("steps") or []
 assert [s["n"] for s in steps] == [1, 2, 3, 4, 5, 6, 7, 8], "gate-plan must have steps 1..8"
 for s in steps:
     cmd = s.get("literal_cmd") or ""
-    assert "bun services/platform/src/cli/holo.ts" in cmd, f"step {s['n']} missing dispatcher"
+    assert "bun packages/platform/src/cli/holo.ts" in cmd, f"step {s['n']} missing dispatcher"
     assert s.get("method") == "real-cli", f"step {s['n']} method must be real-cli"
 meta = {
     "task_id": "REDHAT-FIX-S29-R3-C01",

@@ -1,0 +1,26 @@
+# S31-OPS-03 / R24 — ephemeral nonprod pgBackRest conf template.
+# Copy under .tmp/s31-ops-03/ or deploy/nonprod/ for harness use.
+# NEVER point HOLO_PGBACKREST_CONF / PGBACKREST_CONFIG at
+# packages/platform/config/pgbackrest/pgbackrest.conf from a HOLO_HARNESS=1 process.
+#
+# Placeholders only — no live credentials. Operators use `holo backup:provision`
+# (without HOLO_HARNESS) for the production conf.
+
+[global]
+repo1-type=s3
+repo1-s3-bucket=holocron-backup
+repo1-s3-endpoint=example.r2.cloudflarestorage.com
+repo1-s3-region=auto
+repo1-s3-uri-style=path
+repo1-path=/integration/harness
+repo1-cipher-type=aes-256-cbc
+# repo1-cipher-pass set via secrets / env — never commit
+repo1-retention-full=2
+process-max=2
+start-fast=y
+log-level-console=info
+log-level-file=off
+
+[main]
+pg1-path=/tmp/holocron-harness-pgdata
+pg1-port=5432
