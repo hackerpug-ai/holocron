@@ -1,0 +1,36 @@
+{
+  "task_id": "PKG-02-DOCS-READER",
+  "tdd_mode": "red_first",
+  "red": {
+    "file": "red-output.txt",
+    "sha": "f7491cef7a144227ff250fdfdae870d085082081",
+    "mtime": 1788038988,
+    "sha256": "ad8fff649489fc58824dee75f6dd9d96d23c7ab35ba6fb33126bf07e8e980bbb"
+  },
+  "green": {
+    "file": "green-output.txt",
+    "sha": "b875899cac13b4dcdb942a145b3809df82af099d",
+    "mtime": 1788039352,
+    "sha256": "258b27a43f3887e548157a6bf003d4f70f2b80fc7b5e2bc74a158365444a7184"
+  },
+  "distinct_commits": true,
+  "waiver": false,
+  "ok": true,
+  "failure_codes": [],
+  "checked_at": "2026-08-29T21:40:13Z",
+  "generator": {
+    "tool": "verify-tdd-lineage.sh",
+    "version": "1.1",
+    "generated_at": "2026-08-29T21:40:13Z",
+    "inputs": [
+      {
+        "path": "red-output.txt",
+        "sha256": "ad8fff649489fc58824dee75f6dd9d96d23c7ab35ba6fb33126bf07e8e980bbb"
+      },
+      {
+        "path": "green-output.txt",
+        "sha256": "258b27a43f3887e548157a6bf003d4f70f2b80fc7b5e2bc74a158365444a7184"
+      }
+    ]
+  }
+}
