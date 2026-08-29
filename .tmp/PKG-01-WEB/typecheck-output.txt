@@ -1,0 +1,4 @@
+
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB
+> tsgo --noEmit
+
