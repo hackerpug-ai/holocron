@@ -1,0 +1,36 @@
+{
+  "task_id": "PKG-01-WEB",
+  "tdd_mode": "red_first",
+  "red": {
+    "file": "red-output.txt",
+    "sha": "2739793d4ae59c1d20a2722ecd24c7677d9e1787",
+    "mtime": 1788034598,
+    "sha256": "087c6ac5ab9f2f5393bc7e10465ba686034c2392312b779443bc7d56cd8f6a6a"
+  },
+  "green": {
+    "file": "green-output.txt",
+    "sha": "12fe6ed925f9d7e8a1fb2498e75b24427f7f31d0",
+    "mtime": 1788034599,
+    "sha256": "e0fca16a1c1f8654cdce7afd276af9f15cf75cc753469b2555c32d0f094b9b1c"
+  },
+  "distinct_commits": true,
+  "waiver": false,
+  "ok": true,
+  "failure_codes": [],
+  "checked_at": "2026-08-29T20:46:15Z",
+  "generator": {
+    "tool": "verify-tdd-lineage.sh",
+    "version": "1.1",
+    "generated_at": "2026-08-29T20:46:15Z",
+    "inputs": [
+      {
+        "path": "red-output.txt",
+        "sha256": "087c6ac5ab9f2f5393bc7e10465ba686034c2392312b779443bc7d56cd8f6a6a"
+      },
+      {
+        "path": "green-output.txt",
+        "sha256": "e0fca16a1c1f8654cdce7afd276af9f15cf75cc753469b2555c32d0f094b9b1c"
+      }
+    ]
+  }
+}
