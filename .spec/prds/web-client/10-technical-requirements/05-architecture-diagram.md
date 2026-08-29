@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # Architecture Diagram
@@ -53,7 +53,7 @@ prd_version: 1.0.0
 
     {external}  Anthropic API (from the Worker)   ·   LiteLLM fleet 127.0.0.1:4545
                                                       UNREACHABLE from the edge
-    {retired}   services/worker-docs-reader        ·   {untouched} Expo app + Zero sync
+    {retired}   packages/docs-reader        ·   {untouched} Expo app + Zero sync
 ```
 
 ## Reading the diagram

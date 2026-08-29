@@ -1,20 +1,20 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # System Components
 
 | Component | Layer | Role | Proposed by |
 |---|---|---|---|
-| **services/web (Next.js App Router package)** | `edge` | The single Next.js application serving both faces. MUST be a nested pnpm workspace package alongside services/platform, added to pnpm-workspace.yaml, with its own app/, components/, tsconfig.json, tailwind.config, components.json and next.config.ts. | `nextjs-planner` |
+| **packages/web (Next.js App Router package)** | `edge` | The single Next.js application serving both faces. Replaces the private `@holocron/web` placeholder that the monorepo migration already created and enrolled via the `packages/*` glob — no pnpm-workspace.yaml edit. Owns its own app/, components/, tsconfig.json, tailwind.config, components.json and next.config.ts, as every package under packages/* does. | `nextjs-planner` |
 | **Route group (public)** | `edge` | Contains exactly one route family: /d/[token] and /d/[token]/assets/[id]. No layout in this group imports the auth module, reads a session, or calls cookies()/headers(). | `nextjs-planner` |
 | **Route group (app)** | `app` | Operator cockpit: /chats, /chats/[conversationId], /library, /library/[documentId]. Its layout performs the server-side session check and redirect(). | `nextjs-planner` |
 | **DocumentBody (shared server component)** | `app` | The single markdown-to-React renderer used by BOTH /d/[token] and /library/[documentId]. Parameterised only by assetBase (the URL prefix rewritten onto document-relative asset paths). Same measure, same type scale, same figure treatment by construction. | `nextjs-planner` |
 | **Markdown pipeline (server-only module)** | `app` | react-markdown driving remark-parse + remark-gfm + remark-rehype (allowDangerousHtml: false) + rehypeHolocronAnchors + rehypeAssetUrls + rehype-sanitize, rendered through a components map that maps img to a Figure element and h2..h6 to hover-revealed anchor headings. | `nextjs-planner` |
 | **rehypeAssetUrls (local rehype plugin, ~20 lines)** | `app` | Rewrites document-relative asset references from the origin's shape /article/<token>/assets/<id> to the public shape /d/<token>/assets/<id> on both img.src and a.href, before sanitisation runs. | `nextjs-planner` |
-| **rehypeHolocronAnchors (local rehype plugin, ~15 lines)** | `app` | Applies the EXISTING slugifyText() from services/platform/src/http/article.ts to heading ids and to in-document '#'-prefixed link targets. | `nextjs-planner` |
+| **rehypeHolocronAnchors (local rehype plugin, ~15 lines)** | `app` | Applies the EXISTING slugifyText() from packages/platform/src/http/article.ts to heading ids and to in-document '#'-prefixed link targets. | `nextjs-planner` |
 | **lib/env.server.ts** | `edge` | The single module that performs import { env } from 'cloudflare:workers'. Begins with import 'server-only'. | `nextjs-planner` |
 | **proxy.ts (Next 16 rename of middleware.ts)** | `edge` | Edge-cache mediation for public routes only. Matcher is ['/d/:path*']. Contains no auth code whatsoever. | `nextjs-planner` |
 | **tRPC + TanStack Query provider island** | `app` | A 'use client' providers.tsx mounted by the (app) layout, holding QueryClient and the tRPC client with httpBatchStreamLink. | `nextjs-planner` |
@@ -34,7 +34,7 @@ prd_version: 1.0.0
 | **chat.stream tRPC procedure (async generator)** | `edge` | Owned by trpc-planner/implementer, but the AI SDK boundary is: this procedure calls AgentLoopModule, iterates result.stream, and yields each part (mapped, not raw) to httpBatchStreamLink. | `aisdk-planner` |
 | **Client UIMessage reducer** | `app` | ~150-line reducer (per the design brief) that folds streamed parts into UIMessage shape client-side, since useChat/useCompletion are unavailable over tRPC streaming (trpc#6103). | `aisdk-planner` |
 | **MCP gateway (existing, unmodified)** | `device` | origin-docs.holocrnlib.com/mcp - the device's Streamable HTTP MCP server. Consumed, not built, by this lens. | `aisdk-planner` |
-| **docs.holocrnlib.com Worker (Next.js via vinext)** | `edge` | Single Cloudflare Worker hosting the entire product: public /d/[token] reader, operator app (BetterAuth), tRPC BFF, and the AI SDK agent loop. Bound to the custom domain via routes: [{ pattern: "docs.holocrnlib.com", custom_domain: true }], replacing worker-docs-reader's wrangler.jsonc 1:1 on that binding. | `cloudflare-workers-planner` |
+| **docs.holocrnlib.com Worker (Next.js via vinext)** | `edge` | Single Cloudflare Worker hosting the entire product: public /d/[token] reader, operator app (BetterAuth), tRPC BFF, and the AI SDK agent loop. Bound to the custom domain via routes: [{ pattern: "docs.holocrnlib.com", custom_domain: true }], replacing docs-reader's wrangler.jsonc 1:1 on that binding. | `cloudflare-workers-planner` |
 | **Public reader route - GET /d/[token]** | `edge` | Server Component, no auth, no tRPC, sets its own cache headers. Must match the existing regex contract ^/d/([^/]+)$ byte-for-byte at the URL level (Next dynamic segment [token] satisfies this) since the MCP share_document tool description promises this exact shape to every agent session. | `cloudflare-workers-planner` |
 | **Asset proxy route - GET /d/[token]/assets/[id]** | `edge` | New route (does not exist today) that proxies the origin's already-correct GET /article/:shareToken/assets/:fileObjectId endpoint. Fixes the CONFIRMED defect where every shared document is silently text-only. | `cloudflare-workers-planner` |
 | **tRPC BFF router** | `app` | Authenticated app surface: documents/search/conversations queries plus the chat.stream async-generator procedure via httpBatchStreamLink. Mounted under the operator (/*) side, BetterAuth-protected via middleware.ts/proxy.ts. | `cloudflare-workers-planner` |
@@ -56,9 +56,9 @@ prd_version: 1.0.0
 
 ## Notes carried from the lenses
 
-### services/web (Next.js App Router package) — `nextjs-planner`
+### packages/web (Next.js App Router package) — `nextjs-planner`
 
-Non-negotiable placement finding: repo root already contains app/ (Expo Router), components/, components.json, global.css, tailwind.config.js and tsconfig.json belonging to the React Native app. A root-level Next scaffold collides with all six. The shadcn and ai-elements CLIs must be run with cwd=services/web so copied source lands in services/web/components/ui and services/web/components/ai-elements, not on top of the RN component tree.
+Non-negotiable placement finding: this PRD assumes the monorepo migration (imp-migrate-repo-monorepo-structure-1788024693) has landed, so the Expo app and its app/, components/, components.json, global.css, tailwind.config.js and tsconfig.json live at packages/mobile, and the repo root is a thin workspace orchestrator owning no product code. The Next app is therefore a sibling package, not a root scaffold. The shadcn and ai-elements CLIs must be run with cwd=packages/web so copied source lands in packages/web/components/ui and packages/web/components/ai-elements — a root-level init writes config the thin root has no business owning, and a run from packages/mobile drops Tailwind-v4 web source onto the Tailwind-v3 RN component tree.
 
 ### Route group (public) — `nextjs-planner`
 
@@ -74,11 +74,11 @@ Directly implements the staged design constraint that operator view and public p
 
 ### Markdown pipeline (server-only module) — `nextjs-planner`
 
-Runs only on the server; ships zero bytes to the client. Replaces markdownToHtml/inlineMarkdown in services/platform/src/http/article.ts, which has no image rule at all and whose entire href sanitiser is href.startsWith('http').
+Runs only on the server; ships zero bytes to the client. Replaces markdownToHtml/inlineMarkdown in packages/platform/src/http/article.ts, which has no image rule at all and whose entire href sanitiser is href.startsWith('http').
 
 ### rehypeAssetUrls (local rehype plugin, ~20 lines) — `nextjs-planner`
 
-This is the piece that actually makes images resolve. The origin's asset contract is /article/:shareToken/assets/:fileObjectId (services/platform/src/http/hono-app.ts:169, and pinned in services/platform/src/sync/client-data-contract-author.ts:74) but the public domain serves /d/. Without the rewrite the image markdown parses correctly and still 404s.
+This is the piece that actually makes images resolve. The origin's asset contract is /article/:shareToken/assets/:fileObjectId (packages/platform/src/http/hono-app.ts:169, and pinned in packages/platform/src/sync/client-data-contract-author.ts:74) but the public domain serves /d/. Without the rewrite the image markdown parses correctly and still 404s.
 
 ### rehypeHolocronAnchors (local rehype plugin, ~15 lines) — `nextjs-planner`
 
@@ -102,11 +102,11 @@ Runs inside a Next.js route handler at app/api/trpc/[trpc]/route.ts using fetchR
 
 ### DeviceClient (bound tunnel client) — `trpc-planner`
 
-Exposes exactly two methods: client.mcp.call(toolName, input, { signal }) (Streamable HTTP to /mcp, Authorization: Bearer HOLO_KEY_MCP) and client.rest(path, init) (/api/*, Authorization: Bearer HOLO_KEY_RN). VERIFIED in services/platform/src/http/middleware/scoped-key.ts: these are DISJOINT scopes - an mcp-scoped key on /api/* returns 403 and an rn-scoped key on /mcp returns 403. Sending one key to both surfaces is a build-breaking mistake. Both calls additionally carry CF-Access-Client-Id / CF-Access-Client-Secret (pattern already proven in services/worker-docs-reader/src/reader.ts).
+Exposes exactly two methods: client.mcp.call(toolName, input, { signal }) (Streamable HTTP to /mcp, Authorization: Bearer HOLO_KEY_MCP) and client.rest(path, init) (/api/*, Authorization: Bearer HOLO_KEY_RN). VERIFIED in packages/platform/src/http/middleware/scoped-key.ts: these are DISJOINT scopes - an mcp-scoped key on /api/* returns 403 and an rn-scoped key on /mcp returns 403. Sending one key to both surfaces is a build-breaking mistake. Both calls additionally carry CF-Access-Client-Id / CF-Access-Client-Secret (pattern already proven in packages/docs-reader/src/reader.ts).
 
 ### MCP client attach (server/device/mcp.ts) — `trpc-planner`
 
-The device tool registry (VERIFIED in services/platform/src/tools/registry.ts) already exposes hybrid_search, list_documents, get_document, share_document, unshare_document, deep_research, quick_research, deep_research_result, deep_research_control, get_research_session. The Library therefore needs NO new REST surface. The gateway forwards extra.signal into executePostgresMcpTool, so an aborted tRPC request aborts the device-side tool execution (device raises code CANCELLED). A Worker is stateless, so a client is created per request and pays an initialize + tools/list handshake - see technical_risks.
+The device tool registry (VERIFIED in packages/platform/src/tools/registry.ts) already exposes hybrid_search, list_documents, get_document, share_document, unshare_document, deep_research, quick_research, deep_research_result, deep_research_control, get_research_session. The Library therefore needs NO new REST surface. The gateway forwards extra.signal into executePostgresMcpTool, so an aborted tRPC request aborts the device-side tool execution (device raises code CANCELLED). A Worker is stateless, so a client is created per request and pays an initialize + tools/list handshake - see technical_risks.
 
 ### chat.stream async-generator procedure — `trpc-planner`
 
@@ -170,7 +170,7 @@ Token validation (ORIGIN_SHARE_TOKEN_RE in the retiring reader.ts) should be por
 
 ### Asset proxy route - GET /d/[token]/assets/[id] — `cloudflare-workers-planner`
 
-Origin returns Cache-Control: no-store on this endpoint (services/platform/src/http/hono-app.ts asset handler) - the Worker must NOT pass that header through. It must apply the same applyReaderCacheHeaders(true) rewrite the HTML route uses, or the asset never enters the edge cache and every image request round-trips the tunnel.
+Origin returns Cache-Control: no-store on this endpoint (packages/platform/src/http/hono-app.ts asset handler) - the Worker must NOT pass that header through. It must apply the same applyReaderCacheHeaders(true) rewrite the HTML route uses, or the asset never enters the edge cache and every image request round-trips the tunnel.
 
 ### tRPC BFF router — `cloudflare-workers-planner`
 
@@ -218,11 +218,11 @@ Every operator-facing query and mutation is a protectedProcedure. publicProcedur
 
 ### Public reader routes (/d/[token], /d/[token]/assets/[id]) — `betterauth-planner`
 
-Excluded from the middleware matcher AND structurally isolated by route group. Responses are built with a fresh new Headers() so an origin Set-Cookie can never pass through - this is exactly what services/worker-docs-reader/src/reader.ts does today and the behaviour must survive the rewrite.
+Excluded from the middleware matcher AND structurally isolated by route group. Responses are built with a fresh new Headers() so an origin Set-Cookie can never pass through - this is exactly what packages/docs-reader/src/reader.ts does today and the behaviour must survive the rewrite.
 
 ### Share-token shape validator — `betterauth-planner`
 
-This already exists - isOriginShareToken() in services/worker-docs-reader/src/reader.ts, regex ^(?:mcp-|share-)?<uuid>$|^share-[A-Za-z0-9]+-[A-Za-z0-9]+$. LIFT IT VERBATIM. Re-deriving it will break live links (bare-UUID and mcp- prefixed tokens both exist in the wild) and losing it hands an attacker a path-traversal into privileged origin endpoints with the Worker's service token attached.
+This already exists - isOriginShareToken() in packages/docs-reader/src/reader.ts, regex ^(?:mcp-|share-)?<uuid>$|^share-[A-Za-z0-9]+-[A-Za-z0-9]+$. LIFT IT VERBATIM. Re-deriving it will break live links (bare-UUID and mcp- prefixed tokens both exist in the wild) and losing it hands an attacker a path-traversal into privileged origin endpoints with the Worker's service token attached.
 
 ### CF Access service token (Worker to origin) — `betterauth-planner`
 

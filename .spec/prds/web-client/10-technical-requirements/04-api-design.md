@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # API Design
@@ -294,7 +294,7 @@ z.object({ reachable, state: 'ok'|'unreachable'|'auth_failed'|'degraded', latenc
 ## Blocking prerequisite — the origin returns HTML, not markdown
 
 `GET /article/:shareToken` calls `articleHtml(article)` unconditionally, with no content
-negotiation (verified at `services/platform/src/http/hono-app.ts:148`). A Next Server Component that
+negotiation (verified at `packages/platform/src/http/hono-app.ts:148`). A Next Server Component that
 renders markdown cannot start from that response, and must not parse the origin's HTML back into an
 AST. The fix is roughly five lines — `selectPublicArticle()` already returns the exact shape needed —
 but **the entire public reader is blocked until someone owns it**, and the HTML branch must stay

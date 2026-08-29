@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # External Dependencies
@@ -13,7 +13,7 @@ prd_version: 1.0.0
 | **remark-gfm** | Tables, strikethrough, autolinks, task lists - parity with what the current hand-rolled renderer supports for  | ^4 | `nextjs-planner` |
 | **rehype-sanitize** | Schema-based sanitisation on the hast tree, replacing the current href.startsWith('http') string check. | ^6 | `nextjs-planner` |
 | **@trpc/client + @trpc/server + @tanstack/react-query** | BFF transport and client cache for the authed app. | v11 | `nextjs-planner` |
-| **shadcn/ui + ai-elements** | Copied component source, not imported packages. CLIs must be run with cwd=services/web. | React 19 + Tailwind v4 | `nextjs-planner` |
+| **shadcn/ui + ai-elements** | Copied component source, not imported packages. CLIs must be run with cwd=packages/web. | React 19 + Tailwind v4 | `nextjs-planner` |
 | **server-only** | Turns an accidental client import of the bindings module into a build error. | latest | `nextjs-planner` |
 | **@trpc/server** | Router, procedures, async-generator streaming, fetchRequestHandler adapter (the only Workers-valid adapter). | ^11 (v11 required - streaming mutations/queries over httpBatchStreamLink land in | `trpc-planner` |
 | **@trpc/client** | createTRPCClient, httpBatchStreamLink, splitLink, loggerLink, TRPCClientError. | ^11, version-locked to @trpc/server | `trpc-planner` |
@@ -24,27 +24,27 @@ prd_version: 1.0.0
 | **ai (Vercel AI SDK)** | streamText agent loop inside chat.stream; source of the stream parts the BFF translates into ChatStreamPart. | ^6.0.116 - ALREADY INSTALLED | `trpc-planner` |
 | **Cloudflare Access service token** | Tunnel authentication to origin-docs.holocrnlib.com. | CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET as Worker secrets | `trpc-planner` |
 | **Device scoped API keys (HOLO_KEY_MCP, HOLO_KEY_RN)** | Second auth layer inside the tunnel. /mcp accepts only mcp scope; /api/* accepts only rn scope. | Two distinct bearer tokens, Worker secrets | `trpc-planner` |
-| **ai** | Core AI SDK - streamText, ToolLoopAgent, UIMessage stream part types, tool-result pairing enforcement | ^7.0.28 (installed-version truth in this repo's services/platform; NOT the stale | `aisdk-planner` |
+| **ai** | Core AI SDK - streamText, ToolLoopAgent, UIMessage stream part types, tool-result pairing enforcement | ^7.0.28 (installed-version truth in this repo's packages/platform; NOT the stale | `aisdk-planner` |
 | **@ai-sdk/mcp** | MCP client (createMCPClient) - as of ai@7.0.28 this is a SEPARATE package from `ai` core, confirmed by reading | VERIFY exact version against ai@^7.0.28 peer range at implementation time - not  | `aisdk-planner` |
 | **@ai-sdk/anthropic** | Direct Anthropic provider for the model call - chosen over the AI Gateway string form because a Cloudflare Wor | match ai@^7.0.28 peer range; exact Anthropic model id to VERIFY at implementatio | `aisdk-planner` |
 | **@ai-sdk/mcp/mcp-stdio (Experimental_StdioMCPTransport)** | NOT used here - listed only to rule it out: stdio transport is explicitly local-dev-only per the docs, irrelev | n/a - not a dependency of this feature | `aisdk-planner` |
 | **vinext** | Vite plugin reimplementing the Next.js API surface for deployment as a Cloudflare Worker; the settled hosting  | beta - `npx vinext check` is a gating prerequisite, not yet evidenced as run in  | `cloudflare-workers-planner` |
 | **@vinext/cloudflare** | Deploy CLI wrapping wrangler for the vinext output. | beta, tracks vinext | `cloudflare-workers-planner` |
-| **wrangler** | CLI for dev/deploy/secrets against the Worker. | ^4.81.0 (per existing worker-docs-reader/wrangler.jsonc $schema pin - carry forw | `cloudflare-workers-planner` |
+| **wrangler** | CLI for dev/deploy/secrets against the Worker. | ^4.81.0 (per existing packages/docs-reader/wrangler.jsonc $schema pin - carry forw | `cloudflare-workers-planner` |
 | **Cloudflare Access (service tokens)** | Origin auth for every Worker-to-device call (reader, assets, tRPC-to-origin, MCP client) via CF-Access-Client- | n/a | `cloudflare-workers-planner` |
 | **Cloudflare Tunnel (cloudflared) to origin-docs.holocrnlib.com** | The only network path from the Worker to the device. | n/a | `cloudflare-workers-planner` |
 | **better-auth** | The auth framework itself: server instance, handler, session management, cookie policy. | pin an exact version in package.json; re-read the docs at implementation time -  | `betterauth-planner` |
 | **better-auth/next-js** | toNextJsHandler(auth) for the catch-all mount; nextCookies() plugin if Server Actions are ever used. | same package as better-auth | `betterauth-planner` |
 | **auth CLI (`npx auth@latest generate` / `migrate`)** | Generates the four-table schema. With the built-in Kysely/D1 adapter it emits SQL. | run pinned to the installed better-auth version | `betterauth-planner` |
-| **Cloudflare D1** | Identity store binding for the Worker. | binding added to wrangler.jsonc; no existing D1 binding in services/worker-docs- | `betterauth-planner` |
+| **Cloudflare D1** | Identity store binding for the Worker. | binding added to wrangler.jsonc; no existing D1 binding in packages/docs-reader | `betterauth-planner` |
 | **Workers nodejs_compat compatibility flag** | Node crypto surface for BetterAuth's default scrypt password hashing. | compatibility_flags: ["nodejs_compat"] alongside a current compatibility_date | `betterauth-planner` |
 | **Cloudflare Access service tokens (existing)** | Worker-to-device origin auth for both the public reader and the BFF. CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SE | already provisioned; names already in the AGENTS.md secret index | `betterauth-planner` |
 | **vinext (middleware.ts support)** | The route guard's home. | beta - brief build order step 0 is `npx vinext check` | `betterauth-planner` |
-| **isOriginShareToken (in-repo, services/worker-docs-reader/src/reader.ts)** | Share-token grammar validator that must be lifted into the Next public routes. | copy the regex verbatim: ^(?:mcp-|share-)?<uuid>$|^share-[A-Za-z0-9]+-[A-Za-z0-9 | `betterauth-planner` |
+| **isOriginShareToken (in-repo, packages/docs-reader/src/reader.ts)** | Share-token grammar validator that must be lifted into the Next public routes. | copy the regex verbatim: ^(?:mcp-|share-)?<uuid>$|^share-[A-Za-z0-9]+-[A-Za-z0-9 | `betterauth-planner` |
 | **shadcn/ui (v6, Base UI flavour)** | Product chrome for the operator shell, Library and Share lifecycle: sidebar, command palette, rows, chips, car | - | `shadcn-ai-elements-planner` |
 | **AI Elements (Vercel, v6)** | The chat surface only: Conversation scroller, Message frames, PromptInput with submit/stop, collapsed Tool row | - | `shadcn-ai-elements-planner` |
 | **shadcn typeset** | The mechanism that makes the chrome-vs-column rule structural instead of a habit. One owned CSS file styles al | - | `shadcn-ai-elements-planner` |
-| **Tailwind CSS v4** | Token layer for services/web. @theme inline maps the CSS variables below to utilities. | - | `shadcn-ai-elements-planner` |
+| **Tailwind CSS v4** | Token layer for packages/web. @theme inline maps the CSS variables below to utilities. | - | `shadcn-ai-elements-planner` |
 | **lucide-react** | Icon set for both registries. | - | `shadcn-ai-elements-planner` |
 
 ## Risk notes and documentation
@@ -123,11 +123,11 @@ _Proposed by `nextjs-planner`._
 
 **Docs.** https://ui.shadcn.com/docs/cli
 
-**Purpose.** Copied component source, not imported packages. CLIs must be run with cwd=services/web.
+**Purpose.** Copied component source, not imported packages. CLIs must be run with cwd=packages/web.
 
 **Version.** React 19 + Tailwind v4
 
-**Risk.** Medium at install time only: the root already has a components.json and tailwind.config.js belonging to the RN app, and running either CLI from the repo root would write into the React Native component tree.
+**Risk.** Medium at install time only: packages/mobile owns a components.json and tailwind.config.js belonging to the RN app, and running either CLI from packages/mobile would write into the React Native component tree (from the repo root it writes config the thin workspace orchestrator does not own).
 
 _Proposed by `nextjs-planner`._
 
@@ -261,7 +261,7 @@ _Proposed by `trpc-planner`._
 
 ### Device scoped API keys (HOLO_KEY_MCP, HOLO_KEY_RN)
 
-**Docs.** services/platform/src/http/middleware/scoped-key.ts
+**Docs.** packages/platform/src/http/middleware/scoped-key.ts
 
 **Purpose.** Second auth layer inside the tunnel. /mcp accepts only mcp scope; /api/* accepts only rn scope.
 
@@ -279,7 +279,7 @@ _Proposed by `trpc-planner`._
 
 **Purpose.** Core AI SDK - streamText, ToolLoopAgent, UIMessage stream part types, tool-result pairing enforcement
 
-**Version.** ^7.0.28 (installed-version truth in this repo's services/platform; NOT the stale 6.0.116 sitting in the repo root node_modules - the new web client package.json must pin ^7.x explicitly, do not inherit a hoisted v6)
+**Version.** ^7.0.28 (installed-version truth in this repo's packages/platform; NOT the stale 6.0.116 sitting in the repo root node_modules - the new web client package.json must pin ^7.x explicitly, do not inherit a hoisted v6)
 
 **Risk.** Root-level node_modules/ai resolving to v6 is a real hazard if the web client's package isn't given its own explicit ai@^7 dependency and a workspace resolution that doesn't accidentally hoist the stale v6 install.
 
@@ -363,7 +363,7 @@ _Proposed by `cloudflare-workers-planner`._
 
 **Purpose.** CLI for dev/deploy/secrets against the Worker.
 
-**Version.** ^4.81.0 (per existing worker-docs-reader/wrangler.jsonc $schema pin - carry forward or bump deliberately, not silently)
+**Version.** ^4.81.0 (per existing packages/docs-reader/wrangler.jsonc $schema pin - carry forward or bump deliberately, not silently)
 
 **Risk.** Low - mature, stable tool.
 
@@ -447,7 +447,7 @@ _Proposed by `betterauth-planner`._
 
 **Purpose.** Identity store binding for the Worker.
 
-**Version.** binding added to wrangler.jsonc; no existing D1 binding in services/worker-docs-reader/wrangler.jsonc today
+**Version.** binding added to wrangler.jsonc; no existing D1 binding in packages/docs-reader/wrangler.jsonc today
 
 **Risk.** Adds a second store to the mental model and is outside the existing pgbackrest/restic-to-R2 backup. Mitigated by the fact that the recoverable content is one user row - recovery is re-bootstrap, not restore.
 
@@ -497,7 +497,7 @@ _Proposed by `betterauth-planner`._
 
 ---
 
-### isOriginShareToken (in-repo, services/worker-docs-reader/src/reader.ts)
+### isOriginShareToken (in-repo, packages/docs-reader/src/reader.ts)
 
 **Docs.** https://github.com/
 
@@ -517,7 +517,7 @@ _Proposed by `betterauth-planner`._
 
 **Purpose.** Product chrome for the operator shell, Library and Share lifecycle: sidebar, command palette, rows, chips, cards, empty states, toasts. Provides the CSS-variable token contract the holocron identity is expressed in.
 
-**Notes.** Open Code: the CLI COPIES source into services/web/components/ui/. There is no npm component package. Every invocation must carry cwd=services/web - the repo root already has components.json (RN/Tailwind v3, style 'default', baseColor slate) and a bare root init would overwrite it and break the Expo app. Root tailwind.config.js globs ./app ./components ./lib only, so it will not reach services/web; the two Tailwind majors coexist because the packages are separate. Root uses the v3 hsl(var(--x)) convention - do not carry hsl() wrappers into the v4 file.
+**Notes.** Open Code: the CLI COPIES source into packages/web/components/ui/. There is no npm component package. Every invocation must carry cwd=packages/web - packages/mobile owns the Expo app's components.json (RN/Tailwind v3, style 'default', baseColor slate), and an init run from the repo root or from packages/mobile would write over config that package owns. packages/mobile's tailwind.config.js globs its own ./app ./components ./lib only, so it cannot reach packages/web; the two Tailwind majors coexist because the packages are separate. packages/mobile uses the v3 hsl(var(--x)) convention - do not carry hsl() wrappers into the v4 file.
 
 _Proposed by `shadcn-ai-elements-planner`._
 
@@ -529,7 +529,7 @@ _Proposed by `shadcn-ai-elements-planner`._
 
 **Purpose.** The chat surface only: Conversation scroller, Message frames, PromptInput with submit/stop, collapsed Tool rows, Reasoning disclosure. Renders the ChatStreamPart union after the reducer folds it into UIMessage shape.
 
-**Notes.** A shadcn REGISTRY, not a second design system - same Open Code mechanism, lands in services/web/components/ai-elements/. The npm 'ai-elements' package is the CLI, never an import source. Auto-installs shadcn/ui if absent, which is why shadcn init must run FIRST with the intended base and style, or the registry picks defaults for us. Markdown in chat arrives via MessageResponse (Streamdown, remark-gfm + math + katex) inside the message item - do not add a separate response/markdown item.
+**Notes.** A shadcn REGISTRY, not a second design system - same Open Code mechanism, lands in packages/web/components/ai-elements/. The npm 'ai-elements' package is the CLI, never an import source. Auto-installs shadcn/ui if absent, which is why shadcn init must run FIRST with the intended base and style, or the registry picks defaults for us. Markdown in chat arrives via MessageResponse (Streamdown, remark-gfm + math + katex) inside the message item - do not add a separate response/markdown item.
 
 _Proposed by `shadcn-ai-elements-planner`._
 
@@ -551,7 +551,7 @@ _Proposed by `shadcn-ai-elements-planner`._
 
 **Docs.** https://tailwindcss.com/docs
 
-**Purpose.** Token layer for services/web. @theme inline maps the CSS variables below to utilities.
+**Purpose.** Token layer for packages/web. @theme inline maps the CSS variables below to utilities.
 
 **Notes.** OPEN RISK: vinext is a Vite plugin, so Tailwind v4 normally integrates via @tailwindcss/vite, while shadcn's -t next template writes a PostCSS config. Resolve this at scaffold time, not at step 3. Root package stays on Tailwind v3 - untouched.
 

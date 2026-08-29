@@ -1,7 +1,7 @@
 ---
 stability: TEST_SPEC
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # E2E / Human Testing Criteria — Holocron Web Client
@@ -145,7 +145,7 @@ permanently red on finished work.
 
 | # | Criterion | AC | Type | Setup | Pass / fail |
 |---|---|---|---|---|---|
-| `T-READ-001` | Every remote absolute-URL image in a published document renders as a loaded figure on the public page. | AC-1 | `e2e-automated` | Real device platform on the Mac behind the real cloudflared tunnel; Postgres seeded via 'bun services/platform/src/cli/holo.ts seed:e2e --reset'; reader Worker deployed to a real Cloudflare  | PASS when the article contains one figure element per remote image (2 in the fixture) and each img reports naturalWidth > 0 after load with a 200 image/* response. FAIL on any figure whose img fails to load, any 0-width image, or  |
+| `T-READ-001` | Every remote absolute-URL image in a published document renders as a loaded figure on the public page. | AC-1 | `e2e-automated` | Real device platform on the Mac behind the real cloudflared tunnel; Postgres seeded via 'bun packages/platform/src/cli/holo.ts seed:e2e --reset'; reader Worker deployed to a real Cloudflare  | PASS when the article contains one figure element per remote image (2 in the fixture) and each img reports naturalWidth > 0 after load with a 200 image/* response. FAIL on any figure whose img fails to load, any 0-width image, or  |
 | `T-READ-002` | Document-local images render as figures with no literal image markdown and no dead anchors left in the body. | AC-2 | `e2e-automated` | Same as T-READ-001, using share-e2e-figures whose markdown references assets/a1, assets/a2 and assets/a3 stored as real rows in the device Postgres. | PASS when 3 document-local figures load with 200 responses from /d/<token>/assets/<id> AND document.body.innerText contains zero occurrences of '![' AND the article contains zero anchors with href='#'. FAIL on any one of the three |
 | `T-READ-003` | A dense chart enlarges beyond the reading measure on a phone viewport and can be dismissed three ways. | AC-3 | `e2e-automated` | Playwright at 390x844 with touch emulation against the deployed public page for share-e2e-figures. | PASS when tapping the 2400x1600 figure produces an overlay at >= 95% of viewport width, page scroll is locked while open, and each of outside-tap, close control and Escape restores the previous scroll position within 50px. FAIL if |
 | `T-READ-004` | The /d/<token>/assets/<id> route serves bytes only while the document is currently shared. | AC-4 | `api-contract` | Direct HTTP against the deployed Worker on the real docs hostname; share state toggled through the real platform API against real Postgres; no browser required. | PASS when the asset returns 200 with image/* and a body length equal to the stored row while public, AND returns a non-200 with zero image bytes within 60s of unsharing. FAIL if any image bytes are served after the 60s bound or if |

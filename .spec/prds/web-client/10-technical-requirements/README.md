@@ -1,6 +1,6 @@
 # Technical Requirements
 
-**Stability:** CONSTITUTION · **PRD version:** 1.0.0 · **Last validated:** 2026-08-28
+**Stability:** CONSTITUTION · **PRD version:** 1.0.1 · **Last validated:** 2026-08-29
 
 ## Section index
 
@@ -37,6 +37,7 @@ Present — this is a navigable-UI product. See [`10-routing.md`](./10-routing.m
 
 | Version | Date | Changes | Trigger |
 |---|---|---|---|
+| 1.0.1 | 2026-08-29 | Paths retargeted to the post-monorepo layout (`packages/web`, `packages/platform`, `packages/docs-reader`, `packages/mobile`). Architecture posture stance 2, the placement finding in components, the UI-infra `cwd` constraint, risk 20 and the e2e landmine were rewritten — the reason for `cwd=packages/web` is now package config ownership, not a collision with an Expo app at the repo root. | Assume monorepo migration landed |
 | 1.0.0 | 2026-08-28 | Initial technical requirements — 11 sections merged from five architecture lenses, two UI lenses and the harness constitution | New initiative |
 
 ## Parent

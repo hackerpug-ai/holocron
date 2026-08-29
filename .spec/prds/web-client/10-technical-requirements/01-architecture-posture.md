@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # Architecture Posture
@@ -14,13 +14,36 @@ The app envelops the existing `docs.holocrnlib.com`. Public routes live under a 
 group whose entire layout chain performs no session read and imports no auth module; the operator
 cockpit lives under `(app)`. The boundary is **structural**, not conditional.
 
-### 2. `services/web` is a nested workspace package — never the repo root
+### 2. `packages/web` is a first-class workspace package — never the repo root
 
-Verified: six of seven default Next scaffold paths are already occupied at the repo root by the
-Expo app (`app/`, `components/`, `components.json`, `global.css`, `tailwind.config.js`,
-`tsconfig.json`). Every `shadcn` and `ai-elements` CLI invocation carries `cwd=services/web`, and
-`services/web` must be added to `pnpm-workspace.yaml`, which today lists only `.` and
-`services/platform`.
+This PRD is written against the **post-monorepo** layout
+(`imp-migrate-repo-monorepo-structure-1788024693`, assumed landed): every installable module lives
+under `packages/*` and the repo root is a **thin pnpm workspace orchestrator** that owns no product
+code. Verified on branch
+`improvement/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure`:
+
+| Path | Package name (`pnpm --filter` target) | Contents |
+|---|---|---|
+| `packages/web` | `@holocron/web` | **This PRD's Next.js app.** Today a placeholder — `package.json` + README, no app code. |
+| `packages/mobile` | `@holocron/mobile` | The Expo client. Owns `app/`, `components/`, `components.json`, `global.css`, `tailwind.config.js`, `tsconfig.json`. Live Expo config is `app.config.cjs`. |
+| `packages/platform` | `platform` *(unscoped — not `@holocron/platform`)* | Hono/Mastra backend, Fulcrum in-process. Secrets at `packages/platform/config/secrets.yaml`. |
+| `packages/mcp` | `@holocron/mcp-unified` | MCP server. |
+| `packages/docs-reader` | `holocron-docs-reader` | The Worker this PRD's public reader replaces. |
+
+`pnpm-workspace.yaml` is `packages/*` only. Root `package.json` is private and delegates
+(`pnpm --filter @holocron/mobile …`). `.e2e/` (Maestro), `.maestro/`, `scripts/`, `tools/`,
+`tests/`, `design/`, `docs/` and `vitest.workspace.ts` stay at the repo root.
+
+`packages/web` therefore already exists as the private `@holocron/web` placeholder and is already
+enrolled by the `packages/*` glob; this PRD's work **replaces that placeholder with the real Next.js
+app**. Nothing is added to `pnpm-workspace.yaml`.
+
+The `cwd` discipline survives the migration for a different reason than before. Each package owns
+its own `tsconfig.json`, `tailwind.config`, `components.json` and `global.css`, so every `shadcn`
+and `ai-elements` CLI invocation carries `cwd=packages/web` — a root-level `init` writes a
+config the thin root has no business owning, and a run from `packages/mobile` would copy web
+components on top of the React Native tree. `packages/web/tsconfig.json` declares its own
+`paths { "@/*": ["./*"] }` resolving inside `packages/web` only.
 
 ### 3. vinext, not OpenNext
 

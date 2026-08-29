@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # Technical Risks
@@ -61,7 +61,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 | 9 | The device's search/list tool schemas cannot express filters or return the fields a Library row needs. This is a cross-repo dependency on the device team; if it slips, the Library ships with | **high** | medium | `trpc-planner` |
 | 10 | Agent-loop CPU on Workers. A multi-tool turn may exceed the plan's CPU budget mid-stream, dropping the connection with no resume path. | **high** | medium | `trpc-planner` |
 | 11 | The MCP gateway's enableDnsRebindingProtection + allowedOrigins may reject the Worker-to-tunnel call in practice even though it theoretically should pass (no Origin header on server-to-serve | **high** | medium | `aisdk-planner` |
-| 12 | Root-level node_modules/ai in this repo resolves to a stale v6 (6.0.116) while services/platform correctly has v7.0.28 via pnpm - if the new web client package isn't pinned and isolated corr | **high** | medium | `aisdk-planner` |
+| 12 | Root-level node_modules/ai in this repo resolves to a stale v6 (6.0.116) while packages/platform correctly has v7.0.28 via pnpm - if the new web client package isn't pinned and isolated corr | **high** | medium | `aisdk-planner` |
 | 13 | vinext is beta and `npx vinext check` has not been evidenced as run against this app's actual shape (streaming tRPC, middleware, custom domain, server-only bindings). | **high** | medium | `cloudflare-workers-planner` |
 | 14 | Workers plan (Free vs Paid) is unconfirmed for this account. Free's 10ms CPU/request will not reliably support an AI SDK agent loop with MCP tool marshalling. | **high** | medium | `cloudflare-workers-planner` |
 | 15 | The negative-matcher bug: a guard written as /((?!api|_next|d).*) silently ungates every route beginning with d, or a variant gates /d/*. | **high** | medium | `betterauth-planner` |
@@ -69,7 +69,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 | 17 | The MCP transport's enableDnsRebindingProtection: true with allowedOrigins: [request.url origin] may reject Worker-to-device calls if the runtime attaches an Origin header. | **high** | low | `trpc-planner` |
 | 18 | MCP transport's allowedOrigins/DNS-rebinding-protection setting is unverified for server-to-server Worker-to-device calls; if it silently rejects requests, the entire agent tool surface brea | **high** | low | `cloudflare-workers-planner` |
 | 19 | The CF Access service token leaks (into a Client Component, a log line, a vars entry, or an error page). | **high** | low | `betterauth-planner` |
-| 20 | A scaffold or CLI run from the repo root writes Next/shadcn files over the Expo app's app/, components/, components.json, global.css or tailwind.config.js. | **medium** | high | `nextjs-planner` |
+| 20 | A scaffold or CLI run from the repo root or from packages/mobile writes Next/shadcn files over the Expo app's app/, components/, components.json, global.css or tailwind.config.js. | **medium** | high | `nextjs-planner` |
 | 21 | Every turn opens a fresh MCP client (Workers are stateless), paying initialize + tools/list over the tunnel before the first token. On a sleeping or slow device this is dead time the operato | **medium** | high | `trpc-planner` |
 | 22 | The BFF reuses the mobile app's HOLO_KEY_RN and the shared HOLO_KEY_MCP. Revoking web access revokes the phone; an abuse or leak cannot be attributed to a surface; /api/chat-runs scope-based | **medium** | high | `trpc-planner` |
 | 23 | @ai-sdk/mcp's documented lack of notification support means the gateway's forwarded MCP progress notifications will never reach the web agent, even though the design brief describes them as  | **medium** | high | `aisdk-planner` |
@@ -101,7 +101,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 
 **Impact** high · **Likelihood** high · proposed by `nextjs-planner`
 
-**Mitigation.** Scope it explicitly as a prerequisite in build-order step 1: content-negotiate on Accept: application/json in services/platform/src/http/hono-app.ts around line 148 and return c.json(article). selectPublicArticle() already produces the exact ArticleDoc shape. Keep the HTML branch alive so worker-docs-reader retires after the Next route is verified against production data, not before.
+**Mitigation.** Scope it explicitly as a prerequisite in build-order step 1: content-negotiate on Accept: application/json in packages/platform/src/http/hono-app.ts around line 148 and return c.json(article). selectPublicArticle() already produces the exact ArticleDoc shape. Keep the HTML branch alive so packages/docs-reader retires after the Next route is verified against production data, not before.
 
 ### 2. BetterAuth's settled requirement ('tables in platform Postgres') has no existing TCP-capable path from the Worker to the device - only an HTTP-only Access app exists today. Hyperdrive can't be wired to nothing.
 
@@ -163,7 +163,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 
 **Mitigation.** First implementation task must be a real end-to-end probe: a Worker (or wrangler dev locally) calling createMCPClient against the real tunnel URL and confirming tools/list succeeds, before any agent-loop code is built on top of it.
 
-### 12. Root-level node_modules/ai in this repo resolves to a stale v6 (6.0.116) while services/platform correctly has v7.0.28 via pnpm - if the new web client package isn't pinned and isolated correctly, tooling could silently pick up v6 APIs (system, fullStream, parameters) during implementation.
+### 12. Root-level node_modules/ai in this repo resolves to a stale v6 (6.0.116) while packages/platform correctly has v7.0.28 via pnpm - if the new web client package isn't pinned and isolated correctly, tooling could silently pick up v6 APIs (system, fullStream, parameters) during implementation.
 
 **Impact** high · **Likelihood** medium · proposed by `aisdk-planner`
 
@@ -211,11 +211,11 @@ comment implies a free *zone* plan, which is a different setting and does not an
 
 **Mitigation.** Wrangler secrets only. The existing 'Never log Access headers' rule carries into the Next code. Add the credential names to the verify:no-server-secrets-in-client gate. Note the compensating control that already exists: the origin enforces is_public independently, so a leaked token does not by itself unlock private documents through the public reader path - but it does unlock /api/*.
 
-### 20. A scaffold or CLI run from the repo root writes Next/shadcn files over the Expo app's app/, components/, components.json, global.css or tailwind.config.js.
+### 20. A scaffold or CLI run from the repo root or from packages/mobile writes Next/shadcn files over the Expo app's app/, components/, components.json, global.css or tailwind.config.js.
 
 **Impact** medium · **Likelihood** high · proposed by `nextjs-planner`
 
-**Mitigation.** FR-NEXT-01. Every shadcn and ai-elements CLI invocation is documented with cwd=services/web, and services/web is added to pnpm-workspace.yaml before any scaffolding runs.
+**Mitigation.** FR-NEXT-01. Every shadcn and ai-elements CLI invocation is documented with cwd=packages/web and invoked through pnpm --filter @holocron/web so the cwd is structural rather than remembered. The monorepo migration already enrolls packages/web via the packages/* glob, so no pnpm-workspace.yaml edit precedes scaffolding; the first scaffold replaces the private @holocron/web placeholder in place.
 
 ### 21. Every turn opens a fresh MCP client (Workers are stateless), paying initialize + tools/list over the tunnel before the first token. On a sleeping or slow device this is dead time the operator reads as a hang.
 
@@ -239,7 +239,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 
 **Impact** medium · **Likelihood** high · proposed by `aisdk-planner`
 
-**Mitigation.** Track token spend per turn from day one (reuse the existing budget-ledger/telemetry pattern in services/platform/src/inference/ conceptually, even though that code itself stays mobile-only); consider a future tunnel route exposing LiteLLM if cost becomes material - explicitly out of MVP.
+**Mitigation.** Track token spend per turn from day one (reuse the existing budget-ledger/telemetry pattern in packages/platform/src/inference/ conceptually, even though that code itself stays mobile-only); consider a future tunnel route exposing LiteLLM if cost becomes material - explicitly out of MVP.
 
 ### 25. If co-located in device Postgres: the new tables land outside the zero_pub publication and outside the holocron_app role grants.
 
@@ -281,7 +281,7 @@ comment implies a free *zone* plan, which is a different setting and does not an
 
 **Impact** medium · **Likelihood** medium · proposed by `trpc-planner`
 
-**Mitigation.** Derive BFF output schemas FROM the device's exported Zod schemas (services/platform/src/tools/schemas/*.ts) where the shape is already precise (deepResearchResultOutputSchema, shareDocumentOutputSchema are exact and reusable). Hand-write only where the device returns an opaque record (get_document, list_documents), and add a contract test that calls the real device and parses with the BFF schema.
+**Mitigation.** Derive BFF output schemas FROM the device's exported Zod schemas (packages/platform/src/tools/schemas/*.ts) where the shape is already precise (deepResearchResultOutputSchema, shareDocumentOutputSchema are exact and reusable). Hand-write only where the device returns an opaque record (get_document, list_documents), and add a contract test that calls the real device and parses with the BFF schema.
 
 ### 32. Losing the accepted-cost boundary: without turn-boundary persistence (FR-BFF-10) a reload discards the entire conversation, not just the in-flight turn - a much larger loss than the one recorded as accepted in the brief.
 

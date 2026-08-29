@@ -1,6 +1,6 @@
 ---
 title: Holocron Web Client
-version: 1.0.0
+version: 1.0.1
 scope_posture: full
 pr_sequencing: true
 base_branches: []
@@ -28,12 +28,12 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.0 |
+| Version | 1.0.1 |
 | Scope Posture | Full feature (default) |
 | PR Sequencing | Enabled |
 | Base Branches | None (lands on trunk) |
 | Created | 2026-08-28 |
-| Last Updated | 2026-08-28 |
+| Last Updated | 2026-08-29 |
 
 ## Document Index
 
@@ -70,24 +70,32 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 
 ## Blocking prerequisites — read before planning sprints
 
-Four things must be true before the first feature sprint can close. Three were verified against the
-live repo during authoring; all four are detailed in
+Five things must be true before the first feature sprint can close. Prerequisites 2–5 were verified
+against the live repo during authoring and are detailed in
 [`10-technical-requirements/08-technical-risks.md`](./10-technical-requirements/08-technical-risks.md).
 
-1. **`npx vinext check`** — vinext is beta and either supports this app shape or does not.
-2. **Provision browser e2e for the web surface** — Reality Gate: no `@playwright/test`, cypress or
+1. **The monorepo migration has landed** — this PRD is written against the post-migration layout of
+   `imp-migrate-repo-monorepo-structure-1788024693`: every module under `packages/*`
+   (`packages/web`, `packages/mobile`, `packages/platform`, `packages/mcp`, `packages/docs-reader`)
+   with the repo root a thin pnpm workspace orchestrator. **All Next.js web work in this PRD lands
+   in `packages/web`**, which already exists as the private `@holocron/web` placeholder; the server
+   API stays in `packages/platform`. Until that sprint completes, every path in this PRD's technical
+   requirements points at a tree that does not exist yet.
+2. **`npx vinext check`** — vinext is beta and either supports this app shape or does not.
+3. **Provision browser e2e for the web surface** — Reality Gate: no `@playwright/test`, cypress or
    puppeteer exists anywhere; `.e2e/` holds only `maestro/`. Fail-closed; becomes a leading INFRA
    sprint every feature sprint depends on.
-3. **Teach `seed:e2e` to carry an image asset** — the seeder has zero `document_assets`, zero blobs
+4. **Teach `seed:e2e` to carry an image asset** — the seeder has zero `document_assets`, zero blobs
    and zero image markdown, so **the defect this PRD exists to fix is currently untestable**. Attach
    to an *existing* seeded document: `documents === 17` is asserted three ways.
-4. **Make the origin return markdown** — `GET /article/:shareToken` calls `articleHtml()`
+5. **Make the origin return markdown** — `GET /article/:shareToken` calls `articleHtml()`
    unconditionally, so the Server Component has nothing to render from. ~5 lines, currently unowned.
 
 ## Version History
 
 | Version | Date | Changes | Trigger |
 |---------|------|---------|---------|
+| 1.0.1 | 2026-08-29 | Retargeted every path to the post-monorepo layout: the Next.js web client is `packages/web` (replacing the `@holocron/web` placeholder), `services/platform` → `packages/platform`, `services/worker-docs-reader` → `packages/docs-reader`, and the Expo app → `packages/mobile`. Rewrote the CLI-`cwd` rationale, which no longer rests on the repo root being the Expo app, and added the migration as blocking prerequisite 1. | Assume `imp-migrate-repo-monorepo-structure-1788024693` landed |
 | 1.0.0 | 2026-08-28 | Initial PRD — 5 groups, 20 use cases, 88 acceptance criteria, 11 technical-requirement sections, 98 test criteria, 133 scenarios | New initiative |
 
 ## Next Steps

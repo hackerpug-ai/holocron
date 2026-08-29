@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # Data Schema
@@ -32,7 +32,7 @@ four-table identity schema, whose location is an open decision (see §Technical 
 | **account** | BetterAuth core schema | `betterauth-planner` |
 | **verification** | BetterAuth core schema | `betterauth-planner` |
 | **Session cookie pair** | Set by the BetterAuth handler on sign-in; cleared on sign-out | `betterauth-planner` |
-| **documents.is_public / documents.share_token** | Existing device Postgres - services/platform/src/db/schema/documents.ts | `betterauth-planner` |
+| **documents.is_public / documents.share_token** | Existing device Postgres - packages/platform/src/db/schema/documents.ts | `betterauth-planner` |
 
 ---
 
@@ -49,7 +49,7 @@ four-table identity schema, whose location is an open decision (see §Technical 
 - `createdAt`
 - `researchType`
 
-**Notes.** Exactly the existing exported ArticleDoc type in services/platform/src/http/article.ts, already produced by selectPublicArticle(). The Server Component needs the markdown; it cannot and must not parse the origin's HTML back into an AST.
+**Notes.** Exactly the existing exported ArticleDoc type in packages/platform/src/http/article.ts, already produced by selectPublicArticle(). The Server Component needs the markdown; it cannot and must not parse the origin's HTML back into an AST.
 
 ---
 
@@ -348,7 +348,7 @@ four-table identity schema, whose location is an open decision (see §Technical 
 
 ## documents.is_public / documents.share_token
 
-**Proposed by** `betterauth-planner`. **Source:** Existing device Postgres - services/platform/src/db/schema/documents.ts
+**Proposed by** `betterauth-planner`. **Source:** Existing device Postgres - packages/platform/src/db/schema/documents.ts
 
 **Properties**
 

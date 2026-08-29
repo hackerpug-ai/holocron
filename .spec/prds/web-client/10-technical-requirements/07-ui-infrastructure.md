@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-28
-prd_version: 1.0.0
+last_validated: 2026-08-29
+prd_version: 1.0.1
 ---
 
 # UI Infrastructure
@@ -19,8 +19,9 @@ shadcn/ui and AI Elements are **not importable packages**. Their CLIs copy sourc
 you edit the copies; AI Elements is a shadcn *registry*, not a second design system. The holocron
 identity is implemented **by editing those copies** — there is no upstream to fight.
 
-Every CLI invocation carries `cwd=services/web`. A root-level `init` overwrites the Expo app's
-`components.json` and copies Tailwind-v4 source onto a Tailwind-v3 React Native component tree.
+Every CLI invocation carries `cwd=packages/web`. A root-level `init` writes a `components.json` the
+thin workspace root has no business owning; a run from `packages/mobile` copies Tailwind-v4 source
+onto the Tailwind-v3 React Native component tree.
 
 ## Colour tokens
 
@@ -286,8 +287,8 @@ Images are the reason this rewrite exists, so figures get real design rather tha
 | AI Elements Image | It renders AI SDK Experimental_GeneratedImage from generateImage as a data URL. Document figures are markdown images served from the origin asset route. Wrong component for the job and it would pull an unused dependency into the reader. |
 | AI Elements Task for the research card | Its shape is a title plus an item/file list; the truth model is round / subQuestion / findings progress fields from research.byId. shadcn card + progress + badge fits the real data, and the card must render from the record, not from anything stream-shaped. |
 | MessageBranch / branch selectors, ConversationDownload, Suggestions | Out of MVP. MessageBranch in particular implies re-generation semantics the BFF does not have. |
-| A root-level shadcn init (or any CLI run from the repo root) | It overwrites the Expo app's components.json and copies Tailwind-v4 Open Code into a Tailwind-v3 RN component tree. Six of seven default paths collide. |
-| Any import of shadcn/ui or AI Elements as an npm package | Both are Open Code. The CLIs copy source into services/web/components/{ui,ai-elements}/ and you edit the copies. There is no package to import from, and the holocron identity is implemented by editing those copies - there is no upstream to fight. |
+| A root-level shadcn init (or any CLI run from the repo root or from packages/mobile) | The repo root is a thin workspace orchestrator that owns no product code, so a root init writes config nothing consumes; run from packages/mobile it copies Tailwind-v4 Open Code into the Expo app's Tailwind-v3 RN component tree, colliding with its components.json, global.css and tailwind.config.js. |
+| Any import of shadcn/ui or AI Elements as an npm package | Both are Open Code. The CLIs copy source into packages/web/components/{ui,ai-elements}/ and you edit the copies. There is no package to import from, and the holocron identity is implemented by editing those copies - there is no upstream to fight. |
 | A preview mode / preview component for share | Preview is a link that opens the real public URL in a new tab. It is the cheapest possible guarantee that operator and stranger see identical output, and one less surface that can drift. |
 | A third markdown renderer | Chat uses MessageResponse (Streamdown, ships with the message item); documents use the shared DocumentBody. Adding react-markdown or similar in the Library reader reintroduces exactly the operator/stranger divergence that made every shared document text-only. |
 | next-themes, a theme toggle, or any 'use client' file under app/(public)/** other than error.tsx | The public page respects prefers-color-scheme in CSS only and must paint text first off the edge cache. |
@@ -348,11 +349,11 @@ Images are the reason this rewrite exists, so figures get real design rather tha
 
 ## UI constraints
 
-### Every shadcn and ai-elements CLI invocation runs with cwd=services/web.
+### Every shadcn and ai-elements CLI invocation runs with cwd=packages/web.
 
-**Rationale.** Six of seven default scaffold paths are already occupied at the repo root by the Expo app (app/, components/, components.json, global.css, tailwind.config.js, tsconfig.json). A bare root init overwrites the RN components.json and copies Open Code on top of the RN component tree.
+**Rationale.** Post-migration every package under packages/* owns its own app/, components/, components.json, global.css, tailwind config and tsconfig.json, and the repo root owns none of them. A bare root init writes config the thin orchestrator does not consume; the same init run from packages/mobile overwrites the Expo app's components.json and copies Open Code on top of the RN component tree.
 
-**Enforced by.** Add "ui:add": "shadcn@latest add" and "ai:add": "ai-elements@latest add" to services/web/package.json and invoke via pnpm --filter, so the cwd is structural. Add services/web to pnpm-workspace.yaml packages. services/web/tsconfig.json declares its own paths { "@/*": ["./*"] } and must not inherit the root's, which points at the RN tree.
+**Enforced by.** Add "ui:add": "shadcn@latest add" and "ai:add": "ai-elements@latest add" to packages/web/package.json and invoke via pnpm --filter @holocron/web, so the cwd is structural. No pnpm-workspace.yaml edit is needed — the migration already set it to packages/* only, which enrolls packages/web. packages/web/tsconfig.json declares its own paths { "@/*": ["./*"] } resolving inside packages/web; it must not reach packages/mobile.
 
 ### No import from components/ai-elements/** inside app/(public)/** or inside DocumentBody.
 
