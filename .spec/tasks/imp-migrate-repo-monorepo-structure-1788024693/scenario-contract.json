@@ -1,0 +1,246 @@
+{
+  "fixtures": {
+    "reproduction": {
+      "description": "pnpm-workspace.yaml lists only \".\" and \"services/platform\". AGENTS.md opens at ## Network Continuity with no Package map. Four package.json trees: ./package.json (Expo holocron), services/platform/package.json, holocron-mcp/package.json, services/worker-docs-reader/package.json. No packages/ directory. No services/web. Fulcrum is in-process (holo.ts instantiation = 'fulcrum'). 175 external services/platform callers.",
+      "seed_method": "cli",
+      "records": [
+        "pnpm-workspace.yaml packages: \".\" and \"services/platform\"",
+        "AGENTS.md:7 ## Network Continuity",
+        "no packages/ directory",
+        "holocron-mcp not a workspace member"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "scenario": {
+        "id": "AC-1",
+        "primary": true,
+        "test_tier": "integration",
+        "verification_service": "pnpm",
+        "negative_control": {
+          "would_fail_if": [
+            "fix reverted (defect reproduces)",
+            "stubbed/mocked dependency",
+            "empty packages/ directory left in place",
+            "path rewrite omitted so services/platform still hardcoded"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "reproduction",
+            "action": {
+              "steps": [
+                "git-mv existing package trees into packages/{mobile,platform,mcp,docs-reader}",
+                "add packages/web placeholder package.json",
+                "run pnpm install from repo root and pnpm list -r --depth 0"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`packages/mobile/package.json` exists",
+                "`packages/platform/package.json` exists",
+                "`packages/mcp/package.json` exists",
+                "`packages/docs-reader/package.json` exists",
+                "`packages/web/package.json` exists",
+                "`pnpm list -r --depth 0` reports 5 workspace packages"
+              ],
+              "must_not_observe": [
+                "empty packages/ directory",
+                "`services/platform/package.json` still at old path",
+                "no change from start state"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "scenario": {
+        "id": "AC-2",
+        "primary": true,
+        "test_tier": "integration",
+        "verification_service": "expo",
+        "negative_control": {
+          "would_fail_if": [
+            "fix reverted (defect reproduces)",
+            "stubbed/mocked dependency",
+            "empty packages/ directory left in place",
+            "path rewrite omitted so services/platform still hardcoded"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "reproduction",
+            "action": {
+              "steps": [
+                "git-mv Expo app/, components/, hooks/, lib/, screens/, assets/, app.json, eas.json, metro.config.cjs, babel.config.cjs into packages/mobile",
+                "leave a thin root package.json that only orchestrates pnpm workspace scripts"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`packages/mobile/app.json` exists",
+                "`packages/mobile/eas.json` exists",
+                "`packages/mobile/metro.config.cjs` exists",
+                "root `package.json` private workspace orchestrator with no expo start as its only identity"
+              ],
+              "must_not_observe": [
+                "`app.json` remaining at repo root",
+                "empty packages/mobile",
+                "no change from start state"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "scenario": {
+        "id": "AC-3",
+        "primary": true,
+        "test_tier": "integration",
+        "verification_service": "pnpm",
+        "negative_control": {
+          "would_fail_if": [
+            "fix reverted (defect reproduces)",
+            "stubbed/mocked dependency",
+            "empty packages/ directory left in place",
+            "path rewrite omitted so services/platform still hardcoded"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "reproduction",
+            "action": {
+              "steps": [
+                "rewrite pnpm-workspace.yaml to packages/* only",
+                "refresh pnpm-lock.yaml with a real pnpm install from the repo root"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "pnpm-workspace.yaml contains `\"packages/*\"`",
+                "`pnpm install --frozen-lockfile` from root exits 0",
+                "`pnpm list -r --depth 0` links mobile, platform, mcp, docs-reader, web"
+              ],
+              "must_not_observe": [
+                "workspace member `\"services/platform\"`",
+                "empty packages glob matching 0 folders",
+                "no change from start state"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "scenario": {
+        "id": "AC-4",
+        "primary": true,
+        "test_tier": "integration",
+        "verification_service": "filesystem",
+        "negative_control": {
+          "would_fail_if": [
+            "fix reverted (defect reproduces)",
+            "stubbed/mocked dependency",
+            "empty packages/ directory left in place",
+            "path rewrite omitted so services/platform still hardcoded"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "reproduction",
+            "action": {
+              "steps": [
+                "insert Package map section at top of AGENTS.md listing the five surfaces with on-disk paths"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "AGENTS.md has a `## Package map` section before Secret index",
+                "Package map lists `packages/mobile`",
+                "Package map lists `packages/platform` and names `Fulcrum` as in-process inside platform",
+                "Package map lists `packages/mcp`",
+                "Package map lists `packages/web`"
+              ],
+              "must_not_observe": [
+                "AGENTS.md first heading after title is still `## Network Continuity` with no Package map",
+                "empty Package map",
+                "no change from start state"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "scenario": {
+        "id": "AC-5",
+        "primary": true,
+        "test_tier": "integration",
+        "verification_service": "bun",
+        "negative_control": {
+          "would_fail_if": [
+            "fix reverted (defect reproduces)",
+            "stubbed/mocked dependency",
+            "empty packages/ directory left in place",
+            "path rewrite omitted so services/platform still hardcoded",
+            "stubbed bun entrypoint",
+            "mocked docker COPY"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "reproduction",
+            "action": {
+              "steps": [
+                "run path rewrite for services/platform \u2192 packages/platform and holocron-mcp \u2192 packages/mcp",
+                "start platform via bun packages/platform/src/index.ts",
+                "confirm Expo app.json lives under packages/mobile"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`packages/platform/Dockerfile` COPY line contains `packages/platform/package.json`",
+                "`bin/holo` default HOLO_TS contains `packages/platform/src/cli/holo.ts`",
+                "`bun packages/platform/src/index.ts` process starts (health bind or equivalent log)",
+                "expo config resolved from `packages/mobile/app.json`"
+              ],
+              "must_not_observe": [
+                "`COPY services/platform/package.json` still in Dockerfile",
+                "empty rewrite leaving old paths",
+                "no change from start state"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
