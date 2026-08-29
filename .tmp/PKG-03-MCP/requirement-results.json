@@ -1,0 +1,26 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-03-MCP/ac-1-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-03-MCP/ac-3-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-03-MCP/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-03-MCP/tc-2-output.txt"
+  }
+]

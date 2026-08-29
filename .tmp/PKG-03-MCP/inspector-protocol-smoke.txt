@@ -1,0 +1,16 @@
+SMOKE_FAIL MCP error -32000: Connection closed
+STDERR_TAIL=54 | function resolveApiKey(explicit?: string): string {
+55 |   const key =
+56 |     explicit ?? process.env.HOLO_KEY_MCP ?? process.env.MCP_API_KEY ?? '';
+57 |   const trimmed = key.trim();
+58 |   if (!trimmed) {
+59 |     throw new Error('PLATFORM_UNREACHABLE: HOLO_KEY_MCP is not configured');
+               ^
+error: PLATFORM_UNREACHABLE: HOLO_KEY_MCP is not configured
+      at resolveApiKey (/Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp/src/platform/mcp-client.ts:59:11)
+      at new PlatformMcpClient (/Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp/src/platform/mcp-client.ts:74:19)
+      at getPlatformClient (/Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp/src/platform/mcp-client.ts:198:17)
+      at /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp/src/mastra/stdio.ts:87:24
+
+Bun v1.2.19 (macOS arm64)
+

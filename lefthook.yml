@@ -9,6 +9,6 @@ pre-commit:
     root-test:
       run: pnpm test:unit
     mcp-lint:
-      glob: "holocron-mcp/**/*.{ts,js,json}"
-      root: holocron-mcp
+      glob: "packages/mcp/**/*.{ts,js,json}"
+      root: packages/mcp
       run: pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error {staged_files}

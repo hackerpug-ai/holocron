@@ -46,12 +46,16 @@ export function loadEnv(): Env {
     resolve(process.cwd(), "../.."),
     resolve(dirname(new URL(import.meta.url).pathname), "../.."),
     resolve(dirname(new URL(import.meta.url).pathname), "../../.."),
+    resolve(dirname(new URL(import.meta.url).pathname), "../../../.."),
   ];
 
+  // Prefer monorepo root (pnpm-workspace.yaml) after packages/mcp relocate; else .env roots.
   const projectRoot =
+    candidateRoots.find((candidate) => existsSync(join(candidate, "pnpm-workspace.yaml"))) ??
     candidateRoots.find((candidate) => {
       return existsSync(join(candidate, ".env.local")) || existsSync(join(candidate, ".env"));
-    }) ?? process.cwd();
+    }) ??
+    process.cwd();
 
   const loadEnvFile = (filePath: string) => {
     if (!existsSync(filePath)) return;
@@ -96,10 +100,13 @@ export function loadEnv(): Env {
   loadEnvFile(envLocalPath);
 
   const secretsCandidates = [
+    process.env.HOLO_SECRETS_PATH,
+    process.env.HOLOCRON_SECRETS_PATH,
     join(projectRoot, "services/platform/config/secrets.yaml"),
     resolve(projectRoot, "../services/platform/config/secrets.yaml"),
+    resolve(projectRoot, "../../services/platform/config/secrets.yaml"),
     resolve(projectRoot, "services/platform/config/secrets.yaml"),
-  ];
+  ].filter((p): p is string => typeof p === "string" && p.length > 0);
   for (const secretsPath of secretsCandidates) {
     if (!existsSync(secretsPath)) continue;
     const contents = readFileSync(secretsPath, "utf8");
@@ -131,13 +138,13 @@ export function loadEnv(): Env {
     process.env.HOLO_KEY_MCP = process.env.MCP_API_KEY;
   }
 
+  const holoKeyMcp =
+    normalizeEnvValue(process.env.HOLO_KEY_MCP) || normalizeEnvValue(process.env.MCP_API_KEY);
   const envWithFallback = {
     ...process.env,
     HOLO_DEPLOY_KEY: normalizeEnvValue(process.env.HOLO_DEPLOY_KEY) || "",
-    HOLO_KEY_MCP:
-      normalizeEnvValue(process.env.HOLO_KEY_MCP) ||
-      normalizeEnvValue(process.env.MCP_API_KEY) ||
-      "",
+    // optional: omit empty string so Zod `.optional()` accepts absence
+    ...(holoKeyMcp ? { HOLO_KEY_MCP: holoKeyMcp } : { HOLO_KEY_MCP: undefined }),
     OPENAI_API_KEY:
       normalizeEnvValue(process.env.HOLOCRON_OPENAI_API_KEY) ||
       normalizeEnvValue(process.env.OPENAI_API_KEY) ||

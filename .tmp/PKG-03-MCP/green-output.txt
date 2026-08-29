@@ -1,0 +1,24 @@
+=== PKG-03-MCP GREEN ===
+PASS: TC-1 / AC-1 — packages/mcp/package.json exists; holocron-mcp/package.json gone
+path_verify exit=0
+EXIT_CODE:0
+
+PASS: TC-2 / AC-3 — @holocron/mcp-unified is a pnpm workspace member after real install
+@holocron/mcp-unified@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp
+EXIT_CODE:0
+
+PASS: pnpm --filter @holocron/mcp-unified run type-check (tsgo --noEmit)
+
+> @holocron/mcp-unified@1.0.0 type-check /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP/packages/mcp
+> tsgo --noEmit
+
+type-check exit=0
+
+PASS: root pnpm tsgo --noEmit after exclude rewrite packages/mcp
+root-typecheck exit=0
+
+Dual-lock: packages/mcp/bun.lock retained; pnpm-lock.yaml refreshed for membership.
+kb:ceiling: pnpm @mastra/core@1.50.1 / @mastra/mcp@1.13.1 vs bun.lock 1.10.0 / 1.1.0
+Path rewrites for root gates: tsconfig exclude, biome ignore, lefthook mcp-lint → packages/mcp
+All task verification commands PASSED
+EXIT_CODE:0

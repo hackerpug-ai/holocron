@@ -1,0 +1,25 @@
+harvest-evidence: task=PKG-03-MCP manifest=.tmp/PKG-03-MCP/verify-manifest.json
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test (suite): pnpm test
+  requirements: 4
+  [AC-1] test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json
+  [AC-3] pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'
+  [TC-1] test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json
+  [TC-2] pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'
+  archived prior summary → verification-summary.prev-56d20bdc8aa9.json
+
+harvest-evidence: done
+  task:       PKG-03-MCP
+  commit:     b218e5d6
+  typecheck:  exit=0
+  lint:       exit=0 warnings=593
+  evidence:   4 pass, 0 fail (of 4 requirements)
+  output:     .tmp/PKG-03-MCP/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/PKG-03-MCP/red-output.txt                 (if requires_red_evidence)
+    .tmp/PKG-03-MCP/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/PKG-03-MCP/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/PKG-03-MCP/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/PKG-03-MCP/pre-existing-issues.md         (if pre-existing failures)
