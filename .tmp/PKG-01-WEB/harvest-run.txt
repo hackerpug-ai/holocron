@@ -4,13 +4,14 @@ harvest-evidence: task=PKG-01-WEB manifest=.tmp/PKG-01-WEB/verify-manifest.json
   test (suite): pnpm test
   requirements: 4
   [AC-1] python3 -c "import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True"
-  [AC-3] rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'
+  [AC-3] rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'
   [TC-1] python3 -c "import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True"
-  [TC-2] rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'
+  [TC-2] rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'
+  archived prior summary → verification-summary.prev-83ed3b097485.json
 
 harvest-evidence: done
   task:       PKG-01-WEB
-  commit:     9487930a
+  commit:     46b691a2
   typecheck:  exit=0
   lint:       exit=0 warnings=593
   evidence:   4 pass, 0 fail (of 4 requirements)

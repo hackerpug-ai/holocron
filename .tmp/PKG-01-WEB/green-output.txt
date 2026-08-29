@@ -1,8 +1,10 @@
-=== PKG-01-WEB GREEN (task verify commands) ===
-PASS: TC-1 / AC-1 — packages/web/package.json name=@holocron/web private=true
-{'name': '@holocron/web', 'private': True, 'version': '0.0.0', 'description': 'Placeholder for the future Holocron web client. No product app code yet.', 'dependencies': {'@holocron/web-runtime': 'npm:ms@2.1.3'}}
-PASS: TC-2 / AC-3 — packages/* enrolled; @holocron/web linked
+=== PKG-01-WEB GREEN (FIX-PKG-01-WEB-ALIAS — honest empty placeholder) ===
+PASS: TC-1 / AC-1 — packages/web/package.json name=@holocron/web private=true; no dependencies
+=== AC-1 / TC-1 GREEN (honest empty placeholder; no listing-hack) ===
+{'name': '@holocron/web', 'private': True, 'version': '0.0.0', 'description': 'Placeholder for the future Holocron web client. No product app code yet.'}
+exit=0
+PASS: TC-2 / AC-3 — packages/* enrolled; @holocron/web@0.0.0 under packages/web (not web-runtime / npm:ms)
 5:  - "packages/*"
-/Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/node_modules/@holocron/web-runtime
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/packages/web (PRIVATE)
 All task verification commands PASSED
 EXIT_CODE:0

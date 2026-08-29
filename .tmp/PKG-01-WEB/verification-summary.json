@@ -1,7 +1,7 @@
 {
   "task_id": "PKG-01-WEB",
-  "timestamp": "2026-08-29T20:42:34Z",
-  "commit_sha": "9ae231a5e07ac95a6f565f3af2fee88a65f6fd0f",
+  "timestamp": "2026-08-29T21:21:07Z",
+  "commit_sha": "46b691a26825664ec01f287457ccf8030ec490fc",
   "typecheck": {
     "exit_code": 0
   },
@@ -15,19 +15,13 @@
       "id": "AC-1",
       "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
       "exit_code": 0,
-      "output_file": ".tmp/PKG-01-WEB/ac-1-output.txt",
-      "seeded_value": "packages/web/package.json name=@holocron/web private=true version=0.0.0 description='Placeholder for the future Holocron web client. No product app code yet.' (no app source beyond package.json+README)",
-      "red_against_start_file": ".tmp/PKG-01-WEB/AC-1-red-against-start.txt",
-      "green_file": ".tmp/PKG-01-WEB/AC-1-green.txt"
+      "output_file": ".tmp/PKG-01-WEB/ac-1-output.txt"
     },
     {
       "id": "AC-3",
-      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'",
       "exit_code": 0,
-      "output_file": ".tmp/PKG-01-WEB/ac-3-output.txt",
-      "seeded_value": "pnpm-workspace.yaml contains packages/*; pnpm list -r --depth 0 reports @holocron/web@0.0.0 at packages/web (PRIVATE); existing members . and services/platform remain",
-      "red_against_start_file": ".tmp/PKG-01-WEB/AC-3-red-against-start.txt",
-      "green_file": ".tmp/PKG-01-WEB/AC-3-green.txt"
+      "output_file": ".tmp/PKG-01-WEB/ac-3-output.txt"
     },
     {
       "id": "TC-1",
@@ -37,7 +31,7 @@
     },
     {
       "id": "TC-2",
-      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'",
       "exit_code": 0,
       "output_file": ".tmp/PKG-01-WEB/tc-2-output.txt"
     }
@@ -48,7 +42,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.2",
-    "generated_at": "2026-08-29T20:42:34Z",
+    "generated_at": "2026-08-29T21:21:07Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -56,11 +50,11 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "273e1d00d786bdf3483140c0bd72358a8cb2daad153b1f41938375424d50798d"
+        "sha256": "004df5d64037ad99740d5cec008c2669d30f42a39a77e39fce4aa60a05572a9b"
       },
       {
         "path": "test-output.txt",
-        "sha256": "67d0225d0f436932b29a3b8e7819664e23d3f3b6289b54ddd38182adbfb9c2f0"
+        "sha256": "cf900f3fff180115fc8b502ba2fdbe15c84bbed37282fef3b530b9bfe51bfde5"
       },
       {
         "path": "ac-1-output.txt",
@@ -68,7 +62,7 @@
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "e5180d2d236e6536760a257dbf28acdd7c0e9283bd7be2702748ffb7d4f83764"
+        "sha256": "7e6360668d4c887df9981efc54bea083c3254794590c9eb314f92d747074515c"
       },
       {
         "path": "tc-1-output.txt",
@@ -76,7 +70,7 @@
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "7c670d59573aaf4babba71c2b1c1b3d51c3b930dbc811dc7c3c35ecaba55b151"
+        "sha256": "90ae61f20e81438e854b559ab0ee9e4ef0366021ad1f1c429a7bc0eac7a2c79e"
       },
       {
         "path": "pre-existing-issues.md",

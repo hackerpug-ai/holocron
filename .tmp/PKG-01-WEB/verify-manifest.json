@@ -18,7 +18,7 @@
     },
     {
       "id": "AC-3",
-      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'"
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'"
     },
     {
       "id": "TC-1",
@@ -26,7 +26,7 @@
     },
     {
       "id": "TC-2",
-      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'"
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'"
     }
   ]
 }

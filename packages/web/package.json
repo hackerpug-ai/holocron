@@ -2,8 +2,5 @@
   "name": "@holocron/web",
   "private": true,
   "version": "0.0.0",
-  "description": "Placeholder for the future Holocron web client. No product app code yet.",
-  "dependencies": {
-    "@holocron/web-runtime": "npm:ms@2.1.3"
-  }
+  "description": "Placeholder for the future Holocron web client. No product app code yet."
 }

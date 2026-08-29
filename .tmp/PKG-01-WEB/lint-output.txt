@@ -354,31 +354,6 @@ components/IterationCard.tsx:115:30 lint/suspicious/noArrayIndexKey ━━━━
   i Check the React documentation. 
   
 
-components/ProgressIndicator.tsx:99:26 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Avoid using the index of an array as key property in an element.
-  
-     97 │           <View className="flex-row flex-wrap gap-1">
-     98 │             {sources.slice(0, 5).map((source, index) => (
-   > 99 │               <View key={index} className="rounded bg-muted px-2 py-0.5">
-        │                          ^^^^^
-    100 │                 <Text className="text-muted-foreground text-xs" numberOfLines={1}>
-    101 │                   {source}
-  
-  i This is the source of the key value.
-  
-     96 │           </View>
-     97 │           <View className="flex-row flex-wrap gap-1">
-   > 98 │             {sources.slice(0, 5).map((source, index) => (
-        │                                               ^^^^^
-     99 │               <View key={index} className="rounded bg-muted px-2 py-0.5">
-    100 │                 <Text className="text-muted-foreground text-xs" numberOfLines={1}>
-  
-  i The order of the items may change, and this also affects performances and component state.
-  
-  i Check the React documentation. 
-  
-
 components/ToolCard.tsx:148:24 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Avoid using the index of an array as key property in an element.
@@ -423,6 +398,31 @@ components/cards/RecommendationListCard.tsx:34:30 lint/suspicious/noArrayIndexKe
        │                              ^
     33 │         <RecommendationItem
     34 │           key={`${item.id}-${i}`}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/cards/RecommendationSources.tsx:26:38 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    24 │           return (
+    25 │             <Pressable
+  > 26 │               key={`${source.name}-${i}`}
+       │                                      ^
+    27 │               testID={`recommendation-source-${i}`}
+    28 │               accessibilityRole="link"
+  
+  i This is the source of the key value.
+  
+    13 │       <Text className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Sources</Text>
+    14 │       <View className="flex-row flex-wrap gap-2">
+  > 15 │         {sources.map((source, i) => {
+       │                               ^
+    16 │           const handlePress = () => {
+    17 │             if (onSourcePress) {
   
   i The order of the items may change, and this also affects performances and component state.
   
@@ -555,6 +555,6 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 644.
-Checked 1432 files in 483ms. No fixes applied.
+Checked 1432 files in 394ms. No fixes applied.
 Found 593 warnings.
 Found 71 infos.
