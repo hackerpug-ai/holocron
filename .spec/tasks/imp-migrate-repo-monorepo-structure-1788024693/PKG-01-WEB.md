@@ -26,16 +26,16 @@ You may NOT touch files outside `> Files:`. Do not move platform, mcp, docs-read
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|-------------------|------------|--------|--------|
 | 1 | `packages/web/package.json` exists and `"name"` is `"@holocron/web"` | AC-1 | `python3 -c "import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True"` | [ ] TRUE [ ] FALSE |
-| 2 | `pnpm-workspace.yaml` contains `packages/*` and `pnpm list -r --depth 0` prints `@holocron/web` | AC-3 | `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 \| rg '@holocron/web@'` | [ ] TRUE [ ] FALSE |
+| 2 | `pnpm-workspace.yaml` contains `packages/*` and `pnpm list -r --depth -1` prints `@holocron/web@0.0.0` project line under `packages/web` | AC-3 | `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 \| rg '@holocron/web@'` | [ ] TRUE [ ] FALSE |
 
 <!-- REQUIREMENT-CONTRACT v1
 fixtures: {"reproduction":{"description":"pnpm-workspace.yaml lists only \".\" and \"services/platform\". AGENTS.md opens at ## Network Continuity with no Package map. Four package.json trees: ./package.json (Expo holocron), services/platform/package.json, holocron-mcp/package.json, services/worker-docs-reader/package.json. No packages/ directory. No services/web. Fulcrum is in-process (holo.ts instantiation = 'fulcrum'). 175 external services/platform callers.","seed_method":"cli","records":["pnpm-workspace.yaml packages: \".\" and \"services/platform\"","AGENTS.md:7 ## Network Continuity","no packages/ directory","holocron-mcp not a workspace member"]}}
 AC-1: packages/web placeholder exists as private @holocron/web; packages/* is enrolled so later package moves are picked up (mobile/platform/mcp/docs-reader moves are later tasks)
   verify: see task Test Criteria
-  scenario: {"id":"AC-1","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/web placeholder package.json named @holocron/web","ensure pnpm-workspace.yaml includes packages/*","run pnpm install from repo root and pnpm list -r --depth 0"]},"end_state":{"must_observe":["`packages/web/package.json` exists","`packages/web/package.json` name is `@holocron/web`","pnpm-workspace.yaml contains `packages/*`"],"must_not_observe":["empty packages/ directory","no change from start state"]}}]}
+  scenario: {"id":"AC-1","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/web placeholder package.json named @holocron/web","ensure pnpm-workspace.yaml includes packages/*","run pnpm install from repo root and pnpm list -r --depth -1"]},"end_state":{"must_observe":["`packages/web/package.json` exists","`packages/web/package.json` name is `@holocron/web`","pnpm-workspace.yaml contains `packages/*`"],"must_not_observe":["empty packages/ directory","no change from start state"]}}]}
 AC-3: pnpm-workspace.yaml includes packages/*; pnpm install from root links @holocron/web (existing `.` and `services/platform` workspace members may remain until later tasks)
-  verify: `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 | rg '@holocron/web@'`
-  scenario: {"id":"AC-3","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/* to pnpm-workspace.yaml (keep existing `.` and `services/platform` members)","add packages/web placeholder","refresh pnpm-lock.yaml with a real pnpm install from the repo root"]},"end_state":{"must_observe":["pnpm-workspace.yaml contains `packages/*`","`pnpm install` from root exits 0","`pnpm list -r --depth 0` prints `@holocron/web@`"],"must_not_observe":["empty packages/ directory","no change from start state"]}}]}
+  verify: `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'`
+  scenario: {"id":"AC-3","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/* to pnpm-workspace.yaml (keep existing `.` and `services/platform` members)","add packages/web placeholder","refresh pnpm-lock.yaml with a real pnpm install from the repo root"]},"end_state":{"must_observe":["pnpm-workspace.yaml contains `packages/*`","`pnpm install` from root exits 0","`pnpm list -r --depth -1` prints `@holocron/web@0.0.0` project line under `packages/web`"],"must_not_observe":["empty packages/ directory","no change from start state","`@holocron/web@npm:` alias stub at depth 0 without a packages/web project line"]}}]}
 TC-1: Maps to AC-1 (inherits AC-1's scenario)
 TC-2: Maps to AC-3 (inherits AC-3's scenario)
 -->
@@ -51,9 +51,9 @@ Pre-steps: work from the improvement worktree. Node/pnpm 9 already used by the r
    test -f packages/web/README.md
    rg -n 'packages/\*' pnpm-workspace.yaml
    pnpm install
-   pnpm list -r --depth 0
+   pnpm list -r --depth -1 | rg '@holocron/web@'
    ```
-   Expected: `@holocron/web` appears. `holocron` and `platform` still appear (not moved yet).
+   Expected: `@holocron/web@0.0.0` project line under `packages/web` (honest workspace member). Depth 0 alone is not sufficient — a root dep like `"@holocron/web": "npm:ms@2.1.3"` can fake `@holocron/web@` at depth 0. `holocron` and `platform` may still appear as members (not moved yet).
 3. Fail the task if `packages/web` contains a Next app scaffold or any source besides package.json + README.
 
 ## Out of scope
@@ -73,4 +73,4 @@ Pre-steps: work from the improvement worktree. Node/pnpm 9 already used by the r
 
 ## Verification posture
 
-Real `pnpm install` + `pnpm list -r`. No mocked lockfile. Task is not done if `@holocron/web` is missing from `pnpm list -r`.
+Real `pnpm install` + `pnpm list -r --depth -1 | rg '@holocron/web@'`. No mocked lockfile. Task is not done unless the `@holocron/web@0.0.0` project line under `packages/web` appears (depth 0 alone is fakeable via an npm-alias root dep).
