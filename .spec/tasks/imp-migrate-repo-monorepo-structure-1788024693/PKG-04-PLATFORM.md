@@ -1,5 +1,10 @@
 # PKG-04-PLATFORM: Move backend (including Fulcrum) into packages/platform
 
+> Status: 🔵 In Review
+> Cycle: 1
+> Commit: 719582ec05309755b510c71f430db6eba9c5711b
+> Reviewer: mastra-reviewer
+> Updated: 2026-08-29T22:00:36Z
 > Assignee: mastra-implementer
 > Priority: P1
 > Type: improvement

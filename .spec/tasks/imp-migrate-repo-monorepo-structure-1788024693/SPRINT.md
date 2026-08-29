@@ -1,7 +1,7 @@
 # Sprint: imp-migrate-repo-monorepo-structure-1788024693
 
 **Status:** In Progress
-> Progress: 0/5 tasks completed · updated 2026-08-29T20:14:09Z
+> Progress: 3/5 tasks completed · updated 2026-08-29T22:00:36Z
 
 > Source: ~/.config/brain/improvements/imp-migrate-repo-monorepo-structure-1788024693.json (binding)
 > Chosen option: moderate — Put every module under packages, including the phone app
@@ -35,10 +35,10 @@ PKG-01-WEB
 
 | ID | Title | Assignee | Priority | Status | Depends on |
 |----|-------|----------|----------|--------|------------|
-| PKG-01-WEB | Create packages/web placeholder and enroll `packages/*` | bun-implementer | P1 | ⬜ Pending | — |
-| PKG-02-DOCS-READER | Move docs reader into packages/docs-reader | cloudflare-workers-implementer | P1 | ⬜ Pending | PKG-01-WEB |
-| PKG-03-MCP | Move MCP server into packages/mcp | mcp-implementer | P1 | ⬜ Pending | PKG-01-WEB |
-| PKG-04-PLATFORM | Move backend (incl. Fulcrum) into packages/platform | mastra-implementer | P1 | ⬜ Pending | PKG-01-WEB |
+| PKG-01-WEB | Create packages/web placeholder and enroll `packages/*` | bun-implementer | P1 | ✅ Completed | — |
+| PKG-02-DOCS-READER | Move docs reader into packages/docs-reader | cloudflare-workers-implementer | P1 | ✅ Completed | PKG-01-WEB |
+| PKG-03-MCP | Move MCP server into packages/mcp | mcp-implementer | P1 | ✅ Completed | PKG-01-WEB |
+| PKG-04-PLATFORM | Move backend (incl. Fulcrum) into packages/platform | mastra-implementer | P1 | 🔵 In Review | PKG-01-WEB |
 | PKG-05-MOBILE | Move Expo into packages/mobile, thin root, write AGENTS.md map, prove both runtimes | react-native-ui-implementer | P1 | ⬜ Pending | PKG-02-DOCS-READER, PKG-03-MCP, PKG-04-PLATFORM |
 
 PKG-02, PKG-03, and PKG-04 may run in parallel after PKG-01. PKG-05 is last.

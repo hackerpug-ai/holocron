@@ -1,5 +1,10 @@
 # PKG-01-WEB: Create packages/web placeholder and enroll packages/*
 
+> Status: ✅ Completed
+> Cycle: 2
+> Commit: 6e32097802c0a3578c50a8113732702775783535
+> Reviewer: PKG-01-WEB-reviewer
+> Completed: 2026-08-29T22:00:35Z
 > Assignee: bun-implementer
 > Priority: P1
 > Type: improvement
@@ -18,26 +23,39 @@ You may NOT touch files outside `> Files:`. Do not move platform, mcp, docs-read
 
 ## Acceptance Criteria
 
-- [ ] AC-1 (slice): `packages/web/package.json` exists as a private placeholder named `@holocron/web` with no product app code
+- [x] AC-1 (slice): `packages/web/package.json` exists as a private placeholder named `@holocron/web` with no product app code
 - [ ] AC-3 (slice): `pnpm-workspace.yaml` includes `packages/*` so later git-mvs are picked up (existing `.` and `services/platform` members may remain until later tasks remove them)
 
 ## Test Criteria
 
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|-------------------|------------|--------|--------|
-| 1 | `packages/web/package.json` exists and `"name"` is `"@holocron/web"` | AC-1 | `python3 -c "import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True"` | [ ] TRUE [ ] FALSE |
-| 2 | `pnpm-workspace.yaml` contains `packages/*` and `pnpm list -r --depth -1` prints `@holocron/web@0.0.0` project line under `packages/web` | AC-3 | `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 \| rg '@holocron/web@'` | [ ] TRUE [ ] FALSE |
+| 1 | `packages/web/package.json` exists and `"name"` is `"@holocron/web"` | AC-1 | `python3 -c "import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True"` | [x] TRUE [ ] FALSE |
+| 2 | `pnpm-workspace.yaml` contains `packages/*` and `pnpm list -r --depth -1` prints `@holocron/web@0.0.0` project line under `packages/web` | AC-3 | `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 \ | [x] TRUE [ ] FALSE | [ ] TRUE [ ] FALSE |
 
 <!-- REQUIREMENT-CONTRACT v1
-fixtures: {"reproduction":{"description":"pnpm-workspace.yaml lists only \".\" and \"services/platform\". AGENTS.md opens at ## Network Continuity with no Package map. Four package.json trees: ./package.json (Expo holocron), services/platform/package.json, holocron-mcp/package.json, services/worker-docs-reader/package.json. No packages/ directory. No services/web. Fulcrum is in-process (holo.ts instantiation = 'fulcrum'). 175 external services/platform callers.","seed_method":"cli","records":["pnpm-workspace.yaml packages: \".\" and \"services/platform\"","AGENTS.md:7 ## Network Continuity","no packages/ directory","holocron-mcp not a workspace member"]}}
 AC-1: packages/web placeholder exists as private @holocron/web; packages/* is enrolled so later package moves are picked up (mobile/platform/mcp/docs-reader moves are later tasks)
   verify: see task Test Criteria
-  scenario: {"id":"AC-1","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/web placeholder package.json named @holocron/web","ensure pnpm-workspace.yaml includes packages/*","run pnpm install from repo root and pnpm list -r --depth -1"]},"end_state":{"must_observe":["`packages/web/package.json` exists","`packages/web/package.json` name is `@holocron/web`","pnpm-workspace.yaml contains `packages/*`"],"must_not_observe":["empty packages/ directory","no change from start state"]}}]}
+  satisfied: true
+  evidence: packages/web/package.json name=@holocron/web private=true; no deps
+  last_evaluated_cycle: 2
+  last_evaluated_commit: 6e320978
 AC-3: pnpm-workspace.yaml includes packages/*; pnpm install from root links @holocron/web (existing `.` and `services/platform` workspace members may remain until later tasks)
   verify: `rg -n 'packages/\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth -1 | rg '@holocron/web@'`
-  scenario: {"id":"AC-3","primary":true,"test_tier":"integration","verification_service":"pnpm","negative_control":{"would_fail_if":["fix reverted (defect reproduces)","stubbed/mocked dependency","empty packages/ directory left in place","path rewrite omitted so services/platform still hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reproduction","action":{"steps":["add packages/* to pnpm-workspace.yaml (keep existing `.` and `services/platform` members)","add packages/web placeholder","refresh pnpm-lock.yaml with a real pnpm install from the repo root"]},"end_state":{"must_observe":["pnpm-workspace.yaml contains `packages/*`","`pnpm install` from root exits 0","`pnpm list -r --depth -1` prints `@holocron/web@0.0.0` project line under `packages/web`"],"must_not_observe":["empty packages/ directory","no change from start state","`@holocron/web@npm:` alias stub at depth 0 without a packages/web project line"]}}]}
+  satisfied: true
+  evidence: packages/* enrolled; pnpm list -r --depth -1 shows @holocron/web@0.0.0 under packages/web
+  last_evaluated_cycle: 2
+  last_evaluated_commit: 6e320978
 TC-1: Maps to AC-1 (inherits AC-1's scenario)
+  satisfied: true
+  evidence: python assert exit 0
+  last_evaluated_cycle: 2
+  last_evaluated_commit: 6e320978
 TC-2: Maps to AC-3 (inherits AC-3's scenario)
+  satisfied: true
+  evidence: depth -1 list | rg @holocron/web@ -> packages/web PRIVATE
+  last_evaluated_cycle: 2
+  last_evaluated_commit: 6e320978
 -->
 
 ## Strict verification steps
