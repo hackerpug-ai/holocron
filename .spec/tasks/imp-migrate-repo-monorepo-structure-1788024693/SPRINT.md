@@ -1,5 +1,8 @@
 # Sprint: imp-migrate-repo-monorepo-structure-1788024693
 
+**Status:** In Progress
+> Progress: 0/5 tasks completed · updated 2026-08-29T20:14:09Z
+
 > Source: ~/.config/brain/improvements/imp-migrate-repo-monorepo-structure-1788024693.json (binding)
 > Chosen option: moderate — Put every module under packages, including the phone app
 > LOC budget: 2800
