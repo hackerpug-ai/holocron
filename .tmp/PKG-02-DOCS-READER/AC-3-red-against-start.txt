@@ -1,0 +1,19 @@
+=== AC-3 / TC-2 RED against start ===
+expect FAIL: pnpm list -r --depth -1 | rg 'holocron-docs-reader' finds nothing (package not under packages/*)
+pnpm-workspace.yaml:
+# GATE-FIX-S28R3-QA13 — install services/platform deps via root frozen lock
+packages:
+  - "."
+  - "services/platform"
+  - "packages/*"
+---
+services/worker-docs-reader is NOT a packages/* member; packages/docs-reader absent
+holocron@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER (PRIVATE)
+
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/packages/web (PRIVATE)
+
+platform /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/services/platform (PRIVATE)
+---
+rg 'holocron-docs-reader': no matches (expected for RED)
+pnpm_list_exit=0 rg_exit=1
+combined_verify_exit=1
