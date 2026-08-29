@@ -1,13 +1,13 @@
 {
   "task_id": "PKG-03-MCP",
-  "timestamp": "2026-08-29T21:36:02Z",
-  "commit_sha": "16de2a6a27f7d7ef8ffaf454a8500e423abe90c1",
+  "timestamp": "2026-08-29T21:40:38Z",
+  "commit_sha": "b218e5d69c0a4779ab5d534c679b19aed43b2689",
   "typecheck": {
-    "exit_code": 2
+    "exit_code": 0
   },
   "lint": {
-    "exit_code": 1,
-    "warnings": 594
+    "exit_code": 0,
+    "warnings": 593
   },
   "pre_existing_issues": true,
   "requirement_results": [
@@ -42,19 +42,19 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.2",
-    "generated_at": "2026-08-29T21:36:02Z",
+    "generated_at": "2026-08-29T21:40:38Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
-        "sha256": "58a960b1c7ec2f4c803f16806b9b36324aa4853b5bfd53509c05e24600fcf58a"
+        "sha256": "4f02b60b86187d76ac4302e28d23de20c9289fa8090c10c881f352911d432e27"
       },
       {
         "path": "lint-output.txt",
-        "sha256": "c0c775907b0146af574a64a771982915380f5d5b788e86d065d47c68763cd99a"
+        "sha256": "00a4eb296d54231700c6ba3b953e2b80f7bd2fba0276025a8a240c8d18d01804"
       },
       {
         "path": "test-output.txt",
-        "sha256": "ad947049c15252ed4babd02cfc923813c80d52886273013eaf9c575063955b3f"
+        "sha256": "14e9349069ba27a45165ca84773d0f38a27e4c15a39dfe6e512e58b357f23a23"
       },
       {
         "path": "ac-1-output.txt",
@@ -62,7 +62,7 @@
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "de68391592cbadf17bccc7e66d0f90b0bcb282751be5615b4fa05ffd3d6d7396"
+        "sha256": "87511565e3f39b48eb8a088aa8074b89472515785b151b04890b3c229a935720"
       },
       {
         "path": "tc-1-output.txt",
@@ -70,7 +70,7 @@
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "76284a76ed9e0e31165b8f190b01c72abcba916cccf1413ff5747e961e5f20e9"
+        "sha256": "5aa5b82f8aa64b48d8a6ffce639ca9b24df1701c43998b1cce52eb64ffb10dab"
       },
       {
         "path": "pre-existing-issues.md",

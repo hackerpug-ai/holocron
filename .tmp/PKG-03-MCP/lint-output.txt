@@ -2,23 +2,6 @@
 > holocron@1.0.0 lint /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-03-MCP
 > biome check .
 
-packages/mcp/biome.json:2:14 deserialize ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  i The configuration schema version does not match the CLI version 2.4.12
-  
-    1 │ {
-  > 2 │   "$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
-      │              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    3 │   "root": false,
-    4 │   "vcs": {
-  
-  i   Expected:                     2.4.12
-      Found:                        2.4.6
-  
-  
-  i Run the command biome migrate to migrate the configuration file.
-  
-
 app/(drawer)/_layout.tsx:325:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━━━━━━━
 
   ! This hook specifies more dependencies than necessary: conversations.
@@ -346,31 +329,6 @@ components/AnswerWithSourcesCard.tsx:58:24 lint/suspicious/noArrayIndexKey ━�
   i Check the React documentation. 
   
 
-components/IterationCard.tsx:115:30 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Avoid using the index of an array as key property in an element.
-  
-    113 │               <View className="gap-1">
-    114 │                 {refinedQueries.map((query, index) => (
-  > 115 │                   <View key={index} className="bg-muted rounded px-2 py-1">
-        │                              ^^^^^
-    116 │                     <Text className="text-foreground text-sm">{query}</Text>
-    117 │                   </View>
-  
-  i This is the source of the key value.
-  
-    112 │               </Text>
-    113 │               <View className="gap-1">
-  > 114 │                 {refinedQueries.map((query, index) => (
-        │                                             ^^^^^
-    115 │                   <View key={index} className="bg-muted rounded px-2 py-1">
-    116 │                     <Text className="text-foreground text-sm">{query}</Text>
-  
-  i The order of the items may change, and this also affects performances and component state.
-  
-  i Check the React documentation. 
-  
-
 components/ProgressIndicator.tsx:99:26 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Avoid using the index of an array as key property in an element.
@@ -415,6 +373,56 @@ components/ToolCard.tsx:148:24 lint/suspicious/noArrayIndexKey ━━━━━�
         │                                       ^^^^^
     148 │             <View key={index} className="rounded-md bg-muted px-2 py-0.5">
     149 │               <Text className="text-[11px] text-muted-foreground">{tag}</Text>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/cards/RecommendationListCard.tsx:34:30 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    32 │       {data.items.map((item, i) => (
+    33 │         <RecommendationItem
+  > 34 │           key={`${item.id}-${i}`}
+       │                              ^
+    35 │           item={item}
+    36 │           index={i}
+  
+  i This is the source of the key value.
+  
+    30 │       )}
+    31 │ 
+  > 32 │       {data.items.map((item, i) => (
+       │                              ^
+    33 │         <RecommendationItem
+    34 │           key={`${item.id}-${i}`}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/cards/RecommendationSources.tsx:26:38 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    24 │           return (
+    25 │             <Pressable
+  > 26 │               key={`${source.name}-${i}`}
+       │                                      ^
+    27 │               testID={`recommendation-source-${i}`}
+    28 │               accessibilityRole="link"
+  
+  i This is the source of the key value.
+  
+    13 │       <Text className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Sources</Text>
+    14 │       <View className="flex-row flex-wrap gap-2">
+  > 15 │         {sources.map((source, i) => {
+       │                               ^
+    16 │           const handlePress = () => {
+    17 │             if (onSourcePress) {
   
   i The order of the items may change, and this also affects performances and component state.
   
@@ -546,14 +554,7 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
   
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 649.
-Checked 1455 files in 434ms. No fixes applied.
-Found 3 errors.
-Found 594 warnings.
-Found 72 infos.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.
+Diagnostics not shown: 644.
+Checked 1432 files in 999ms. No fixes applied.
+Found 593 warnings.
+Found 71 infos.

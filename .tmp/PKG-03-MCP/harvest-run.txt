@@ -7,12 +7,13 @@ harvest-evidence: task=PKG-03-MCP manifest=.tmp/PKG-03-MCP/verify-manifest.json
   [AC-3] pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'
   [TC-1] test -f packages/mcp/package.json && test ! -f holocron-mcp/package.json
   [TC-2] pnpm install && pnpm list -r --depth -1 | rg '@holocron/mcp-unified'
+  archived prior summary → verification-summary.prev-56d20bdc8aa9.json
 
 harvest-evidence: done
   task:       PKG-03-MCP
-  commit:     16de2a6a
-  typecheck:  exit=2
-  lint:       exit=1 warnings=594
+  commit:     b218e5d6
+  typecheck:  exit=0
+  lint:       exit=0 warnings=593
   evidence:   4 pass, 0 fail (of 4 requirements)
   output:     .tmp/PKG-03-MCP/verification-summary.json
 
