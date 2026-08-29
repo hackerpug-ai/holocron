@@ -44,7 +44,7 @@ const COLDBOOT_IT = process.env.COLDBOOT_IT === '1';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const QUERIES_PATH = join(REPO_ROOT, 'app', 'zero', 'queries.ts');
+const QUERIES_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'queries.ts');
 const COLDBOOT_JUNIT = join(REPO_ROOT, '.tmp', 'coldboot-02', 'junit.xml');
 
 function readQueries(): string {

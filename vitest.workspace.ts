@@ -48,8 +48,8 @@ export const projects: TestProjectConfiguration[] = [
       name: 'unit',
       include: [
         'tests/**/*.{test,spec}.{js,ts,tsx}',
-        'hooks/**/*.{test,spec}.{js,ts}',
-        'components/**/*.{test,spec}.{js,ts,tsx}',
+        'packages/mobile/hooks/**/*.{test,spec}.{js,ts}',
+        'packages/mobile/components/**/*.{test,spec}.{js,ts,tsx}',
         // Sprint 06 — stack supervisor / secrets / launchd (D01-01+)
         'packages/platform/src/cli/__tests__/**/*.{test,spec}.ts',
         // Sprint 24 — verify:no-convex-client gate

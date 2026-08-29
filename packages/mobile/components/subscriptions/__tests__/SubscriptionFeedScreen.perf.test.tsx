@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 describe('SubscriptionFeedScreen performance contract', () => {
   const componentPath = join(
     process.cwd(),
+    'packages',
+    'mobile',
     'components',
     'subscriptions',
     'SubscriptionFeedScreen.tsx'

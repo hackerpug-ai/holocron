@@ -22,29 +22,29 @@ OpenTelemetry and Langfuse make mission and inference behavior inspectable.
 
 ### Chat
 
-<a href="assets/readme/features/chat.png">
-  <img src="assets/readme/features/chat.png" alt="Holocron chat interface" width="200">
+<a href="packages/mobile/assets/readme/features/chat.png">
+  <img src="packages/mobile/assets/readme/features/chat.png" alt="Holocron chat interface" width="200">
 </a>
-<a href="assets/readme/features/chat-dark.png">
-  <img src="assets/readme/features/chat-dark.png" alt="Holocron chat interface in dark mode" width="200">
+<a href="packages/mobile/assets/readme/features/chat-dark.png">
+  <img src="packages/mobile/assets/readme/features/chat-dark.png" alt="Holocron chat interface in dark mode" width="200">
 </a>
 
 ### Articles
 
-<a href="assets/readme/features/article-listen.png">
-  <img src="assets/readme/features/article-listen.png" alt="Article narration controls" width="200">
+<a href="packages/mobile/assets/readme/features/article-listen.png">
+  <img src="packages/mobile/assets/readme/features/article-listen.png" alt="Article narration controls" width="200">
 </a>
-<a href="assets/readme/features/article-menu.png">
-  <img src="assets/readme/features/article-menu.png" alt="Article actions" width="200">
+<a href="packages/mobile/assets/readme/features/article-menu.png">
+  <img src="packages/mobile/assets/readme/features/article-menu.png" alt="Article actions" width="200">
 </a>
-<a href="assets/readme/features/article-search.png">
-  <img src="assets/readme/features/article-search.png" alt="Article search" width="200">
+<a href="packages/mobile/assets/readme/features/article-search.png">
+  <img src="packages/mobile/assets/readme/features/article-search.png" alt="Article search" width="200">
 </a>
-<a href="assets/readme/features/article-details.png">
-  <img src="assets/readme/features/article-details.png" alt="Article details" width="200">
+<a href="packages/mobile/assets/readme/features/article-details.png">
+  <img src="packages/mobile/assets/readme/features/article-details.png" alt="Article details" width="200">
 </a>
-<a href="assets/readme/features/article-webview.png">
-  <img src="assets/readme/features/article-webview.png" alt="Article web view" width="200">
+<a href="packages/mobile/assets/readme/features/article-webview.png">
+  <img src="packages/mobile/assets/readme/features/article-webview.png" alt="Article web view" width="200">
 </a>
 
 Click a thumbnail to open the full-size image.
@@ -103,7 +103,7 @@ The important boundaries are:
 
 The full migration rationale and locked decisions live in the
 [MK-VI migration PRD](.spec/prds/mk6-migration/README.md). The production topology and operator
-procedures live in the [platform Compose runbook](services/platform/deploy/compose/README.md).
+procedures live in the [platform Compose runbook](packages/platform/deploy/compose/README.md).
 
 ## Getting started
 
@@ -125,17 +125,17 @@ local developer can use the same `holo` operator surface with host-specific secr
 ```bash
 pnpm install
 cp .env.example .env
-cp services/platform/config/secrets.example.yaml services/platform/config/secrets.yaml
-chmod 600 services/platform/config/secrets.yaml
+cp packages/platform/config/secrets.example.yaml packages/platform/config/secrets.yaml
+chmod 600 packages/platform/config/secrets.yaml
 ```
 
 Fill the ignored files with real local values. Resolution order is process environment, then
-`services/platform/config/secrets.yaml`; required values fail closed.
+`packages/platform/config/secrets.yaml`; required values fail closed.
 
 | File | Purpose |
 |------|---------|
 | `.env` | Expo-visible platform/Zero URLs, the RN scoped key, and operator-local integrations |
-| `services/platform/config/secrets.yaml` | Database, platform, MCP/control, Zero, fleet, observability, and backup secrets |
+| `packages/platform/config/secrets.yaml` | Database, platform, MCP/control, Zero, fleet, observability, and backup secrets |
 
 At minimum, the backend needs `DATABASE_URL`, `MASTRA_API_KEY`, `FLEET_URL`, `FLEET_KEY`, and the
 scoped `HOLO_KEY_RN`, `HOLO_KEY_MCP`, and `HOLO_KEY_CONTROL` values. Zero additionally needs
@@ -186,7 +186,7 @@ needed, builds the public URL, and opens the native share sheet. The explicit co
 same URL.
 
 MCP clients share and revoke through two tools on the Holocron MCP server (`POST /mcp` or
-`bun services/platform/src/cli/holo.ts mcp:stdio`).
+`bun packages/platform/src/cli/holo.ts mcp:stdio`).
 
 **Share** (`share_document`) — input is only the document id. The tool mints (or reuses) a
 `mcp-<uuid>` token, sets the row public, and returns the public URL:
@@ -235,7 +235,7 @@ The public path is deliberately narrow:
 Revocation can take roughly 60 seconds to reach every edge cache. The reader has no R2 document
 fallback, so the Holocron host must be awake and reachable. Tailscale Serve remains private and
 Tailscale Funnel remains disabled. DNS, Access, Tunnel, Worker deployment, and negative probes are
-documented in the [Compose runbook](services/platform/deploy/compose/README.md#public-document-share-reader-cloudflare--operator-procedure).
+documented in the [Compose runbook](packages/platform/deploy/compose/README.md#public-document-share-reader-cloudflare--operator-procedure).
 
 ## MCP
 
@@ -243,7 +243,7 @@ Holocron exposes the same registry-backed tools over two transports:
 
 - Protected Streamable HTTP at `POST /mcp`, authenticated with `Authorization: Bearer
   <HOLO_KEY_MCP>`.
-- Stdio from the repository root with `bun services/platform/src/cli/holo.ts mcp:stdio`.
+- Stdio from the repository root with `bun packages/platform/src/cli/holo.ts mcp:stdio`.
 
 A local MCP client can use this command configuration:
 
@@ -252,7 +252,7 @@ A local MCP client can use this command configuration:
   "mcpServers": {
     "holocron": {
       "command": "bun",
-      "args": ["services/platform/src/cli/holo.ts", "mcp:stdio"]
+      "args": ["packages/platform/src/cli/holo.ts", "mcp:stdio"]
     }
   }
 }
@@ -291,12 +291,12 @@ evidence before claiming completion.
 |------|----------------|
 | `app/` | Expo Router screens, client data access, and Zero integration |
 | `components/`, `hooks/`, `lib/` | Reusable React Native UI and client behavior |
-| `services/platform/` | Bun service, Hono routes, Mastra composition, Postgres schema, missions, queue, MCP, inference, backup, and observability |
+| `packages/platform/` | Bun service, Hono routes, Mastra composition, Postgres schema, missions, queue, MCP, inference, backup, and observability |
 | `services/worker-docs-reader/` | Public Cloudflare document reader |
-| `services/platform/deploy/` | Compose, launchd, OTel, release, and operator deployment assets |
+| `packages/platform/deploy/` | Compose, launchd, OTel, release, and operator deployment assets |
 | `scripts/` | Verification, local service, migration, and operational scripts |
 | `.spec/prds/mk6-migration/` | MK-VI product and technical contracts |
-| `tests/`, `services/platform/tests/` | Unit, integration, live-service, and migration evidence suites |
+| `tests/`, `packages/platform/tests/` | Unit, integration, live-service, and migration evidence suites |
 
 ## Migration status
 

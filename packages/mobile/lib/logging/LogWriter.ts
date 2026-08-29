@@ -25,7 +25,7 @@ export class LogWriter {
   private readonly config: LoggerConfig;
   private readonly queue: WriteQueue = { entries: [], flushing: false };
   private currentFilePath: string;
-  private flushTimer: NodeJS.Timeout | null = null;
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly FLUSH_INTERVAL = 1000; // Flush every 1 second
 
   constructor(config: LoggerConfig) {

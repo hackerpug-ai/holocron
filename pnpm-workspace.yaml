@@ -1,4 +1,3 @@
-# GATE-FIX-S28R3-QA13 — install packages/platform deps via root frozen lock
+# Workspace members live under packages/*. Root package.json is the thin orchestrator only.
 packages:
-  - "."
   - "packages/*"

@@ -1,6 +1,6 @@
 import type { Root } from 'mdast';
 import { describe, expect, it } from 'vitest';
-import { computeNarrationMap } from '../../lib/mdast-utils';
+import { computeNarrationMap } from '@/lib/mdast-utils';
 
 // Helper to build a minimal MDAST Root with typed children
 

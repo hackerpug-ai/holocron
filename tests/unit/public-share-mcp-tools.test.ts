@@ -3,7 +3,7 @@
  * Live Postgres/HTTP proof: tests/integration/public-share-mcp-tools.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import { PUBLIC_DOCS_ORIGIN as RnPublicDocsOrigin } from '../../app/zero/platform';
+import { PUBLIC_DOCS_ORIGIN as RnPublicDocsOrigin } from '@/app/zero/platform';
 import {
   buildPublicShareUrl,
   PUBLIC_DOCS_ORIGIN,

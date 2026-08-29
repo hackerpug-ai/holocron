@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractParagraphCount, extractParagraphs } from '../../lib/extractParagraphs';
+import { extractParagraphCount, extractParagraphs } from '@/lib/extractParagraphs';
 
 describe('extractParagraphs', () => {
   it('extracts basic paragraphs', () => {

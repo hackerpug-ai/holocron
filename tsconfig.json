@@ -5,10 +5,15 @@
     "allowArbitraryExtensions": true,
     "types": ["vitest/globals"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./packages/mobile/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts", "vitest-env.d.ts"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "packages/mobile/nativewind-env.d.ts",
+    "vitest-env.d.ts"
+  ],
   "exclude": [
     "supabase/**/*",
     "packages/mcp/**/*",
@@ -19,7 +24,7 @@
     "src/**/__tests__/**/*",
     "packages/platform/**/*",
     "**/*.stories.tsx",
-    ".rnstorybook/**/*",
+    "packages/mobile/.rnstorybook/**/*",
     "convex/creators/**/*",
     "convex/subscriptions/links.ts"
   ]

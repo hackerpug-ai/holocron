@@ -11,8 +11,8 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(import.meta.dirname, '../..');
 const CHAT_SCREEN = join(REPO_ROOT, 'app/(drawer)/chat/[conversationId].tsx');
-const RECONCILER = join(REPO_ROOT, 'hooks/use-resumable-sse-stream.ts');
-const HISTORY = join(REPO_ROOT, 'hooks/use-chat-history.ts');
+const RECONCILER = join(REPO_ROOT, 'packages/mobile/hooks/use-resumable-sse-stream.ts');
+const HISTORY = join(REPO_ROOT, 'packages/mobile/hooks/use-chat-history.ts');
 
 function read(path: string): string {
   return readFileSync(path, 'utf8');

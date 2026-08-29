@@ -10,11 +10,11 @@ import { describe, expect, it } from 'vitest';
 
 const REPO = resolve(import.meta.dirname, '../../..');
 const TESTS_FIXTURE = resolve(REPO, 'tests/fixtures/test-fixture.jpg');
-const ASSETS_FIXTURE = resolve(REPO, 'assets/e2e/test-fixture.jpg');
-const SHEET = resolve(REPO, 'components/improvements/ImprovementSubmitSheet.tsx');
-const STATUS = resolve(REPO, 'components/improvements/ImageUploadStatus.tsx');
-const ROUTE = resolve(REPO, 'app/(drawer)/improvements.tsx');
-const FIXTURE_HELPER = resolve(REPO, 'lib/e2e/fixture-uri.ts');
+const ASSETS_FIXTURE = resolve(REPO, 'packages/mobile/assets/e2e/test-fixture.jpg');
+const SHEET = resolve(REPO, 'packages/mobile/components/improvements/ImprovementSubmitSheet.tsx');
+const STATUS = resolve(REPO, 'packages/mobile/components/improvements/ImageUploadStatus.tsx');
+const ROUTE = resolve(REPO, 'packages/mobile/app/(drawer)/improvements.tsx');
+const FIXTURE_HELPER = resolve(REPO, 'packages/mobile/lib/e2e/fixture-uri.ts');
 
 function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');

@@ -167,11 +167,11 @@ describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () =>
       // Full Modal+gesture sheet OOMs under vitest; ImageUploadStatus is the
       // sheet's error surface with the same upload-error / upload-retry testIDs.
       const { ImageUploadStatus } = await import(
-        '../../../components/improvements/ImageUploadStatus'
+        '@/components/improvements/ImageUploadStatus'
       );
       // Prove sheet still wires ImageUploadStatus (not a disconnected orphan UI).
       const sheetSrc = readFileSync(
-        resolve(process.cwd(), 'components/improvements/ImprovementSubmitSheet.tsx'),
+        resolve(process.cwd(), 'packages/mobile/components/improvements/ImprovementSubmitSheet.tsx'),
         'utf8'
       );
       expect(sheetSrc).toMatch(/ImageUploadStatus/);

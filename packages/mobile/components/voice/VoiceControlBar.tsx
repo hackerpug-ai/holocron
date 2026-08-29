@@ -58,7 +58,7 @@ function ControlButton({
   testID?: string;
 }) {
   const [pressed, setPressed] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Determine button styling
   const getButtonStyle = () => {
