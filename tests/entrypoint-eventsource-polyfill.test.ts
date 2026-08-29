@@ -7,7 +7,9 @@ const root = process.cwd();
 describe('native entrypoint', () => {
   it('installs EventSource DOM globals before Expo Router evaluates the app graph', () => {
     const entry = readFileSync(join(root, 'packages/mobile/index.js'), 'utf8');
-    const packageJson = JSON.parse(readFileSync(join(root, 'packages/mobile/package.json'), 'utf8')) as {
+    const packageJson = JSON.parse(
+      readFileSync(join(root, 'packages/mobile/package.json'), 'utf8')
+    ) as {
       main?: string;
     };
     const polyfill = entry.indexOf("require('./lib/eventsource-rn-polyfill.js')");

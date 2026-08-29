@@ -24,7 +24,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
 const HOOK_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-resumable-sse-stream.ts');
-const CHAT_SCREEN_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx');
+const CHAT_SCREEN_PATH = join(
+  REPO_ROOT,
+  'packages',
+  'mobile',
+  'app',
+  '(drawer)',
+  'chat',
+  '[conversationId].tsx'
+);
 const CHAT_THREAD_PATH = join(REPO_ROOT, 'components', 'chat', 'ChatThread.tsx');
 const CHAT_HISTORY_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts');
 
@@ -135,7 +143,17 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       expect(src).not.toMatch(/from\s+['"]convex\/react['"]/);
       // No sibling streaming screen
       expect(
-        existsSync(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', 'ChatStreamingScreen.tsx'))
+        existsSync(
+          join(
+            REPO_ROOT,
+            'packages',
+            'mobile',
+            'app',
+            '(drawer)',
+            'chat',
+            'ChatStreamingScreen.tsx'
+          )
+        )
       ).toBe(false);
     });
 

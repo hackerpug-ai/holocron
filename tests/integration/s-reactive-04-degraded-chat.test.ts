@@ -19,7 +19,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
 const HOOK_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-resumable-sse-stream.ts');
-const CHAT_SCREEN_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx');
+const CHAT_SCREEN_PATH = join(
+  REPO_ROOT,
+  'packages',
+  'mobile',
+  'app',
+  '(drawer)',
+  'chat',
+  '[conversationId].tsx'
+);
 const CHAT_THREAD_PATH = join(REPO_ROOT, 'components', 'chat', 'ChatThread.tsx');
 const CONTROLLER_PATH = join(
   REPO_ROOT,

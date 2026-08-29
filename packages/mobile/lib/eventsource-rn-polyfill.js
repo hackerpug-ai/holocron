@@ -76,7 +76,7 @@
       var BaseEvent = root.Event;
       BaseEvent.call(this, type);
       init = init || {};
-      this.data = Object.prototype.hasOwnProperty.call(init, 'data') ? init.data : null;
+      this.data = Object.hasOwn(init, 'data') ? init.data : null;
       this.lastEventId = init.lastEventId != null ? String(init.lastEventId) : '';
       this.origin = init.origin != null ? String(init.origin) : '';
     }

@@ -171,7 +171,9 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     });
 
     it('chat screen send path posts to Hono /api/chat-runs (no useAction)', () => {
-      const src = read(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx'));
+      const src = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx')
+      );
       expect(src).toMatch(/\/api\/chat-runs/);
       expect(src).not.toMatch(/\buseAction\b/);
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
@@ -180,7 +182,9 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     it('useVoiceSession has zero convex/react so chat cold-boots without ConvexProvider', () => {
       // CAP-CUT-01: no convex/react at all — voice is a pure no-op on Zero-only boot.
       const voice = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-session.ts'));
-      const bridge = read(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-result-bridge.ts'));
+      const bridge = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-result-bridge.ts')
+      );
       expect(voice).not.toMatch(/\buseAction\s*\(/);
       expect(voice).not.toMatch(/\buseMutation\s*\(/);
       expect(voice).not.toMatch(/\buseConvex\s*\(/);
@@ -191,7 +195,9 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
     });
 
     it('chat screen cancel path posts to Hono /api/chat-runs/:id/cancel', () => {
-      const src = read(join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx'));
+      const src = read(
+        join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx')
+      );
       expect(src).toMatch(/\/api\/chat-runs\/.*cancel|chat-runs\/\$\{.*\}\/cancel/);
       expect(src).not.toMatch(/api\.chat\.agentMutations\.cancelAgent/);
     });

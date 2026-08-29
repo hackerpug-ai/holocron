@@ -12,9 +12,18 @@ import { describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
-const VOICE_SRC = readFileSync(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-session.ts'), 'utf8');
-const BRIDGE_SRC = readFileSync(join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-result-bridge.ts'), 'utf8');
-const VOICE_CLIENT_SRC = readFileSync(join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'voice.ts'), 'utf8');
+const VOICE_SRC = readFileSync(
+  join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-session.ts'),
+  'utf8'
+);
+const BRIDGE_SRC = readFileSync(
+  join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-voice-result-bridge.ts'),
+  'utf8'
+);
+const VOICE_CLIENT_SRC = readFileSync(
+  join(REPO_ROOT, 'packages', 'mobile', 'app', 'zero', 'voice.ts'),
+  'utf8'
+);
 const HONO_SRC = readFileSync(
   join(REPO_ROOT, 'packages', 'platform', 'src', 'http', 'hono-app.ts'),
   'utf8'

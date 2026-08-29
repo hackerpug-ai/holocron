@@ -15,7 +15,10 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'packages/mobile/components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       expect(fs.existsSync(filePath)).toBe(true);
     });
 
@@ -96,7 +99,10 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'packages/mobile/components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       const content = fs.readFileSync(filePath, 'utf-8');
 
       expect(content).not.toContain('react-native-paper');
@@ -108,7 +114,10 @@ describe('REC-UI-001: Recommendation types contract', () => {
       const fs = await import('node:fs');
       const path = await import('node:path');
 
-      const filePath = path.join(process.cwd(), 'packages/mobile/components/cards/types/recommendation.ts');
+      const filePath = path.join(
+        process.cwd(),
+        'packages/mobile/components/cards/types/recommendation.ts'
+      );
       const content = fs.readFileSync(filePath, 'utf-8');
 
       // Check exported type definitions don't use `any`

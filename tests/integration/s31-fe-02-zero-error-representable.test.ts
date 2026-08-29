@@ -26,7 +26,15 @@ const PROGRESS_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'useResearc
 const SESSION_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'useResearchSession.ts');
 const HISTORY_PATH = join(REPO_ROOT, 'packages', 'mobile', 'hooks', 'use-chat-history.ts');
 const CHAT_THREAD_PATH = join(REPO_ROOT, 'components', 'chat', 'ChatThread.tsx');
-const CHAT_SCREEN_PATH = join(REPO_ROOT, 'packages', 'mobile', 'app', '(drawer)', 'chat', '[conversationId].tsx');
+const CHAT_SCREEN_PATH = join(
+  REPO_ROOT,
+  'packages',
+  'mobile',
+  'app',
+  '(drawer)',
+  'chat',
+  '[conversationId].tsx'
+);
 
 const runPlatform = process.env.PLATFORM_IT === '1';
 

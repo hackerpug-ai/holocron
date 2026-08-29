@@ -10,7 +10,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const componentPath = join(process.cwd(), 'packages', 'mobile', 'components', 'whats-new', 'NewsfeedHeader.tsx');
+const componentPath = join(
+  process.cwd(),
+  'packages',
+  'mobile',
+  'components',
+  'whats-new',
+  'NewsfeedHeader.tsx'
+);
 
 const readComponent = (): string => readFileSync(componentPath, 'utf-8');
 

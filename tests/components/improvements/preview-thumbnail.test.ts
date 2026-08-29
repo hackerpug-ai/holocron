@@ -54,7 +54,10 @@ describe('S-UPLOAD-01 AC-4: ImprovementPreviewThumbnail', () => {
     expect(screen.queryByTestId('attach-prompt-empty')).toBeNull();
 
     const src = readFileSync(
-      resolve(process.cwd(), 'packages/mobile/components/improvements/ImprovementPreviewThumbnail.tsx'),
+      resolve(
+        process.cwd(),
+        'packages/mobile/components/improvements/ImprovementPreviewThumbnail.tsx'
+      ),
       'utf8'
     );
     expect(src).toContain('attach-preview');
