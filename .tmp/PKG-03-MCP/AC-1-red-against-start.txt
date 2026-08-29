@@ -1,0 +1,6 @@
+=== AC-1 / TC-1 RED against start ===
+expect FAIL: packages/mcp/package.json missing; holocron-mcp/package.json still present
+test -f packages/mcp/package.json → exit=1 (want 0)
+test ! -f holocron-mcp/package.json → exit=1 (want 0)
+FAILED as expected: MCP still at old path / packages/mcp absent
+EXIT_CODE:1
