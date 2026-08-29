@@ -20,22 +20,22 @@ A real chat completion issued to `http://127.0.0.1:4547/v1` from the mastra cont
 Primary acceptance criterion **AC-1** (integration tier, service: LiteLLM 1.91.0 fulcrum-router container on 127.0.0.1:4547 fronting oMLX on inference1 and inference2):
 
 ```
-pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
+pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
 ```
 
 Full gate set: 5 acceptance criteria, 7 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/deploy/compose/fulcrum-router.config.yaml
-- services/platform/deploy/compose/compose.yaml
-- services/platform/deploy/compose/compose.dev.yaml
-- services/platform/deploy/compose/image-lock.json
-- services/platform/Dockerfile
-- services/platform/src/inference/fulcrum-router.ts
-- services/platform/src/cli/commands/fulcrum-router-check.ts
-- services/platform/src/cli/holo.ts
-- services/platform/tests/integration/fulcrum-router-image.test.ts
+- packages/platform/deploy/compose/fulcrum-router.config.yaml
+- packages/platform/deploy/compose/compose.yaml
+- packages/platform/deploy/compose/compose.dev.yaml
+- packages/platform/deploy/compose/image-lock.json
+- packages/platform/Dockerfile
+- packages/platform/src/inference/fulcrum-router.ts
+- packages/platform/src/cli/commands/fulcrum-router-check.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/tests/integration/fulcrum-router-image.test.ts
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -74,13 +74,13 @@ A real chat completion issued to `http://127.0.0.1:4547/v1` from the mastra cont
 
 - MUST: MUST declare exactly 6 `model_list` rows — one per role per mini — each at `weight: 100` with `model_info.id` set to `{role}-{node}`, and `router_settings` `least-busy` / `num_retries: 2` / `timeout: 600` / `cooldown_time: 60`
 - MUST: MUST bind the router to container loopback only and reach the minis at `http://inference1.tail011a51.ts.net:8003/v1` and `http://inference2.tail011a51.ts.net:8003/v1`
-- MUST: MUST record the pinned LiteLLM image digest and the router config sha256 in `services/platform/deploy/compose/image-lock.json` so the binding is digest-protected across image builds
+- MUST: MUST record the pinned LiteLLM image digest and the router config sha256 in `packages/platform/deploy/compose/image-lock.json` so the binding is digest-protected across image builds
 - NEVER: NEVER disconnect any host from the internet, disable Wi-Fi, change network settings, or toggle a network interface; failover and outage cases in this task are produced by stopping oMLX on a mini and restarting it (AGENTS.md Network Continuity)
 - NEVER: NEVER publish the Fulcrum router port on `0.0.0.0` or add it to the edge proxy; it is a loopback dependency of the mastra service only
 - NEVER: NEVER add `judge`, `reviewer`, `implementer`, `orchestrator`, `qwen-coder`, `verifier`, or the laptop endpoint to the Fulcrum router `model_list`
 - NEVER: NEVER place an API key, Tailscale key, or password value in the router config or compose file; use the credential-bearing names already indexed in `AGENTS.md`
-- STRICTLY: STRICTLY leave `services/platform/deploy/compose/router.compose.yaml` (the coder router on `:4545`) untouched; the Fulcrum router is a separate, additional deployment unit
-- STRICTLY: STRICTLY keep the loopback base URL as the only endpoint literal reachable from cycle code; no host, port, or device key may be introduced under `services/platform/src/mission/` or `services/platform/src/research/`
+- STRICTLY: STRICTLY leave `packages/platform/deploy/compose/router.compose.yaml` (the coder router on `:4545`) untouched; the Fulcrum router is a separate, additional deployment unit
+- STRICTLY: STRICTLY keep the loopback base URL as the only endpoint literal reachable from cycle code; no host, port, or device key may be introduced under `packages/platform/src/mission/` or `packages/platform/src/research/`
 
 --------------------------------------------------------------------------------
 CAPABILITY CHAIN
@@ -93,7 +93,7 @@ boundary_contracts:
   - PROVIDES to FUL-PLAT-007 and FUL-PLAT-008: Fulcrum dials exactly one endpoint, `http://127.0.0.1:4547/v1`, inside the container; no mini hostname, no `:4545`, and no per-device endpoint key exists in cycle code
   - PROVIDES to FUL-PLAT-007: `GET http://127.0.0.1:4547/model/info` lists one deployment per role per mini with stable `model_info.id` values `divergent-inference1`, `divergent-inference2`, `convergent-inference1`, `convergent-inference2`, `embed-inference1`, `embed-inference2`
   - PROVIDES to FUL-PLAT-007: every Fulcrum completion response carries `x-litellm-model-api-base` and `x-litellm-model-id`; the response body `model` field is never an identity source because LiteLLM 1.91.0 rewrites it to the requested alias
-  - CONSUMES from FUL-INFRA-001: role name to oMLX basename bindings come from `services/platform/deploy/fleet/fulcrum-roles.json`, never a second vocabulary
+  - CONSUMES from FUL-INFRA-001: role name to oMLX basename bindings come from `packages/platform/deploy/fleet/fulcrum-roles.json`, never a second vocabulary
   - The Fulcrum router listens on container loopback only and is never published on `0.0.0.0`
 
 --------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ AC-1: A real completion through the loopback router is served by a mini [PRIMARY
   VERIFICATION_SERVICE: LiteLLM 1.91.0 fulcrum-router container on 127.0.0.1:4547 fronting oMLX on inference1 and inference2
   FLOW_REF:             UC-LIS-01 / T-LIS-001, T-LIS-002
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -132,7 +132,7 @@ AC-1: A real completion through the loopback router is served by a mini [PRIMARY
     CASES:
       - START_REF: stack_with_fulcrum_router
         ACTOR:     api_client
-        STEP:      run `docker compose -f services/platform/deploy/compose/compose.yaml up -d fulcrum-router mastra`
+        STEP:      run `docker compose -f packages/platform/deploy/compose/compose.yaml up -d fulcrum-router mastra`
         STEP:      run `docker compose exec mastra curl -sS -D /tmp/h.txt http://127.0.0.1:4547/v1/chat/completions -H 'content-type: application/json' -d '{"model":"divergent","messages":[{"role":"user","content":"Reply with the single word ready"}],"max_tokens":8}'`
         STEP:      print the captured response headers from /tmp/h.txt
         MUST_OBSERVE:     `HTTP/1.1 200 OK`
@@ -152,7 +152,7 @@ AC-2: The router declares six deployments across both minis and both minis reall
   VERIFICATION_SERVICE: LiteLLM 1.91.0 fulcrum-router /model/info plus oMLX :8003 on inference1 and inference2
   FLOW_REF:             UC-LIS-01 / ADR-007 load-balancing
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6 nodes=inference1,inference2 strategy=least-busy'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6 nodes=inference1,inference2 strategy=least-busy'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -185,7 +185,7 @@ AC-3: A stopped mini is covered by the other without a config change
   VERIFICATION_SERVICE: LiteLLM 1.91.0 fulcrum-router with a real oMLX service stop on inference1
   FLOW_REF:             UC-LIS-04 / T-LIS-015
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2 after_restore=convergent-inference1'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2 after_restore=convergent-inference1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -216,7 +216,7 @@ AC-4: With no backend the router fails closed and no cloud endpoint is contacted
   VERIFICATION_SERVICE: LiteLLM 1.91.0 fulcrum-router with oMLX stopped on both minis
   FLOW_REF:             UC-LIS-04 / T-LIS-016, T-LIS-019
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'status=503 error_names=divergent cloud_hosts_contacted=0'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'status=503 error_names=divergent cloud_hosts_contacted=0'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -244,28 +244,28 @@ AC-5: Cycle code carries no per-device endpoint, only the loopback base URL
   THEN:  THEN the scan finds 0 per-device endpoint references in cycle code and exactly 1 loopback base URL constant
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: Real repository worktree scanned with git grep over services/platform/src
+  VERIFICATION_SERVICE: Real repository worktree scanned with git grep over packages/platform/src
   FLOW_REF:             UC-LIS-01 / T-LIS-004
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          Real repository worktree scanned with git grep over services/platform/src
+    SERVICE:          Real repository worktree scanned with git grep over packages/platform/src
     NEGATIVE_CONTROL: would fail if the mini hostnames are hardcoded in cycle code, so the deleted per-device config survives under a new name; the scan globs a directory that does not exist, so the tally is empty for a reason unrelated to the code; the loopback constant is absent and the base URL is read from a mutable operator environment key
     EVIDENCE:         stdout (required_capture=True)
     CASES:
       - START_REF: repo_worktree_after_router_wiring
         ACTOR:     cli_user
-        STEP:      run `git grep -c -E 'inference[12]\.tail011a51\.ts\.net|127\.0\.0\.1:4545|FULCRUM_INFERENCE_BASE_URL|FULCRUM_ROLE_MAP' -- services/platform/src/mission services/platform/src/research | wc -l`
-        STEP:      run `git grep -c -F 'http://127.0.0.1:4547/v1' -- services/platform/src/inference/fulcrum-router.ts`
-        STEP:      run `git grep -c -F 'inference1.tail011a51.ts.net' -- services/platform/deploy/compose/fulcrum-router.config.yaml`
+        STEP:      run `git grep -c -E 'inference[12]\.tail011a51\.ts\.net|127\.0\.0\.1:4545|FULCRUM_INFERENCE_BASE_URL|FULCRUM_ROLE_MAP' -- packages/platform/src/mission packages/platform/src/research | wc -l`
+        STEP:      run `git grep -c -F 'http://127.0.0.1:4547/v1' -- packages/platform/src/inference/fulcrum-router.ts`
+        STEP:      run `git grep -c -F 'inference1.tail011a51.ts.net' -- packages/platform/deploy/compose/fulcrum-router.config.yaml`
         MUST_OBSERVE:     `cycle_device_refs=0 loopback_base_urls=1`
-        MUST_OBSERVE:     `services/platform/deploy/compose/fulcrum-router.config.yaml:3` mini hostname rows
-        MUST_OBSERVE:     `services/platform/src/inference/fulcrum-router.ts:1` loopback constant
+        MUST_OBSERVE:     `packages/platform/deploy/compose/fulcrum-router.config.yaml:3` mini hostname rows
+        MUST_OBSERVE:     `packages/platform/src/inference/fulcrum-router.ts:1` loopback constant
         MUST_NOT_OBSERVE: `loopback_base_urls=0`
-        MUST_NOT_OBSERVE: `FULCRUM_INFERENCE_BASE_URL` under `services/platform/src/mission`
+        MUST_NOT_OBSERVE: `FULCRUM_INFERENCE_BASE_URL` under `packages/platform/src/mission`
         MUST_NOT_OBSERVE: an empty scan target list
 
 --------------------------------------------------------------------------------
@@ -274,35 +274,35 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 | The completion response carries an `x-litellm-model-id` header matching `divergent-inference1` or `divergent-inference2` when the loopback router is dialed. | AC-1 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 \| grep -E 'x-litellm-model-id=divergent-inference(1\|2)'` |
-| TC-2 | The completion response omits any api-base naming the laptop when the loopback router is dialed. | AC-1 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 \| grep -cF 'laptop.tail011a51.ts.net' \| grep -x '0'` |
-| TC-3 | The `/model/info` response lists `deployments=6` when the router config is loaded. | AC-2 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 \| grep -F 'deployments=6'` |
-| TC-4 | The router settings report `num_retries=2 timeout=600 cooldown_time=60` when `/model/info` is read. | AC-2 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 \| grep -F 'num_retries=2 timeout=600 cooldown_time=60'` |
-| TC-5 | The outage completion reports `during_outage=convergent-inference2` when oMLX on `inference1` is stopped. | AC-3 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 \| grep -F 'during_outage=convergent-inference2'` |
-| TC-6 | The router reports `cloud_hosts_contacted=0` when oMLX is stopped on both minis. | AC-4 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 \| grep -F 'cloud_hosts_contacted=0'` |
-| TC-7 | The repository scan reports `cycle_device_refs=0 loopback_base_urls=1` when run over `services/platform/src`. | AC-5 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 \| grep -F 'cycle_device_refs=0 loopback_base_urls=1'` |
+| TC-1 | The completion response carries an `x-litellm-model-id` header matching `divergent-inference1` or `divergent-inference2` when the loopback router is dialed. | AC-1 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 \| grep -E 'x-litellm-model-id=divergent-inference(1\|2)'` |
+| TC-2 | The completion response omits any api-base naming the laptop when the loopback router is dialed. | AC-1 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 \| grep -cF 'laptop.tail011a51.ts.net' \| grep -x '0'` |
+| TC-3 | The `/model/info` response lists `deployments=6` when the router config is loaded. | AC-2 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 \| grep -F 'deployments=6'` |
+| TC-4 | The router settings report `num_retries=2 timeout=600 cooldown_time=60` when `/model/info` is read. | AC-2 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 \| grep -F 'num_retries=2 timeout=600 cooldown_time=60'` |
+| TC-5 | The outage completion reports `during_outage=convergent-inference2` when oMLX on `inference1` is stopped. | AC-3 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 \| grep -F 'during_outage=convergent-inference2'` |
+| TC-6 | The router reports `cloud_hosts_contacted=0` when oMLX is stopped on both minis. | AC-4 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 \| grep -F 'cloud_hosts_contacted=0'` |
+| TC-7 | The repository scan reports `cycle_device_refs=0 loopback_base_urls=1` when run over `packages/platform/src`. | AC-5 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 \| grep -F 'cycle_device_refs=0 loopback_base_urls=1'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/deploy/compose/fulcrum-router.config.yaml
-- services/platform/deploy/compose/compose.yaml
-- services/platform/deploy/compose/compose.dev.yaml
-- services/platform/deploy/compose/image-lock.json
-- services/platform/Dockerfile
-- services/platform/src/inference/fulcrum-router.ts
-- services/platform/src/cli/commands/fulcrum-router-check.ts
-- services/platform/src/cli/holo.ts
-- services/platform/tests/integration/fulcrum-router-image.test.ts
+- packages/platform/deploy/compose/fulcrum-router.config.yaml
+- packages/platform/deploy/compose/compose.yaml
+- packages/platform/deploy/compose/compose.dev.yaml
+- packages/platform/deploy/compose/image-lock.json
+- packages/platform/Dockerfile
+- packages/platform/src/inference/fulcrum-router.ts
+- packages/platform/src/cli/commands/fulcrum-router-check.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/tests/integration/fulcrum-router-image.test.ts
 
 writeProhibited:
-- services/platform/deploy/compose/router.compose.yaml — the coder router on :4545 stays untouched
-- services/platform/src/mission/** — FUL-PLAT-005 owns the mission contract in this same wave
-- services/platform/src/research/** — FUL-PLAT-002 owns admission in this same wave
-- services/platform/deploy/fleet/** — FUL-INFRA-001 owns the role expectation file
-- services/platform/src/db/** — FUL-PLAT-001 owns the ledger
+- packages/platform/deploy/compose/router.compose.yaml — the coder router on :4545 stays untouched
+- packages/platform/src/mission/** — FUL-PLAT-005 owns the mission contract in this same wave
+- packages/platform/src/research/** — FUL-PLAT-002 owns admission in this same wave
+- packages/platform/deploy/fleet/** — FUL-INFRA-001 owns the role expectation file
+- packages/platform/src/db/** — FUL-PLAT-001 owns the ledger
 - .spec/** — the orchestrator owns sprint artifacts
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
@@ -311,7 +311,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/deploy/compose/router.compose.yaml:12
+Source: packages/platform/deploy/compose/router.compose.yaml:12
 
 Sidecar LiteLLM router joined to the application container's network namespace so the application dials it on 127.0.0.1, with the model_list and router_settings carried as a checked-in config file copied into the image and hashed in image-lock.json.
 
@@ -527,16 +527,16 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/deploy/compose/router.compose.yaml
+1. packages/platform/deploy/compose/router.compose.yaml
    - Lines: 1-100
    - Focus: [PRIMARY PATTERN] digest-pinned LiteLLM service, inline `configs:` content block, model_list rows per backend at weight 100, router_settings block, healthcheck shape — copy this shape, change the vocabulary to divergent/convergent/embed and bind to loopback
-2. services/platform/deploy/compose/compose.yaml
+2. packages/platform/deploy/compose/compose.yaml
    - Lines: 1-120
    - Focus: Compose contract v2 conventions: bounded logging anchor, contract labels, digest-qualified images, secret handling; the fulcrum-router service must join the mastra network namespace so 127.0.0.1 is shared
-3. services/platform/deploy/compose/image-lock.json
+3. packages/platform/deploy/compose/image-lock.json
    - Lines: 1-40
    - Focus: Where the new LiteLLM digest and the router config hash must be recorded so the binding is digest-protected across builds
-4. services/platform/src/inference/telemetry.ts
+4. packages/platform/src/inference/telemetry.ts
    - Lines: 555-585
    - Focus: Existing `x-litellm-model-api-base` header reader; the new router must emit that header plus `x-litellm-model-id` for FUL-PLAT-007 to consume
 5. .spec/prds/fulcrum/09-technical-requirements/00-architecture-decisions.md
@@ -566,15 +566,15 @@ Gate 2: Typecheck
   Expected: No diagnostics referencing `fulcrum-router.ts` or `fulcrum-router-check.ts`
 
 Gate 3: Lint
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/inference/fulcrum-router.ts services/platform/src/cli/commands/fulcrum-router-check.ts services/platform/tests/integration/fulcrum-router-image.test.ts services/platform/deploy/compose/image-lock.json
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/inference/fulcrum-router.ts packages/platform/src/cli/commands/fulcrum-router-check.ts packages/platform/tests/integration/fulcrum-router-image.test.ts packages/platform/deploy/compose/image-lock.json
   Expected: Checked 4 files with 0 errors
 
 Gate 4: Compose validity
-  Command:  docker compose -f services/platform/deploy/compose/compose.yaml config 2>&1 | grep -F 'fulcrum-router'
+  Command:  docker compose -f packages/platform/deploy/compose/compose.yaml config 2>&1 | grep -F 'fulcrum-router'
   Expected: Rendered config contains the `fulcrum-router` service with no published `0.0.0.0` port
 
 Gate 5: Header-truth proof
-  Command:  pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
+  Command:  pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'
   Expected: A pinned deployment id captured from a real completion response header
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -594,7 +594,7 @@ CODING STANDARDS
 --------------------------------------------------------------------------------
 
 - AGENTS.md
-- services/platform/deploy/compose/README.md
+- packages/platform/deploy/compose/README.md
 - .spec/prds/fulcrum/09-technical-requirements/00-architecture-decisions.md
 
 --------------------------------------------------------------------------------
@@ -663,9 +663,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "description": "The repository worktree after the Fulcrum router config, compose entry, Dockerfile copy, and loopback constant module have landed",
       "seed_method": "cli",
       "records": [
-        "services/platform/src/inference/fulcrum-router.ts exports the loopback base URL http://127.0.0.1:4547/v1",
-        "services/platform/deploy/compose/fulcrum-router.config.yaml holds the six model_list rows",
-        "services/platform/src/mission and services/platform/src/research contain no mini hostname"
+        "packages/platform/src/inference/fulcrum-router.ts exports the loopback base URL http://127.0.0.1:4547/v1",
+        "packages/platform/deploy/compose/fulcrum-router.config.yaml holds the six model_list rows",
+        "packages/platform/src/mission and packages/platform/src/research contain no mini hostname"
       ]
     }
   },
@@ -675,7 +675,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN the compose stack is up with the Fulcrum router on container loopback and both minis serving WHEN a real chat completion for model `divergent` is POSTed to `http://127.0.0.1:4547/v1/chat/completions` from inside the mastra container THEN the response is 200 and carries `x-litellm-model-api-base` naming a mini `:8003/v1` endpoint and `x-litellm-model-id` equal to a pinned deployment id",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "LiteLLM 1.91.0 fulcrum-router container on 127.0.0.1:4547 fronting oMLX on inference1 and inference2",
@@ -703,7 +703,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "api_client",
               "steps": [
-                "run `docker compose -f services/platform/deploy/compose/compose.yaml up -d fulcrum-router mastra`",
+                "run `docker compose -f packages/platform/deploy/compose/compose.yaml up -d fulcrum-router mastra`",
                 "run `docker compose exec mastra curl -sS -D /tmp/h.txt http://127.0.0.1:4547/v1/chat/completions -H 'content-type: application/json' -d '{\"model\":\"divergent\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with the single word ready\"}],\"max_tokens\":8}'`",
                 "print the captured response headers from /tmp/h.txt"
               ]
@@ -730,7 +730,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the Fulcrum router config carries one row per role per mini at weight 100 WHEN `GET http://127.0.0.1:4547/model/info` is read and each mini's own `:8003/v1/models` endpoint is read THEN the six pinned deployment ids are listed against the two mini api-bases and both nodes really serve the basenames those rows name",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6 nodes=inference1,inference2 strategy=least-busy'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6 nodes=inference1,inference2 strategy=least-busy'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "LiteLLM 1.91.0 fulcrum-router /model/info plus oMLX :8003 on inference1 and inference2",
@@ -787,7 +787,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN both minis are serving and the router config is unchanged WHEN oMLX on `inference1` is stopped over SSH and a `convergent` completion is issued through the loopback router THEN the completion returns 200 served by `convergent-inference2`, and after `inference1` is restarted a later completion can be served by `convergent-inference1`",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2 after_restore=convergent-inference1'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2 after_restore=convergent-inference1'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "LiteLLM 1.91.0 fulcrum-router with a real oMLX service stop on inference1",
@@ -842,7 +842,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN oMLX is stopped on both minis and `FULCRUM_CLOUD_FALLBACK` is off WHEN a `divergent` completion is issued through the loopback router THEN the router returns an explicit no-host error naming the requested model and no cloud host is contacted",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'status=503 error_names=divergent cloud_hosts_contacted=0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'status=503 error_names=divergent cloud_hosts_contacted=0'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "LiteLLM 1.91.0 fulcrum-router with oMLX stopped on both minis",
@@ -897,16 +897,16 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the router config, compose entry, Dockerfile copy, and loopback constant have landed WHEN the repository is scanned for mini hostnames, the coder router port, and the deleted base-URL key under the Fulcrum cycle paths THEN the scan finds 0 per-device endpoint references in cycle code and exactly 1 loopback base URL constant",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'",
       "maps_to_ac": null,
       "test_tier": "integration",
-      "verification_service": "Real repository worktree scanned with git grep over services/platform/src",
+      "verification_service": "Real repository worktree scanned with git grep over packages/platform/src",
       "scenario": {
         "id": "SC-FUL-INFRA-002-AC5",
         "primary": true,
         "tier": "visible",
         "test_tier": "integration",
-        "verification_service": "Real repository worktree scanned with git grep over services/platform/src",
+        "verification_service": "Real repository worktree scanned with git grep over packages/platform/src",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -925,20 +925,20 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `git grep -c -E 'inference[12]\\.tail011a51\\.ts\\.net|127\\.0\\.0\\.1:4545|FULCRUM_INFERENCE_BASE_URL|FULCRUM_ROLE_MAP' -- services/platform/src/mission services/platform/src/research | wc -l`",
-                "run `git grep -c -F 'http://127.0.0.1:4547/v1' -- services/platform/src/inference/fulcrum-router.ts`",
-                "run `git grep -c -F 'inference1.tail011a51.ts.net' -- services/platform/deploy/compose/fulcrum-router.config.yaml`"
+                "run `git grep -c -E 'inference[12]\\.tail011a51\\.ts\\.net|127\\.0\\.0\\.1:4545|FULCRUM_INFERENCE_BASE_URL|FULCRUM_ROLE_MAP' -- packages/platform/src/mission packages/platform/src/research | wc -l`",
+                "run `git grep -c -F 'http://127.0.0.1:4547/v1' -- packages/platform/src/inference/fulcrum-router.ts`",
+                "run `git grep -c -F 'inference1.tail011a51.ts.net' -- packages/platform/deploy/compose/fulcrum-router.config.yaml`"
               ]
             },
             "end_state": {
               "must_observe": [
                 "`cycle_device_refs=0 loopback_base_urls=1`",
-                "`services/platform/deploy/compose/fulcrum-router.config.yaml:3` mini hostname rows",
-                "`services/platform/src/inference/fulcrum-router.ts:1` loopback constant"
+                "`packages/platform/deploy/compose/fulcrum-router.config.yaml:3` mini hostname rows",
+                "`packages/platform/src/inference/fulcrum-router.ts:1` loopback constant"
               ],
               "must_not_observe": [
                 "`loopback_base_urls=0`",
-                "`FULCRUM_INFERENCE_BASE_URL` under `services/platform/src/mission`",
+                "`FULCRUM_INFERENCE_BASE_URL` under `packages/platform/src/mission`",
                 "an empty scan target list"
               ]
             }
@@ -950,49 +950,49 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "The completion response carries an `x-litellm-model-id` header matching `divergent-inference1` or `divergent-inference2` when the loopback router is dialed.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -E 'x-litellm-model-id=divergent-inference(1|2)'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The completion response omits any api-base naming the laptop when the loopback router is dialed.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -cF 'laptop.tail011a51.ts.net' | grep -x '0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-1' 2>&1 | grep -cF 'laptop.tail011a51.ts.net' | grep -x '0'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The `/model/info` response lists `deployments=6` when the router config is loaded.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'deployments=6'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "The router settings report `num_retries=2 timeout=600 cooldown_time=60` when `/model/info` is read.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'num_retries=2 timeout=600 cooldown_time=60'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-2' 2>&1 | grep -F 'num_retries=2 timeout=600 cooldown_time=60'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "The outage completion reports `during_outage=convergent-inference2` when oMLX on `inference1` is stopped.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-3' 2>&1 | grep -F 'during_outage=convergent-inference2'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "The router reports `cloud_hosts_contacted=0` when oMLX is stopped on both minis.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'cloud_hosts_contacted=0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-4' 2>&1 | grep -F 'cloud_hosts_contacted=0'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
-      "description": "The repository scan reports `cycle_device_refs=0 loopback_base_urls=1` when run over `services/platform/src`.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'",
+      "description": "The repository scan reports `cycle_device_refs=0 loopback_base_urls=1` when run over `packages/platform/src`.",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-router-image.test.ts -t 'AC-5' 2>&1 | grep -F 'cycle_device_refs=0 loopback_base_urls=1'",
       "maps_to_ac": "AC-5"
     }
   ]

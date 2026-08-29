@@ -17,21 +17,21 @@ Against real Postgres, a claim whose quote is verbatim in sources.normalized_tex
 
 ## How to verify
 
-Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (services/platform/src/db/client.ts)):
+Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'
 ```
 
 Full gate set: 5 acceptance criteria, 12 test criteria, 3 verification gates.
 
 ## Scope
 
-- services/platform/src/fulcrum/gate/grade.ts (NEW)
-- services/platform/src/fulcrum/gate/verify-quote.ts (NEW)
-- services/platform/src/fulcrum/gate/admission.ts (NEW)
-- services/platform/src/fulcrum/admission-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-admission.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/grade.ts (NEW)
+- packages/platform/src/fulcrum/gate/verify-quote.ts (NEW)
+- packages/platform/src/fulcrum/gate/admission.ts (NEW)
+- packages/platform/src/fulcrum/admission-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-admission.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -71,10 +71,10 @@ Against real Postgres, a claim whose quote is verbatim in sources.normalized_tex
 - MUST: MUST resolve the tier by lookup against the mission's active `domain_tier_versions` / `domain_tiers` rows read from Postgres
 - MUST: MUST verify the quote against the persisted `sources.normalized_text` column, using exact mode only (`allowLines: false`)
 - MUST: MUST persist status, passes_gate, qualifying_grade and the reason for every evaluated claim, including rejections
-- NEVER: NEVER import a model client, call `generateText`, or reference the roles divergent / convergent / embed / judge inside services/platform/src/fulcrum/gate/**
+- NEVER: NEVER import a model client, call `generateText`, or reference the roles divergent / convergent / embed / judge inside packages/platform/src/fulcrum/gate/**
 - NEVER: NEVER assign a default tier value to an unclassified domain — return no grade and record `domain_unclassified`
 - NEVER: NEVER accept a quote verified against the caller-supplied sourceText or a hybrid-search snippet
-- STRICTLY: STRICTLY separate pure logic (services/platform/src/fulcrum/gate/**, zero I/O) from persistence (services/platform/src/fulcrum/admission-writer.ts) — the reviewer greps the gate directory for both model calls and sql imports
+- STRICTLY: STRICTLY separate pure logic (packages/platform/src/fulcrum/gate/**, zero I/O) from persistence (packages/platform/src/fulcrum/admission-writer.ts) — the reviewer greps the gate directory for both model calls and sql imports
 
 --------------------------------------------------------------------------------
 CAPABILITY CHAIN
@@ -111,15 +111,15 @@ AC-1: A quote-verified in-window classified claim is admitted and recorded [PRIM
   THEN:  the stored claim reads `status` = 'admitted', `passes_gate` = true, and a numeric `qualifying_grade`
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-01 + UC-LED-02 + UC-LED-04
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if evaluateAdmission returns a hardcoded admitted verdict without reading sources.normalized_text; the admission writer is a no-op so the claims row is never updated from provisional; the test mocks the sql client, so an empty database still reports admitted; the grade function returns a constant instead of tier_value times recency decay
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -143,15 +143,15 @@ AC-2: Each admission failure mode leaves the claim provisional with its own reas
   THEN:  each claim reads `status` = 'provisional' with a distinct machine-readable reason
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-02 AC-2/AC-3
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if every failure path returns the same generic 'not admitted' reason, so a stub satisfies all three cases; the unclassified branch assigns a default tier value instead of leaving the grade absent; the recency window is ignored and stale evidence is admitted; the reason field is never persisted to claims.metadata_json
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -192,15 +192,15 @@ AC-3: A quote absent from normalized_text is rejected with its own reason
   THEN:  both claims read `status` = 'provisional' with reason `quote_unverified`, distinct from the other failure reasons
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-04
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the quote check compares against the caller-supplied sourceText instead of the persisted sources.normalized_text, making self-citation pass; verifyQuote is stubbed to return true; the rejected-for-quote reason is collapsed into the generic provisional reason; lines-mode matching is enabled, admitting a quote assembled from non-adjacent fragments
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -242,15 +242,15 @@ AC-4: Grade is a deterministic tier-by-recency product
   THEN:  both calls return the byte-identical grade 0.89 and an unladdered domain returns no grade
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-01
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if gradeEvidence returns a constant regardless of tier value or age; the tier is resolved by a model call instead of a domain_tiers lookup; an unknown domain is silently assigned a default tier; the ladder is read from a hardcoded map instead of the active domain_tier_versions row
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -280,21 +280,21 @@ AC-5: Gate modules contain no model call and no model role
   THEN:  all three files are scanned and both occurrence counts read 0
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real filesystem scan of services/platform/src/fulcrum/gate (no model process)
+  VERIFICATION_SERVICE: real filesystem scan of packages/platform/src/fulcrum/gate (no model process)
   FLOW_REF:             CAP-EVIDENCE-01 boundary: determinism seam
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real filesystem scan of services/platform/src/fulcrum/gate (no model process)
+    SERVICE:          real filesystem scan of packages/platform/src/fulcrum/gate (no model process)
     NEGATIVE_CONTROL: would fail if the scan globs a directory that does not exist, so 0 files are read and the assertion passes vacuously; the gate imports a model client indirectly through a barrel, which a literal-only scan misses; the scan is stubbed to return an empty match list without reading the filesystem
     EVIDENCE:         file_artifact (required_capture=True)
     CASES:
       - START_REF: gate_module_tree
         ACTOR:     cli_user
-        STEP:      read `services/platform/src/fulcrum/gate/grade.ts`, `verify-quote.ts` and `admission.ts` from the real filesystem
+        STEP:      read `packages/platform/src/fulcrum/gate/grade.ts`, `verify-quote.ts` and `admission.ts` from the real filesystem
         STEP:      count occurrences of `generateText` and of the identifiers `divergent`, `convergent`, `embed`, `judge`
         MUST_OBSERVE:     the scan report names all 3 files `grade.ts`, `verify-quote.ts`, `admission.ts`
         MUST_OBSERVE:     the `generateText` occurrence count reads 0
@@ -310,37 +310,37 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
-| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
-| TC-6 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
-| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'` |
-| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'` |
-| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'` |
-| TC-10 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'` |
-| TC-11 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'` |
-| TC-12 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
+| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
+| TC-6 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'` |
+| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'` |
+| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'` |
+| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'` |
+| TC-10 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'` |
+| TC-11 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'` |
+| TC-12 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/fulcrum/gate/grade.ts (NEW)
-- services/platform/src/fulcrum/gate/verify-quote.ts (NEW)
-- services/platform/src/fulcrum/gate/admission.ts (NEW)
-- services/platform/src/fulcrum/admission-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-admission.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/grade.ts (NEW)
+- packages/platform/src/fulcrum/gate/verify-quote.ts (NEW)
+- packages/platform/src/fulcrum/gate/admission.ts (NEW)
+- packages/platform/src/fulcrum/admission-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-admission.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fulcrum/gate/provenance.ts — owned by FUL-PLAT-003
-- services/platform/src/fulcrum/gate/score.ts — owned by FUL-PLAT-004
-- services/platform/src/fulcrum/contract.ts and services/platform/src/fulcrum/missions/** — owned by FUL-PLAT-005
-- services/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006
-- services/platform/src/db/** — owned by FUL-PLAT-001
-- services/platform/src/research/** — the shipped on-demand research path stays untouched
+- packages/platform/src/fulcrum/gate/provenance.ts — owned by FUL-PLAT-003
+- packages/platform/src/fulcrum/gate/score.ts — owned by FUL-PLAT-004
+- packages/platform/src/fulcrum/contract.ts and packages/platform/src/fulcrum/missions/** — owned by FUL-PLAT-005
+- packages/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006
+- packages/platform/src/db/** — owned by FUL-PLAT-001
+- packages/platform/src/research/** — the shipped on-demand research path stays untouched
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -348,15 +348,15 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/research/evidence-gate.ts (evaluateEvidenceGate) + services/platform/src/research/quote-match.ts
+Source: packages/platform/src/research/evidence-gate.ts (evaluateEvidenceGate) + packages/platform/src/research/quote-match.ts
 
 Strict Zod input schema -> pure predicate -> structured result carrying status, passesGate, qualifyingGrade and a machine-readable reason; a separate writer persists it.
 
-ANTI-PATTERN: services/platform/src/mission/runtime.ts:342-398 mapRrfHitsToEvidenceGateInput — `quoteInSource = sourceText.slice(0, 280)` makes `sourceText.includes(quote)` vacuously true. Admission must read the persisted sources.normalized_text, never the payload the caller handed in.
+ANTI-PATTERN: packages/platform/src/mission/runtime.ts:342-398 mapRrfHitsToEvidenceGateInput — `quoteInSource = sourceText.slice(0, 280)` makes `sourceText.includes(quote)` vacuously true. Admission must read the persisted sources.normalized_text, never the payload the caller handed in.
 
 References:
 - .spec/prds/fulcrum/09-technical-requirements/04-api-design.md § Evidence Gate — the exact five function signatures
-- services/platform/src/research/evidence-gate.ts — the shipped deterministic-gate precedent in this repo
+- packages/platform/src/research/evidence-gate.ts — the shipped deterministic-gate precedent in this repo
 
 Notes:
 - T
@@ -806,19 +806,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/research/evidence-gate.ts
+1. packages/platform/src/research/evidence-gate.ts
    - Lines: 1-105
    - Focus: [PRIMARY PATTERN] the existing deterministic admission seam — strict Zod input schema, pure predicate, structured result with a reason string, independence keyed on canonical source identity rather than a caller-supplied label
-2. services/platform/src/research/quote-match.ts
+2. packages/platform/src/research/quote-match.ts
    - Lines: 1-45
    - Focus: verifyQuote exact-vs-lines modes and MIN_QUOTE_CHARS; the gate must call it with allowLines:false against normalized_text
-3. services/platform/src/research/grade.ts
+3. packages/platform/src/research/grade.ts
    - Lines: 1-88
    - Focus: Closest existing grading shape (rule-derived, model proposal can only lower). Fulcrum replaces the 1..5 ceiling model with tier_value times recency decay in [0,1]
-4. services/platform/src/db/schema/evidence.ts
+4. packages/platform/src/db/schema/evidence.ts
    - Lines: 82-103
    - Focus: The claims table this task writes status / passes_gate / qualifying_grade onto (columns added by FUL-PLAT-001)
-5. services/platform/tests/integration/research-evidence-core.test.ts
+5. packages/platform/tests/integration/research-evidence-core.test.ts
    - Lines: 1-70
    - Focus: Integration-lane conventions: fail-closed beforeAll, holocron_nonprod guard, real createSql, no it.skip
 
@@ -850,7 +850,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fulcrum/gate/grade.ts services/platform/src/fulcrum/gate/verify-quote.ts services/platform/src/fulcrum/gate/admission.ts services/platform/src/fulcrum/admission-writer.ts services/platform/tests/integration/fulcrum-admission.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fulcrum/gate/grade.ts packages/platform/src/fulcrum/gate/verify-quote.ts packages/platform/src/fulcrum/gate/admission.ts packages/platform/src/fulcrum/admission-writer.ts packages/platform/tests/integration/fulcrum-admission.test.ts
   Expected: None
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -863,7 +863,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   The admission predicate is the Fulcrum determinism seam inside the Mastra platform (services/platform/src) — pure TypeScript modules plus a Postgres writer, proven on the real integration lane. mastra-implementer owns backend + agent-platform code and is the agent contractually bound to TDD against real Postgres.
+Rationale:   The admission predicate is the Fulcrum determinism seam inside the Mastra platform (packages/platform/src) — pure TypeScript modules plus a Postgres writer, proven on the real integration lane. mastra-implementer owns backend + agent-platform code and is the agent contractually bound to TDD against real Postgres.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -872,7 +872,7 @@ CODING STANDARDS
 
 - Every module input and output is a real Zod schema — no z.any() and no untyped Record on the admission path
 - Reason values are a closed string-literal union (admitted_quote_verified | quote_unverified | domain_unclassified | evidence_out_of_window | grade_below_floor | no_evidence), never a free-form message
-- Pure gate modules import nothing from services/platform/src/db and nothing from any model or fleet client
+- Pure gate modules import nothing from packages/platform/src/db and nothing from any model or fleet client
 - Grades are doublePrecision in [0,1]; comparisons use an explicit epsilon-free exact predicate so determinism is testable
 
 --------------------------------------------------------------------------------
@@ -912,7 +912,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
   },
   "fixtures": {
     "graded_corpus_source": {
-      "description": "one `sources` row seeded by `bun services/platform/src/cli/holo.ts evidence:seed` with `source_domain` = 'sec.gov', `retrieved_at` 30 days old, and a 1200-character `normalized_text` containing the sentence 'Quarterly revenue grew 12% year-over-year according to the 10-K filing.'",
+      "description": "one `sources` row seeded by `bun packages/platform/src/cli/holo.ts evidence:seed` with `source_domain` = 'sec.gov', `retrieved_at` 30 days old, and a 1200-character `normalized_text` containing the sentence 'Quarterly revenue grew 12% year-over-year according to the 10-K filing.'",
       "seed_method": "cli",
       "records": [
         "`sources.source_domain` = 'sec.gov'",
@@ -943,9 +943,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "description": "the three Fulcrum gate modules on disk after implementation \u2014 grade.ts, verify-quote.ts, admission.ts",
       "seed_method": "cli",
       "records": [
-        "`services/platform/src/fulcrum/gate/grade.ts` is 1 readable file",
-        "`services/platform/src/fulcrum/gate/verify-quote.ts` is 1 readable file",
-        "`services/platform/src/fulcrum/gate/admission.ts` is 1 readable file"
+        "`packages/platform/src/fulcrum/gate/grade.ts` is 1 readable file",
+        "`packages/platform/src/fulcrum/gate/verify-quote.ts` is 1 readable file",
+        "`packages/platform/src/fulcrum/gate/admission.ts` is 1 readable file"
       ]
     }
   },
@@ -955,13 +955,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN a seeded `sources` row on 'sec.gov' whose `normalized_text` contains the 10-K sentence, and 1 bound claim with `status` = 'provisional' WHEN the evidence-gate caller runs `evaluateAdmission` over that claim with `quote_text` copied verbatim from `sources.normalized_text` and persists the decision THEN the stored claim reads `status` = 'admitted', `passes_gate` = true, and a numeric `qualifying_grade`",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": true,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1009,13 +1009,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN three seeded claims: one on an unclassified domain, one outside the 365-day window, one with a sub-floor grade WHEN the evidence-gate caller evaluates all three and persists the decisions THEN each claim reads `status` = 'provisional' with a distinct machine-readable reason",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1104,13 +1104,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a seeded 'sec.gov' source whose `normalized_text` does not contain the string 'holocron guarantees 70% margin' WHEN the caller submits a claim carrying that fabricated quote, and separately a quote taken from the 280-character RRF snippet buffer THEN both claims read `status` = 'provisional' with reason `quote_unverified`, distinct from the other failure reasons",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1200,13 +1200,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN an active `domain_tiers` ladder mapping 'sec.gov' to `tier_value` = 1.0 with a 180-day half-life WHEN `gradeEvidence` is called twice with the identical tier value, retrieved_at and now THEN both calls return the byte-identical grade 0.89 and an unladdered domain returns no grade",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1272,13 +1272,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the three implemented gate modules on disk WHEN the test scans their source text for `generateText` and for the model-role identifiers divergent, convergent, embed and judge THEN all three files are scanned and both occurrence counts read 0",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real filesystem scan of services/platform/src/fulcrum/gate (no model process)",
+        "verification_service": "real filesystem scan of packages/platform/src/fulcrum/gate (no model process)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1297,7 +1297,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "read `services/platform/src/fulcrum/gate/grade.ts`, `verify-quote.ts` and `admission.ts` from the real filesystem",
+                "read `packages/platform/src/fulcrum/gate/grade.ts`, `verify-quote.ts` and `admission.ts` from the real filesystem",
                 "count occurrences of `generateText` and of the identifiers `divergent`, `convergent`, `embed`, `judge`"
               ]
             },
@@ -1322,84 +1322,84 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "A claim whose quote_text is a verbatim substring of sources.normalized_text is stored with status 'admitted'",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The admitted claim row carries qualifying_grade 0.92",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The admitted claim row carries passes_gate true",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "A claim bound to a domain absent from domain_tiers is stored provisional with reason domain_unclassified",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "A claim whose evidence is 900 days old against a 365-day window is stored provisional with reason evidence_out_of_window",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "A claim graded 0.92 against a 0.98 floor is stored provisional with reason grade_below_floor",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "A claim carrying a fabricated quote is stored provisional with reason quote_unverified",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "A quote sliced from the 280-character RRF sourceText buffer is stored provisional with reason quote_unverified",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-9",
       "type": "test_criterion",
       "description": "Two gradeEvidence calls with identical arguments return the byte-identical value 0.89",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-10",
       "type": "test_criterion",
       "description": "gradeEvidence returns null when the domain has no domain_tiers row in the active ladder",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-11",
       "type": "test_criterion",
       "description": "The filesystem scan of the three gate modules reports 0 occurrences of generateText",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     },
     {
       "id": "TC-12",
       "type": "test_criterion",
       "description": "The filesystem scan of the three gate modules reports 0 model-role identifiers",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-admission.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     }
   ]

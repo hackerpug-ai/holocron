@@ -20,19 +20,19 @@ A completed cycle leaves one mission_runs row plus its sources, claims, belief_s
 Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod + live image-local LiteLLM router + real holocron corpus):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 6 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/mission/fulcrum/commit.ts (NEW)
-- services/platform/src/mission/fulcrum/replay.ts (NEW)
-- services/platform/src/mission/runtime.ts (MODIFY)
-- services/platform/src/mission/repository.ts (MODIFY)
-- services/platform/src/mission/registry.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-commit-replay.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/commit.ts (NEW)
+- packages/platform/src/mission/fulcrum/replay.ts (NEW)
+- packages/platform/src/mission/runtime.ts (MODIFY)
+- packages/platform/src/mission/repository.ts (MODIFY)
+- packages/platform/src/mission/registry.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-commit-replay.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -117,7 +117,7 @@ AC-1: One cycle commits every effect in a single transaction [PRIMARY]
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router + real holocron corpus
   FLOW_REF:             CAP-COMMIT-01 hop: commit stage -> one Postgres transaction appending sources/claims/belief_scores/lineage + mission_runs
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -148,7 +148,7 @@ AC-2: Same idempotency key replays the stored commit
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + real holo CLI subprocess
   FLOW_REF:             CAP-COMMIT-01 boundary contract: mission_runs unique on (template_key, idempotency_key), replay returns the stored commit
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -179,7 +179,7 @@ AC-3: A killed cycle leaves zero partial rows
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + a real platform child process killed with SIGKILL
   FLOW_REF:             CAP-COMMIT-01 failure mode: process killed mid-cycle — the transaction either commits or does not
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -219,7 +219,7 @@ AC-4: A budget-exceeded cycle writes an explicit run row and no candidate effect
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router
   FLOW_REF:             CAP-COMMIT-01 boundary contract: a budget_exceeded cycle still writes an explicit run row
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -249,7 +249,7 @@ AC-5: Same key with different args is refused, not replayed
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + real holo CLI subprocess
   FLOW_REF:             CAP-COMMIT-01 failure mode: double-run collapses to one commit only when the request is identical
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -275,30 +275,30 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-1"` |
-| TC-2 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-2"` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-3"` |
-| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-4"` |
-| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-5"` |
-| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-6"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-1"` |
+| TC-2 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-2"` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-3"` |
+| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-4"` |
+| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-5"` |
+| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t "TC-6"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/mission/fulcrum/commit.ts (NEW)
-- services/platform/src/mission/fulcrum/replay.ts (NEW)
-- services/platform/src/mission/runtime.ts (MODIFY)
-- services/platform/src/mission/repository.ts (MODIFY)
-- services/platform/src/mission/registry.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-commit-replay.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/commit.ts (NEW)
+- packages/platform/src/mission/fulcrum/replay.ts (NEW)
+- packages/platform/src/mission/runtime.ts (MODIFY)
+- packages/platform/src/mission/repository.ts (MODIFY)
+- packages/platform/src/mission/registry.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-commit-replay.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/db/schema/** — the append-only tables and triggers are owned by FUL-PLAT-001
-- services/platform/src/research/** — gate and score modules are owned by FUL-PLAT-002 / FUL-PLAT-004
-- services/platform/src/inference/** and services/platform/src/fleet/** — owned by FUL-PLAT-007
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/db/schema/** — the append-only tables and triggers are owned by FUL-PLAT-001
+- packages/platform/src/research/** — gate and score modules are owned by FUL-PLAT-002 / FUL-PLAT-004
+- packages/platform/src/inference/** and packages/platform/src/fleet/** — owned by FUL-PLAT-007
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -306,7 +306,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/mission/document-publish.ts:60-128 (ON CONFLICT DO NOTHING + read-back) and services/platform/src/mission/runtime.ts:2919-2945 (args-mismatch refusal)
+Source: packages/platform/src/mission/document-publish.ts:60-128 (ON CONFLICT DO NOTHING + read-back) and packages/platform/src/mission/runtime.ts:2919-2945 (args-mismatch refusal)
 
 Insert-on-conflict-then-read-back for the idempotent row, wrapped in a single transaction for the multi-table append. The existing publishDocumentForRun is the canonical shape for the conflict/read-back half.
 
@@ -591,19 +591,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/mission/runtime.ts
+1. packages/platform/src/mission/runtime.ts
    - Lines: 2760-2950
    - Focus: [PRIMARY PATTERN] selectMissionRunByTemplateAndIdempotency + the terminal-replay read path and the canonical-JSON args comparison that raises 'persisted args differ from this request'
-2. services/platform/src/mission/runtime.ts
+2. packages/platform/src/mission/runtime.ts
    - Lines: 4095-4310
    - Focus: Lease acquisition, replayRun resolution and the created/replay branches that decide whether a dispatch executes or returns the stored commit
-3. services/platform/src/mission/document-publish.ts
+3. packages/platform/src/mission/document-publish.ts
    - Lines: 36-100
    - Focus: The INSERT … ON CONFLICT DO NOTHING / read-back idempotency shape this commit reuses for the candidate write
-4. services/platform/src/mission/repository.ts
+4. packages/platform/src/mission/repository.ts
    - Lines: 1-120
    - Focus: Transaction helpers and the Sql/TransactionSql executor type the commit stage must thread through every write
-5. services/platform/tests/integration/queue-exactly-once.test.ts
+5. packages/platform/tests/integration/queue-exactly-once.test.ts
    - Lines: 1-90
    - Focus: Existing exactly-once integration pattern against real Postgres — row-count assertions after a repeated dispatch
 
@@ -627,7 +627,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -639,7 +639,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/mission services/platform/tests/integration/fulcrum-commit-replay.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/mission packages/platform/tests/integration/fulcrum-commit-replay.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -741,7 +741,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN mission dev-revenue is seeded and no run exists for the idempotency key WHEN one Fulcrum cycle runs to completion against real Postgres THEN the sources, claims, belief_scores, lineage relations and mission_runs rows for that run all exist together",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router + real holocron corpus",
@@ -803,7 +803,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN one Fulcrum cycle has already committed under idempotency key fulcrum-human-gate-01 WHEN the same command runs a second time with the same key THEN the response reports replay true with the identical runId, candidateId and dossierPath and the run count for that key stays at one",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + real holo CLI subprocess",
@@ -865,7 +865,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a Fulcrum cycle is running and its assay stage row has appeared WHEN the platform process is killed with SIGKILL before the commit stage row appears THEN zero candidates, belief_scores and lineage relations rows exist for that run",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + a real platform child process killed with SIGKILL",
@@ -948,7 +948,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a cycle is launched under a 0.000001 USD cost cap WHEN the cap is hit before the commit stage THEN one mission_runs row with status budget_exceeded exists and zero candidates and belief_scores rows exist for that run",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router",
@@ -1008,7 +1008,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN one cycle has committed under idempotency key fulcrum-human-gate-01 for a given goal WHEN the same key is dispatched with a different goal THEN the dispatch is refused with a named args-mismatch error and no second run row is written",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + real holo CLI subprocess",
@@ -1067,7 +1067,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The belief_scores row count for a completed run equals one when the cycle commits",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1080,7 +1080,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The second response replay field equals true when the same idempotency key is dispatched twice",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1093,7 +1093,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The mission_runs row count for one idempotency key equals one after two dispatches",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1106,7 +1106,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The candidates row count for the run equals zero when the process is killed before the commit stage",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1119,7 +1119,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The JSON response omits dossierPath when the run status is budget_exceeded",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1132,7 +1132,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The dispatch is refused when the same idempotency key carries a different goal",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-commit-replay.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,

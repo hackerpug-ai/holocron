@@ -17,19 +17,19 @@ Against real Postgres, grades 1.0/0.9/0.8/0.7 on a weight-0.5 component persist 
 
 ## How to verify
 
-Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (services/platform/src/db/client.ts)):
+Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'
 ```
 
 Full gate set: 5 acceptance criteria, 10 test criteria, 3 verification gates.
 
 ## Scope
 
-- services/platform/src/fulcrum/gate/score.ts (NEW)
-- services/platform/src/fulcrum/belief-score-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-belief-score.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/score.ts (NEW)
+- packages/platform/src/fulcrum/belief-score-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-belief-score.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -69,7 +69,7 @@ Against real Postgres, grades 1.0/0.9/0.8/0.7 on a weight-0.5 component persist 
 - MUST: MUST compute each evidence component's support as the mean of its top-3 admitted grades so a fourth marginal claim adds nothing
 - MUST: MUST read the disconfirmation multiplier from the active `weight_versions` row, defaulting to 2.0 only when the contract declares it
 - MUST: MUST append a new `belief_scores` row per compute — the table is append-only and enforced by FUL-PLAT-001's trigger
-- NEVER: NEVER call generateText, import a model client, or reference divergent / convergent / embed / judge inside services/platform/src/fulcrum/gate/score.ts
+- NEVER: NEVER call generateText, import a model client, or reference divergent / convergent / embed / judge inside packages/platform/src/fulcrum/gate/score.ts
 - NEVER: NEVER treat a component with no admitted claims as 0 — record UNKNOWN
 - NEVER: NEVER include a provisional or demoted claim in any component's contribution
 - STRICTLY: STRICTLY deterministic: no Date.now(), no Math.random(), no Set/Map iteration-order dependence in the summation — the recompute test compares score text byte-for-byte
@@ -109,15 +109,15 @@ AC-1: Component support saturates at the top three admitted grades [PRIMARY]
   THEN:  the persisted `belief_scores` row records a support factor of 0.9 for 'demand' and the fourth claim changes nothing
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 AC-1
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if computeScore averages every admitted grade instead of the top three, so the fourth marginal claim moves the number; computeScore returns a constant regardless of the claim grades; the belief-score writer is a no-op so belief_scores stays at 0 rows; the test asserts on the returned object only and never queries the persisted row
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -151,15 +151,15 @@ AC-2: Refuting evidence subtracts at the disconfirmation multiplier
   THEN:  the persisted score reads 0.05, an exact drop of 0.40
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 AC-2
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the refuting claim is ignored so the score is unchanged at 0.45; the multiplier is hardcoded to 1 instead of read from weight_versions.disconfirmation_multiplier; refuting claims take a privileged path that skips admission; the recompute overwrites the prior row instead of appending, hiding the delta
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -181,15 +181,15 @@ AC-3: Identical ledger state recomputes to a byte-identical score
   THEN:  the second row's score string is byte-identical to the first and both carry the same version stamps
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 AC-3 + AC-7
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if computeScore reads Date.now() or Math.random(), making the recompute drift; component iteration order depends on object key order, so the floating-point sum differs between runs; the second compute is omitted and the writer is a no-op, leaving the ledger unchanged; the score is produced by a model call rather than deterministic code
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -212,15 +212,15 @@ AC-4: A component with no admitted claims is UNKNOWN, never zero
   THEN:  `components_json` records `UNKNOWN` for 'pricing' and its weight is excluded from the total rather than counted as a failed challenge
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 AC-4
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if an absent component defaults to 0, treating missing evidence as a passed challenge; components with no claims are dropped from components_json entirely, hiding the coverage gap; computeScore returns a fixed components list regardless of the ledger
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -241,15 +241,15 @@ AC-5: Judgment components use a neutral prior and never touch admission
   THEN:  'buildability' contributes the neutral prior 0.5 and no admission decision is written for it
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 AC-5
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if judgment components are routed through evaluateAdmission and land as UNKNOWN because they have no evidence; the neutral prior is omitted so an unscored judgment component reads 0 and drags the total down; the kind field is ignored and every component is treated as evidence
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -271,32 +271,32 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'` |
-| TC-5 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
-| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
-| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
-| TC-8 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'` |
-| TC-9 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'` |
-| TC-10 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'` |
+| TC-5 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
+| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
+| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'` |
+| TC-8 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'` |
+| TC-9 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'` |
+| TC-10 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/fulcrum/gate/score.ts (NEW)
-- services/platform/src/fulcrum/belief-score-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-belief-score.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/score.ts (NEW)
+- packages/platform/src/fulcrum/belief-score-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-belief-score.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fulcrum/gate/grade.ts, verify-quote.ts, admission.ts, provenance.ts — delivered by FUL-PLAT-002/003; consume, do not edit
-- services/platform/src/fulcrum/contract.ts and services/platform/src/fulcrum/missions/** — owned by FUL-PLAT-005
-- services/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006
-- services/platform/src/db/** — owned by FUL-PLAT-001
-- services/platform/src/mission/** — owned by FUL-PLAT-005/006/008
+- packages/platform/src/fulcrum/gate/grade.ts, verify-quote.ts, admission.ts, provenance.ts — delivered by FUL-PLAT-002/003; consume, do not edit
+- packages/platform/src/fulcrum/contract.ts and packages/platform/src/fulcrum/missions/** — owned by FUL-PLAT-005
+- packages/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006
+- packages/platform/src/db/** — owned by FUL-PLAT-001
+- packages/platform/src/mission/** — owned by FUL-PLAT-005/006/008
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -304,7 +304,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/research/evidence-gate.ts + services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql (append-only precedent)
+Source: packages/platform/src/research/evidence-gate.ts + packages/platform/src/db/migrations/0004_beliefs_immutability_revise.sql (append-only precedent)
 
 Pure fold over typed records returning { score, disconfirmationTotal, components[] }, plus an append-only writer that stamps both versions.
 
@@ -688,19 +688,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/research/evidence-gate.ts
+1. packages/platform/src/research/evidence-gate.ts
    - Lines: 1-105
    - Focus: [PRIMARY PATTERN] pure deterministic aggregation over strict Zod inputs returning a structured result — the shape score.ts mirrors
-2. services/platform/src/fulcrum/gate/admission.ts
+2. packages/platform/src/fulcrum/gate/admission.ts
    - Lines: whole file (delivered by FUL-PLAT-002)
    - Focus: The admitted-claim record with qualifying_grade and polarity that computeScore consumes
-3. services/platform/src/fulcrum/gate/provenance.ts
+3. packages/platform/src/fulcrum/gate/provenance.ts
    - Lines: whole file (delivered by FUL-PLAT-003)
    - Focus: Demoted claims must be excluded from every component contribution
-4. services/platform/src/db/schema/fulcrum.ts
+4. packages/platform/src/db/schema/fulcrum.ts
    - Lines: belief_scores / weight_versions / weight_components (delivered by FUL-PLAT-001)
    - Focus: components_json shape, disconfirmation_total column, the two version-stamp columns
-5. services/platform/tests/integration/research-evidence-core.test.ts
+5. packages/platform/tests/integration/research-evidence-core.test.ts
    - Lines: 1-70
    - Focus: Integration-lane conventions: fail-closed beforeAll, holocron_nonprod guard, real createSql
 
@@ -732,7 +732,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fulcrum/gate/score.ts services/platform/src/fulcrum/belief-score-writer.ts services/platform/tests/integration/fulcrum-belief-score.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fulcrum/gate/score.ts packages/platform/src/fulcrum/belief-score-writer.ts packages/platform/tests/integration/fulcrum-belief-score.test.ts
   Expected: None
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -745,7 +745,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Closes the determinism seam this triad owns: a pure aggregation module in services/platform/src/fulcrum plus an append-only Postgres writer, proven by re-running against real persisted rows on the integration lane.
+Rationale:   Closes the determinism seam this triad owns: a pure aggregation module in packages/platform/src/fulcrum plus an append-only Postgres writer, proven by re-running against real persisted rows on the integration lane.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -754,7 +754,7 @@ CODING STANDARDS
 
 - computeScore input and output are declared Zod schemas — no z.any() on the scoring path
 - components_json entries are a closed discriminated union on kind: 'evidence' | 'judgment', with factor typed number | 'UNKNOWN'
-- score.ts imports nothing from services/platform/src/db and no model or fleet client
+- score.ts imports nothing from packages/platform/src/db and no model or fleet client
 - Sum components in a stable declared order (contract order), never in Object.keys order
 
 --------------------------------------------------------------------------------
@@ -828,13 +828,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN a candidate whose 'demand' component holds 4 admitted support claims graded 1.0, 0.9, 0.8 and 0.7 WHEN computeScore runs and the belief-score writer appends the result THEN the persisted `belief_scores` row records a support factor of 0.9 for 'demand' and the fourth claim changes nothing",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": true,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -904,13 +904,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the same candidate scoring 0.45 on 'demand' from support alone WHEN 1 admitted refuting claim graded 0.4 is appended and the score is recomputed with multiplier 2.0 THEN the persisted score reads 0.05, an exact drop of 0.40",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -956,13 +956,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a candidate that already produced a `belief_scores` row reading 0.45 WHEN computeScore is re-run over the unchanged ledger and the result is appended THEN the second row's score string is byte-identical to the first and both carry the same version stamps",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1009,13 +1009,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a candidate whose 'pricing' component holds 0 admitted claims WHEN computeScore runs over the candidate THEN `components_json` records `UNKNOWN` for 'pricing' and its weight is excluded from the total rather than counted as a failed challenge",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1059,13 +1059,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a 'buildability' component declared with `kind` = 'judgment' and weight 0.2, never scored by the operator WHEN computeScore runs over the candidate THEN 'buildability' contributes the neutral prior 0.5 and no admission decision is written for it",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1109,70 +1109,70 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "The support factor for a component graded 1.0/0.9/0.8/0.7 reads 0.9",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "A component holding one claim graded 1.0 outscores a component holding five claims graded 0.5",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "Appending one admitted refuting claim graded 0.4 drops the persisted score from 0.45 to 0.05",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "The persisted disconfirmation_total reads 0.8 under multiplier 2",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "Two computeScore runs over an unchanged ledger persist byte-identical score text",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "Every appended belief_scores row carries a non-null weight_version",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "Every appended belief_scores row carries a non-null domain_tier_version",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "A component with zero admitted claims records the literal UNKNOWN in components_json",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-9",
       "type": "test_criterion",
       "description": "An unscored judgment component contributes the neutral prior 0.5",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     },
     {
       "id": "TC-10",
       "type": "test_criterion",
       "description": "An unscored judgment component creates zero claims rows",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-belief-score.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     }
   ]

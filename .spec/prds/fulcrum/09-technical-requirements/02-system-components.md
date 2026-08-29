@@ -1,12 +1,14 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-20
-prd_version: 3.0.0
+last_validated: 2026-08-29
+prd_version: 3.1.0
 ---
 
 # System Components
 
 Fulcrum is **not** a sidecar worker, **not** a Convex orchestrator, and **not** `convex/fulcrum/selector.ts`. It is five components on the MK-VI platform.
+
+All five live **inside the `packages/platform` package** — Fulcrum has no package boundary of its own. See [Architecture Posture stance 7](./01-architecture-posture.md) for the workspace map and what that binds implementers to.
 
 | # | Component | Runtime | Role | Evolves / New |
 |---|-----------|---------|------|---------------|

@@ -20,18 +20,18 @@ holo fulcrum '<goal>' on a live platform prints status=committed, template=evide
 Primary acceptance criterion **AC-1** (e2e tier, service: real holo CLI child process + real Postgres holocron_nonprod + real holocron corpus + live image-local LiteLLM router to both nodes):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 7 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/cli/commands/fulcrum-run.ts (NEW)
-- services/platform/src/cli/commands/fulcrum-dossier.ts (NEW)
-- services/platform/src/cli/holo.ts (MODIFY)
-- services/platform/src/cli/mission-idempotency-key.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-cli-surface.test.ts (NEW)
+- packages/platform/src/cli/commands/fulcrum-run.ts (NEW)
+- packages/platform/src/cli/commands/fulcrum-dossier.ts (NEW)
+- packages/platform/src/cli/holo.ts (MODIFY)
+- packages/platform/src/cli/mission-idempotency-key.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-cli-surface.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -116,7 +116,7 @@ AC-1: A committed run prints the five operator literals [PRIMARY]
   VERIFICATION_SERVICE: real holo CLI child process + real Postgres holocron_nonprod + real holocron corpus + live image-local LiteLLM router to both nodes
   FLOW_REF:             CAP-COMMIT-01 operator boundary: holo fulcrum '<goal>' -> POST /api/missions -> committed cycle -> dossier path
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -150,7 +150,7 @@ AC-2: A second run under one idempotency key replays the same ids
   VERIFICATION_SERVICE: real holo CLI child process + real Postgres holocron_nonprod
   FLOW_REF:             CAP-COMMIT-01 boundary contract: replay returns the stored commit
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -182,7 +182,7 @@ AC-3: A budget-exceeded run emits no candidate keys
   VERIFICATION_SERVICE: real holo CLI child process + real Postgres holocron_nonprod + live image-local LiteLLM router
   FLOW_REF:             CAP-COMMIT-01 boundary contract: budget failure produces an explicit non-partial outcome
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -214,7 +214,7 @@ AC-4: Canned claims are refused with FULCRUM_CORPUS_ONLY
   VERIFICATION_SERVICE: real holo CLI child process + real Postgres holocron_nonprod + real filesystem claims file
   FLOW_REF:             UC-CYC-04: SENSE is corpus-only; canned evidence never enters the ledger
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -247,7 +247,7 @@ AC-5: holo fulcrum dossier prints the committed dossier surface
   VERIFICATION_SERVICE: real holo CLI child process + real filesystem dossier + real Postgres holocron_nonprod
   FLOW_REF:             UC-GATE-05 / T-CYC-005: committed effects observable through holo fulcrum dossier
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -289,30 +289,30 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-1"` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-2"` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-3"` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-4"` |
-| TC-5 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-5"` |
-| TC-6 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-6"` |
-| TC-7 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-7"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-1"` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-2"` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-3"` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-4"` |
+| TC-5 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-5"` |
+| TC-6 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-6"` |
+| TC-7 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t "TC-7"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/cli/commands/fulcrum-run.ts (NEW)
-- services/platform/src/cli/commands/fulcrum-dossier.ts (NEW)
-- services/platform/src/cli/holo.ts (MODIFY)
-- services/platform/src/cli/mission-idempotency-key.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-cli-surface.test.ts (NEW)
+- packages/platform/src/cli/commands/fulcrum-run.ts (NEW)
+- packages/platform/src/cli/commands/fulcrum-dossier.ts (NEW)
+- packages/platform/src/cli/holo.ts (MODIFY)
+- packages/platform/src/cli/mission-idempotency-key.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-cli-surface.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/mission/** — the runtime, commit and dossier modules are owned by FUL-PLAT-008 through FUL-PLAT-011
-- services/platform/src/research/** — gate and corpus modules are owned by FUL-PLAT-002/003/006
-- services/platform/src/inference/** and services/platform/src/fleet/** — owned by FUL-PLAT-007
-- services/platform/src/db/schema/** — owned by FUL-PLAT-001
+- packages/platform/src/mission/** — the runtime, commit and dossier modules are owned by FUL-PLAT-008 through FUL-PLAT-011
+- packages/platform/src/research/** — gate and corpus modules are owned by FUL-PLAT-002/003/006
+- packages/platform/src/inference/** and packages/platform/src/fleet/** — owned by FUL-PLAT-007
+- packages/platform/src/db/schema/** — owned by FUL-PLAT-001
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -320,7 +320,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/cli/holo.ts:7220-7303 (case 'fulcrum') + services/platform/src/cli/holo.ts:1352-1368 (printMissionRuntimeResult)
+Source: packages/platform/src/cli/holo.ts:7220-7303 (case 'fulcrum') + packages/platform/src/cli/holo.ts:1352-1368 (printMissionRuntimeResult)
 
 Alias-command block delegating to runMissionTemplate, with one printer for humans and JSON.stringify of the closed payload for --json. Absent fields are omitted from the payload rather than emitted as null.
 
@@ -580,19 +580,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/cli/holo.ts
+1. packages/platform/src/cli/holo.ts
    - Lines: 7220-7303
    - Focus: [PRIMARY PATTERN] the existing `case 'fulcrum'` alias block — goal parsing, --components validation, defaultMissionIdempotencyKey, runMissionTemplate, exitMissionJsonError. Extend this block; do not add a second command
-2. services/platform/src/cli/holo.ts
+2. packages/platform/src/cli/holo.ts
    - Lines: 1352-1368
    - Focus: printMissionRuntimeResult — today it prints runId/templateKey/status/replay only. The five operator literals are added here (or in a Fulcrum-specific printer it delegates to)
-3. services/platform/src/cli/mission-idempotency-key.ts
+3. packages/platform/src/cli/mission-idempotency-key.ts
    - Lines: 56-100
    - Focus: Deterministic key precedence: --idempotency-key override, pure base key, --fresh suffix. The gate's replay step depends on this precedence being unchanged
-4. services/platform/src/mission/runtime.ts
+4. packages/platform/src/mission/runtime.ts
    - Lines: 160-185
    - Focus: MissionStatusPayload — the response shape the CLI serializes; candidateId and dossierPath are added as optional fields that are omitted when absent
-5. services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts
+5. packages/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts
    - Lines: 1-80
    - Focus: Integration-lane pattern for spawning the real holo CLI as a child process and asserting on its stdout and on Postgres rows
 
@@ -616,7 +616,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -628,7 +628,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/cli services/platform/tests/integration/fulcrum-cli-surface.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/cli packages/platform/tests/integration/fulcrum-cli-surface.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -730,7 +730,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN the platform runs against real Postgres, the real corpus and the live fleet with no prior run for the goal WHEN the operator runs holo fulcrum with the gate goal THEN stdout carries status=committed, template=evidence-research, admission=admitted, a non-empty candidate_id and a non-empty dossier_path",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "real holo CLI child process + real Postgres holocron_nonprod + real holocron corpus + live image-local LiteLLM router to both nodes",
@@ -795,7 +795,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN one run has committed under idempotency key fulcrum-human-gate-01 WHEN the same command runs a second time with that key and --json THEN the response contains replay true and the same runId, candidateId and dossierPath",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "real holo CLI child process + real Postgres holocron_nonprod",
@@ -858,7 +858,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the platform is live and the run is launched under a 0.000001 USD cost cap WHEN the cap is hit before commit THEN the JSON response carries status budget_exceeded and contains no candidateId and no dossierPath key",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "real holo CLI child process + real Postgres holocron_nonprod + live image-local LiteLLM router",
@@ -920,7 +920,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a canned claims file exists on disk and the platform is live WHEN the operator passes that file with --claims and --fresh --json THEN the response carries errorCode FULCRUM_CORPUS_ONLY and contains no candidateId and no dossierPath key",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "real holo CLI child process + real Postgres holocron_nonprod + real filesystem claims file",
@@ -984,7 +984,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN one run has committed and its dossier has been rendered and published WHEN the operator runs holo fulcrum dossier with that candidate id THEN stdout carries the dossier surface literals read from the committed file",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "real holo CLI child process + real filesystem dossier + real Postgres holocron_nonprod",
@@ -1072,7 +1072,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The committed run stdout contains the literal status=committed when the cycle completes",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1085,7 +1085,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The printed candidate_id matches exactly one candidates row when the run commits",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1098,7 +1098,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The printed dossier_path names a readable file when the run commits",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1111,7 +1111,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The second JSON response contains replay true when the same idempotency key is reused",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1124,7 +1124,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The JSON response omits the candidateId key when the status is budget_exceeded",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1137,7 +1137,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The JSON response contains errorCode FULCRUM_CORPUS_ONLY when --claims supplies a canned file",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1150,7 +1150,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The dossier command stdout equals the rendered dossier file bytes when the candidate is committed",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-7\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-cli-surface.test.ts -t \"TC-7\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,

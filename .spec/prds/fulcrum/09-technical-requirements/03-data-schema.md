@@ -6,9 +6,9 @@ prd_version: 3.0.0
 
 # Data Schema
 
-The ledger of record is the **live Postgres evidence graph** in `services/platform/src/db/schema/evidence.ts`, plus named Drizzle extensions in the same schema family. There is no second Prospector schema. `prospects`, `cycles`, `scores`, and `fulcrumCycles` **do not exist** and must not be created under those names.
+The ledger of record is the **live Postgres evidence graph** in `packages/platform/src/db/schema/evidence.ts`, plus named Drizzle extensions in the same schema family. There is no second Prospector schema. `prospects`, `cycles`, `scores`, and `fulcrumCycles` **do not exist** and must not be created under those names.
 
-Publish is `publishDocumentForRun` into `documents` (`services/platform/src/mission/document-publish.ts`). It is **not** Convex `createWithEmbedding` and **not** Cohere.
+Publish is `publishDocumentForRun` into `documents` (`packages/platform/src/mission/document-publish.ts`). It is **not** Convex `createWithEmbedding` and **not** Cohere.
 
 IDs are UUIDv7 (platform `idColumn()`); timestamps `timestamptz`; grades/scores `doublePrecision` in [0,1]; enums are CHECK-constrained.
 

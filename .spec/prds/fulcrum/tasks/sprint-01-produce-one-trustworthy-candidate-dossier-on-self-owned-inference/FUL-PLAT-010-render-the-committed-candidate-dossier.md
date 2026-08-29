@@ -20,17 +20,17 @@ For a candidate with a committed belief score, .holocron/fulcrum/dossiers/{candi
 Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod committed rows + real filesystem under .holocron/fulcrum/dossiers):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 7 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/mission/fulcrum/dossier-render.ts (NEW)
-- services/platform/src/mission/fulcrum/dossier-sections.ts (NEW)
-- services/platform/src/mission/fulcrum/dossier-schema.ts (NEW)
-- services/platform/tests/integration/fulcrum-dossier-render.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-render.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-sections.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-schema.ts (NEW)
+- packages/platform/tests/integration/fulcrum-dossier-render.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -115,7 +115,7 @@ AC-1: Dossier renders the committed evidence chain and inference identity [PRIMA
   VERIFICATION_SERVICE: real Postgres holocron_nonprod committed rows + real filesystem under .holocron/fulcrum/dossiers
   FLOW_REF:             CAP-PUBLISH-01 hop: commit -> Markdown generator
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -153,7 +153,7 @@ AC-2: Per-component breakdown shows contributing claims and UNKNOWN components
   VERIFICATION_SERVICE: real Postgres holocron_nonprod committed rows + real filesystem
   FLOW_REF:             UC-LED-05 / T-LED-020: empty component is UNKNOWN, not challenged-zero
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -183,7 +183,7 @@ AC-3: Re-render after a later commit replaces stale values in place
   VERIFICATION_SERVICE: real Postgres holocron_nonprod committed rows + real filesystem
   FLOW_REF:             UC-GATE-05: regenerate a dossier on material change so it reflects the latest committed cycle
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -212,7 +212,7 @@ AC-4: A candidate with no committed score is refused, not rendered blank
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + real filesystem
   FLOW_REF:             CAP-PUBLISH-01 failure mode: never publish a dossier that is not backed by a committed score
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -238,15 +238,15 @@ AC-5: The render path is deterministic and model-free
   THEN:  the two outputs are byte-identical and the module tree contains no generateText call and no model role
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod committed rows + real filesystem scan of services/platform/src/mission/fulcrum
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod committed rows + real filesystem scan of packages/platform/src/mission/fulcrum
   FLOW_REF:             API design invariant: no generateText and no model role inside gate, score or render modules
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod committed rows + real filesystem scan of services/platform/src/mission/fulcrum
+    SERVICE:          real Postgres holocron_nonprod committed rows + real filesystem scan of packages/platform/src/mission/fulcrum
     NEGATIVE_CONTROL: would fail if the renderer imports an agent and the scan is a no-op that always passes; the two renders differ because a timestamp is embedded in the body; the scan reads a hardcoded allowlist disconnected from the actual import graph
     EVIDENCE:         stdout (required_capture=True)
     CASES:
@@ -269,29 +269,29 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-1"` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-2"` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-3"` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-4"` |
-| TC-5 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-5"` |
-| TC-6 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-6"` |
-| TC-7 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-7"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-1"` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-2"` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-3"` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-4"` |
+| TC-5 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-5"` |
+| TC-6 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-6"` |
+| TC-7 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t "TC-7"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/mission/fulcrum/dossier-render.ts (NEW)
-- services/platform/src/mission/fulcrum/dossier-sections.ts (NEW)
-- services/platform/src/mission/fulcrum/dossier-schema.ts (NEW)
-- services/platform/tests/integration/fulcrum-dossier-render.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-render.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-sections.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-schema.ts (NEW)
+- packages/platform/tests/integration/fulcrum-dossier-render.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/research/** — the gate, score and provenance modules are read-only inputs here
-- services/platform/src/db/schema/** — owned by FUL-PLAT-001
-- services/platform/src/inference/** and services/platform/src/fleet/** — owned by FUL-PLAT-007
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/research/** — the gate, score and provenance modules are read-only inputs here
+- packages/platform/src/db/schema/** — owned by FUL-PLAT-001
+- packages/platform/src/inference/** and packages/platform/src/fleet/** — owned by FUL-PLAT-007
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -299,7 +299,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/research/findings-writer.ts (section assembly) + services/platform/src/inference/infer-trace.ts:118-180 (durable modelCalls read)
+Source: packages/platform/src/research/findings-writer.ts (section assembly) + packages/platform/src/inference/infer-trace.ts:118-180 (durable modelCalls read)
 
 Deterministic section-writer: a typed row bundle in, a string out, one file write. Sections are pure functions so the whole body is reproducible and diffable.
 
@@ -551,19 +551,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/research/findings-writer.ts
+1. packages/platform/src/research/findings-writer.ts
    - Lines: 1-120
    - Focus: [PRIMARY PATTERN] existing deterministic Markdown writer over committed rows — section assembly, no model call, typed row inputs
-2. services/platform/src/research/citation-writer.ts
+2. packages/platform/src/research/citation-writer.ts
    - Lines: 1-100
    - Focus: How a verbatim quote and its source URL are rendered together without re-normalizing the stored text
-3. services/platform/src/db/schema/evidence.ts
+3. packages/platform/src/db/schema/evidence.ts
    - Lines: 30-110
    - Focus: sources and passages column shapes the renderer reads (url, content_hash, embedding vector(1024))
-4. services/platform/src/inference/infer-trace.ts
+4. packages/platform/src/inference/infer-trace.ts
    - Lines: 60-180
    - Focus: loadInferTrace reads durable modelCalls per run id — the renderer reuses this to fill the roles / model identities / serving backend lines
-5. services/platform/src/research/session-writer.ts
+5. packages/platform/src/research/session-writer.ts
    - Lines: 1-100
    - Focus: Section-writer composition and file-path conventions for generated Markdown artifacts
 
@@ -587,7 +587,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -599,7 +599,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/mission/fulcrum services/platform/tests/integration/fulcrum-dossier-render.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/mission/fulcrum packages/platform/tests/integration/fulcrum-dossier-render.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -709,7 +709,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN one candidate has a committed admitted claim, belief score and attested telemetry WHEN the dossier renderer runs for that candidate id THEN the Markdown file carries the admission, verified-quote, score, tier version, quote, source URL, roles, model identities, serving backends and embedding dimensions",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem under .holocron/fulcrum/dossiers",
@@ -778,7 +778,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the fitness contract declares four weight components and the ledger holds claims for three of them WHEN the dossier renders the score breakdown THEN each scored component lists its contributing claims and the empty component is marked UNKNOWN",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem",
@@ -838,7 +838,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a dossier already exists rendering the first cycle's score WHEN a second cycle commits a higher score and the renderer runs again THEN the single dossier file carries the newest score and no longer carries the stale one",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem",
@@ -897,7 +897,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a candidate id with zero committed belief_scores rows WHEN the dossier renderer runs for that id THEN it fails with a named error and writes no dossier file",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + real filesystem",
@@ -956,10 +956,10 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the renderer module and its imports WHEN the same committed ledger is rendered twice and the module tree is scanned THEN the two outputs are byte-identical and the module tree contains no generateText call and no model role",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "integration",
-      "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem scan of services/platform/src/mission/fulcrum",
+      "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem scan of packages/platform/src/mission/fulcrum",
       "unit_test_justified": null,
       "scenario": {
         "id": "SC-FUL-PLAT-010-5",
@@ -967,7 +967,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
         "tier": "holdout",
         "test_tier": "integration",
         "topology": "single-node",
-        "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem scan of services/platform/src/mission/fulcrum",
+        "verification_service": "real Postgres holocron_nonprod committed rows + real filesystem scan of packages/platform/src/mission/fulcrum",
         "negative_control": {
           "would_fail_if": [
             "the renderer imports an agent and the scan is a no-op that always passes",
@@ -1017,7 +1017,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The dossier file contains the literal Admission colon admitted when the committed claim passed the gate",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1030,7 +1030,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The rendered quote equals claims.quote_text byte-for-byte when the dossier renders",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1043,7 +1043,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "Every chat stage line names a serving backend of inference1 or inference2 when the attestation rows exist",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1056,7 +1056,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "A component with zero claims is marked UNKNOWN when the breakdown renders",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1069,7 +1069,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The dossier directory holds one file for the candidate after a second render",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1082,7 +1082,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The renderer writes no file when the candidate has zero committed belief_scores rows",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1095,7 +1095,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The renderer import graph contains zero generateText occurrences when scanned",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-7\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-render.test.ts -t \"TC-7\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,

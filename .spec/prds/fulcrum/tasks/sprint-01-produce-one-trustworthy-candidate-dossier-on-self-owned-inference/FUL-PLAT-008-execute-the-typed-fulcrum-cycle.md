@@ -20,20 +20,20 @@ A run of the fulcrum alias drives plan, retrieve, GENERATE, extract, assay, chal
 Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod + live image-local LiteLLM router to real oMLX on inference1 and inference2 + real holocron corpus):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 7 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/mission/fulcrum/schemas.ts (NEW)
-- services/platform/src/mission/fulcrum/generate.ts (NEW)
-- services/platform/src/mission/fulcrum/map.ts (NEW)
-- services/platform/src/mission/templates/evidence-research.ts (MODIFY)
-- services/platform/src/mission/registry.ts (MODIFY)
-- services/platform/src/mission/runtime.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-typed-cycle.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/schemas.ts (NEW)
+- packages/platform/src/mission/fulcrum/generate.ts (NEW)
+- packages/platform/src/mission/fulcrum/map.ts (NEW)
+- packages/platform/src/mission/templates/evidence-research.ts (MODIFY)
+- packages/platform/src/mission/registry.ts (MODIFY)
+- packages/platform/src/mission/runtime.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-typed-cycle.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -120,7 +120,7 @@ AC-1: Nine-stage typed cycle runs end-to-end on local inference [PRIMARY]
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router to real oMLX on inference1 and inference2 + real holocron corpus
   FLOW_REF:             CAP-COMMIT-01 hop: mission:execute -> stage graph -> evidence-gate -> commit
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -153,7 +153,7 @@ AC-2: GENERATE emits a schema-valid typed output
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router convergent role
   FLOW_REF:             UC-CYC-01 stage map: GENERATE typed I/O
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -193,7 +193,7 @@ AC-3: MAP emits a schema-valid niche action
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router
   FLOW_REF:             UC-CYC-01 stage map: MAP typed I/O
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -223,7 +223,7 @@ AC-4: Budget cap ends the cycle as budget_exceeded with no partial candidate eff
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + live image-local LiteLLM router
   FLOW_REF:             CAP-COMMIT-01 boundary contract: a budget_exceeded cycle still writes an explicit run row
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -253,7 +253,7 @@ AC-5: SENSE retrieval is corpus-only through the named registry tools
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + outbound-host capture on the running process
   FLOW_REF:             UC-CYC-04 retrieval contract: SENSE is corpus-only
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -280,32 +280,32 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-1"` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-2"` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-3"` |
-| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-4"` |
-| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-5"` |
-| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-6"` |
-| TC-7 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-7"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-1"` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-2"` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-3"` |
+| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-4"` |
+| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-5"` |
+| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-6"` |
+| TC-7 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t "TC-7"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/mission/fulcrum/schemas.ts (NEW)
-- services/platform/src/mission/fulcrum/generate.ts (NEW)
-- services/platform/src/mission/fulcrum/map.ts (NEW)
-- services/platform/src/mission/templates/evidence-research.ts (MODIFY)
-- services/platform/src/mission/registry.ts (MODIFY)
-- services/platform/src/mission/runtime.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-typed-cycle.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/schemas.ts (NEW)
+- packages/platform/src/mission/fulcrum/generate.ts (NEW)
+- packages/platform/src/mission/fulcrum/map.ts (NEW)
+- packages/platform/src/mission/templates/evidence-research.ts (MODIFY)
+- packages/platform/src/mission/registry.ts (MODIFY)
+- packages/platform/src/mission/runtime.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-typed-cycle.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/db/schema/** — owned by FUL-PLAT-001
-- services/platform/src/research/evidence-gate.ts and services/platform/src/research/provenance.ts — owned by FUL-PLAT-002 / FUL-PLAT-003
-- services/platform/src/inference/** and services/platform/src/fleet/** — owned by FUL-PLAT-007
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/db/schema/** — owned by FUL-PLAT-001
+- packages/platform/src/research/evidence-gate.ts and packages/platform/src/research/provenance.ts — owned by FUL-PLAT-002 / FUL-PLAT-003
+- packages/platform/src/inference/** and packages/platform/src/fleet/** — owned by FUL-PLAT-007
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -313,7 +313,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/mission/templates/evidence-research.ts:30-86 (stageGraph entries) + services/platform/src/mission/registry.ts:353-395 (executor registration)
+Source: packages/platform/src/mission/templates/evidence-research.ts:30-86 (stageGraph entries) + packages/platform/src/mission/registry.ts:353-395 (executor registration)
 
 Closed mission-template DSL: a stage is data (id, stageKind, executorRef, inputSchema, outputSchema, checkpointKey) registered against an executor in the registry. Adding a stage never adds executable payload to the template.
 
@@ -548,19 +548,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/mission/templates/evidence-research.ts
+1. packages/platform/src/mission/templates/evidence-research.ts
    - Lines: 20-100
    - Focus: [PRIMARY PATTERN] the live seven-stage template definition, modelRoleBindings, budgets and the empty toolGrants this task fills — bump version and insert GENERATE after retrieve and MAP after challenge
-2. services/platform/src/mission/contract.ts
+2. packages/platform/src/mission/contract.ts
    - Lines: 39-125
    - Focus: MissionStageSchema / MissionBudgetsSchema / parseMissionTemplateDefinition — the closed DSL that rejects executable payloads and requires a schemaRef pair per stage
-3. services/platform/src/mission/registry.ts
+3. packages/platform/src/mission/registry.ts
    - Lines: 353-395
    - Focus: How builtin.research-plan@1 .. builtin.research-commit@1 are registered with their schemas — GENERATE and MAP executors follow this registration shape
-4. services/platform/src/mission/runtime.ts
+4. packages/platform/src/mission/runtime.ts
    - Lines: 2352-2432
    - Focus: detectBudgetBlockBeforeStage / detectBudgetExceeded — the existing cost/wall/token breach detection the --budget-usd cap plugs into
-5. services/platform/tests/integration/evidence-research-template.test.ts
+5. packages/platform/tests/integration/evidence-research-template.test.ts
    - Lines: 1-120
    - Focus: Integration-lane pattern for asserting a registered template's stage graph and a real run's mission_stage_runs rows
 
@@ -584,7 +584,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -596,7 +596,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/mission services/platform/tests/integration/fulcrum-typed-cycle.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/mission packages/platform/tests/integration/fulcrum-typed-cycle.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -697,7 +697,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN mission dev-revenue is seeded, the corpus holds documents, and both nodes serve the chat and embed roles WHEN the fulcrum alias runs one cycle against real Postgres and the image-local router THEN all nine stages record a mission_stage_runs row carrying role and endpoint, and the run reaches status completed",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router to real oMLX on inference1 and inference2 + real holocron corpus",
@@ -761,7 +761,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the GENERATE stage declares schemaRef mission.fulcrum.generate.output WHEN the cycle runs GENERATE on convergent THEN the persisted stage output carries proposedTitle, proposedQuestion, a mutationKind inside the closed enum, and rationale",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router convergent role",
@@ -843,7 +843,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the MAP stage declares schemaRef mission.fulcrum.map.output WHEN the cycle runs MAP after the challenge stage THEN the persisted stage output carries a nicheKey and an action inside the closed enum place, retire or hold",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router",
@@ -903,7 +903,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the cycle is launched with a 0.000001 USD cost cap WHEN the first chat stage exceeds that cap THEN the run records status budget_exceeded and writes no candidates row and no belief_scores row",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + live image-local LiteLLM router",
@@ -963,7 +963,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the template declares toolGrants listing the six named registry tools WHEN the retrieve stage runs THEN the executed tool ids are a subset of the declared grants and no outbound host is contacted",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod corpus + outbound-host capture on the running process",
@@ -1023,7 +1023,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The ordered mission_stage_runs stage ids equal the nine-stage Fulcrum graph when one cycle completes",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1036,7 +1036,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The extract stage role equals divergent when the cycle runs on the live router",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1049,7 +1049,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The GENERATE stage fails when its output carries a mutationKind outside the declared enum",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1062,7 +1062,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The MAP stage output action is a member of the place, retire, hold enum when the cycle completes",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1075,7 +1075,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The candidates row count for the run equals zero when the run status is budget_exceeded",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1088,7 +1088,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The captured outbound host set excludes every non-fleet host when one cycle runs",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,
@@ -1101,7 +1101,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The registered template key equals evidence-research when the fulcrum alias runs",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-7\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-typed-cycle.test.ts -t \"TC-7\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,

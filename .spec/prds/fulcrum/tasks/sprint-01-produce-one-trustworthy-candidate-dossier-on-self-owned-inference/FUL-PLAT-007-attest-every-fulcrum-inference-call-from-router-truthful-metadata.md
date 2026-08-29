@@ -20,18 +20,18 @@ After a chat call on divergent and one on convergent through the image-local rou
 Primary acceptance criterion **AC-1** (integration tier, service: live image-local LiteLLM router load-balancing to real oMLX on both nodes inference1 and inference2, plus real Postgres holocron_nonprod):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 6 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/inference/serving-attestation.ts (NEW)
-- services/platform/src/inference/model-info.ts (NEW)
-- services/platform/src/inference/telemetry.ts (MODIFY)
-- services/platform/src/inference/resolve-model.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-serving-attestation.test.ts (NEW)
+- packages/platform/src/inference/serving-attestation.ts (NEW)
+- packages/platform/src/inference/model-info.ts (NEW)
+- packages/platform/src/inference/telemetry.ts (MODIFY)
+- packages/platform/src/inference/resolve-model.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-serving-attestation.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -74,8 +74,8 @@ After a chat call on divergent and one on convergent through the image-local rou
 - NEVER: Never read the response body model field as evidence of which backend served a call — it echoes the requested alias and passes against a live substitution.
 - NEVER: Never write a hardcoded backend name, a default backend name, or a placeholder api-base into a telemetry row.
 - NEVER: Never request the judge role or a coder role (reviewer/implementer/orchestrator/qwen-coder/verifier) from the Fulcrum path — the prohibition is on what Fulcrum REQUESTS, not on the shared platform vocabulary.
-- NEVER: Never remove, narrow, or rename `judge` in the shared services/platform/src/fleet/manifest.schema.ts or services/platform/fleet/manifest.json — non-Fulcrum platform paths depend on it and ADR-008 forbids judge for Fulcrum only.
-- NEVER: Never modify files outside services/platform/src/inference/** — FUL-PLAT-003 and FUL-PLAT-006 share wave C and FUL-INFRA-001 owns services/platform/deploy/fleet/**.
+- NEVER: Never remove, narrow, or rename `judge` in the shared packages/platform/src/fleet/manifest.schema.ts or packages/platform/fleet/manifest.json — non-Fulcrum platform paths depend on it and ADR-008 forbids judge for Fulcrum only.
+- NEVER: Never modify files outside packages/platform/src/inference/** — FUL-PLAT-003 and FUL-PLAT-006 share wave C and FUL-INFRA-001 owns packages/platform/deploy/fleet/**.
 - STRICTLY: No z.any() in the attestation schemas — the serving-attestation record is a closed Zod object.
 - STRICTLY: No mock of the LiteLLM router, no recorded HTTP fixtures: the integration test drives the live router on both nodes.
 
@@ -85,12 +85,12 @@ CAPABILITY CHAIN
 
 touches_capabilities: CAP-INFER-01
 provides:             router-truthful-serving-attestation (per-call serving api-base read from x-litellm-model-api-base and confirmed against GET /model/info), resolved-model-identity-per-role (x-litellm-model-id persisted per chat call for after-the-fact ASSAY-vs-CHALLENGE audit), embedding-dimensionality-record (1024 recorded for embed-role calls that carry no model identifier), assay-challenge-distinctness-predicate on resolved identity
-consumes:             image-local-litellm-router-endpoint (FUL-INFRA-002), fulcrum-expected-role-manifest at services/platform/deploy/fleet/fulcrum-roles.json (FUL-INFRA-001), fulcrum-substrate-readiness-probe at services/platform/src/fleet/fulcrum-role-readiness.ts (FUL-INFRA-001)
+consumes:             image-local-litellm-router-endpoint (FUL-INFRA-002), fulcrum-expected-role-manifest at packages/platform/deploy/fleet/fulcrum-roles.json (FUL-INFRA-001), fulcrum-substrate-readiness-probe at packages/platform/src/fleet/fulcrum-role-readiness.ts (FUL-INFRA-001)
 boundary_contracts:
   - Serving identity is read from the router response headers cross-referenced against GET /model/info — never from the response body model field, which LiteLLM 1.91.0 rewrites to the requested alias
   - Every persisted chat-call row names a serving api-base of inference1 or inference2; any other api-base is recorded with error_code MODEL_ENDPOINT_UNTRUSTED and never as success
   - divergent and convergent must resolve to two different served model identities; identical resolved identity fails closed before the cycle proceeds
-  - The embed role receives only embedding calls and records 1024 dimensions; no chat role receives an embed call, and the Fulcrum role vocabulary in services/platform/deploy/fleet/fulcrum-roles.json contains no `judge` entry while the shared platform manifest keeps its own `judge` untouched
+  - The embed role receives only embedding calls and records 1024 dimensions; no chat role receives an embed call, and the Fulcrum role vocabulary in packages/platform/deploy/fleet/fulcrum-roles.json contains no `judge` entry while the shared platform manifest keeps its own `judge` untouched
 
 --------------------------------------------------------------------------------
 DONE WHEN
@@ -117,7 +117,7 @@ AC-1: Serving backend attested from router headers across both nodes [PRIMARY]
   VERIFICATION_SERVICE: live image-local LiteLLM router load-balancing to real oMLX on both nodes inference1 and inference2, plus real Postgres holocron_nonprod
   FLOW_REF:             CAP-INFER-01 hop: stage -> modelRoleBindings -> image-local router -> inference1/inference2
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -158,7 +158,7 @@ AC-2: ASSAY-vs-CHALLENGE distinctness enforced on resolved identity
   VERIFICATION_SERVICE: live image-local LiteLLM router GET /model/info + real chat calls
   FLOW_REF:             CAP-INFER-01 boundary contract: assert-distinct on resolved identity, fail closed
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -195,7 +195,7 @@ AC-3: Embed-role call records 1024 dimensions
   VERIFICATION_SERVICE: live image-local LiteLLM router embed role + real Postgres holocron_nonprod
   FLOW_REF:             CAP-INFER-01 boundary contract: embed used only for embedding, 1024-dim assertion replaces model identity
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -206,7 +206,7 @@ AC-3: Embed-role call records 1024 dimensions
     CASES:
       - START_REF: fleet_roles_live_both_nodes
         ACTOR:     api_client
-        STEP:      call `embed('usage-based AI support automation gross margin', 'document')` through services/platform/src/inference/embed.ts
+        STEP:      call `embed('usage-based AI support automation gross margin', 'document')` through packages/platform/src/inference/embed.ts
         STEP:      run `holo telemetry:tail --run-id <embedRunId> --json`
         MUST_OBSERVE:     recorded `embeddingDimensions` equals `1024`
         MUST_OBSERVE:     1 row with `role` = `embed`
@@ -224,7 +224,7 @@ AC-4: Missing serving header fails closed
   VERIFICATION_SERVICE: live image-local LiteLLM router with header suppression + real Postgres holocron_nonprod
   FLOW_REF:             CAP-INFER-01 failure mode: router-truthful metadata absent
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -246,20 +246,20 @@ AC-4: Missing serving header fails closed
         MUST_NOT_OBSERVE: 0 rows recorded for the call
 
 AC-5: Fulcrum vocabulary excludes judge and no forbidden role is requested
-  GIVEN: the Fulcrum role vocabulary is published at services/platform/deploy/fleet/fulcrum-roles.json and the Fulcrum inference path is exercised across divergent, convergent and embed
+  GIVEN: the Fulcrum role vocabulary is published at packages/platform/deploy/fleet/fulcrum-roles.json and the Fulcrum inference path is exercised across divergent, convergent and embed
   WHEN:  every requested role name is collected from the durable telemetry rows and the Fulcrum vocabulary file is read
   THEN:  the requested role set is exactly divergent, convergent and embed, and the Fulcrum vocabulary file declares no judge entry
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod telemetry rows + the real services/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod telemetry rows + the real packages/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001
   FLOW_REF:             CAP-INFER-01 boundary contract: judge is never requested (ADR-008)
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod telemetry rows + the real services/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001
+    SERVICE:          real Postgres holocron_nonprod telemetry rows + the real packages/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001
     NEGATIVE_CONTROL: would fail if the role scan is a no-op returning an empty list regardless of input; the scan is disconnected from the durable telemetry rows and reads a hardcoded allowlist; the assertion is made against the shared platform manifest, which carries `judge` by design and would make the check wrong; a retry path silently substitutes a different role name and the scan misses it
     EVIDENCE:         stdout (required_capture=True)
     CASES:
@@ -267,14 +267,14 @@ AC-5: Fulcrum vocabulary excludes judge and no forbidden role is requested
         ACTOR:     cli_user
         STEP:      run `holo infer:call --role divergent --json`, `--role convergent --json` and an embed call
         STEP:      run `holo telemetry:tail --run-id <probeRunId> --json` and collect the distinct `role` values
-        STEP:      read the role keys declared in `services/platform/deploy/fleet/fulcrum-roles.json`
+        STEP:      read the role keys declared in `packages/platform/deploy/fleet/fulcrum-roles.json`
         MUST_OBSERVE:     the distinct requested role set equals `['convergent','divergent','embed']`
         MUST_OBSERVE:     3 distinct role values recorded
-        MUST_OBSERVE:     the role keys in `services/platform/deploy/fleet/fulcrum-roles.json` equal `['convergent','divergent','embed']`
-        MUST_OBSERVE:     `0` occurrences of the literal `judge` in `services/platform/deploy/fleet/fulcrum-roles.json`
+        MUST_OBSERVE:     the role keys in `packages/platform/deploy/fleet/fulcrum-roles.json` equal `['convergent','divergent','embed']`
+        MUST_OBSERVE:     `0` occurrences of the literal `judge` in `packages/platform/deploy/fleet/fulcrum-roles.json`
         MUST_NOT_OBSERVE: a requested `role` value of `judge`
         MUST_NOT_OBSERVE: a requested `role` value of `qwen-coder`
-        MUST_NOT_OBSERVE: a `judge` key in `services/platform/deploy/fleet/fulcrum-roles.json`
+        MUST_NOT_OBSERVE: a `judge` key in `packages/platform/deploy/fleet/fulcrum-roles.json`
         MUST_NOT_OBSERVE: 0 telemetry rows collected for the scan
 
 --------------------------------------------------------------------------------
@@ -283,31 +283,31 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-1"` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-2"` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-3"` |
-| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-4"` |
-| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-5"` |
-| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-6"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-1"` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-2"` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-3"` |
+| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-4"` |
+| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-5"` |
+| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t "TC-6"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/inference/serving-attestation.ts (NEW)
-- services/platform/src/inference/model-info.ts (NEW)
-- services/platform/src/inference/telemetry.ts (MODIFY)
-- services/platform/src/inference/resolve-model.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-serving-attestation.test.ts (NEW)
+- packages/platform/src/inference/serving-attestation.ts (NEW)
+- packages/platform/src/inference/model-info.ts (NEW)
+- packages/platform/src/inference/telemetry.ts (MODIFY)
+- packages/platform/src/inference/resolve-model.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-serving-attestation.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fleet/manifest.schema.ts and services/platform/fleet/manifest.json — the SHARED platform vocabulary that legitimately carries `judge` for non-Fulcrum paths; the Fulcrum role set now lives in services/platform/deploy/fleet/fulcrum-roles.json (FUL-INFRA-001)
-- services/platform/deploy/fleet/** — published by FUL-INFRA-001; this task reads it and never writes it
-- services/platform/src/research/** — FUL-PLAT-003 owns the provenance/evidence gate modules in the same wave
-- services/platform/src/mission/** — FUL-PLAT-006 owns corpus fetch in the same wave
-- services/platform/src/db/schema/** — schema is owned by FUL-PLAT-001 (wave A); this task persists into existing inference_telemetry columns
-- services/platform/src/cli/holo.ts — FUL-PLAT-012 owns the CLI surface
+- packages/platform/src/fleet/manifest.schema.ts and packages/platform/fleet/manifest.json — the SHARED platform vocabulary that legitimately carries `judge` for non-Fulcrum paths; the Fulcrum role set now lives in packages/platform/deploy/fleet/fulcrum-roles.json (FUL-INFRA-001)
+- packages/platform/deploy/fleet/** — published by FUL-INFRA-001; this task reads it and never writes it
+- packages/platform/src/research/** — FUL-PLAT-003 owns the provenance/evidence gate modules in the same wave
+- packages/platform/src/mission/** — FUL-PLAT-006 owns corpus fetch in the same wave
+- packages/platform/src/db/schema/** — schema is owned by FUL-PLAT-001 (wave A); this task persists into existing inference_telemetry columns
+- packages/platform/src/cli/holo.ts — FUL-PLAT-012 owns the CLI surface
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -315,7 +315,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/inference/telemetry.ts:645-700 (wrapChatAgentModel + recordChatAgentModelCall)
+Source: packages/platform/src/inference/telemetry.ts:645-700 (wrapChatAgentModel + recordChatAgentModelCall)
 
 Wrap-the-provider-model instrumentation: the existing wrapChatAgentModel already intercepts every doGenerate/doStream and reads response.headers. Attestation extends that single choke point rather than adding a second telemetry path.
 
@@ -553,19 +553,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/inference/telemetry.ts
+1. packages/platform/src/inference/telemetry.ts
    - Lines: 536-700
    - Focus: [PRIMARY PATTERN] responseHeaderApiBase / classifyModelInvocation / recordChatAgentModelCall already read x-litellm-model-api-base and set MODEL_ENDPOINT_UNTRUSTED — extend this path to persist the header-derived api-base as the row endpoint and add the /model/info cross-reference
-2. services/platform/src/inference/resolve-model.ts
+2. packages/platform/src/inference/resolve-model.ts
    - Lines: 1-120
    - Focus: ResolvedModel shape (endpoint, litellmModelId, baseURL, provider) and the default-deny escape policy the attestation must not weaken
-3. services/platform/deploy/fleet/fulcrum-roles.json
+3. packages/platform/deploy/fleet/fulcrum-roles.json
    - Lines: whole file
-   - Focus: FUL-INFRA-001's published Fulcrum role vocabulary (divergent/convergent/embed -> oMLX basenames). This — NOT the shared services/platform/fleet/manifest.json — is what the attestation validates the requested role set against; the shared manifest keeps `judge` for non-Fulcrum paths
-4. services/platform/src/fleet/fulcrum-role-readiness.ts
+   - Focus: FUL-INFRA-001's published Fulcrum role vocabulary (divergent/convergent/embed -> oMLX basenames). This — NOT the shared packages/platform/fleet/manifest.json — is what the attestation validates the requested role set against; the shared manifest keeps `judge` for non-Fulcrum paths
+4. packages/platform/src/fleet/fulcrum-role-readiness.ts
    - Lines: whole file
    - Focus: FUL-INFRA-001's readiness probe asserting the expected role set on both minis (never mere liveness) — the attestation's gate for the integration lane reuses it instead of re-probing
-5. services/platform/tests/integration/inference-telemetry.test.ts
+5. packages/platform/tests/integration/inference-telemetry.test.ts
    - Lines: 1-120
    - Focus: Integration-lane pattern: PLATFORM_IT gating, real Postgres row assertions on inference_telemetry, real fleet calls
 
@@ -589,7 +589,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -601,7 +601,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/inference services/platform/src/fleet services/platform/tests/integration/fulcrum-serving-attestation.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/inference packages/platform/src/fleet packages/platform/tests/integration/fulcrum-serving-attestation.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -618,7 +618,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Touches the instrumented fleet client (services/platform/src/inference/telemetry.ts), the fleet role manifest, and durable Postgres telemetry rows — Mastra/Bun platform code verified against the live LiteLLM router and real Postgres. Reviewer: mastra-reviewer (no-cloud-leak, no-judge, header-vs-body audit).
+Rationale:   Touches the instrumented fleet client (packages/platform/src/inference/telemetry.ts), the fleet role manifest, and durable Postgres telemetry rows — Mastra/Bun platform code verified against the live LiteLLM router and real Postgres. Reviewer: mastra-reviewer (no-cloud-leak, no-judge, header-vs-body audit).
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -673,7 +673,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
         "holo probe:capabilities --json reports role coverage for `divergent`, `convergent` and `embed` on both nodes",
         "GET /model/info on the image-local router lists 2 model_list entries per role, one per node",
         "inference_telemetry holds 0 rows for the new probe run id",
-        "`services/platform/deploy/fleet/fulcrum-roles.json` declares exactly the 3 roles `divergent`, `convergent` and `embed`"
+        "`packages/platform/deploy/fleet/fulcrum-roles.json` declares exactly the 3 roles `divergent`, `convergent` and `embed`"
       ]
     },
     "router_roles_collapsed_to_one_model": {
@@ -700,7 +700,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN both nodes inference1 and inference2 serve divergent and convergent behind the image-local router WHEN one chat call runs on divergent and one on convergent through the router THEN each persisted telemetry row names a serving api-base taken from x-litellm-model-api-base and confirmed against GET /model/info",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "live image-local LiteLLM router load-balancing to real oMLX on both nodes inference1 and inference2, plus real Postgres holocron_nonprod",
@@ -784,7 +784,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the router binds divergent and convergent to a single served model WHEN the attestation module compares the two roles' resolved identities before a cycle proceeds THEN it refuses with a named error listing both roles and the shared model id",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "live image-local LiteLLM router GET /model/info + real chat calls",
@@ -863,7 +863,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the embed role is served behind the image-local router and embedding responses carry no model identifier WHEN an embedding call runs through the instrumented fleet client THEN the attestation records dimensionality 1024 for that call instead of a model identity",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "live image-local LiteLLM router embed role + real Postgres holocron_nonprod",
@@ -892,7 +892,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "api_client",
               "steps": [
-                "call `embed('usage-based AI support automation gross margin', 'document')` through services/platform/src/inference/embed.ts",
+                "call `embed('usage-based AI support automation gross margin', 'document')` through packages/platform/src/inference/embed.ts",
                 "run `holo telemetry:tail --run-id <embedRunId> --json`"
               ]
             },
@@ -922,7 +922,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the router answers a chat call without the x-litellm-model-api-base header WHEN the attestation module processes that response THEN it records error_code MODEL_ENDPOINT_UNTRUSTED and no success row",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "live image-local LiteLLM router with header suppression + real Postgres holocron_nonprod",
@@ -981,11 +981,11 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "AC-5",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN the Fulcrum role vocabulary is published at services/platform/deploy/fleet/fulcrum-roles.json and the Fulcrum inference path is exercised across divergent, convergent and embed WHEN every requested role name is collected from the durable telemetry rows and the Fulcrum vocabulary file is read THEN the requested role set is exactly divergent, convergent and embed, and the Fulcrum vocabulary file declares no judge entry",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-5\"",
+      "description": "GIVEN the Fulcrum role vocabulary is published at packages/platform/deploy/fleet/fulcrum-roles.json and the Fulcrum inference path is exercised across divergent, convergent and embed WHEN every requested role name is collected from the durable telemetry rows and the Fulcrum vocabulary file is read THEN the requested role set is exactly divergent, convergent and embed, and the Fulcrum vocabulary file declares no judge entry",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "integration",
-      "verification_service": "real Postgres holocron_nonprod telemetry rows + the real services/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001",
+      "verification_service": "real Postgres holocron_nonprod telemetry rows + the real packages/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001",
       "unit_test_justified": null,
       "scenario": {
         "id": "SC-FUL-PLAT-007-5",
@@ -993,7 +993,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
         "tier": "holdout",
         "test_tier": "integration",
         "topology": "single-node",
-        "verification_service": "real Postgres holocron_nonprod telemetry rows + the real services/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001",
+        "verification_service": "real Postgres holocron_nonprod telemetry rows + the real packages/platform/deploy/fleet/fulcrum-roles.json published by FUL-INFRA-001",
         "negative_control": {
           "would_fail_if": [
             "the role scan is a no-op returning an empty list regardless of input",
@@ -1014,20 +1014,20 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "steps": [
                 "run `holo infer:call --role divergent --json`, `--role convergent --json` and an embed call",
                 "run `holo telemetry:tail --run-id <probeRunId> --json` and collect the distinct `role` values",
-                "read the role keys declared in `services/platform/deploy/fleet/fulcrum-roles.json`"
+                "read the role keys declared in `packages/platform/deploy/fleet/fulcrum-roles.json`"
               ]
             },
             "end_state": {
               "must_observe": [
                 "the distinct requested role set equals `['convergent','divergent','embed']`",
                 "3 distinct role values recorded",
-                "the role keys in `services/platform/deploy/fleet/fulcrum-roles.json` equal `['convergent','divergent','embed']`",
-                "`0` occurrences of the literal `judge` in `services/platform/deploy/fleet/fulcrum-roles.json`"
+                "the role keys in `packages/platform/deploy/fleet/fulcrum-roles.json` equal `['convergent','divergent','embed']`",
+                "`0` occurrences of the literal `judge` in `packages/platform/deploy/fleet/fulcrum-roles.json`"
               ],
               "must_not_observe": [
                 "a requested `role` value of `judge`",
                 "a requested `role` value of `qwen-coder`",
-                "a `judge` key in `services/platform/deploy/fleet/fulcrum-roles.json`",
+                "a `judge` key in `packages/platform/deploy/fleet/fulcrum-roles.json`",
                 "0 telemetry rows collected for the scan"
               ]
             }
@@ -1045,7 +1045,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The persisted telemetry endpoint equals the x-litellm-model-api-base header value when the router returns that header",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1058,7 +1058,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The attestation module contains zero reads of the response body model field when scanned for identity resolution",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -1071,7 +1071,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "assertRolesDistinct throws FULCRUM_ROLE_IDENTITY_COLLISION when divergent and convergent resolve to one model id",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1084,7 +1084,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The recorded embedding dimensionality equals the measured vector length when an embed call succeeds",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1097,7 +1097,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The telemetry row status equals error when the serving header is absent",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1110,7 +1110,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The Fulcrum role vocabulary file declares zero judge entries when a full role sweep is recorded",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-serving-attestation.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,

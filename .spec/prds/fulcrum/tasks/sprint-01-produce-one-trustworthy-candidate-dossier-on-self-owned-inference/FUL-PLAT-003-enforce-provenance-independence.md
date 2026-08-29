@@ -17,19 +17,19 @@ Against real Postgres, 3 byte-identical sources across 3 domains resolve to 1 pr
 
 ## How to verify
 
-Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (services/platform/src/db/client.ts)):
+Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'
 ```
 
 Full gate set: 4 acceptance criteria, 7 test criteria, 3 verification gates.
 
 ## Scope
 
-- services/platform/src/fulcrum/gate/provenance.ts (NEW)
-- services/platform/src/fulcrum/provenance-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-provenance.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/provenance.ts (NEW)
+- packages/platform/src/fulcrum/provenance-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-provenance.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -68,11 +68,11 @@ Against real Postgres, 3 byte-identical sources across 3 domains resolve to 1 pr
 
 - MUST: MUST derive the provenance group from the persisted `sources.content_hash`, ignoring any independenceGroup value supplied by the caller
 - MUST: MUST persist the demotion decision onto `claims.status` with the closed reason value `source_independence`
-- MUST: MUST determine self_sourced from the real published `documents` lineage written by services/platform/src/mission/document-publish.ts, not from a hardcoded domain list
-- NEVER: NEVER import a model client or call generateText inside services/platform/src/fulcrum/gate/provenance.ts
+- MUST: MUST determine self_sourced from the real published `documents` lineage written by packages/platform/src/mission/document-publish.ts, not from a hardcoded domain list
+- NEVER: NEVER import a model client or call generateText inside packages/platform/src/fulcrum/gate/provenance.ts
 - NEVER: NEVER count a self_sourced group toward independence, even when it is the only support
 - NEVER: NEVER demote the higher-weighted component when two components share a sole group
-- STRICTLY: STRICTLY keep provenance.ts pure (no sql import); persistence lives in services/platform/src/fulcrum/provenance-writer.ts
+- STRICTLY: STRICTLY keep provenance.ts pure (no sql import); persistence lives in packages/platform/src/fulcrum/provenance-writer.ts
 
 --------------------------------------------------------------------------------
 CAPABILITY CHAIN
@@ -108,15 +108,15 @@ AC-1: Byte-identical content across three domains collapses to one provenance gr
   THEN:  all 3 rows carry the same single `provenance_group` and the independent-group count reads 1
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-03 AC-1/AC-2
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if provenanceSweep returns an empty demotion list without reading content_hash, leaving each source its own group; the provenance writer is a no-op so sources.provenance_group stays NULL; grouping is keyed on registrable domain instead of content hash, so syndication counts three times; the test asserts on an in-memory array rather than querying the persisted rows
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -139,15 +139,15 @@ AC-2: One group cannot solely support two components
   THEN:  the lower-weighted 'pricing' claim reads `status` = 'provisional' with reason `source_independence` and 'demand' stays admitted
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-03 AC-3/AC-5
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the sweep returns an empty demotion list, leaving both components admitted on one group; the demotion is computed but never written, so claims.status is unchanged; the sweep demotes by insertion order instead of component weight rank; the reason is a free-form message that no downstream reader can match
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -170,15 +170,15 @@ AC-3: Self-sourced evidence never satisfies independence
   THEN:  the count reads 2 and the self-sourced row carries `self_sourced` = 1
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 + CAP-PUBLISH-01 → UC-LED-03 AC-4
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if self_sourced is never set, so holocron's own prior output corroborates itself; the independence count includes every group regardless of the self_sourced flag; the flag is derived from a hardcoded list instead of the documents category written by publishDocumentForRun; the test injects a self_sourced value directly rather than publishing through the real document path
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -200,15 +200,15 @@ AC-4: A caller-supplied group label cannot buy independence
   THEN:  the sweep ignores the supplied labels and the independent-group count still reads 1
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 boundary: independence is provenance-based
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the sweep trusts the caller-supplied independenceGroup label, so relabelling manufactures independence; provenance_group is copied straight from the input payload without hashing the content; the sweep is stubbed to echo its input
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -229,28 +229,28 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'` |
-| TC-5 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'` |
-| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'` |
-| TC-7 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'` |
+| TC-5 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'` |
+| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'` |
+| TC-7 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/fulcrum/gate/provenance.ts (NEW)
-- services/platform/src/fulcrum/provenance-writer.ts (NEW)
-- services/platform/tests/integration/fulcrum-provenance.test.ts (NEW)
+- packages/platform/src/fulcrum/gate/provenance.ts (NEW)
+- packages/platform/src/fulcrum/provenance-writer.ts (NEW)
+- packages/platform/tests/integration/fulcrum-provenance.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006 (same wave)
-- services/platform/src/mission/** — owned by FUL-PLAT-005/006/008
-- services/platform/src/fulcrum/gate/grade.ts, verify-quote.ts, admission.ts — delivered by FUL-PLAT-002; consume, do not edit
-- services/platform/src/db/** — owned by FUL-PLAT-001
+- packages/platform/src/fulcrum/retrieval.ts — owned by FUL-PLAT-006 (same wave)
+- packages/platform/src/mission/** — owned by FUL-PLAT-005/006/008
+- packages/platform/src/fulcrum/gate/grade.ts, verify-quote.ts, admission.ts — delivered by FUL-PLAT-002; consume, do not edit
+- packages/platform/src/db/** — owned by FUL-PLAT-001
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -258,7 +258,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/research/evidence-gate.ts (canonical-identity grouping) + services/platform/src/research/provenance.ts (sha256 identity)
+Source: packages/platform/src/research/evidence-gate.ts (canonical-identity grouping) + packages/platform/src/research/provenance.ts (sha256 identity)
 
 Pure sweep over already-read claim/binding records returning a typed demotions list, plus a writer that persists group assignments and status changes.
 
@@ -266,7 +266,7 @@ ANTI-PATTERN: Trusting `item.independenceGroup` from the input payload. That is 
 
 References:
 - .spec/prds/fulcrum/06-uc-led.md § UC-LED-03 (all five acceptance criteria)
-- services/platform/src/research/evidence-gate.ts:72-80 — the canonical-identity independence rule already shipped here
+- packages/platform/src/research/evidence-gate.ts:72-80 — the canonical-identity independence rule already shipped here
 
 Notes:
 - p
@@ -565,19 +565,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/research/evidence-gate.ts
+1. packages/platform/src/research/evidence-gate.ts
    - Lines: 72-80
    - Focus: [PRIMARY PATTERN] the exact precedent for this task's central rule — 'Independence is keyed by the canonical source identity, never by a caller/model-supplied group label'
-2. services/platform/src/research/provenance.ts
+2. packages/platform/src/research/provenance.ts
    - Lines: 1-70
    - Focus: sha256Text + attestation store shape; Fulcrum reuses content-hash identity but persists the group on sources / claim_evidence_bindings instead of an in-memory map
-3. services/platform/src/mission/document-publish.ts
+3. packages/platform/src/mission/document-publish.ts
    - Lines: 1-60
    - Focus: How a Fulcrum document is published (source_run_id idempotency, category) — the lineage that makes a later retrieval self_sourced
-4. services/platform/src/fulcrum/gate/admission.ts
+4. packages/platform/src/fulcrum/gate/admission.ts
    - Lines: whole file (delivered by FUL-PLAT-002)
    - Focus: The admitted-claim shape and closed reason union this sweep extends with source_independence
-5. services/platform/tests/integration/research-evidence-core.test.ts
+5. packages/platform/tests/integration/research-evidence-core.test.ts
    - Lines: 1-70
    - Focus: Integration-lane conventions: fail-closed beforeAll, holocron_nonprod guard, real createSql
 
@@ -609,7 +609,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fulcrum/gate/provenance.ts services/platform/src/fulcrum/provenance-writer.ts services/platform/tests/integration/fulcrum-provenance.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fulcrum/gate/provenance.ts packages/platform/src/fulcrum/provenance-writer.ts packages/platform/tests/integration/fulcrum-provenance.test.ts
   Expected: None
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -622,7 +622,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Extends the same deterministic gate seam this triad owns in services/platform/src/fulcrum, and the proof requires real Postgres rows plus a real publishDocumentForRun document — mastra-implementer's TDD-against-real-services contract.
+Rationale:   Extends the same deterministic gate seam this triad owns in packages/platform/src/fulcrum, and the proof requires real Postgres rows plus a real publishDocumentForRun document — mastra-implementer's TDD-against-real-services contract.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -631,7 +631,7 @@ CODING STANDARDS
 
 - Sweep input and output are declared Zod schemas — no z.any() and no loose Record on the demotion path
 - The demotion reason is added to the closed reason union from FUL-PLAT-002, never a free-form string
-- provenance.ts imports nothing from services/platform/src/db and no model or fleet client
+- provenance.ts imports nothing from packages/platform/src/db and no model or fleet client
 - Group derivation is a pure function of content_hash — no Date.now(), no randomness, no ordering dependence
 
 --------------------------------------------------------------------------------
@@ -704,13 +704,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN 3 seeded `sources` rows carrying byte-identical `normalized_text` under 3 different registrable domains WHEN the provenance sweep assigns provenance groups and persists them onto `sources` and `claim_evidence_bindings` THEN all 3 rows carry the same single `provenance_group` and the independent-group count reads 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": true,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -757,13 +757,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN 1 provenance group that is the only support for both the 'demand' and 'pricing' components of one candidate WHEN the provenance sweep runs and its demotions are persisted THEN the lower-weighted 'pricing' claim reads `status` = 'provisional' with reason `source_independence` and 'demand' stays admitted",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -810,13 +810,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN 3 admitted claims for one candidate \u2014 1 bound to a holocron-published `documents` row, 2 bound to external domains WHEN the independent-group count is recomputed for that component THEN the count reads 2 and the self-sourced row carries `self_sourced` = 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -862,13 +862,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the 3 syndicated sources sharing 1 content hash WHEN the caller passes distinct hand-written `independenceGroup` labels for the 3 claims THEN the sweep ignores the supplied labels and the independent-group count still reads 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -911,49 +911,49 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "Three sources sharing one content_hash across three domains persist a single distinct provenance_group",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The independent-group count for the syndicated candidate reads 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The lower-weighted 'pricing' claim is demoted to provisional with reason source_independence",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "The higher-weighted 'demand' claim remains status 'admitted' after the sweep",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "A source tracing to a publishDocumentForRun document is persisted with self_sourced = 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "The independent-group count reads 2 when one of the three supporting groups is self-sourced",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "Caller-supplied independenceGroup labels g1/g2/g3 do not raise the independent-group count above 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-provenance.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     }
   ]

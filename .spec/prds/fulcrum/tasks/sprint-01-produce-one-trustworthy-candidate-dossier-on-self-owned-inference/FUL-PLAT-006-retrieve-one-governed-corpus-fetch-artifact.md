@@ -20,16 +20,16 @@ Replace snippet-shaped retrieval for the Fulcrum instantiation with a governed c
 Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'
 ```
 
 Full gate set: 5 acceptance criteria, 10 test criteria, 4 verification gates.
 
 ## Scope
 
-- services/platform/src/fulcrum/retrieval.ts (NEW)
-- services/platform/src/mission/runtime.ts (MODIFY — the builtin.research-retrieve@1 executor's fulcrum branch only)
-- services/platform/tests/integration/fulcrum-corpus-fetch.test.ts (NEW)
+- packages/platform/src/fulcrum/retrieval.ts (NEW)
+- packages/platform/src/mission/runtime.ts (MODIFY — the builtin.research-retrieve@1 executor's fulcrum branch only)
+- packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -69,7 +69,7 @@ OUTCOME (observable success)
 - MUST: MUST persist the FetchArtifact { url, fetchedAt, raw, normalizedText, contentHash } onto `sources` before any claim references it
 - MUST: MUST read the ban-list and courtesyDelayMs from the compiled contract persisted by FUL-PLAT-005 — never from a hardcoded list
 - MUST: MUST fail closed on an empty corpus with the existing MISSION_RETRIEVE_EMPTY code rather than soft-succeeding with 0 hits
-- NEVER: NEVER set normalized_text from the RRF `sourceText` snippet or any `slice(0, 280)` buffer — that is the exact anti-pattern at services/platform/src/mission/runtime.ts:342-398
+- NEVER: NEVER set normalized_text from the RRF `sourceText` snippet or any `slice(0, 280)` buffer — that is the exact anti-pattern at packages/platform/src/mission/runtime.ts:342-398
 - NEVER: NEVER honour args.researchEvidence for instantiation `fulcrum`; refuse with FULCRUM_CORPUS_ONLY
 - NEVER: NEVER call an outbound web tool — SENSE is corpus-only against documents / passages / prior sources
 - STRICTLY: STRICTLY scoped to the `fulcrum` instantiation — the research / deepResearch / subscriptions-research aliases keep the existing retrieve behaviour, and the full integration lane must stay green to prove it
@@ -112,7 +112,7 @@ AC-1: One corpus retrieval persists a real fetch artifact on sources [PRIMARY]
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-CYC-04 AC-2
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -123,7 +123,7 @@ AC-1: One corpus retrieval persists a real fetch artifact on sources [PRIMARY]
     CASES:
       - START_REF: ingested_corpus_single_hit
         ACTOR:     cli_user
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
         STEP:      SELECT url, retrieved_at, source_domain, content_hash, length(normalized_text) FROM sources WHERE retrieved_at IS NOT NULL
         MUST_OBSERVE:     `SELECT count(*) FROM sources WHERE retrieved_at IS NOT NULL` returns 1
         MUST_OBSERVE:     the written row reports `length(normalized_text)` = 1800
@@ -142,7 +142,7 @@ AC-2: A banned-domain corpus hit is dropped before the gate
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-CYC-04 AC-4 (source governance)
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -172,7 +172,7 @@ AC-3: A canned claims file is refused as corpus-only
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)
   FLOW_REF:             CAP-EVIDENCE-01 boundary: corpus-only SENSE
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -184,7 +184,7 @@ AC-3: A canned claims file is refused as corpus-only
       - START_REF: canned_claims_file
         ACTOR:     cli_user
         STEP:      write /tmp/fulcrum-canned.json containing [{"claim":"invented success"}]
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json`
         STEP:      parse the JSON response and SELECT count(*) FROM candidates
         MUST_OBSERVE:     the JSON response contains `"errorCode":"FULCRUM_CORPUS_ONLY"`
         MUST_OBSERVE:     the response contains no `candidateId` key
@@ -204,7 +204,7 @@ AC-4: The executed query is recorded so the next cycle does not repeat it
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-CYC-04 AC-1 + AC-5
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -234,7 +234,7 @@ AC-5: The artifact retains the full body, not the RRF snippet
   VERIFICATION_SERVICE: real Postgres holocron_nonprod corpus + real embed role via FLEET_URL (rrfHybridSearch)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-CYC-04 AC-6 (fail closed on RRF-sliced quotes)
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -262,33 +262,33 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'` |
-| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'` |
-| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
-| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
-| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
-| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'` |
-| TC-10 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'` |
+| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'` |
+| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
+| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
+| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'` |
+| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'` |
+| TC-10 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/fulcrum/retrieval.ts (NEW)
-- services/platform/src/mission/runtime.ts (MODIFY — the builtin.research-retrieve@1 executor's fulcrum branch only)
-- services/platform/tests/integration/fulcrum-corpus-fetch.test.ts (NEW)
+- packages/platform/src/fulcrum/retrieval.ts (NEW)
+- packages/platform/src/mission/runtime.ts (MODIFY — the builtin.research-retrieve@1 executor's fulcrum branch only)
+- packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fulcrum/gate/provenance.ts and provenance-writer.ts — owned by FUL-PLAT-003 (same wave)
-- services/platform/src/fulcrum/contract.ts and missions/** — delivered by FUL-PLAT-005; consume, do not edit
-- services/platform/src/mission/contract.ts and templates/** — owned by FUL-PLAT-005
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012; surface FULCRUM_CORPUS_ONLY as a MissionRuntimeError so the existing CLI error path prints it
-- services/platform/src/db/** — owned by FUL-PLAT-001
-- services/platform/src/research/** — the shipped on-demand research path stays untouched
+- packages/platform/src/fulcrum/gate/provenance.ts and provenance-writer.ts — owned by FUL-PLAT-003 (same wave)
+- packages/platform/src/fulcrum/contract.ts and missions/** — delivered by FUL-PLAT-005; consume, do not edit
+- packages/platform/src/mission/contract.ts and templates/** — owned by FUL-PLAT-005
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012; surface FULCRUM_CORPUS_ONLY as a MissionRuntimeError so the existing CLI error path prints it
+- packages/platform/src/db/** — owned by FUL-PLAT-001
+- packages/platform/src/research/** — the shipped on-demand research path stays untouched
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -296,15 +296,15 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/mission/runtime.ts:866-940 (builtin.research-retrieve@1) + services/platform/src/research/provenance.ts (content hashing)
+Source: packages/platform/src/mission/runtime.ts:866-940 (builtin.research-retrieve@1) + packages/platform/src/research/provenance.ts (content hashing)
 
 Instantiation-branched stage executor delegating to a governed client that (1) queries the corpus through registered tools, (2) filters by the contract's ban-list with a recorded reason, (3) writes the FetchArtifact to sources, (4) records the executed query.
 
-ANTI-PATTERN: services/platform/src/mission/runtime.ts:342-398 — `quoteInSource = sourceText.slice(0, 280)` paired with `sourceText` as the verification body. Every quote is trivially a substring of the buffer it was cut from, so the anti-fabrication guard verifies nothing.
+ANTI-PATTERN: packages/platform/src/mission/runtime.ts:342-398 — `quoteInSource = sourceText.slice(0, 280)` paired with `sourceText` as the verification body. Every quote is trivially a substring of the buffer it was cut from, so the anti-fabrication guard verifies nothing.
 
 References:
 - .spec/prds/fulcrum/05-uc-cyc.md § UC-CYC-04 — the fetch artifact contract and the fail-closed rule on RRF-sliced quotes
-- services/platform/src/mission/runtime.ts:866-940 — the executor being branched
+- packages/platform/src/mission/runtime.ts:866-940 — the executor being branched
 
 Notes:
 - T
@@ -753,19 +753,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/mission/runtime.ts
+1. packages/platform/src/mission/runtime.ts
    - Lines: 866-940
    - Focus: [PRIMARY PATTERN] the current builtin.research-retrieve@1 executor — seed path, rrfHybridSearch call, MISSION_RETRIEVAL_UNAVAILABLE / MISSION_RETRIEVE_EMPTY fail-closed codes. Fulcrum branches here.
-2. services/platform/src/mission/runtime.ts
+2. packages/platform/src/mission/runtime.ts
    - Lines: 342-398
    - Focus: mapRrfHitsToEvidenceGateInput — the `sourceText.slice(0, 280)` quote laundering this task must stop feeding the Fulcrum gate
-3. services/platform/src/research/provenance.ts
+3. packages/platform/src/research/provenance.ts
    - Lines: 1-45
    - Focus: sha256Text and the fetch-provenance record shape — the content_hash derivation for the artifact
-4. services/platform/src/fulcrum/contract.ts
+4. packages/platform/src/fulcrum/contract.ts
    - Lines: whole file (delivered by FUL-PLAT-005)
    - Focus: banList / courtesyDelayMs / toolGrants fields this client enforces
-5. services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts
+5. packages/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts
    - Lines: 1-80
    - Focus: Closest existing integration test of the retrieve executor against a real corpus and a real embed role — env contract and corpus-seeding conventions
 
@@ -797,7 +797,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fulcrum/retrieval.ts services/platform/src/mission/runtime.ts services/platform/tests/integration/fulcrum-corpus-fetch.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fulcrum/retrieval.ts packages/platform/src/mission/runtime.ts packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts
   Expected: None
 
 Gate 4: None
@@ -814,7 +814,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Rewrites the Mastra retrieve stage executor (services/platform/src/mission/runtime.ts) plus a new governed retrieval client, verified end-to-end against a real Postgres corpus and the real embed role — squarely the Mastra platform surface this triad owns.
+Rationale:   Rewrites the Mastra retrieve stage executor (packages/platform/src/mission/runtime.ts) plus a new governed retrieval client, verified end-to-end against a real Postgres corpus and the real embed role — squarely the Mastra platform surface this triad owns.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -824,7 +824,7 @@ CODING STANDARDS
 - The retrieval client's input and output are declared Zod schemas — no z.any() on the artifact or the drop ledger
 - Drop reasons are a closed string-literal union (domain_banned | duplicate_content_hash | below_relevance_floor), never a free-form message
 - Error codes reuse MissionRuntimeError with named codes (FULCRUM_CORPUS_ONLY, MISSION_RETRIEVE_EMPTY, MISSION_RETRIEVAL_UNAVAILABLE) — never a bare Error
-- content_hash is sha256 over normalizedText via services/platform/src/research/provenance.ts sha256Text — no second hashing implementation
+- content_hash is sha256 over normalizedText via packages/platform/src/research/provenance.ts sha256Text — no second hashing implementation
 
 --------------------------------------------------------------------------------
 DEPENDENCIES
@@ -897,7 +897,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN an ingested corpus holding 1 matching document of 1800 characters and 0 Fulcrum `sources` rows WHEN the operator runs `holo fulcrum '<goal>' --fresh --json` and SENSE executes one corpus retrieval THEN 1 `sources` row is written carrying url, retrieved_at, a 64-character content_hash and the full normalized_text",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -923,7 +923,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
                 "SELECT url, retrieved_at, source_domain, content_hash, length(normalized_text) FROM sources WHERE retrieved_at IS NOT NULL"
               ]
             },
@@ -949,7 +949,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN an ingested corpus holding 2 matching documents, 1 of them on the banned domain 'contentfarm.example' WHEN the governed retrieval runs under the compiled `dev-revenue` contract THEN 1 `sources` row is written for 'sec.gov' and the banned url appears nowhere in the run's artifacts",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -1001,7 +1001,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN an ingested corpus, 0 `candidates` rows, and /tmp/fulcrum-canned.json holding 1 fabricated claim WHEN the operator runs `holo fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json` THEN the response reports `errorCode` FULCRUM_CORPUS_ONLY and no candidate or fetch artifact is written",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -1027,7 +1027,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "actor": "cli_user",
               "steps": [
                 "write /tmp/fulcrum-canned.json containing [{\"claim\":\"invented success\"}]",
-                "run `bun services/platform/src/cli/holo.ts fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json`",
                 "parse the JSON response and SELECT count(*) FROM candidates"
               ]
             },
@@ -1054,7 +1054,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a corpus retrieval that already recorded 1 executed query for the candidate WHEN a second retrieval runs for the same candidate THEN 2 distinct executed queries are recorded and the second is not a near-duplicate of the first",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -1105,7 +1105,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN an ingested 1800-character document and its hybrid-search hit whose snippet buffer is 280 characters WHEN the fetch artifact is written and compared against the snippet THEN `normalized_text` holds 1800 characters and a quote taken from the 280-character snippet slice fails verification against it",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -1156,70 +1156,70 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "One governed retrieval writes exactly 1 sources row carrying a non-null retrieved_at",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The written fetch artifact carries a 64-character content_hash",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The written fetch artifact carries an 1800-character normalized_text",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "A corpus hit on the contract's banned domain produces zero sources rows",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "The retrieve stage output records one dropped hit with reason domain_banned",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "Running holo fulcrum with --claims returns errorCode FULCRUM_CORPUS_ONLY",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "Running holo fulcrum with --claims exits with code 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "The refused --claims run leaves candidates at 0 rows",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-9",
       "type": "test_criterion",
       "description": "Two retrievals for one candidate record 2 distinct executed queries",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-10",
       "type": "test_criterion",
       "description": "A quote sliced from a foreign 280-character RRF snippet fails verification against the written normalized_text",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-corpus-fetch.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     }
   ]

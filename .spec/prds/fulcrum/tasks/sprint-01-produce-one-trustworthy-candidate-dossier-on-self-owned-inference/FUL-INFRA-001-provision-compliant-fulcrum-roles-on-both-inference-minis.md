@@ -25,19 +25,19 @@ Host and serve the three Fulcrum model roles on both inference minis and prove t
 Primary acceptance criterion **AC-1** (integration tier, service: oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale):
 
 ```
-pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'
+pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'
 ```
 
 Full gate set: 5 acceptance criteria, 7 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/deploy/fleet/fulcrum-roles.json
-- services/platform/deploy/fleet/provision-fulcrum-roles.sh
-- services/platform/src/fleet/fulcrum-role-readiness.ts
-- services/platform/src/cli/commands/fulcrum-substrate-check.ts
-- services/platform/src/cli/holo.ts
-- services/platform/tests/integration/fulcrum-substrate-roles.test.ts
+- packages/platform/deploy/fleet/fulcrum-roles.json
+- packages/platform/deploy/fleet/provision-fulcrum-roles.sh
+- packages/platform/src/fleet/fulcrum-role-readiness.ts
+- packages/platform/src/cli/commands/fulcrum-substrate-check.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/tests/integration/fulcrum-substrate-roles.test.ts
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -81,7 +81,7 @@ OUTCOME (observable success)
 - NEVER: NEVER write a Tailscale key, SSH password, or API key value into a file, log, test fixture, or commit; refer to credential-bearing names only (`INFERENCE1_SSH_PASSWORD`, `INFERENCE2_SSH_PASSWORD`)
 - NEVER: NEVER add `judge`, `reviewer`, `implementer`, `orchestrator`, `qwen-coder`, or `verifier` to the Fulcrum expected role set (ADR-008)
 - NEVER: NEVER treat the laptop as a Fulcrum backend or add it to the expected node set (ADR-007)
-- STRICTLY: STRICTLY keep writes inside `guardrails.write_allowed`; `services/platform/src/db/**` belongs to FUL-PLAT-001 in the same wave
+- STRICTLY: STRICTLY keep writes inside `guardrails.write_allowed`; `packages/platform/src/db/**` belongs to FUL-PLAT-001 in the same wave
 - STRICTLY: STRICTLY pin model directory basenames as literals in `fulcrum-roles.json`; never derive role expectations from oMLX basenames at runtime (two namespaces, never one built from the other)
 
 --------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ provides:             fulcrum-role-set-on-both-minis, fulcrum-expected-role-mani
 consumes:             models-fleet-provisioning-tooling
 boundary_contracts:
   - PROVIDES to FUL-INFRA-002 and FUL-PLAT-007: both `inference1` and `inference2` serve every Fulcrum role basename (`Qwen3.8-27B-8bit`, `Muse-Glimmer-30B-4bit`, `Qwen3-Embedding-0.6B-4bit-DWQ`) on `:8003`, asserted as an expected role set per node rather than mere liveness
-  - PROVIDES to FUL-INFRA-002: `services/platform/deploy/fleet/fulcrum-roles.json` is the single declaration of role name to oMLX basename, and the router config is built from it, never from a second vocabulary
+  - PROVIDES to FUL-INFRA-002: `packages/platform/deploy/fleet/fulcrum-roles.json` is the single declaration of role name to oMLX basename, and the router config is built from it, never from a second vocabulary
   - No coder role name and no `judge` appears in the Fulcrum expected role set or in any requested role name on the Fulcrum path
 
 --------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ AC-1: Both minis serve the full Fulcrum role set [PRIMARY] [PRIMARY]
   VERIFICATION_SERVICE: oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale
   FLOW_REF:             UC-LIS-01 / T-LIS-001
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -132,9 +132,9 @@ AC-1: Both minis serve the full Fulcrum role set [PRIMARY] [PRIMARY]
     CASES:
       - START_REF: minis_before_fulcrum_provisioning
         ACTOR:     cli_user
-        STEP:      run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1` so the first real node farms and serves the three Fulcrum basenames through its own entrypoint
-        STEP:      run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2` so the second real node farms and serves the same three basenames through its own entrypoint
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json`, which issues one GET to each node's own `http://inferenceN.tail011a51.ts.net:8003/v1/models`
+        STEP:      run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1` so the first real node farms and serves the three Fulcrum basenames through its own entrypoint
+        STEP:      run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2` so the second real node farms and serves the same three basenames through its own entrypoint
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json`, which issues one GET to each node's own `http://inferenceN.tail011a51.ts.net:8003/v1/models`
         MUST_OBSERVE:     `inference1 divergent=Qwen3.8-27B-8bit`
         MUST_OBSERVE:     `inference2 divergent=Qwen3.8-27B-8bit`
         MUST_OBSERVE:     `inference1 convergent=Muse-Glimmer-30B-4bit`
@@ -155,7 +155,7 @@ AC-2: Coder weights are cleared so the Fulcrum set fits each mini
   VERIFICATION_SERVICE: oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale
   FLOW_REF:             UC-LIS-02 / ADR-008 memory arithmetic
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -166,9 +166,9 @@ AC-2: Coder weights are cleared so the Fulcrum set fits each mini
     CASES:
       - START_REF: minis_before_fulcrum_provisioning
         ACTOR:     cli_user
-        STEP:      run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1 --clear-coder-weights` on the first real node
-        STEP:      run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2 --clear-coder-weights` on the second real node
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json --report-basenames` which tallies ids from both nodes' own `/v1/models` responses
+        STEP:      run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1 --clear-coder-weights` on the first real node
+        STEP:      run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2 --clear-coder-weights` on the second real node
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json --report-basenames` which tallies ids from both nodes' own `/v1/models` responses
         MUST_OBSERVE:     `coder_basenames_served=0 fulcrum_basenames_served=6`
         MUST_OBSERVE:     `inference1 resident_gb=46`
         MUST_OBSERVE:     `inference2 resident_gb=46`
@@ -185,7 +185,7 @@ AC-3: A stopped oMLX on one mini is reported per node, not hidden
   VERIFICATION_SERVICE: oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale
   FLOW_REF:             UC-LIS-04 / T-LIS-015
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '"unreachable_nodes":["inference1"]'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '"unreachable_nodes":["inference1"]'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -198,7 +198,7 @@ AC-3: A stopped oMLX on one mini is reported per node, not hidden
         ACTOR:     cli_user
         STEP:      run `ssh inference1 'pkill -f "omlx serve"'` to stop the real service on the first node, changing no network setting
         STEP:      run `ssh inference2 'curl -sS http://127.0.0.1:8003/v1/models'` so the second real node answers through its own entrypoint
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json; echo exit=$?`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json; echo exit=$?`
         MUST_OBSERVE:     `"unreachable_nodes":["inference1"]`
         MUST_OBSERVE:     `inference2 convergent=Muse-Glimmer-30B-4bit`
         MUST_OBSERVE:     `exit=1`
@@ -215,7 +215,7 @@ AC-4: A serving endpoint with a short model list fails closed by role name
   VERIFICATION_SERVICE: oMLX 0.5.7 restricted-model-dir process on inference2 (:8013)
   FLOW_REF:             UC-LIS-01 / 09-e2e-testing.md landmine: server answers but serves nothing
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -227,7 +227,7 @@ AC-4: A serving endpoint with a short model list fails closed by role name
       - START_REF: restricted_model_dir_endpoint
         ACTOR:     cli_user
         STEP:      run `ssh inference2 'omlx serve --port 8013 --model-dir ~/models/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ'` to start a real restricted process, leaving :8003 alone
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --endpoint http://inference2.tail011a51.ts.net:8013/v1 --json; echo exit=$?`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --endpoint http://inference2.tail011a51.ts.net:8013/v1 --json; echo exit=$?`
         MUST_OBSERVE:     `FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent`
         MUST_OBSERVE:     `present=embed`
         MUST_OBSERVE:     `exit=1`
@@ -236,7 +236,7 @@ AC-4: A serving endpoint with a short model list fails closed by role name
         MUST_NOT_OBSERVE: an empty `missing` list
 
 AC-5: The Fulcrum role vocabulary excludes judge and every coder role
-  GIVEN: GIVEN `services/platform/deploy/fleet/fulcrum-roles.json` is the only declaration of Fulcrum role expectations
+  GIVEN: GIVEN `packages/platform/deploy/fleet/fulcrum-roles.json` is the only declaration of Fulcrum role expectations
   WHEN:  WHEN `holo fulcrum:substrate-check --print-expected --json` is run against the live substrate
   THEN:  THEN the expected role list is exactly `convergent`, `divergent`, `embed` and the forbidden-name tally is 0
 
@@ -244,7 +244,7 @@ AC-5: The Fulcrum role vocabulary excludes judge and every coder role
   VERIFICATION_SERVICE: oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale
   FLOW_REF:             UC-LIS-02 / T-LIS-007
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '"expected_roles":["convergent","divergent","embed"]'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '"expected_roles":["convergent","divergent","embed"]'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -255,7 +255,7 @@ AC-5: The Fulcrum role vocabulary excludes judge and every coder role
     CASES:
       - START_REF: minis_fulcrum_provisioned
         ACTOR:     cli_user
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --print-expected --json --trace-requested-roles` which probes the first real node and the second real node through their own `:8003/v1/models` endpoints
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --print-expected --json --trace-requested-roles` which probes the first real node and the second real node through their own `:8003/v1/models` endpoints
         STEP:      capture every requested role name emitted during the probe
         MUST_OBSERVE:     `"expected_roles":["convergent","divergent","embed"]`
         MUST_OBSERVE:     `"requested_roles":["convergent","divergent","embed"]`
@@ -270,31 +270,31 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 | The substrate check binds role `convergent` to basename `Muse-Glimmer-30B-4bit` on `inference2` when both minis are provisioned. | AC-1 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 \| grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'` |
-| TC-2 | The substrate check emits `"nodes_ready":2` when both minis serve all three Fulcrum basenames. | AC-1 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 \| grep -F '"nodes_ready":2'` |
-| TC-3 | The served-basename tally reports `coder_basenames_served=0` when provisioning has cleared the coder weights. | AC-2 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 \| grep -F 'coder_basenames_served=0'` |
-| TC-4 | The substrate check exits `1` when the oMLX process on `inference1` is stopped. | AC-3 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 \| grep -F 'exit=1'` |
-| TC-5 | The substrate check emits `FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent` when the probed endpoint serves only the embedding basename. | AC-4 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 \| grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'` |
-| TC-6 | The expected role list equals `["convergent","divergent","embed"]` when `fulcrum-roles.json` is loaded. | AC-5 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 \| grep -F '"expected_roles":["convergent","divergent","embed"]'` |
-| TC-7 | The requested-role trace reports `forbidden_role_hits=0` when the probe runs against both minis. | AC-5 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 \| grep -F 'forbidden_role_hits=0'` |
+| TC-1 | The substrate check binds role `convergent` to basename `Muse-Glimmer-30B-4bit` on `inference2` when both minis are provisioned. | AC-1 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 \| grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'` |
+| TC-2 | The substrate check emits `"nodes_ready":2` when both minis serve all three Fulcrum basenames. | AC-1 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 \| grep -F '"nodes_ready":2'` |
+| TC-3 | The served-basename tally reports `coder_basenames_served=0` when provisioning has cleared the coder weights. | AC-2 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 \| grep -F 'coder_basenames_served=0'` |
+| TC-4 | The substrate check exits `1` when the oMLX process on `inference1` is stopped. | AC-3 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 \| grep -F 'exit=1'` |
+| TC-5 | The substrate check emits `FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent` when the probed endpoint serves only the embedding basename. | AC-4 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 \| grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'` |
+| TC-6 | The expected role list equals `["convergent","divergent","embed"]` when `fulcrum-roles.json` is loaded. | AC-5 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 \| grep -F '"expected_roles":["convergent","divergent","embed"]'` |
+| TC-7 | The requested-role trace reports `forbidden_role_hits=0` when the probe runs against both minis. | AC-5 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 \| grep -F 'forbidden_role_hits=0'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/deploy/fleet/fulcrum-roles.json
-- services/platform/deploy/fleet/provision-fulcrum-roles.sh
-- services/platform/src/fleet/fulcrum-role-readiness.ts
-- services/platform/src/cli/commands/fulcrum-substrate-check.ts
-- services/platform/src/cli/holo.ts
-- services/platform/tests/integration/fulcrum-substrate-roles.test.ts
+- packages/platform/deploy/fleet/fulcrum-roles.json
+- packages/platform/deploy/fleet/provision-fulcrum-roles.sh
+- packages/platform/src/fleet/fulcrum-role-readiness.ts
+- packages/platform/src/cli/commands/fulcrum-substrate-check.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/tests/integration/fulcrum-substrate-roles.test.ts
 
 writeProhibited:
-- services/platform/src/db/** — FUL-PLAT-001 owns the ledger in this same wave
-- services/platform/deploy/compose/** — FUL-INFRA-002 owns the router packaging
-- services/platform/src/mission/** and services/platform/src/research/** — mastra-implementer tasks own cycle code
-- services/platform/fleet/manifest.json — the platform manifest still carries `judge` for non-Fulcrum paths and is out of scope
+- packages/platform/src/db/** — FUL-PLAT-001 owns the ledger in this same wave
+- packages/platform/deploy/compose/** — FUL-INFRA-002 owns the router packaging
+- packages/platform/src/mission/** and packages/platform/src/research/** — mastra-implementer tasks own cycle code
+- packages/platform/fleet/manifest.json — the platform manifest still carries `judge` for non-Fulcrum paths and is out of scope
 - ~/models/fleet/** — fleet tooling is consumed as a tool, never edited by this task
 - .spec/** — the orchestrator owns sprint artifacts
 - Any file not listed in write_allowed
@@ -304,7 +304,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/inference/probe-fleet-roles.ts:70
+Source: packages/platform/src/inference/probe-fleet-roles.ts:70
 
 Expected-role-set readiness: one bounded HTTP GET per node, compared against a checked-in role expectation file, fail-closed on any missing role and on any unreachable node.
 
@@ -504,19 +504,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/inference/probe-fleet-roles.ts
+1. packages/platform/src/inference/probe-fleet-roles.ts
    - Lines: 1-80
    - Focus: [PRIMARY PATTERN] expected-role-set comparison against one observed /v1/models id list with fail-closed readiness; mirror this shape per node instead of adding network fan-out
-2. services/platform/src/fleet/manifest.schema.ts
+2. packages/platform/src/fleet/manifest.schema.ts
    - Lines: 1-60
    - Focus: Zod role-manifest shape and FLEET_ROLE_NAMES; the Fulcrum expectation file is a separate narrower vocabulary that must not import `judge` from here
-3. services/platform/src/cli/commands/fulcrum-authorable-check.ts
+3. packages/platform/src/cli/commands/fulcrum-authorable-check.ts
    - Lines: 1-60
    - Focus: Existing Fulcrum CLI command shape: typed result, PASS/FAIL lines, concrete citations, fail-fast exit code
 4. .spec/prds/fulcrum/09-technical-requirements/06-external-dependencies.md
    - Lines: 1-60
    - Focus: INFRA-1 and INFRA-4 provisioning obligations, the exact model bindings, quantization, and the 46 GB memory arithmetic
-5. services/platform/tests/integration/inference-telemetry.test.ts
+5. packages/platform/tests/integration/inference-telemetry.test.ts
    - Lines: 1-80
    - Focus: Integration-lane conventions for live fleet tests: PLATFORM_IT gating, loud skip, real endpoint assertions
 
@@ -543,7 +543,7 @@ Gate 2: Typecheck
   Expected: No diagnostics referencing `fulcrum-role-readiness.ts` or `fulcrum-substrate-check.ts`
 
 Gate 3: Lint
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fleet/fulcrum-role-readiness.ts services/platform/src/cli/commands/fulcrum-substrate-check.ts services/platform/tests/integration/fulcrum-substrate-roles.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fleet/fulcrum-role-readiness.ts packages/platform/src/cli/commands/fulcrum-substrate-check.ts packages/platform/tests/integration/fulcrum-substrate-roles.test.ts
   Expected: Checked 3 files with 0 errors
 
 Gate 4: Lane conformance
@@ -551,7 +551,7 @@ Gate 4: Lane conformance
   Expected: `fulcrum-substrate-roles.test.ts` is counted in the integration lane, not the unit lane
 
 Gate 5: Live substrate proof
-  Command:  pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '"nodes_ready":2'
+  Command:  pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '"nodes_ready":2'
   Expected: stdout line `"nodes_ready":2` captured from two real per-node responses
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -571,7 +571,7 @@ CODING STANDARDS
 --------------------------------------------------------------------------------
 
 - AGENTS.md
-- services/platform/deploy/compose/README.md
+- packages/platform/deploy/compose/README.md
 - .spec/prds/fulcrum/09-technical-requirements/00-architecture-decisions.md
 
 --------------------------------------------------------------------------------
@@ -625,7 +625,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "records": [
         "inference1 :8003/v1/models lists Qwen3.8-27B-8bit, Muse-Glimmer-30B-4bit, Qwen3-Embedding-0.6B-4bit-DWQ",
         "inference2 :8003/v1/models lists Qwen3.8-27B-8bit, Muse-Glimmer-30B-4bit, Qwen3-Embedding-0.6B-4bit-DWQ",
-        "services/platform/deploy/fleet/fulcrum-roles.json declares divergent, convergent, embed for nodes inference1 and inference2"
+        "packages/platform/deploy/fleet/fulcrum-roles.json declares divergent, convergent, embed for nodes inference1 and inference2"
       ]
     },
     "inference1_omlx_stopped": {
@@ -652,7 +652,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN `inference1` and `inference2` serve only the coder basename and no Fulcrum role basename WHEN `provision-fulcrum-roles.sh` is run against each mini through its own SSH alias and `holo fulcrum:substrate-check --json` is run THEN the check reports all three Fulcrum roles bound to their expected basenames on both nodes and exits 0",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale",
@@ -680,9 +680,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1` so the first real node farms and serves the three Fulcrum basenames through its own entrypoint",
-                "run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2` so the second real node farms and serves the same three basenames through its own entrypoint",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json`, which issues one GET to each node's own `http://inferenceN.tail011a51.ts.net:8003/v1/models`"
+                "run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1` so the first real node farms and serves the three Fulcrum basenames through its own entrypoint",
+                "run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2` so the second real node farms and serves the same three basenames through its own entrypoint",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json`, which issues one GET to each node's own `http://inferenceN.tail011a51.ts.net:8003/v1/models`"
               ]
             },
             "end_state": {
@@ -710,7 +710,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN each mini has 48 GB usable capacity and the Fulcrum set needs about 46 GB WHEN provisioning completes on both nodes THEN neither node serves the coder basename `Qwen3.6-35B-A3B-MLX-8bit` and both still serve the three Fulcrum basenames",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0 fulcrum_basenames_served=6'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale",
@@ -738,9 +738,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1 --clear-coder-weights` on the first real node",
-                "run `bash services/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2 --clear-coder-weights` on the second real node",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json --report-basenames` which tallies ids from both nodes' own `/v1/models` responses"
+                "run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference1 --clear-coder-weights` on the first real node",
+                "run `bash packages/platform/deploy/fleet/provision-fulcrum-roles.sh --node inference2 --clear-coder-weights` on the second real node",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json --report-basenames` which tallies ids from both nodes' own `/v1/models` responses"
               ]
             },
             "end_state": {
@@ -764,7 +764,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN both minis are provisioned and serving all three Fulcrum roles WHEN the oMLX process on `inference1` is stopped over SSH and `holo fulcrum:substrate-check --json` is run THEN the check names `inference1` unreachable, still reports the three roles on `inference2`, and exits 1",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '\"unreachable_nodes\":[\"inference1\"]'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F '\"unreachable_nodes\":[\"inference1\"]'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale",
@@ -794,7 +794,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "steps": [
                 "run `ssh inference1 'pkill -f \"omlx serve\"'` to stop the real service on the first node, changing no network setting",
                 "run `ssh inference2 'curl -sS http://127.0.0.1:8003/v1/models'` so the second real node answers through its own entrypoint",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --json; echo exit=$?`"
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --json; echo exit=$?`"
               ]
             },
             "end_state": {
@@ -818,7 +818,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN an oMLX endpoint that answers `/v1/models` successfully with only the embedding basename WHEN `holo fulcrum:substrate-check` probes that endpoint THEN the check exits 1 naming the missing roles `convergent` and `divergent` instead of passing on liveness",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "oMLX 0.5.7 restricted-model-dir process on inference2 (:8013)",
@@ -846,7 +846,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "actor": "cli_user",
               "steps": [
                 "run `ssh inference2 'omlx serve --port 8013 --model-dir ~/models/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ'` to start a real restricted process, leaving :8003 alone",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --endpoint http://inference2.tail011a51.ts.net:8013/v1 --json; echo exit=$?`"
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --endpoint http://inference2.tail011a51.ts.net:8013/v1 --json; echo exit=$?`"
               ]
             },
             "end_state": {
@@ -869,8 +869,8 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "AC-5",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN `services/platform/deploy/fleet/fulcrum-roles.json` is the only declaration of Fulcrum role expectations WHEN `holo fulcrum:substrate-check --print-expected --json` is run against the live substrate THEN the expected role list is exactly `convergent`, `divergent`, `embed` and the forbidden-name tally is 0",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+      "description": "GIVEN `packages/platform/deploy/fleet/fulcrum-roles.json` is the only declaration of Fulcrum role expectations WHEN `holo fulcrum:substrate-check --print-expected --json` is run against the live substrate THEN the expected role list is exactly `convergent`, `divergent`, `embed` and the forbidden-name tally is 0",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "oMLX 0.5.7 on inference1 and inference2 (:8003) over Tailscale",
@@ -898,7 +898,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bun services/platform/src/cli/holo.ts fulcrum:substrate-check --print-expected --json --trace-requested-roles` which probes the first real node and the second real node through their own `:8003/v1/models` endpoints",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:substrate-check --print-expected --json --trace-requested-roles` which probes the first real node and the second real node through their own `:8003/v1/models` endpoints",
                 "capture every requested role name emitted during the probe"
               ]
             },
@@ -922,49 +922,49 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "The substrate check binds role `convergent` to basename `Muse-Glimmer-30B-4bit` on `inference2` when both minis are provisioned.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F 'inference2 convergent=Muse-Glimmer-30B-4bit'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The substrate check emits `\"nodes_ready\":2` when both minis serve all three Fulcrum basenames.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '\"nodes_ready\":2'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-1' 2>&1 | grep -F '\"nodes_ready\":2'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The served-basename tally reports `coder_basenames_served=0` when provisioning has cleared the coder weights.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-2' 2>&1 | grep -F 'coder_basenames_served=0'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "The substrate check exits `1` when the oMLX process on `inference1` is stopped.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F 'exit=1'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-3' 2>&1 | grep -F 'exit=1'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "The substrate check emits `FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent` when the probed endpoint serves only the embedding basename.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-4' 2>&1 | grep -F 'FULCRUM_SUBSTRATE_INCOMPLETE missing=convergent,divergent'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "The expected role list equals `[\"convergent\",\"divergent\",\"embed\"]` when `fulcrum-roles.json` is loaded.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F '\"expected_roles\":[\"convergent\",\"divergent\",\"embed\"]'",
       "maps_to_ac": "AC-5"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "The requested-role trace reports `forbidden_role_hits=0` when the probe runs against both minis.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F 'forbidden_role_hits=0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-substrate-roles.test.ts -t 'AC-5' 2>&1 | grep -F 'forbidden_role_hits=0'",
       "maps_to_ac": "AC-5"
     }
   ]

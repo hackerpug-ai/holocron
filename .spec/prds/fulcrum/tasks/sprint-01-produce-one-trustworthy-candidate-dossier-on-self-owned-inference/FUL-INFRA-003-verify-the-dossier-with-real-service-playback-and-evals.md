@@ -20,20 +20,20 @@ Independently prove the committed dossier is backed by the real ledger and real 
 Primary acceptance criterion **AC-1** (e2e tier, service: Postgres 18 holocron_nonprod + fulcrum-router /model/info on 127.0.0.1:4547 + oMLX on inference1 and inference2):
 
 ```
-pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '"verdict":"match" "dossierMatchesLedger":true "embeddingDimensions":1024'
+pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '"verdict":"match" "dossierMatchesLedger":true "embeddingDimensions":1024'
 ```
 
 Full gate set: 6 acceptance criteria, 10 test criteria, 6 verification gates.
 
 ## Scope
 
-- services/platform/src/evals/fulcrum-dossier-verify.ts
-- services/platform/src/cli/commands/fulcrum-verify.ts
-- services/platform/src/cli/holo.ts
-- services/platform/evals/thresholds/fulcrum_dossier_v1.json
-- services/platform/tests/live/fulcrum-dossier-playback.test.ts
-- services/platform/tests/live/fulcrum-negative-controls.test.ts
-- services/platform/tests/integration/fulcrum-verify-purity.test.ts
+- packages/platform/src/evals/fulcrum-dossier-verify.ts
+- packages/platform/src/cli/commands/fulcrum-verify.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/evals/thresholds/fulcrum_dossier_v1.json
+- packages/platform/tests/live/fulcrum-dossier-playback.test.ts
+- packages/platform/tests/live/fulcrum-negative-controls.test.ts
+- packages/platform/tests/integration/fulcrum-verify-purity.test.ts
 - vitest.workspace.ts
 
 <details>
@@ -82,7 +82,7 @@ OUTCOME (observable success)
 - NEVER: NEVER weaken an assertion, add `.skip`, or widen a tolerance to make the verifier pass; a failing verdict is the product's problem, never the verifier's
 - NEVER: NEVER leave a fault state in place — every case restores oMLX on both minis and restores the router config before it ends
 - NEVER: NEVER write a credential value into a fixture, threshold file, or captured artifact; credential-bearing names only, per the `AGENTS.md` secret index
-- STRICTLY: STRICTLY treat this task as read-only with respect to product code: it may not edit `services/platform/src/mission/`, `services/platform/src/research/`, or `services/platform/src/db/` to make a verdict pass
+- STRICTLY: STRICTLY treat this task as read-only with respect to product code: it may not edit `packages/platform/src/mission/`, `packages/platform/src/research/`, or `packages/platform/src/db/` to make a verdict pass
 - STRICTLY: STRICTLY register the two live files in the `live` lane of `vitest.workspace.ts` so `pnpm test:live` actually executes them; a verifier no lane runs is not a verifier
 
 --------------------------------------------------------------------------------
@@ -123,7 +123,7 @@ AC-1: Every dossier literal is recomputed from the committed ledger [PRIMARY] [P
   VERIFICATION_SERVICE: Postgres 18 holocron_nonprod + fulcrum-router /model/info on 127.0.0.1:4547 + oMLX on inference1 and inference2
   FLOW_REF:             UC-LIS-05 / T-LIS-021, T-LIS-023; 09-e2e-testing.md proven-reference-flow
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '"verdict":"match" "dossierMatchesLedger":true "embeddingDimensions":1024'
+  VERIFY:               pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '"verdict":"match" "dossierMatchesLedger":true "embeddingDimensions":1024'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -134,9 +134,9 @@ AC-1: Every dossier literal is recomputed from the committed ledger [PRIMARY] [P
     CASES:
       - START_REF: committed_fulcrum_run
         ACTOR:     cli_user
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --json` against real Postgres, the real corpus, and the deployed router
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --json` against real Postgres, the real corpus, and the deployed router
         STEP:      capture the returned runId and dossierPath
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json`, which SELECTs from mission_runs, claims, belief_scores, and mission_stage_runs and reads GET http://127.0.0.1:4547/model/info
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json`, which SELECTs from mission_runs, claims, belief_scores, and mission_stage_runs and reads GET http://127.0.0.1:4547/model/info
         MUST_OBSERVE:     `"verdict":"match" "dossierMatchesLedger":true "embeddingDimensions":1024`
         MUST_OBSERVE:     `"admittedClaims"` value of `1` or greater, equal to the count in `claims`
         MUST_OBSERVE:     `"beliefScore"` equal to the numeric `belief_scores.score` value to `6` decimal places
@@ -156,7 +156,7 @@ AC-2: A dossier with no committed ledger row is rejected
   VERIFICATION_SERVICE: Postgres 18 holocron_nonprod + real .holocron/fulcrum/dossiers filesystem
   FLOW_REF:             CAP-COMMIT-01 boundary — a dossier without a committed cycle is not a result
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '"verdict":"reject" "reasonCode":"FULCRUM_DOSSIER_ORPHAN" exit=1'
+  VERIFY:               pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '"verdict":"reject" "reasonCode":"FULCRUM_DOSSIER_ORPHAN" exit=1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -169,7 +169,7 @@ AC-2: A dossier with no committed ledger row is rejected
         ACTOR:     cli_user
         STEP:      write `.holocron/fulcrum/dossiers/cand-orphan-001.md` containing `Admission: admitted`, `Verified quote: true`, and `Belief score: 0.83`
         STEP:      run `psql "$DATABASE_URL" -Atc "select count(*) from mission_runs where candidate_id = 'cand-orphan-001'"`
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:verify --dossier .holocron/fulcrum/dossiers/cand-orphan-001.md --json; echo exit=$?`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:verify --dossier .holocron/fulcrum/dossiers/cand-orphan-001.md --json; echo exit=$?`
         MUST_OBSERVE:     `"verdict":"reject" "reasonCode":"FULCRUM_DOSSIER_ORPHAN" exit=1`
         MUST_OBSERVE:     `"missingRunFor":"cand-orphan-001"`
         MUST_OBSERVE:     `mission_runs` count of `0` for that candidate id
@@ -186,7 +186,7 @@ AC-3: A deliberate role collision is detected from headers, not the response bod
   VERIFICATION_SERVICE: fulcrum-router /model/info on 127.0.0.1:4547 + Postgres 18 holocron_nonprod mission_stage_runs
   FLOW_REF:             UC-LIS-02 / T-LIS-006, T-LIS-022 substitution rehearsal
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '"reasonCode":"FULCRUM_ROLE_COLLISION" "sharedDeploymentId":"divergent-inference1"'
+  VERIFY:               pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '"reasonCode":"FULCRUM_ROLE_COLLISION" "sharedDeploymentId":"divergent-inference1"'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -197,9 +197,9 @@ AC-3: A deliberate role collision is detected from headers, not the response bod
     CASES:
       - START_REF: role_collision_router_config
         ACTOR:     cli_user
-        STEP:      edit `services/platform/deploy/compose/fulcrum-router.config.yaml` so both convergent rows carry the divergent model and the inference1 api_base, then run `docker compose restart fulcrum-router`
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json; echo exit=$?`
+        STEP:      edit `packages/platform/deploy/compose/fulcrum-router.config.yaml` so both convergent rows carry the divergent model and the inference1 api_base, then run `docker compose restart fulcrum-router`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json; echo exit=$?`
         STEP:      restore the config file from git and run `docker compose restart fulcrum-router`
         MUST_OBSERVE:     `"reasonCode":"FULCRUM_ROLE_COLLISION" "sharedDeploymentId":"divergent-inference1"`
         MUST_OBSERVE:     `"collidingRoles":["convergent","divergent"]`
@@ -218,7 +218,7 @@ AC-4: With no inference backend nothing is committed and nothing is published
   VERIFICATION_SERVICE: oMLX stopped on inference1 and inference2 + Postgres 18 holocron_nonprod + .holocron/fulcrum/dossiers filesystem
   FLOW_REF:             UC-LIS-04 / T-LIS-016, T-LIS-020; CAP-COMMIT-01 non-partial outcome
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0 dossier_files_delta=0 cloud_calls=0'
+  VERIFY:               pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0 dossier_files_delta=0 cloud_calls=0'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -232,7 +232,7 @@ AC-4: With no inference backend nothing is committed and nothing is published
         STEP:      record the committed run count and the dossier file count before the exercise
         STEP:      run `ssh inference1 'pkill -f "omlx serve"'` to stop the real service on the first node
         STEP:      run `ssh inference2 'pkill -f "omlx serve"'` to stop the real service on the second real node, changing no network setting on either host
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json; echo exit=$?`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json; echo exit=$?`
         STEP:      re-count committed runs and dossier files, count cloud host hits in the router log, then restore both nodes with `ssh inference1 'bash ~/start-omlx-node.sh'` and `ssh inference2 'bash ~/start-omlx-node.sh'`
         MUST_OBSERVE:     `committed_runs_delta=0 dossier_files_delta=0 cloud_calls=0`
         MUST_OBSERVE:     `"errorCode":"FULCRUM_ROLE_UNAVAILABLE"`
@@ -244,7 +244,7 @@ AC-4: With no inference backend nothing is committed and nothing is published
       - START_REF: committed_fulcrum_run
         ACTOR:     cli_user
         STEP:      restore oMLX on the first real node and on the second real node, confirming each through its own `:8003/v1/models` endpoint
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`
         STEP:      re-count committed runs and dossier files
         MUST_OBSERVE:     `committed_runs_delta=1 dossier_files_delta=1`
         MUST_OBSERVE:     `"status":"committed"`
@@ -262,7 +262,7 @@ AC-5: A canned-claims run leaves the ledger and the dossier directory untouched
   VERIFICATION_SERVICE: Postgres 18 holocron_nonprod claims table + .holocron/fulcrum/dossiers filesystem
   FLOW_REF:             CAP-EVIDENCE-01 boundary — corpus-only retrieval; human step 5 side-effect audit
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0 dossier_files_delta=0 errorCode=FULCRUM_CORPUS_ONLY'
+  VERIFY:               pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0 dossier_files_delta=0 errorCode=FULCRUM_CORPUS_ONLY'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -275,7 +275,7 @@ AC-5: A canned-claims run leaves the ledger and the dossier directory untouched
         ACTOR:     cli_user
         STEP:      run `psql "$DATABASE_URL" -Atc 'select count(*) from claims'` and record the value as claims_before
         STEP:      write `/tmp/fulcrum-canned.json` containing `[{"claim":"invented success"}]`
-        STEP:      run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --claims /tmp/fulcrum-canned.json --fresh --json`
+        STEP:      run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --claims /tmp/fulcrum-canned.json --fresh --json`
         STEP:      run `psql "$DATABASE_URL" -Atc 'select count(*) from claims'` again and re-count files under .holocron/fulcrum/dossiers
         MUST_OBSERVE:     `claims_delta=0 dossier_files_delta=0 errorCode=FULCRUM_CORPUS_ONLY`
         MUST_OBSERVE:     `claims_before` equal to `claims_after`, both `1` or greater
@@ -293,7 +293,7 @@ AC-6: The measurement path is deterministic and the live lane actually runs it
   VERIFICATION_SERVICE: Real repository worktree scanned with git grep plus the vitest live project resolver
   FLOW_REF:             UC-LIS-03 / T-LIS-013; ADR-008 no model judges a model
   TDD_STATE:            none
-  VERIFY:               pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2'
+  VERIFY:               pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -304,12 +304,12 @@ AC-6: The measurement path is deterministic and the live lane actually runs it
     CASES:
       - START_REF: repo_worktree_with_verifier
         ACTOR:     cli_user
-        STEP:      run `git grep -c -E 'generateText|\bjudge\b' -- services/platform/src/evals/fulcrum-dossier-verify.ts services/platform/src/cli/commands/fulcrum-verify.ts`
+        STEP:      run `git grep -c -E 'generateText|\bjudge\b' -- packages/platform/src/evals/fulcrum-dossier-verify.ts packages/platform/src/cli/commands/fulcrum-verify.ts`
         STEP:      run `pnpm vitest list --project live 2>&1 | grep -c fulcrum`
         STEP:      run `pnpm test:live 2>&1 | tail -20`
         MUST_OBSERVE:     `generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2`
-        MUST_OBSERVE:     `services/platform/tests/live/fulcrum-dossier-playback.test.ts` listed by the live project
-        MUST_OBSERVE:     `services/platform/tests/live/fulcrum-negative-controls.test.ts` listed by the live project
+        MUST_OBSERVE:     `packages/platform/tests/live/fulcrum-dossier-playback.test.ts` listed by the live project
+        MUST_OBSERVE:     `packages/platform/tests/live/fulcrum-negative-controls.test.ts` listed by the live project
         MUST_OBSERVE:     `Test Files  4 passed (4)`
         MUST_NOT_OBSERVE: `live_lane_fulcrum_files=0`
         MUST_NOT_OBSERVE: `generateText_hits=1`
@@ -321,37 +321,37 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 | The verifier emits `"verdict":"match"` when every dossier literal equals its recomputed ledger value. | AC-1 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 \| grep -F '"verdict":"match"'` |
-| TC-2 | The verifier reports `"embeddingDimensions":1024` when the published dossier embedding is read from the ledger. | AC-1 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 \| grep -F '"embeddingDimensions":1024'` |
-| TC-3 | The verifier emits reason code `FULCRUM_DOSSIER_ORPHAN` when the dossier candidate id has no `mission_runs` row. | AC-2 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 \| grep -F '"reasonCode":"FULCRUM_DOSSIER_ORPHAN"'` |
-| TC-4 | The verifier reports `"identitySource":"x-litellm-model-id"` when it recomputes role distinctness. | AC-3 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 \| grep -F '"identitySource":"x-litellm-model-id"'` |
-| TC-5 | The verifier names `divergent-inference1` as the shared deployment id when both chat roles resolve to one deployment. | AC-3 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 \| grep -F '"sharedDeploymentId":"divergent-inference1"'` |
-| TC-6 | The committed run count is unchanged when oMLX is stopped on both minis. | AC-4 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 \| grep -F 'committed_runs_delta=0'` |
-| TC-7 | The router log records `cloud_calls=0` when the cycle fails closed for role unavailability. | AC-4 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 \| grep -F 'cloud_calls=0'` |
-| TC-8 | The `claims` row count is unchanged when the run supplies a canned claims file. | AC-5 | `pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 \| grep -F 'claims_delta=0'` |
-| TC-9 | The verification path scan reports `generateText_hits=0 judge_hits=0` when run over the verifier module. | AC-6 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 \| grep -F 'generateText_hits=0 judge_hits=0'` |
-| TC-10 | The live project lists `live_lane_fulcrum_files=2` when the lane registration has landed. | AC-6 | `pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 \| grep -F 'live_lane_fulcrum_files=2'` |
+| TC-1 | The verifier emits `"verdict":"match"` when every dossier literal equals its recomputed ledger value. | AC-1 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 \| grep -F '"verdict":"match"'` |
+| TC-2 | The verifier reports `"embeddingDimensions":1024` when the published dossier embedding is read from the ledger. | AC-1 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 \| grep -F '"embeddingDimensions":1024'` |
+| TC-3 | The verifier emits reason code `FULCRUM_DOSSIER_ORPHAN` when the dossier candidate id has no `mission_runs` row. | AC-2 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 \| grep -F '"reasonCode":"FULCRUM_DOSSIER_ORPHAN"'` |
+| TC-4 | The verifier reports `"identitySource":"x-litellm-model-id"` when it recomputes role distinctness. | AC-3 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 \| grep -F '"identitySource":"x-litellm-model-id"'` |
+| TC-5 | The verifier names `divergent-inference1` as the shared deployment id when both chat roles resolve to one deployment. | AC-3 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 \| grep -F '"sharedDeploymentId":"divergent-inference1"'` |
+| TC-6 | The committed run count is unchanged when oMLX is stopped on both minis. | AC-4 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 \| grep -F 'committed_runs_delta=0'` |
+| TC-7 | The router log records `cloud_calls=0` when the cycle fails closed for role unavailability. | AC-4 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 \| grep -F 'cloud_calls=0'` |
+| TC-8 | The `claims` row count is unchanged when the run supplies a canned claims file. | AC-5 | `pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 \| grep -F 'claims_delta=0'` |
+| TC-9 | The verification path scan reports `generateText_hits=0 judge_hits=0` when run over the verifier module. | AC-6 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 \| grep -F 'generateText_hits=0 judge_hits=0'` |
+| TC-10 | The live project lists `live_lane_fulcrum_files=2` when the lane registration has landed. | AC-6 | `pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 \| grep -F 'live_lane_fulcrum_files=2'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/evals/fulcrum-dossier-verify.ts
-- services/platform/src/cli/commands/fulcrum-verify.ts
-- services/platform/src/cli/holo.ts
-- services/platform/evals/thresholds/fulcrum_dossier_v1.json
-- services/platform/tests/live/fulcrum-dossier-playback.test.ts
-- services/platform/tests/live/fulcrum-negative-controls.test.ts
-- services/platform/tests/integration/fulcrum-verify-purity.test.ts
+- packages/platform/src/evals/fulcrum-dossier-verify.ts
+- packages/platform/src/cli/commands/fulcrum-verify.ts
+- packages/platform/src/cli/holo.ts
+- packages/platform/evals/thresholds/fulcrum_dossier_v1.json
+- packages/platform/tests/live/fulcrum-dossier-playback.test.ts
+- packages/platform/tests/live/fulcrum-negative-controls.test.ts
+- packages/platform/tests/integration/fulcrum-verify-purity.test.ts
 - vitest.workspace.ts
 
 writeProhibited:
-- services/platform/src/mission/** — product code under judgment; editing it to make a verdict pass is the failure this task exists to catch
-- services/platform/src/research/** — product code under judgment
-- services/platform/src/db/** — the ledger under judgment
-- services/platform/deploy/compose/fulcrum-router.config.yaml — may be rebound temporarily for the AC-3 rehearsal and MUST be restored from git; no committed change
-- services/platform/src/evals/scorers.ts and services/platform/src/evals/research-scorers.ts — the local-judge path is forbidden on the Fulcrum measurement path
+- packages/platform/src/mission/** — product code under judgment; editing it to make a verdict pass is the failure this task exists to catch
+- packages/platform/src/research/** — product code under judgment
+- packages/platform/src/db/** — the ledger under judgment
+- packages/platform/deploy/compose/fulcrum-router.config.yaml — may be rebound temporarily for the AC-3 rehearsal and MUST be restored from git; no committed change
+- packages/platform/src/evals/scorers.ts and packages/platform/src/evals/research-scorers.ts — the local-judge path is forbidden on the Fulcrum measurement path
 - .spec/** — the orchestrator owns sprint artifacts
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
@@ -360,7 +360,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/evals/deterministic-scorers.ts:15
+Source: packages/platform/src/evals/deterministic-scorers.ts:15
 
 Independent oracle: recompute every asserted artifact literal from the system of record, compare byte-for-byte, and prove the comparison bites by driving each real fault state and observing a named reject reason code.
 
@@ -611,13 +611,13 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/evals/deterministic-scorers.ts
+1. packages/platform/src/evals/deterministic-scorers.ts
    - Lines: 1-60
    - Focus: [PRIMARY PATTERN] deterministic invariant scorer shape — structured failures with an invariantId, fail-closed, independent of any model prose; the dossier verifier is the same shape over ledger values
-2. services/platform/src/inference/infer-trace.ts
+2. packages/platform/src/inference/infer-trace.ts
    - Lines: 1-60
    - Focus: How committed model-call evidence is loaded from `inference_telemetry` against holocron_nonprod without inventing rows; the verifier must resolve the same database identity
-3. services/platform/src/evals/ci-gate.ts
+3. packages/platform/src/evals/ci-gate.ts
    - Lines: 1-40
    - Focus: Fail-closed CI gate conventions: versioned thresholds, non-zero exit on regression, no soft-warn; the anti-pattern list at the top applies directly
 4. vitest.workspace.ts
@@ -659,7 +659,7 @@ Gate 3: Typecheck
   Expected: No diagnostics referencing `fulcrum-dossier-verify.ts` or `fulcrum-verify.ts`
 
 Gate 4: Lint
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/evals/fulcrum-dossier-verify.ts services/platform/src/cli/commands/fulcrum-verify.ts services/platform/tests/live/fulcrum-dossier-playback.test.ts services/platform/tests/live/fulcrum-negative-controls.test.ts services/platform/tests/integration/fulcrum-verify-purity.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/evals/fulcrum-dossier-verify.ts packages/platform/src/cli/commands/fulcrum-verify.ts packages/platform/tests/live/fulcrum-dossier-playback.test.ts packages/platform/tests/live/fulcrum-negative-controls.test.ts packages/platform/tests/integration/fulcrum-verify-purity.test.ts
   Expected: Checked 5 files with 0 errors
 
 Gate 5: Lane conformance
@@ -667,7 +667,7 @@ Gate 5: Lane conformance
   Expected: The two Fulcrum live files are counted in the live lane, not the unit lane
 
 Gate 6: Negative-control proof
-  Command:  pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts 2>&1 | grep -F '"reasonCode":"FULCRUM_ROLE_COLLISION"'
+  Command:  pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts 2>&1 | grep -F '"reasonCode":"FULCRUM_ROLE_COLLISION"'
   Expected: The substitution rehearsal produced a real reject reason code, proving the identity check reads headers rather than the response body
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -776,9 +776,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "description": "The repository worktree after the verifier module, CLI command, live tests, and live lane registration have landed",
       "seed_method": "cli",
       "records": [
-        "services/platform/src/evals/fulcrum-dossier-verify.ts exists",
+        "packages/platform/src/evals/fulcrum-dossier-verify.ts exists",
         "vitest.workspace.ts live project include lists the two fulcrum live test files",
-        "services/platform/evals/thresholds/fulcrum_dossier_v1.json declares the accepted reason codes"
+        "packages/platform/evals/thresholds/fulcrum_dossier_v1.json declares the accepted reason codes"
       ]
     }
   },
@@ -788,7 +788,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN one real `holo fulcrum` run has committed against real Postgres with both minis serving WHEN `holo fulcrum:verify --run-id <runId> --json` recomputes the belief score, admitted claims, quote verification, embedding dimensions, and serving backends from Postgres and `/model/info` THEN the verdict is `match` and every recomputed value equals the literal printed in the dossier file",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"verdict\":\"match\" \"dossierMatchesLedger\":true \"embeddingDimensions\":1024'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"verdict\":\"match\" \"dossierMatchesLedger\":true \"embeddingDimensions\":1024'",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "Postgres 18 holocron_nonprod + fulcrum-router /model/info on 127.0.0.1:4547 + oMLX on inference1 and inference2",
@@ -816,9 +816,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --json` against real Postgres, the real corpus, and the deployed router",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --json` against real Postgres, the real corpus, and the deployed router",
                 "capture the returned runId and dossierPath",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json`, which SELECTs from mission_runs, claims, belief_scores, and mission_stage_runs and reads GET http://127.0.0.1:4547/model/info"
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json`, which SELECTs from mission_runs, claims, belief_scores, and mission_stage_runs and reads GET http://127.0.0.1:4547/model/info"
               ]
             },
             "end_state": {
@@ -845,7 +845,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a dossier file exists on disk whose candidate id has no `mission_runs` row WHEN `holo fulcrum:verify --dossier .holocron/fulcrum/dossiers/cand-orphan-001.md --json` runs THEN the verdict is `reject` with reason code `FULCRUM_DOSSIER_ORPHAN` and the command exits 1",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '\"verdict\":\"reject\" \"reasonCode\":\"FULCRUM_DOSSIER_ORPHAN\" exit=1'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '\"verdict\":\"reject\" \"reasonCode\":\"FULCRUM_DOSSIER_ORPHAN\" exit=1'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "Postgres 18 holocron_nonprod + real .holocron/fulcrum/dossiers filesystem",
@@ -875,7 +875,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "steps": [
                 "write `.holocron/fulcrum/dossiers/cand-orphan-001.md` containing `Admission: admitted`, `Verified quote: true`, and `Belief score: 0.83`",
                 "run `psql \"$DATABASE_URL\" -Atc \"select count(*) from mission_runs where candidate_id = 'cand-orphan-001'\"`",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:verify --dossier .holocron/fulcrum/dossiers/cand-orphan-001.md --json; echo exit=$?`"
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:verify --dossier .holocron/fulcrum/dossiers/cand-orphan-001.md --json; echo exit=$?`"
               ]
             },
             "end_state": {
@@ -899,7 +899,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the router config is rebound so `convergent` resolves to the same deployment as `divergent-inference1` WHEN a Fulcrum cycle runs and `holo fulcrum:verify --run-id <runId> --json` recomputes ASSAY-versus-CHALLENGE distinctness from recorded `x-litellm-model-id` values cross-referenced against `/model/info` THEN the verdict is `reject` with reason code `FULCRUM_ROLE_COLLISION` naming both roles and the shared deployment id",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"reasonCode\":\"FULCRUM_ROLE_COLLISION\" \"sharedDeploymentId\":\"divergent-inference1\"'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"reasonCode\":\"FULCRUM_ROLE_COLLISION\" \"sharedDeploymentId\":\"divergent-inference1\"'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "fulcrum-router /model/info on 127.0.0.1:4547 + Postgres 18 holocron_nonprod mission_stage_runs",
@@ -927,9 +927,9 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "edit `services/platform/deploy/compose/fulcrum-router.config.yaml` so both convergent rows carry the divergent model and the inference1 api_base, then run `docker compose restart fulcrum-router`",
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
-                "run `bun services/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json; echo exit=$?`",
+                "edit `packages/platform/deploy/compose/fulcrum-router.config.yaml` so both convergent rows carry the divergent model and the inference1 api_base, then run `docker compose restart fulcrum-router`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum:verify --run-id <runId> --json; echo exit=$?`",
                 "restore the config file from git and run `docker compose restart fulcrum-router`"
               ]
             },
@@ -955,7 +955,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN oMLX is stopped on both minis and `FULCRUM_CLOUD_FALLBACK` is off WHEN `holo fulcrum '<goal>' --fresh --json` runs and the ledger and dossier directory are re-counted THEN the command fails closed with a role-unavailable code, the committed run count is unchanged, and no new dossier file exists",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0 dossier_files_delta=0 cloud_calls=0'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0 dossier_files_delta=0 cloud_calls=0'",
       "maps_to_ac": null,
       "test_tier": "e2e",
       "verification_service": "oMLX stopped on inference1 and inference2 + Postgres 18 holocron_nonprod + .holocron/fulcrum/dossiers filesystem",
@@ -986,7 +986,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
                 "record the committed run count and the dossier file count before the exercise",
                 "run `ssh inference1 'pkill -f \"omlx serve\"'` to stop the real service on the first node",
                 "run `ssh inference2 'pkill -f \"omlx serve\"'` to stop the real service on the second real node, changing no network setting on either host",
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json; echo exit=$?`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json; echo exit=$?`",
                 "re-count committed runs and dossier files, count cloud host hits in the router log, then restore both nodes with `ssh inference1 'bash ~/start-omlx-node.sh'` and `ssh inference2 'bash ~/start-omlx-node.sh'`"
               ]
             },
@@ -1010,7 +1010,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "actor": "cli_user",
               "steps": [
                 "restore oMLX on the first real node and on the second real node, confirming each through its own `:8003/v1/models` endpoint",
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --fresh --json`",
                 "re-count committed runs and dossier files"
               ]
             },
@@ -1035,7 +1035,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a file of fabricated claims and an otherwise healthy stack WHEN `holo fulcrum '<goal>' --claims /tmp/fulcrum-canned.json --fresh --json` runs and the ledger is re-counted THEN the run is refused with `FULCRUM_CORPUS_ONLY`, the `claims` row count is unchanged, and no new dossier file exists",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0 dossier_files_delta=0 errorCode=FULCRUM_CORPUS_ONLY'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0 dossier_files_delta=0 errorCode=FULCRUM_CORPUS_ONLY'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "Postgres 18 holocron_nonprod claims table + .holocron/fulcrum/dossiers filesystem",
@@ -1065,7 +1065,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
               "steps": [
                 "run `psql \"$DATABASE_URL\" -Atc 'select count(*) from claims'` and record the value as claims_before",
                 "write `/tmp/fulcrum-canned.json` containing `[{\"claim\":\"invented success\"}]`",
-                "run `bun services/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --claims /tmp/fulcrum-canned.json --fresh --json`",
+                "run `bun packages/platform/src/cli/holo.ts fulcrum 'Assess whether usage-based AI support automation can sustain 70% gross margin' --claims /tmp/fulcrum-canned.json --fresh --json`",
                 "run `psql \"$DATABASE_URL\" -Atc 'select count(*) from claims'` again and re-count files under .holocron/fulcrum/dossiers"
               ]
             },
@@ -1090,7 +1090,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the verifier module, CLI command, and live lane registration have landed WHEN the verification path is scanned for model calls and `pnpm test:live` is executed THEN the scan finds 0 `generateText` calls and 0 `judge` references on the measurement path, and the live lane executes both Fulcrum verification files",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2'",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "Real repository worktree scanned with git grep plus the vitest live project resolver",
@@ -1118,7 +1118,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `git grep -c -E 'generateText|\\bjudge\\b' -- services/platform/src/evals/fulcrum-dossier-verify.ts services/platform/src/cli/commands/fulcrum-verify.ts`",
+                "run `git grep -c -E 'generateText|\\bjudge\\b' -- packages/platform/src/evals/fulcrum-dossier-verify.ts packages/platform/src/cli/commands/fulcrum-verify.ts`",
                 "run `pnpm vitest list --project live 2>&1 | grep -c fulcrum`",
                 "run `pnpm test:live 2>&1 | tail -20`"
               ]
@@ -1126,8 +1126,8 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "end_state": {
               "must_observe": [
                 "`generateText_hits=0 judge_hits=0 live_lane_fulcrum_files=2`",
-                "`services/platform/tests/live/fulcrum-dossier-playback.test.ts` listed by the live project",
-                "`services/platform/tests/live/fulcrum-negative-controls.test.ts` listed by the live project",
+                "`packages/platform/tests/live/fulcrum-dossier-playback.test.ts` listed by the live project",
+                "`packages/platform/tests/live/fulcrum-negative-controls.test.ts` listed by the live project",
                 "`Test Files  4 passed (4)`"
               ],
               "must_not_observe": [
@@ -1144,70 +1144,70 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "The verifier emits `\"verdict\":\"match\"` when every dossier literal equals its recomputed ledger value.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"verdict\":\"match\"'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"verdict\":\"match\"'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "The verifier reports `\"embeddingDimensions\":1024` when the published dossier embedding is read from the ledger.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"embeddingDimensions\":1024'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-dossier-playback.test.ts -t 'AC-1' 2>&1 | grep -F '\"embeddingDimensions\":1024'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The verifier emits reason code `FULCRUM_DOSSIER_ORPHAN` when the dossier candidate id has no `mission_runs` row.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '\"reasonCode\":\"FULCRUM_DOSSIER_ORPHAN\"'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-2' 2>&1 | grep -F '\"reasonCode\":\"FULCRUM_DOSSIER_ORPHAN\"'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "The verifier reports `\"identitySource\":\"x-litellm-model-id\"` when it recomputes role distinctness.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"identitySource\":\"x-litellm-model-id\"'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"identitySource\":\"x-litellm-model-id\"'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "The verifier names `divergent-inference1` as the shared deployment id when both chat roles resolve to one deployment.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"sharedDeploymentId\":\"divergent-inference1\"'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-3' 2>&1 | grep -F '\"sharedDeploymentId\":\"divergent-inference1\"'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "The committed run count is unchanged when oMLX is stopped on both minis.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'committed_runs_delta=0'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "The router log records `cloud_calls=0` when the cycle fails closed for role unavailability.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'cloud_calls=0'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-4' 2>&1 | grep -F 'cloud_calls=0'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "The `claims` row count is unchanged when the run supplies a canned claims file.",
-      "verify": "pnpm vitest run --project live services/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0'",
+      "verify": "pnpm vitest run --project live packages/platform/tests/live/fulcrum-negative-controls.test.ts -t 'AC-5' 2>&1 | grep -F 'claims_delta=0'",
       "maps_to_ac": "AC-5"
     },
     {
       "id": "TC-9",
       "type": "test_criterion",
       "description": "The verification path scan reports `generateText_hits=0 judge_hits=0` when run over the verifier module.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'generateText_hits=0 judge_hits=0'",
       "maps_to_ac": "AC-6"
     },
     {
       "id": "TC-10",
       "type": "test_criterion",
       "description": "The live project lists `live_lane_fulcrum_files=2` when the lane registration has landed.",
-      "verify": "pnpm vitest run --project integration services/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'live_lane_fulcrum_files=2'",
+      "verify": "pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-verify-purity.test.ts -t 'AC-6' 2>&1 | grep -F 'live_lane_fulcrum_files=2'",
       "maps_to_ac": "AC-6"
     }
   ]

@@ -20,17 +20,17 @@ After publishing a Fulcrum run's dossier, documents holds exactly one row for th
 Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod documents/passages tables + live embed role behind the image-local LiteLLM router):
 
 ```
-PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-1"
+PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-1"
 ```
 
 Full gate set: 5 acceptance criteria, 6 test criteria, 5 verification gates.
 
 ## Scope
 
-- services/platform/src/mission/fulcrum/dossier-publish.ts (NEW)
-- services/platform/src/mission/fulcrum/self-sourced.ts (NEW)
-- services/platform/src/mission/document-publish.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-dossier-publish.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-publish.ts (NEW)
+- packages/platform/src/mission/fulcrum/self-sourced.ts (NEW)
+- packages/platform/src/mission/document-publish.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-dossier-publish.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -115,7 +115,7 @@ AC-1: Dossier publishes once and embeds at 1024 dimensions [PRIMARY]
   VERIFICATION_SERVICE: real Postgres holocron_nonprod documents/passages tables + live embed role behind the image-local LiteLLM router
   FLOW_REF:             CAP-PUBLISH-01 hop: Markdown generator -> publishDocumentForRun -> documents insert -> hybrid/vector index on passages
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-1"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-1"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -149,7 +149,7 @@ AC-2: Re-publishing the same run does not duplicate the document
   VERIFICATION_SERVICE: real Postgres holocron_nonprod documents table
   FLOW_REF:             CAP-PUBLISH-01 boundary contract: re-publish updates rather than duplicates
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-2"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-2"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -178,7 +178,7 @@ AC-3: Published dossiers are self-sourced and grant no independence credit
   VERIFICATION_SERVICE: real Postgres holocron_nonprod documents/sources/claim_evidence_bindings + real hybrid search
   FLOW_REF:             CAP-PUBLISH-01 failure mode: self-citation laundering prevented by the self-sourced tag
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-3"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-3"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -208,7 +208,7 @@ AC-4: An unreachable embed role fails the publish closed
   VERIFICATION_SERVICE: real Postgres holocron_nonprod + a real oMLX embedder stopped on both nodes
   FLOW_REF:             UC-LIS-04 degrade per role, never substitute — publish fails closed rather than storing a placeholder vector
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-4"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-4"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
@@ -238,7 +238,7 @@ AC-5: Only the embed role receives embedding calls
   VERIFICATION_SERVICE: real Postgres holocron_nonprod inference_telemetry rows + live image-local LiteLLM router
   FLOW_REF:             T-LIS-008: the embedder is used only for embedding, never as a chat role
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-5"
+  VERIFY:               PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "AC-5"
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             holdout
@@ -265,28 +265,28 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-1"` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-2"` |
-| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-3"` |
-| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-4"` |
-| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-5"` |
-| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-6"` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-1"` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-2"` |
+| TC-3 |  | AC-2 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-3"` |
+| TC-4 |  | AC-3 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-4"` |
+| TC-5 |  | AC-4 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-5"` |
+| TC-6 |  | AC-5 | `PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t "TC-6"` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/mission/fulcrum/dossier-publish.ts (NEW)
-- services/platform/src/mission/fulcrum/self-sourced.ts (NEW)
-- services/platform/src/mission/document-publish.ts (MODIFY)
-- services/platform/tests/integration/fulcrum-dossier-publish.test.ts (NEW)
+- packages/platform/src/mission/fulcrum/dossier-publish.ts (NEW)
+- packages/platform/src/mission/fulcrum/self-sourced.ts (NEW)
+- packages/platform/src/mission/document-publish.ts (MODIFY)
+- packages/platform/tests/integration/fulcrum-dossier-publish.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/mission/fulcrum/dossier-render.ts — owned by FUL-PLAT-010; this task consumes its output
-- services/platform/src/inference/** and services/platform/src/fleet/** — owned by FUL-PLAT-007
-- services/platform/src/db/schema/** — owned by FUL-PLAT-001
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/mission/fulcrum/dossier-render.ts — owned by FUL-PLAT-010; this task consumes its output
+- packages/platform/src/inference/** and packages/platform/src/fleet/** — owned by FUL-PLAT-007
+- packages/platform/src/db/schema/** — owned by FUL-PLAT-001
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -294,7 +294,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/mission/document-publish.ts:60-128 + services/platform/src/inference/embed.ts:88-130
+Source: packages/platform/src/mission/document-publish.ts:60-128 + packages/platform/src/inference/embed.ts:88-130
 
 Embed-then-publish inside one logical step, with the conflict/read-back publish providing idempotency and the RoleUnavailableError from embed() providing the fail-closed edge.
 
@@ -508,19 +508,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/mission/document-publish.ts
+1. packages/platform/src/mission/document-publish.ts
    - Lines: 36-128
    - Focus: [PRIMARY PATTERN] publishDocumentForRun — INSERT … ON CONFLICT (source_run_id) DO NOTHING plus read-back, empty-content refusal, soak fence. Fulcrum passes category 'fulcrum' and the run-derived idempotency key
-2. services/platform/src/inference/embed.ts
+2. packages/platform/src/inference/embed.ts
    - Lines: 80-130
    - Focus: embed(text, mode) through runFleetModelCall with callKind embedding — refuses empty/null vectors and raises RoleUnavailableError; never returns a zero vector
-3. services/platform/src/inference/embed-run.ts
+3. packages/platform/src/inference/embed-run.ts
    - Lines: 1-120
    - Focus: Idempotent re-embed pattern (WHERE embedding IS NULL … SKIP LOCKED) and the 1024-dimension expectation
-4. services/platform/src/db/schema/evidence.ts
+4. packages/platform/src/db/schema/evidence.ts
    - Lines: 55-90
    - Focus: passages.embedding vector(1024) with the HNSW cosine index the published body must populate
-5. services/platform/tests/integration/embed-helper.test.ts
+5. packages/platform/tests/integration/embed-helper.test.ts
    - Lines: 1-120
    - Focus: Integration-lane pattern for asserting real 1024-dim vectors from the live embed role
 
@@ -544,7 +544,7 @@ VERIFICATION GATES
 --------------------------------------------------------------------------------
 
 Gate 1:
-  Command:  PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts
+  Command:  PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts
   Expected: Exit 0
 
 Gate 2:
@@ -556,7 +556,7 @@ Gate 3:
   Expected: Exit 0
 
 Gate 4:
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/mission services/platform/tests/integration/fulcrum-dossier-publish.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/mission packages/platform/tests/integration/fulcrum-dossier-publish.test.ts
   Expected: Exit 0
 
 Gate 5:
@@ -656,7 +656,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN a rendered dossier exists for a committed run and the embed role is live WHEN the dossier is published for that run id THEN one documents row exists with category fulcrum and its passages carry 1024-length embeddings that hybrid search returns",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-1\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod documents/passages tables + live embed role behind the image-local LiteLLM router",
@@ -721,7 +721,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the run's dossier has already been published once WHEN the same run is published a second time THEN the result reports created false with the same documentId and documents still holds one row for that run",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-2\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod documents table",
@@ -780,7 +780,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a Fulcrum dossier has been published into the corpus WHEN a later SENSE retrieval returns that document and provenance independence is evaluated THEN the bound source is marked self_sourced and contributes no corroborating provenance group",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-3\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod documents/sources/claim_evidence_bindings + real hybrid search",
@@ -840,7 +840,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the embed role has no reachable backend WHEN the dossier publish runs THEN it fails with a named role-unavailable error and leaves no documents row",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-4\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod + a real oMLX embedder stopped on both nodes",
@@ -901,7 +901,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a publish plus a chat-bearing cycle have both run WHEN the durable telemetry rows are grouped by role and call kind THEN every embedding call carries role embed and no chat role carries an embedding call",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"AC-5\"",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "real Postgres holocron_nonprod inference_telemetry rows + live image-local LiteLLM router",
@@ -961,7 +961,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The documents row count for the source_run_id equals one after the first publish",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-1\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-1\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -974,7 +974,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "Every stored passage embedding for the published document has length 1024",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-2\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-2\"",
       "maps_to_ac": "AC-1",
       "satisfied": null,
       "evidence": null,
@@ -987,7 +987,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The second publish returns created false when the run already has a published document",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-3\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-3\"",
       "maps_to_ac": "AC-2",
       "satisfied": null,
       "evidence": null,
@@ -1000,7 +1000,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The independent provenance group count is unchanged when a published Fulcrum document is bound to its own claim",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-4\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-4\"",
       "maps_to_ac": "AC-3",
       "satisfied": null,
       "evidence": null,
@@ -1013,7 +1013,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "The documents row count stays zero when the embed role is unreachable during publish",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-5\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-5\"",
       "maps_to_ac": "AC-4",
       "satisfied": null,
       "evidence": null,
@@ -1026,7 +1026,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "test_criterion",
       "primary": false,
       "description": "No telemetry row pairs a chat role with a recorded embedding dimension after a publish and a cycle",
-      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-6\"",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-dossier-publish.test.ts -t \"TC-6\"",
       "maps_to_ac": "AC-5",
       "satisfied": null,
       "evidence": null,

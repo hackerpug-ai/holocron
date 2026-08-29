@@ -43,5 +43,5 @@ This PRD was synthesized by the orchestrator applying product-manager, Convex-en
 - `idea-factory/ideas/autoresearch-loop/{01-plan,02-strategy,03-mvp}.md`
 - `idea-factory/PROSPECTOR-SYSTEM_v1.md` + `idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md` (design input, not the live schema)
 - holocron continuation doc: `js7462j2km1p736jdvq0t7scss8aekcg`
-- Current live facts: `services/platform/src/db/schema/evidence.ts`, `services/platform/src/mission/templates/evidence-research.ts`, `FLEET_ROLE_NAMES`, `POST /api/missions/:id/verdicts`, `publishDocumentForRun`
+- Current live facts: `packages/platform/src/db/schema/evidence.ts`, `packages/platform/src/mission/templates/evidence-research.ts`, `FLEET_ROLE_NAMES`, `POST /api/missions/:id/verdicts`, `publishDocumentForRun`
 - Historical (do not implement from): `~/models/RULES.md` (fleet), holocron `convex/research/*`, `convex/crons.ts`

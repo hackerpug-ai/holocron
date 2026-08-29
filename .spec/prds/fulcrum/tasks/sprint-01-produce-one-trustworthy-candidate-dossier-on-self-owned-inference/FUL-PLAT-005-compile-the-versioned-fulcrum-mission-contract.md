@@ -17,22 +17,22 @@ Compiling `dev-revenue` against real Postgres writes version 1 with 4 weight com
 
 ## How to verify
 
-Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (services/platform/src/db/client.ts)):
+Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'
 ```
 
 Full gate set: 5 acceptance criteria, 12 test criteria, 3 verification gates.
 
 ## Scope
 
-- services/platform/src/fulcrum/contract.ts (NEW)
-- services/platform/src/fulcrum/contract-compile.ts (NEW)
-- services/platform/src/fulcrum/missions/dev-revenue.ts (NEW)
-- services/platform/src/mission/contract.ts (MODIFY — toolGrants field only)
-- services/platform/src/mission/templates/evidence-research.ts (MODIFY — toolGrants + version bump only)
-- services/platform/tests/integration/fulcrum-mission-contract.test.ts (NEW)
+- packages/platform/src/fulcrum/contract.ts (NEW)
+- packages/platform/src/fulcrum/contract-compile.ts (NEW)
+- packages/platform/src/fulcrum/missions/dev-revenue.ts (NEW)
+- packages/platform/src/mission/contract.ts (MODIFY — toolGrants field only)
+- packages/platform/src/mission/templates/evidence-research.ts (MODIFY — toolGrants + version bump only)
+- packages/platform/tests/integration/fulcrum-mission-contract.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -69,7 +69,7 @@ Compiling `dev-revenue` against real Postgres writes version 1 with 4 weight com
 🚫 CRITICAL CONSTRAINTS (Never tier — read before acting)
 --------------------------------------------------------------------------------
 
-- MUST: MUST widen `toolGrants` in services/platform/src/mission/contract.ts from z.array(z.never()) to a closed enum of registered tool ids, keeping the existing empty-array default so every shipped template still parses
+- MUST: MUST widen `toolGrants` in packages/platform/src/mission/contract.ts from z.array(z.never()) to a closed enum of registered tool ids, keeping the existing empty-array default so every shipped template still parses
 - MUST: MUST validate the whole contract before any write, so a refused compile leaves 0 ladder rows
 - MUST: MUST persist the contract version so a later belief_scores row can stamp the weight and tier versions in force
 - NEVER: NEVER create a distinct `fulcrum` mission template key — fulcrum is an instantiation tag on evidence-research
@@ -112,15 +112,15 @@ AC-1: Compiling the dev-revenue contract writes one versioned weight and tier se
   THEN:  version 1 of both ladders is persisted with 4 weight components and 8 domain tiers
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-GATE-01 AC-1/AC-5
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the compile entrypoint validates the contract in memory and never writes to Postgres; the contract is a hardcoded TypeScript constant that no ladder table reflects, leaving the tables empty; the test asserts on the parsed Zod object rather than querying the persisted rows; the compile writes rows but omits the version numbers, so no belief score can stamp them
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -144,15 +144,15 @@ AC-2: Publishing version 2 leaves version 1 rows untouched
   THEN:  version 2 rows are appended and the version 1 rows still read weight 0.4
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-GATE-01 AC-5 + UC-LED-06 AC-1
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the compile UPDATEs the existing weight_components row instead of appending a new version, erasing history; the version counter is hardcoded to 1 so a second compile collides; the append-only trigger is bypassed by connecting as the owner role in the product path
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -175,15 +175,15 @@ AC-3: An unregistered tool grant fails compilation and writes nothing
   THEN:  compilation is refused with `FULCRUM_TOOL_GRANT_UNREGISTERED` and 0 rows are written
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 boundary: corpus tool allowlist
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if toolGrants stays typed as an always-empty array so no grant is ever validated and the check is unreachable; the grant list is validated after the ladder rows are written, leaving a partial contract; unknown grants are silently dropped instead of refused
     EVIDENCE:         api_response (required_capture=True)
     CASES:
@@ -205,15 +205,15 @@ AC-4: Source governance fields are Zod-validated and round-trip through Postgres
   THEN:  the malformed contract is rejected at a named Zod path and the valid one persists 2 banned domains
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-GATE-01 AC-2 + UC-CYC-04 governance
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if banList and courtesyDelayMs are accepted as untyped fields so a malformed entry passes and never reaches the retrieval client; the governance fields are validated but omitted before persistence, so the retrieval client sees an empty ban list; the schema uses z.any() for sourceRules
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -244,21 +244,21 @@ AC-5: The fulcrum instantiation compiles with the six corpus tool grants
   THEN:  the compiled definition lists exactly the 6 registered corpus tool ids and the template key stays `evidence-research`
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-CYC-04 toolGrants
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if toolGrants remains z.array(z.never()) so the compiled array stays empty and the six ids cannot be expressed; the compile creates a separate 'fulcrum' template key instead of an instantiation of evidence-research; the grants are attached in memory but never persisted to definition_json
     EVIDENCE:         db_query (required_capture=True)
     CASES:
       - START_REF: compiled_dev_revenue_v1
         ACTOR:     cli_user
-        STEP:      compile the `evidence-research` template for instantiation `fulcrum` through services/platform/src/mission/compiler.ts
+        STEP:      compile the `evidence-research` template for instantiation `fulcrum` through packages/platform/src/mission/compiler.ts
         STEP:      read the persisted `mission_template_versions.definition_json` toolGrants array and templateKey
         MUST_OBSERVE:     the compiled `toolGrants` lists all 6 ids `hybrid_search`, `search_fts`, `search_vector`, `search_research`, `get_research_session`, `get_document`
         MUST_OBSERVE:     the compiled `templateKey` reads 'evidence-research'
@@ -273,37 +273,37 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
-| TC-4 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
-| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'` |
-| TC-6 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'` |
-| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'` |
-| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'` |
-| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
-| TC-10 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
-| TC-11 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
-| TC-12 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
+| TC-4 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'` |
+| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'` |
+| TC-6 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'` |
+| TC-7 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'` |
+| TC-8 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'` |
+| TC-9 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
+| TC-10 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
+| TC-11 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'` |
+| TC-12 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/fulcrum/contract.ts (NEW)
-- services/platform/src/fulcrum/contract-compile.ts (NEW)
-- services/platform/src/fulcrum/missions/dev-revenue.ts (NEW)
-- services/platform/src/mission/contract.ts (MODIFY — toolGrants field only)
-- services/platform/src/mission/templates/evidence-research.ts (MODIFY — toolGrants + version bump only)
-- services/platform/tests/integration/fulcrum-mission-contract.test.ts (NEW)
+- packages/platform/src/fulcrum/contract.ts (NEW)
+- packages/platform/src/fulcrum/contract-compile.ts (NEW)
+- packages/platform/src/fulcrum/missions/dev-revenue.ts (NEW)
+- packages/platform/src/mission/contract.ts (MODIFY — toolGrants field only)
+- packages/platform/src/mission/templates/evidence-research.ts (MODIFY — toolGrants + version bump only)
+- packages/platform/tests/integration/fulcrum-mission-contract.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/fulcrum/gate/** and services/platform/src/fulcrum/admission-writer.ts — owned by FUL-PLAT-002 (same wave)
-- services/platform/src/mission/runtime.ts — owned by FUL-PLAT-006 / FUL-PLAT-008
-- services/platform/src/mission/registry.ts — owned by FUL-PLAT-008
-- services/platform/src/db/** — owned by FUL-PLAT-001
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/fulcrum/gate/** and packages/platform/src/fulcrum/admission-writer.ts — owned by FUL-PLAT-002 (same wave)
+- packages/platform/src/mission/runtime.ts — owned by FUL-PLAT-006 / FUL-PLAT-008
+- packages/platform/src/mission/registry.ts — owned by FUL-PLAT-008
+- packages/platform/src/db/** — owned by FUL-PLAT-001
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -311,7 +311,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/mission/contract.ts (parseMissionTemplateDefinition) + services/platform/src/mission/compiler.ts
+Source: packages/platform/src/mission/contract.ts (parseMissionTemplateDefinition) + packages/platform/src/mission/compiler.ts
 
 Strict Zod schema + a compile function that validates completely, then writes one version row per ladder inside a single transaction.
 
@@ -784,19 +784,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/mission/contract.ts
+1. packages/platform/src/mission/contract.ts
    - Lines: 40-146
    - Focus: [PRIMARY PATTERN] MissionTemplateSchema strict Zod shape, the toolGrants: z.array(z.never()) field this task widens, and parseMissionTemplateDefinition's banned-executable-payload guard
-2. services/platform/src/mission/templates/evidence-research.ts
+2. packages/platform/src/mission/templates/evidence-research.ts
    - Lines: 1-113
    - Focus: The shared template, its EVIDENCE_RESEARCH_INSTANTIATIONS list including 'fulcrum', and the empty toolGrants this task fills
-3. services/platform/src/mission/compiler.ts
+3. packages/platform/src/mission/compiler.ts
    - Lines: 1-120
    - Focus: How a template definition becomes a mission_template_versions row (definition_json), the persistence path AC-5 asserts against
-4. services/platform/src/db/schema/fulcrum.ts
+4. packages/platform/src/db/schema/fulcrum.ts
    - Lines: weight_versions / weight_components / domain_tier_versions / domain_tiers (delivered by FUL-PLAT-001)
    - Focus: The exact columns the compile writes, including grade_floor, recency_window_days, half_life_days and rubric_json
-5. services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
+5. packages/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
    - Lines: 1-80
    - Focus: Closest existing test of a mission-contract compile against real Postgres — definition_json assertions and template-version conventions
 
@@ -828,7 +828,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/fulcrum/contract.ts services/platform/src/fulcrum/contract-compile.ts services/platform/src/fulcrum/missions/dev-revenue.ts services/platform/src/mission/contract.ts services/platform/src/mission/templates/evidence-research.ts services/platform/tests/integration/fulcrum-mission-contract.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/fulcrum/contract.ts packages/platform/src/fulcrum/contract-compile.ts packages/platform/src/fulcrum/missions/dev-revenue.ts packages/platform/src/mission/contract.ts packages/platform/src/mission/templates/evidence-research.ts packages/platform/tests/integration/fulcrum-mission-contract.test.ts
   Expected: None
 
 Gate S: Scenario is un-fakeable (PRIMARY) — supersedes 'Exit 0' as the bar for done.
@@ -841,7 +841,7 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Touches the Mastra mission-template DSL (services/platform/src/mission/contract.ts + templates) and a new Zod fitness-contract compiler — the agent-platform surface this triad owns, verified by real Postgres ladder rows.
+Rationale:   Touches the Mastra mission-template DSL (packages/platform/src/mission/contract.ts + templates) and a new Zod fitness-contract compiler — the agent-platform surface this triad owns, verified by real Postgres ladder rows.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
@@ -915,13 +915,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN a migrated holocron_nonprod holding 0 rows in `weight_versions` and 0 rows in `domain_tier_versions` WHEN the operator compiles the `dev-revenue` Fulcrum mission contract through the compile entrypoint THEN version 1 of both ladders is persisted with 4 weight components and 8 domain tiers",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": true,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -969,13 +969,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the `dev-revenue` contract already compiled at version 1 with 'demand' at weight 0.4 WHEN the operator raises 'demand' to 0.6 and recompiles THEN version 2 rows are appended and the version 1 rows still read weight 0.4",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1021,13 +1021,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a migrated holocron_nonprod with 0 compiled contract versions WHEN the operator compiles a contract whose `toolGrants` names `exa_search`, which is not a registered Mastra corpus tool THEN compilation is refused with `FULCRUM_TOOL_GRANT_UNREGISTERED` and 0 rows are written",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1072,13 +1072,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a `dev-revenue` contract declaring 2 banned domains and a per-domain courtesy delay of 1500 ms WHEN a malformed ban-list entry is submitted, then the valid contract is compiled THEN the malformed contract is rejected at a named Zod path and the valid one persists 2 banned domains",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1144,13 +1144,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN the shared `evidence-research` mission template whose `toolGrants` ships empty WHEN the fulcrum instantiation is compiled through the mission template compiler THEN the compiled definition lists exactly the 6 registered corpus tool ids and the template key stays `evidence-research`",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1169,7 +1169,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "compile the `evidence-research` template for instantiation `fulcrum` through services/platform/src/mission/compiler.ts",
+                "compile the `evidence-research` template for instantiation `fulcrum` through packages/platform/src/mission/compiler.ts",
                 "read the persisted `mission_template_versions.definition_json` toolGrants array and templateKey"
               ]
             },
@@ -1193,84 +1193,84 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "Compiling dev-revenue writes exactly 1 weight_versions row at version 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "Compiling dev-revenue writes exactly 4 weight_components rows for version 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "Compiling dev-revenue writes exactly 1 domain_tier_versions row at version 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "Compiling dev-revenue writes exactly 8 domain_tiers rows for version 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "Recompiling after a weight edit appends a weight_versions row at version 2",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "The version 1 demand weight still reads 0.4 after version 2 is published",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "A contract naming toolGrant 'exa_search' throws FULCRUM_TOOL_GRANT_UNREGISTERED",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "A refused compile leaves weight_versions at 0 rows",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-9",
       "type": "test_criterion",
       "description": "A ban-list entry of type number is rejected at Zod path sourceRules.banList.0",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-10",
       "type": "test_criterion",
       "description": "The persisted contract snapshot returns 2 banned domains",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-11",
       "type": "test_criterion",
       "description": "The persisted contract snapshot returns courtesyDelayMs 1500",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-12",
       "type": "test_criterion",
       "description": "The compiled fulcrum instantiation persists 6 toolGrants under templateKey evidence-research",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-mission-contract.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     }
   ]

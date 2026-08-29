@@ -1,12 +1,12 @@
 ---
 stability: CONSTITUTION
-last_validated: 2026-08-20
-prd_version: 3.0.0
+last_validated: 2026-08-29
+prd_version: 3.1.0
 ---
 
 # Architecture Posture
 
-Six architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit. They match [ADR-004](./00-architecture-decisions.md), [ADR-006](./00-architecture-decisions.md), [ADR-007](./00-architecture-decisions.md), and [ADR-008](./00-architecture-decisions.md).
+Seven architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit. They match [ADR-004](./00-architecture-decisions.md), [ADR-006](./00-architecture-decisions.md), [ADR-007](./00-architecture-decisions.md), and [ADR-008](./00-architecture-decisions.md).
 
 ## 1. Local inference is a first-class requirement, consumed as a loopback fleet client
 
@@ -63,3 +63,23 @@ Publish is `publishDocumentForRun` into `documents` (local Qwen3 1024-dim embed)
 Stage advancement (`contender → validated`) and active-build promotion are human-only, gated on a recorded reality-probe and a WIP=1 limit. Autonomous *retirement* is allowed but symmetric-visible (every kill surfaces in the daily brief with its cited reason). Fulcrum is honestly scoped as an evidence-**triage** engine: it nominates well-cited candidates; it never declares one validated.
 
 Writes are CLI: `holo fulcrum verdict` wrapping `POST /api/missions/:id/verdicts`, and `holo fulcrum ack-brief` writing a `touches` row. There is no RN screen and no "navigates."
+
+## 7. Fulcrum ships **inside `packages/platform`**; it is not a package of its own
+
+The repository is a pnpm workspace whose `pnpm-workspace.yaml` matches `packages/*` only. Fulcrum has **no package boundary, no `package.json`, and no build target of its own** — it is in-process code in the Mastra/Hono backend package, reached through that package's `holo` CLI.
+
+| Path | Package | Fulcrum's relationship |
+|---|---|---|
+| `packages/platform` | Mastra + Hono + Postgres backend | **Every Fulcrum surface lives here** — `src/fulcrum/`, `src/mission/`, `src/db/`, `src/inference/`, `src/cli/`, `src/research/`, `src/fleet/`, `src/evals/`, plus `Dockerfile`, `drizzle.config.ts`, `deploy/compose/`, `config/`, and `tests/integration/fulcrum-*.test.ts` |
+| `packages/mcp` | `@holocron/mcp-unified` | Not on the Fulcrum path |
+| `packages/docs-reader` | `holocron-docs-reader` — a Cloudflare Worker that proxies `docs.holocrnlib.com/d/<token>` to an Access-authenticated origin | **Not on the Fulcrum path.** It is an edge cache with no database, no Node runtime, and no inference — it cannot host the ledger, the gate, the mission runtime, the router, or the CLI. If a committed dossier is ever made *publicly readable*, that is a separate initiative with its own PRD |
+| `packages/mobile` | `@holocron/mobile` — Expo client | Not on the Fulcrum path (in-app Fulcrum UI is a deferred separate PRD, per stance 6) |
+| `packages/web` | `@holocron/web` | Placeholder; no product code |
+
+**Consequences that bind implementers:**
+
+- Every path in this PRD and in `tasks/` is repo-root-relative and already carries the `packages/platform/` prefix. A task naming a bare `src/…` path is stale — resolve it under `packages/platform/src/…`.
+- Root `package.json` is a **private orchestrator only** (`pnpm --filter …`). Do not add Fulcrum dependencies, scripts, or build steps to it.
+- Vitest is driven from the repo root: the `integration` project already globs `packages/platform/tests/integration/**`, so the TC commands in `tasks/` run verbatim from the monorepo root.
+- Secrets resolve to `packages/platform/config/secrets.yaml`, not a root-level path.
+- This stance records a **relocation, not a redesign**: the monorepo move was a pure `git mv` of `services/platform/` → `packages/platform/`, so no module boundary, import graph, or runtime topology described elsewhere in this PRD changes.

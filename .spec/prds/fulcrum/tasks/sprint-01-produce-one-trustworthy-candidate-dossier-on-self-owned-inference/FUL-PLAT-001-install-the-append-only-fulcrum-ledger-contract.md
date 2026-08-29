@@ -22,21 +22,21 @@ Ship the nine new Fulcrum Drizzle tables plus the sources/claims column extensio
 
 ## How to verify
 
-Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (services/platform/src/db/client.ts)):
+Primary acceptance criterion **AC-1** (integration tier, service: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)):
 
 ```
-PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'
 ```
 
 Full gate set: 5 acceptance criteria, 8 test criteria, 4 verification gates.
 
 ## Scope
 
-- services/platform/src/db/schema/fulcrum.ts (NEW)
-- services/platform/src/db/schema/evidence.ts (MODIFY — additive columns on sources and claims only)
-- services/platform/src/db/schema/index.ts (MODIFY — barrel export + DOMAIN_TABLE_NAMES)
-- services/platform/src/db/migrations/0041_fulcrum_ledger.sql (NEW)
-- services/platform/tests/integration/fulcrum-ledger-contract.test.ts (NEW)
+- packages/platform/src/db/schema/fulcrum.ts (NEW)
+- packages/platform/src/db/schema/evidence.ts (MODIFY — additive columns on sources and claims only)
+- packages/platform/src/db/schema/index.ts (MODIFY — barrel export + DOMAIN_TABLE_NAMES)
+- packages/platform/src/db/migrations/0041_fulcrum_ledger.sql (NEW)
+- packages/platform/tests/integration/fulcrum-ledger-contract.test.ts (NEW)
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -73,13 +73,13 @@ OUTCOME (observable success)
 🚫 CRITICAL CONSTRAINTS (Never tier — read before acting)
 --------------------------------------------------------------------------------
 
-- MUST: MUST add migration `0041_fulcrum_ledger.sql` with a contiguous ordinal — `checkMigrationOrdinals` in services/platform/src/db/migrate.ts fails closed on a gap or collision
-- MUST: MUST enforce append-only with Postgres triggers plus role grants, mirroring services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
-- MUST: MUST register every new table name in DOMAIN_TABLE_NAMES in services/platform/src/db/schema/index.ts so `holo db:verify` counts them
+- MUST: MUST add migration `0041_fulcrum_ledger.sql` with a contiguous ordinal — `checkMigrationOrdinals` in packages/platform/src/db/migrate.ts fails closed on a gap or collision
+- MUST: MUST enforce append-only with Postgres triggers plus role grants, mirroring packages/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
+- MUST: MUST register every new table name in DOMAIN_TABLE_NAMES in packages/platform/src/db/schema/index.ts so `holo db:verify` counts them
 - NEVER: NEVER create the names `prospects`, `cycles`, `scores`, or `fulcrumCycles` — the PRD forbids the Prospector port outright
 - NEVER: NEVER drop or rewrite an existing migration file; append 0041 only
 - NEVER: NEVER weaken the existing beliefs immutability grants while adding the new ones
-- STRICTLY: STRICTLY additive to services/platform/src/db/schema/evidence.ts — add columns to sources and claims, change no existing column type or index
+- STRICTLY: STRICTLY additive to packages/platform/src/db/schema/evidence.ts — add columns to sources and claims, change no existing column type or index
 
 --------------------------------------------------------------------------------
 CAPABILITY CHAIN
@@ -116,21 +116,21 @@ AC-1: Fulcrum ledger tables accept an appended belief score [PRIMARY]
   THEN:  the 9 Fulcrum tables exist and `belief_scores` returns exactly 1 stamped row
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-COMMIT-01 → UC-LED-05 persistence
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if migration 0041 is absent so `belief_scores` does not exist and the insert errors; the Drizzle table definitions are declared but no SQL migration file is emitted, leaving the schema static; the test asserts on the Drizzle TypeScript object instead of querying real Postgres (mocked client)
     EVIDENCE:         db_query (required_capture=True)
     CASES:
       - START_REF: seeded_fulcrum_versions
         ACTOR:     cli_user
-        STEP:      run `bun services/platform/src/cli/holo.ts db:migrate` against holocron_nonprod
+        STEP:      run `bun packages/platform/src/cli/holo.ts db:migrate` against holocron_nonprod
         STEP:      INSERT one row into `belief_scores` with `score` = 0.62, `weight_version` = 1, `domain_tier_version` = 1 as holocron_app
         STEP:      SELECT id, score, weight_version, domain_tier_version FROM belief_scores
         MUST_OBSERVE:     `SELECT count(*) FROM belief_scores` returns 1
@@ -147,15 +147,15 @@ AC-2: Append-only barrier rejects UPDATE and DELETE
   THEN:  both statements raise and the row still reads `score` = 0.62
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-COMMIT-01 boundary: append-only ledger
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the append-only rule is enforced only in TypeScript so a direct SQL UPDATE silently succeeds; the trigger is omitted from migration 0041, leaving the table static and mutable; the test runs as the migration owner role instead of holocron_app, bypassing the barrier
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -188,15 +188,15 @@ AC-3: Belief score requires both version stamps
   THEN:  the insert is rejected and `belief_scores` still holds 0 rows
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-05 version stamping
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the columns are declared nullable so an unstamped score row is accepted; the stamp check lives in application code that the test bypasses with direct SQL; the migration is empty and the insert succeeds against the pre-Fulcrum schema
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -224,15 +224,15 @@ AC-4: Sources fetch-artifact columns dedupe on content hash
   THEN:  the duplicate insert is rejected and `sources` still holds 1 row for that hash
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → fetch artifact columns
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the new `sources` columns are added to the Drizzle file but not to migration 0041, so the SELECT errors on a missing column; the unique index is removed, allowing a duplicate content hash; the test asserts the TypeScript column list rather than querying the live table
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -255,15 +255,15 @@ AC-5: Claims admission columns reject an unknown status
   THEN:  the write is rejected by the CHECK constraint and `status` stays 'provisional'
 
   TEST_TIER:            integration
-  VERIFICATION_SERVICE: real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+  VERIFICATION_SERVICE: real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
   FLOW_REF:             CAP-EVIDENCE-01 → UC-LED-02 admission columns
   TDD_STATE:            none
-  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'
+  VERIFY:               PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'
 
   SCENARIO (the proof, not the claim — SCENARIO-CONTRACT-V1):
     TIER:             visible
     TOPOLOGY:         single-node
-    SERVICE:          real Postgres holocron_nonprod (services/platform/src/db/client.ts)
+    SERVICE:          real Postgres holocron_nonprod (packages/platform/src/db/client.ts)
     NEGATIVE_CONTROL: would fail if the status CHECK constraint is omitted so any free-form status string is stored; the admission columns are declared in Drizzle only, leaving the live table static; the test mocks the sql client and asserts on the call arguments
     EVIDENCE:         db_query (required_capture=True)
     CASES:
@@ -285,31 +285,31 @@ TEST CRITERIA (boolean — each maps to an AC)
 
 | ID | Statement | Maps to | Verify |
 |----|-----------|---------|--------|
-| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
-| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
-| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
-| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'` |
-| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'` |
-| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'` |
-| TC-7 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'` |
-| TC-8 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'` |
+| TC-1 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
+| TC-2 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
+| TC-3 |  | AC-1 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'` |
+| TC-4 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'` |
+| TC-5 |  | AC-2 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'` |
+| TC-6 |  | AC-3 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'` |
+| TC-7 |  | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'` |
+| TC-8 |  | AC-5 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'` |
 
 --------------------------------------------------------------------------------
 SCOPE (file-level write permissions)
 --------------------------------------------------------------------------------
 
 writeAllowed:
-- services/platform/src/db/schema/fulcrum.ts (NEW)
-- services/platform/src/db/schema/evidence.ts (MODIFY — additive columns on sources and claims only)
-- services/platform/src/db/schema/index.ts (MODIFY — barrel export + DOMAIN_TABLE_NAMES)
-- services/platform/src/db/migrations/0041_fulcrum_ledger.sql (NEW)
-- services/platform/tests/integration/fulcrum-ledger-contract.test.ts (NEW)
+- packages/platform/src/db/schema/fulcrum.ts (NEW)
+- packages/platform/src/db/schema/evidence.ts (MODIFY — additive columns on sources and claims only)
+- packages/platform/src/db/schema/index.ts (MODIFY — barrel export + DOMAIN_TABLE_NAMES)
+- packages/platform/src/db/migrations/0041_fulcrum_ledger.sql (NEW)
+- packages/platform/tests/integration/fulcrum-ledger-contract.test.ts (NEW)
 
 writeProhibited:
-- services/platform/src/db/migrations/0000_*.sql through 0040_*.sql — historical migrations are immutable
-- services/platform/src/fulcrum/** — owned by FUL-PLAT-002..006
-- services/platform/src/mission/** — owned by FUL-PLAT-005/006/008
-- services/platform/src/cli/holo.ts — owned by FUL-PLAT-012
+- packages/platform/src/db/migrations/0000_*.sql through 0040_*.sql — historical migrations are immutable
+- packages/platform/src/fulcrum/** — owned by FUL-PLAT-002..006
+- packages/platform/src/mission/** — owned by FUL-PLAT-005/006/008
+- packages/platform/src/cli/holo.ts — owned by FUL-PLAT-012
 - Any file not listed in write_allowed
 - Any file not explicitly listed above
 
@@ -317,7 +317,7 @@ writeProhibited:
 CODE PATTERN
 --------------------------------------------------------------------------------
 
-Source: services/platform/src/db/schema/evidence.ts + services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
+Source: packages/platform/src/db/schema/evidence.ts + packages/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
 
 Drizzle pgTable definitions in a domain schema file + a numbered SQL migration that also installs triggers/grants; barrel registration in db/schema/index.ts.
 
@@ -325,7 +325,7 @@ ANTI-PATTERN: Declaring the tables in TypeScript only and relying on `db:push`. 
 
 References:
 - .spec/prds/fulcrum/09-technical-requirements/03-data-schema.md § C (the exact Drizzle table shapes to ship)
-- services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql (the append-only precedent already in this repo)
+- packages/platform/src/db/migrations/0004_beliefs_immutability_revise.sql (the append-only precedent already in this repo)
 
 Notes:
 - T
@@ -675,19 +675,19 @@ Notes:
 READING LIST (max 5 — canonical pattern first)
 --------------------------------------------------------------------------------
 
-1. services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
+1. packages/platform/src/db/migrations/0004_beliefs_immutability_revise.sql
    - Lines: 1-60
    - Focus: [PRIMARY PATTERN] role split (holocron_app vs holocron_owner), REVOKE/GRANT shape, `--> statement-breakpoint` separator, DO-block role guards
-2. services/platform/src/db/schema/evidence.ts
+2. packages/platform/src/db/schema/evidence.ts
    - Lines: 28-105
    - Focus: Existing sources/claims table definitions, idColumn()/typedJsonb()/createdAtColumn() helpers, check() + uniqueIndex() usage — the columns this task extends
-3. services/platform/src/db/schema/index.ts
+3. packages/platform/src/db/schema/index.ts
    - Lines: 1-60 and the DOMAIN_TABLE_NAMES block
    - Focus: Barrel export + flat `schema` object + the ordered physical table-name list that `holo db:verify` counts
-4. services/platform/src/db/migrate.ts
+4. packages/platform/src/db/migrate.ts
    - Lines: 1-60
    - Focus: checkMigrationOrdinals gate — ORDINAL_COLLISION / ORDINAL_GAP fail closed before any apply
-5. services/platform/tests/integration/research-evidence-core.test.ts
+5. packages/platform/tests/integration/research-evidence-core.test.ts
    - Lines: 1-70
    - Focus: Integration-lane conventions: beforeAll throws without PLATFORM_IT, DATABASE_URL must target holocron_nonprod, no it.skip, real createSql client
 
@@ -719,7 +719,7 @@ Gate 2: None
   Expected: None
 
 Gate 3: None
-  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error services/platform/src/db/schema/fulcrum.ts services/platform/src/db/schema/evidence.ts services/platform/src/db/schema/index.ts services/platform/tests/integration/fulcrum-ledger-contract.test.ts
+  Command:  pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error packages/platform/src/db/schema/fulcrum.ts packages/platform/src/db/schema/evidence.ts packages/platform/src/db/schema/index.ts packages/platform/tests/integration/fulcrum-ledger-contract.test.ts
   Expected: None
 
 Gate 4: None
@@ -736,15 +736,15 @@ AGENT ASSIGNMENT
 --------------------------------------------------------------------------------
 
 Implementer: mastra-implementer
-Rationale:   Drizzle schema + SQL migration + Postgres-enforced invariants inside services/platform/src — the MK-VI backend platform this triad owns; verification is a real-Postgres integration lane, which mastra-implementer runs by contract.
+Rationale:   Drizzle schema + SQL migration + Postgres-enforced invariants inside packages/platform/src — the MK-VI backend platform this triad owns; verification is a real-Postgres integration lane, which mastra-implementer runs by contract.
 Reviewer:    mastra-reviewer
 
 --------------------------------------------------------------------------------
 CODING STANDARDS
 --------------------------------------------------------------------------------
 
-- Reuse the column helpers from services/platform/src/db/columns.ts (idColumn, typedJsonb, timestamptz, createdAtColumn) — do not hand-roll column builders
-- Every enum-like text column gets a CHECK constraint built from a values array in services/platform/src/db/enums.ts, matching sourceKindValues/relationTypeValues
+- Reuse the column helpers from packages/platform/src/db/columns.ts (idColumn, typedJsonb, timestamptz, createdAtColumn) — do not hand-roll column builders
+- Every enum-like text column gets a CHECK constraint built from a values array in packages/platform/src/db/enums.ts, matching sourceKindValues/relationTypeValues
 - SQL migrations separate statements with `--> statement-breakpoint`; no multi-statement blocks without it
 - No `any` — typedJsonb payloads get a declared generic type
 
@@ -786,7 +786,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
   },
   "fixtures": {
     "migrated_nonprod_db": {
-      "description": "holocron_nonprod immediately after `bun services/platform/src/cli/holo.ts db:migrate` \u2014 Fulcrum tables created and completely unpopulated",
+      "description": "holocron_nonprod immediately after `bun packages/platform/src/cli/holo.ts db:migrate` \u2014 Fulcrum tables created and completely unpopulated",
       "seed_method": "cli",
       "records": [
         "`SELECT count(*) FROM belief_scores` returns 0",
@@ -804,7 +804,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
       ]
     },
     "seeded_evidence_source": {
-      "description": "one `sources` row written by `bun services/platform/src/cli/holo.ts evidence:seed` carrying a 1200-character fetch artifact",
+      "description": "one `sources` row written by `bun packages/platform/src/cli/holo.ts evidence:seed` carrying a 1200-character fetch artifact",
       "seed_method": "cli",
       "records": [
         "`sources.content_hash` holds a 64-character sha256 digest",
@@ -819,13 +819,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN a holocron_nonprod database migrated by `holo db:migrate` with 0 rows in `belief_scores` WHEN the implementer appends one `belief_scores` row stamped with weight_version 1 and domain_tier_version 1 through the holocron_app product role THEN the 9 Fulcrum tables exist and `belief_scores` returns exactly 1 stamped row",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": true,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -844,7 +844,7 @@ Verdict: [APPROVED | NEEDS_FIXES]
             "action": {
               "actor": "cli_user",
               "steps": [
-                "run `bun services/platform/src/cli/holo.ts db:migrate` against holocron_nonprod",
+                "run `bun packages/platform/src/cli/holo.ts db:migrate` against holocron_nonprod",
                 "INSERT one row into `belief_scores` with `score` = 0.62, `weight_version` = 1, `domain_tier_version` = 1 as holocron_app",
                 "SELECT id, score, weight_version, domain_tier_version FROM belief_scores"
               ]
@@ -871,13 +871,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a `belief_scores` row with `score` = 0.62 appended as holocron_app WHEN holocron_app attempts `UPDATE belief_scores SET score = 0.99` and then `DELETE FROM belief_scores` THEN both statements raise and the row still reads `score` = 0.62",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -945,13 +945,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a migrated database holding weight_versions version 1 and domain_tier_versions version 1 WHEN an insert into `belief_scores` omits `domain_tier_version` THEN the insert is rejected and `belief_scores` still holds 0 rows",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1014,13 +1014,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a `sources` row seeded by `holo evidence:seed` carrying a 64-character `content_hash` and 1200-character `normalized_text` WHEN a second insert reuses the identical `content_hash` THEN the duplicate insert is rejected and `sources` still holds 1 row for that hash",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1066,13 +1066,13 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN a `claims` row bound to the seeded source WHEN an update path writes `status` = 'approved' rather than one of the four allowed values THEN the write is rejected by the CHECK constraint and `status` stays 'provisional'",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
         "test_tier": "integration",
         "primary": false,
-        "verification_service": "real Postgres holocron_nonprod (services/platform/src/db/client.ts)",
+        "verification_service": "real Postgres holocron_nonprod (packages/platform/src/db/client.ts)",
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
@@ -1116,56 +1116,56 @@ Verdict: [APPROVED | NEEDS_FIXES]
       "id": "TC-1",
       "type": "test_criterion",
       "description": "The 9 Fulcrum tables are present in information_schema after `holo db:migrate` runs against holocron_nonprod",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
       "description": "A belief_scores row inserted as holocron_app persists with score 0.62",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
       "description": "The persisted belief_scores row stamps weight_version 1",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-1'",
       "maps_to_ac": "AC-1"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
       "description": "UPDATE on belief_scores as holocron_app raises an append-only error",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-5",
       "type": "test_criterion",
       "description": "DELETE on domain_tiers as holocron_app raises an append-only error",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "A belief_scores insert omitting domain_tier_version raises a not-null violation",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },
     {
       "id": "TC-7",
       "type": "test_criterion",
       "description": "A second sources insert reusing an existing content_hash raises a unique violation",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-4'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-8",
       "type": "test_criterion",
       "description": "A claims insert with status 'approved' raises the claims_status_check violation",
-      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration services/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545/v1 pnpm vitest run --project integration packages/platform/tests/integration/fulcrum-ledger-contract.test.ts -t 'AC-5'",
       "maps_to_ac": "AC-5"
     }
   ]
