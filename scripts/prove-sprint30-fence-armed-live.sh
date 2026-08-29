@@ -50,7 +50,7 @@ BASE_URL="${BASE_URL%/}"
 # Resolve RN key without printing it
 RN_KEY="${HOLO_KEY_RN:-${RN_API_KEY:-}}"
 if [[ -z "$RN_KEY" ]]; then
-  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/packages/platform/config/secrets.yaml}"
   if [[ -f "$SECRETS_PATH" ]]; then
     RN_KEY="$(
       python3 - "$SECRETS_PATH" <<'PY'
@@ -89,8 +89,8 @@ emit_and_exit() {
 
 ledger_count() {
   bun -e '
-import { resolveDatabaseUrl } from "./services/platform/src/db/connection.ts";
-import { createSql } from "./services/platform/src/db/client.ts";
+import { resolveDatabaseUrl } from "./packages/platform/src/db/connection.ts";
+import { createSql } from "./packages/platform/src/db/client.ts";
 const u = resolveDatabaseUrl({ preferHolocron: true });
 const sql = createSql(u);
 try {
@@ -129,7 +129,7 @@ PRECHECK_JSON="$(
 import {
   isMigrationReadOnly,
   readDurableMigrationReadOnly,
-} from "./services/platform/src/cutover/soak-fence.ts";
+} from "./packages/platform/src/cutover/soak-fence.ts";
 const durable = readDurableMigrationReadOnly();
 const armed = isMigrationReadOnly();
 console.log(JSON.stringify({

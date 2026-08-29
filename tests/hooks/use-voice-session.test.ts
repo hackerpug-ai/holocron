@@ -16,7 +16,7 @@ const VOICE_SRC = readFileSync(join(REPO_ROOT, 'hooks', 'use-voice-session.ts'),
 const BRIDGE_SRC = readFileSync(join(REPO_ROOT, 'hooks', 'use-voice-result-bridge.ts'), 'utf8');
 const VOICE_CLIENT_SRC = readFileSync(join(REPO_ROOT, 'app', 'zero', 'voice.ts'), 'utf8');
 const HONO_SRC = readFileSync(
-  join(REPO_ROOT, 'services', 'platform', 'src', 'http', 'hono-app.ts'),
+  join(REPO_ROOT, 'packages', 'platform', 'src', 'http', 'hono-app.ts'),
   'utf8'
 );
 

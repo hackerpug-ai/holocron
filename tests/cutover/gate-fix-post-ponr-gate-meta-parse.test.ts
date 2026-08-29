@@ -25,7 +25,7 @@ const REAL_EVID = resolve(
 
 /** Byte-faithful GATE-META shape from 20260808T011038Z (fallback if evidence dir absent). */
 const VERBATIM_STEP4 = `@@GATE-META step=4 cmd_sha=866ce03286bc80c45523d3470be8a087663de8a6389af57327ad0484a5b83cba run_id=20260808T011038Z git_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 source_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 started_at=2026-08-08T01:11:23Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=54299bfc76fec6fc52468dae451ca293a6f104c4@@
-CMD: bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url \${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+CMD: bun packages/platform/src/cli/holo.ts cutover:enable-writes --json --base-url \${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
 {
   "ok": true,
   "already_recorded": false,
@@ -47,7 +47,7 @@ CMD: bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-u
 `;
 
 const VERBATIM_STEP5 = `@@GATE-META step=5 cmd_sha=657ddd3ec6b8eb29d8fe7bf165a0a9e139eeda98c7fbec9fcf1ad1853c2b199a run_id=20260808T011038Z git_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 source_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 started_at=2026-08-08T01:11:29Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=54299bfc76fec6fc52468dae451ca293a6f104c4@@
-CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url \${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+CMD: bun packages/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url \${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
 {
   "ok": false,
   "repointed": false,
@@ -56,7 +56,7 @@ CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --bas
   "data_plane": "convex",
   "engaged_at": "",
   "engaged_at_ms": 0,
-  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "configured_target": "/Users/inference1/Projects/holocron/packages/platform/config/secrets.yaml",
   "precondition": {
     "ok": false,
     "accepted_post_export_writes": 0,

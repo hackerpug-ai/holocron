@@ -9,7 +9,7 @@ on:
       - 'components/**'
       - 'hooks/**'
       - 'screens/**'
-      - 'services/platform/src/cli/**'
+      - 'packages/platform/src/cli/**'
       - 'package.json'
       - '.github/workflows/verify-no-convex-client.yml'
   push:
@@ -43,8 +43,8 @@ jobs:
           sudo apt-get install -y ripgrep
 
       - name: Install platform package dependencies
-        working-directory: services/platform
+        working-directory: packages/platform
         run: bun install
 
       - name: Run CAP-CUT-01 verify:no-convex-client
-        run: bun services/platform/src/cli/holo.ts verify:no-convex-client
+        run: bun packages/platform/src/cli/holo.ts verify:no-convex-client

@@ -14,7 +14,7 @@ cd "$ROOT"
 identity_json() {
   DATABASE_URL="$1" bun --eval '
     try {
-      const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
+      const { parseDatabaseTargetIdentity } = await import("./packages/platform/src/db/connection.ts");
       const x = parseDatabaseTargetIdentity(process.env.DATABASE_URL!);
       process.stdout.write(JSON.stringify({
         host: x.host,
@@ -48,7 +48,7 @@ if [[ "${HOLO_PROBE_SEED_PONR:-0}" == "1" ]]; then
   DATABASE_URL="$GATE_URL" HOLO_PROBE_MARKER_MISS_DATABASE_URL="$MARKER_URL" \
     bun --eval '
       try {
-        const { seedExactPonrMarker } = await import("./services/platform/src/cutover/ponr-marker.ts");
+        const { seedExactPonrMarker } = await import("./packages/platform/src/cutover/ponr-marker.ts");
         await seedExactPonrMarker({
           gateDatabaseUrl: process.env.DATABASE_URL!,
           markerDatabaseUrl: process.env.HOLO_PROBE_MARKER_MISS_DATABASE_URL!,
@@ -64,8 +64,8 @@ database_state_json() {
   DATABASE_URL="$1" bun --eval '
     let sql: any = null;
     try {
-      const { createSql } = await import("./services/platform/src/db/client.ts");
-      const { REQUIRED_PONR_TRIGGER_NAMES } = await import("./services/platform/src/cutover/ponr-marker.ts");
+      const { createSql } = await import("./packages/platform/src/db/client.ts");
+      const { REQUIRED_PONR_TRIGGER_NAMES } = await import("./packages/platform/src/cutover/ponr-marker.ts");
       sql = createSql(process.env.DATABASE_URL!);
       const rows = await sql<Array<{ count: string }>>`SELECT count(*)::text AS count FROM public.data_plane_ponr`;
       const triggers = await sql<Array<{ tgname: string; tgenabled: string }>>`

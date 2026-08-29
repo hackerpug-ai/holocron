@@ -5,7 +5,7 @@ set -euo pipefail
 # (:44111/:44112). Credentials stay in the environment and are never printed.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODULE="$ROOT/services/platform/src/etl/composite-corpus.ts"
+MODULE="$ROOT/packages/platform/src/etl/composite-corpus.ts"
 
 if [[ "${PLATFORM_IT:-}" != "1" ]]; then
   printf '{"ok":false,"error":"PLATFORM_IT=1 is required"}\n'
@@ -55,7 +55,7 @@ if [[ -z "${MK6_DATA_DATABASE_URL:-}" ]]; then
   fi
   export MK6_DATA_DATABASE_URL="postgres://justinrich@127.0.0.1:5432/${DB_NAME}"
   DATABASE_URL="$MK6_DATA_DATABASE_URL" HOLO_DANGEROUS_ALLOW_PROD_DB=1 bun -e '
-    import { applyMigrations } from "./services/platform/src/db/migrate.ts";
+    import { applyMigrations } from "./packages/platform/src/db/migrate.ts";
     const result = await applyMigrations({ databaseUrl: process.env.DATABASE_URL });
     if (!result.ok) {
       console.error(result.errors.join("; "));
@@ -71,8 +71,8 @@ mkdir -p "$EVIDENCE"
 SECRETS="$EVIDENCE/secrets.yaml"
 RN_KEY="${HOLO_KEY_RN:-mk6-isolated-${RUN_TOKEN}}"
 SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
-IMAGE_DIGEST="sha256:$(shasum -a 256 "$ROOT/services/platform/src/http/hono-app.ts" | awk '{print $1}')"
-COMPOSE_SHA256="$(shasum -a 256 "$ROOT/services/platform/deploy/nonprod/mk6-verification.compose.yaml" | awk '{print $1}')"
+IMAGE_DIGEST="sha256:$(shasum -a 256 "$ROOT/packages/platform/src/http/hono-app.ts" | awk '{print $1}')"
+COMPOSE_SHA256="$(shasum -a 256 "$ROOT/packages/platform/deploy/nonprod/mk6-verification.compose.yaml" | awk '{print $1}')"
 COMPOSE_GENERATION="mk6iso-${RUN_TOKEN:0:8}"
 DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 cat >"$SECRETS" <<EOF

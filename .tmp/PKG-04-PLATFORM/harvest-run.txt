@@ -1,0 +1,26 @@
+harvest-evidence: task=PKG-04-PLATFORM manifest=.tmp/PKG-04-PLATFORM/verify-manifest.json
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test (suite): pnpm test
+  requirements: 5
+  [AC-1] test -f packages/platform/package.json && test ! -f services/platform/package.json
+  [AC-5] rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo
+  [TC-1] test -f packages/platform/package.json && test ! -f services/platform/package.json
+  [TC-2] rg -n 'COPY packages/platform/package.json' packages/platform/Dockerfile && rg -n 'packages/platform/src/cli/holo.ts' bin/holo
+  [TC-3] bash -lc 'pids=$(lsof -tiTCP:4111 -sTCP:LISTEN 2>/dev/null || true); if [[ -n "$pids" ]]; then kill $pids 2>/dev/null || true; sleep 1; fi; out=$(timeout 20 bun packages/platform/src/index.ts 2>&1); ec=$?; printf "%s\n" "$out"; echo exit_code=$ec; printf "%s\n" "$out" | rg -q "Starting Mastra service on :4111" && ! printf "%s\n" "$out" | rg -qi "Failed to start server|module not found" && [[ $ec -eq 124 || $ec -eq 143 ]]'
+  archived prior summary → verification-summary.prev-e0db2e93a558.json
+
+harvest-evidence: done
+  task:       PKG-04-PLATFORM
+  commit:     3ef3af08
+  typecheck:  exit=2
+  lint:       exit=0 warnings=593
+  evidence:   5 pass, 0 fail (of 5 requirements)
+  output:     .tmp/PKG-04-PLATFORM/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/PKG-04-PLATFORM/red-output.txt                 (if requires_red_evidence)
+    .tmp/PKG-04-PLATFORM/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/PKG-04-PLATFORM/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/PKG-04-PLATFORM/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/PKG-04-PLATFORM/pre-existing-issues.md         (if pre-existing failures)

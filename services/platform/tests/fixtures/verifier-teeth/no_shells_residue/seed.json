@@ -1,6 +1,0 @@
-{
-  "violation_class": "SHELL_RESIDUE",
-  "repo_subdir": "repo",
-  "paths": ["services/platform/src/whatsnew/", "convex/whatsNew/actions.ts"],
-  "description": "Platform shell dir + convex residual without MIGRATED_TO_MISSION_ENGINE"
-}

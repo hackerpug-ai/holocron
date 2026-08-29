@@ -35,8 +35,8 @@ echo "=== verify-restored-artifacts (secret scan) ==="
 DEFAULT_ROOTS=(
   "$ROOT/.tmp/D05-04"
   "$ROOT/.spec/prds/mk6-migration/runbooks/fire-drill-monthly.md"
-  "$ROOT/services/platform/src/mission/templates/fire-drill-monthly.json"
-  "$ROOT/services/platform/src/backup/fresh-target.md"
+  "$ROOT/packages/platform/src/mission/templates/fire-drill-monthly.json"
+  "$ROOT/packages/platform/src/backup/fresh-target.md"
 )
 if [[ -d /tmp/d05-04-fire-scratch ]]; then
   DEFAULT_ROOTS+=("/tmp/d05-04-fire-scratch/holo-fire-drill-start.log")

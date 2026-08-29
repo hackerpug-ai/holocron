@@ -14,7 +14,7 @@ import {
   readDurableMigrationReadOnly,
   setMigrationReadOnlyEnv,
   writeDurableMigrationReadOnly,
-} from '../../../services/platform/src/cutover/soak-fence.ts';
+} from '../../../packages/platform/src/cutover/soak-fence.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/GATE-FIX-fence-lift');

@@ -9,7 +9,7 @@ cd "$ROOT"
 
 AUTHORIZED=0
 DRY_RUN=0
-RELEASE="${HOLO_RELEASE_PATH:-$ROOT/services/platform/deploy/compose/image-lock.json}"
+RELEASE="${HOLO_RELEASE_PATH:-$ROOT/packages/platform/deploy/compose/image-lock.json}"
 BASE_URL="${HOLO_PRODUCTION_BASE_URL:-${HOLO_VERIFY_BASE_URL:-}}"
 TARGET="${HOLO_DEPLOY_TARGET:-holocron}"
 
@@ -67,10 +67,10 @@ elif [[ -f "$PRIMARY_ROOT/.env" ]]; then
 fi
 
 if [[ -z "${HOLO_SECRETS_PATH:-}" ]]; then
-  if [[ -f "$ROOT/services/platform/config/secrets.yaml" ]]; then
-    export HOLO_SECRETS_PATH="$ROOT/services/platform/config/secrets.yaml"
-  elif [[ -f "$PRIMARY_ROOT/services/platform/config/secrets.yaml" ]]; then
-    export HOLO_SECRETS_PATH="$PRIMARY_ROOT/services/platform/config/secrets.yaml"
+  if [[ -f "$ROOT/packages/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="$ROOT/packages/platform/config/secrets.yaml"
+  elif [[ -f "$PRIMARY_ROOT/packages/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="$PRIMARY_ROOT/packages/platform/config/secrets.yaml"
   else
     echo "error: canonical secrets.yaml is missing" >&2
     exit 2
@@ -111,4 +111,4 @@ ARGS=(deploy:apply --authorize --release "$RELEASE" --base-url "$BASE_URL" --tar
 if [[ "$DRY_RUN" -eq 1 ]]; then
   ARGS+=(--dry-run)
 fi
-exec bun services/platform/src/cli/holo.ts "${ARGS[@]}"
+exec bun packages/platform/src/cli/holo.ts "${ARGS[@]}"

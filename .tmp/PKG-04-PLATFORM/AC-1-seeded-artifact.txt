@@ -1,0 +1,4 @@
+=== TC-1 / AC-1 ===
+packages/platform/package.json: EXISTS
+services/platform/package.json: GONE
+combined_exit=0

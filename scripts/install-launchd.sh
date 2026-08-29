@@ -6,7 +6,7 @@
 #   ./scripts/install-launchd.sh --bootstrap  # also bootstrap postgres + mastra
 #   ./scripts/install-launchd.sh --unload     # bootout loaded holocron services
 #
-# Placeholders substituted in services/platform/deploy/launchd/*.plist:
+# Placeholders substituted in packages/platform/deploy/launchd/*.plist:
 #   @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @NODE_DIR@ @PG_BIN@ @PGDATA@ @DATABASE_URL@
 set -euo pipefail
 
@@ -20,7 +20,7 @@ fi
 
 HOME_DIR="${HOME:-$(eval echo ~)}"
 DEFAULT_MAIN="${HOME_DIR}/Projects/holocron"
-if [[ -f "${DEFAULT_MAIN}/services/platform/src/cli/holo.ts" ]]; then
+if [[ -f "${DEFAULT_MAIN}/packages/platform/src/cli/holo.ts" ]]; then
   DEFAULT_HOLO_ROOT="$DEFAULT_MAIN"
 else
   DEFAULT_HOLO_ROOT="$REPO_ROOT"
@@ -45,7 +45,7 @@ PGDATA="${PGDATA:-${BREW_PREFIX}/var/postgresql@18}"
 DATABASE_URL="${DATABASE_URL:-postgres://127.0.0.1:5432/holocron}"
 LAUNCH_AGENTS_DIR="${LAUNCH_AGENTS_DIR:-${HOME_DIR}/Library/LaunchAgents}"
 LOG_DIR="${HOME_DIR}/Library/Logs/holocron"
-TEMPLATE_DIR="${REPO_ROOT}/services/platform/deploy/launchd"
+TEMPLATE_DIR="${REPO_ROOT}/packages/platform/deploy/launchd"
 UID_NUM="$(id -u)"
 DOMAIN="gui/${UID_NUM}"
 
@@ -85,7 +85,7 @@ die() { echo "error: $*" >&2; exit 1; }
 
 [[ -d "$TEMPLATE_DIR" ]] || die "template dir missing: $TEMPLATE_DIR"
 [[ -x "$BUN_BIN" || -f "$BUN_BIN" ]] || die "bun not found at $BUN_BIN (set BUN_BIN=)"
-[[ -f "$HOLO_ROOT/services/platform/src/cli/holo.ts" ]] || die "holo.ts missing under HOLO_ROOT=$HOLO_ROOT"
+[[ -f "$HOLO_ROOT/packages/platform/src/cli/holo.ts" ]] || die "holo.ts missing under HOLO_ROOT=$HOLO_ROOT"
 [[ -x "$PG_BIN/postgres" || -f "$PG_BIN/postgres" ]] || die "postgres not found at $PG_BIN/postgres (brew install postgresql@18)"
 
 mkdir -p "$LAUNCH_AGENTS_DIR" "$LOG_DIR"

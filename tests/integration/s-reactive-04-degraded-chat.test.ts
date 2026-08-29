@@ -30,7 +30,7 @@ const CONTROLLER_PATH = join(
   'degraded-mode-controller.ts'
 );
 const INTERACTION_NOTES = join(REPO_ROOT, 'design', 'interaction-notes.md');
-const ZERO_PUB = join(REPO_ROOT, 'services', 'platform', 'src', 'db', 'schema', 'zero-pub.ts');
+const ZERO_PUB = join(REPO_ROOT, 'packages', 'platform', 'src', 'db', 'schema', 'zero-pub.ts');
 
 const SURFACE_MSG = 'Local fleet unavailable — running in reduced mode';
 

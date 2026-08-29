@@ -10,7 +10,7 @@
  * Lanes:
  *   unit         — no infra. ~100 files / ~978 tests. Runs anywhere.
  *   integration  — PLATFORM_IT-gated. ~159 vitest files (122 tests/integration +
- *                  37 services/platform/tests/integration, 8 bun:test excluded).
+ *                  37 packages/platform/tests/integration, 8 bun:test excluded).
  *   live         — real Postgres + PLATFORM_IT. seed:e2e + zero-cache-boot.
  *
  * CI wiring (ci-integration.yml, AC-4 unchanged at the step level):
@@ -20,19 +20,19 @@
 import type { TestProjectConfiguration } from 'vitest/config';
 
 /**
- * Bun:test files in services/platform/tests/integration — different test runner,
+ * Bun:test files in packages/platform/tests/integration — different test runner,
  * uncollectable by vitest (errors on import). Excluded from the integration lane;
  * a future `bun test` lane will own them (tracked as a follow-up).
  */
 const BUN_TEST_FILES = [
-  'services/platform/tests/integration/db-migrate.test.ts',
-  'services/platform/tests/integration/jsonb-roundtrip.test.ts',
-  'services/platform/tests/integration/merges-collapsed.test.ts',
-  'services/platform/tests/integration/nonprod-namespace.test.ts',
-  'services/platform/tests/integration/prd-consistency.test.ts',
-  'services/platform/tests/integration/replication-ready.test.ts',
-  'services/platform/tests/integration/runner-status.test.ts',
-  'services/platform/tests/integration/status-check.test.ts',
+  'packages/platform/tests/integration/db-migrate.test.ts',
+  'packages/platform/tests/integration/jsonb-roundtrip.test.ts',
+  'packages/platform/tests/integration/merges-collapsed.test.ts',
+  'packages/platform/tests/integration/nonprod-namespace.test.ts',
+  'packages/platform/tests/integration/prd-consistency.test.ts',
+  'packages/platform/tests/integration/replication-ready.test.ts',
+  'packages/platform/tests/integration/runner-status.test.ts',
+  'packages/platform/tests/integration/status-check.test.ts',
 ];
 
 const STANDARD_EXCLUDES = ['node_modules', 'dist', '.expo', '**/node_modules/**', '**/.git/**'];
@@ -51,29 +51,29 @@ export const projects: TestProjectConfiguration[] = [
         'hooks/**/*.{test,spec}.{js,ts}',
         'components/**/*.{test,spec}.{js,ts,tsx}',
         // Sprint 06 — stack supervisor / secrets / launchd (D01-01+)
-        'services/platform/src/cli/__tests__/**/*.{test,spec}.ts',
+        'packages/platform/src/cli/__tests__/**/*.{test,spec}.ts',
         // Sprint 24 — verify:no-convex-client gate
-        'services/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts',
+        'packages/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts',
         // Sprint 22 pipes-1 — pure-TS evidence-gate + shared quote-match / components
-        'services/platform/src/research/*.test.ts',
+        'packages/platform/src/research/*.test.ts',
         // Wave 5 — pure decideStop (coverage_score invariance; UNIT_TEST_JUSTIFIED)
-        'services/platform/src/research/workflow/*.test.ts',
+        'packages/platform/src/research/workflow/*.test.ts',
         // Pure enrich seam — never launder fleet ASSAY text into gate quote/sourceText
-        'services/platform/src/mission/enrich-evidence-fleet.test.ts',
+        'packages/platform/src/mission/enrich-evidence-fleet.test.ts',
         // Wave 2 web acquisition — pure origin/dates/normalize helpers (UNIT_TEST_JUSTIFIED)
-        'services/platform/src/web/**/*.test.ts',
+        'packages/platform/src/web/**/*.test.ts',
         // Sprint 25 / F1 — chat pre-flight gate truth table (pure predicate, no infra)
-        'services/platform/src/http/chat-stream-gate.test.ts',
+        'packages/platform/src/http/chat-stream-gate.test.ts',
         // Assimilate crawl gates (real git + filesystem, no Postgres)
-        'services/platform/src/assimilate/**/*.test.ts',
+        'packages/platform/src/assimilate/**/*.test.ts',
       ],
       exclude: [
         // integration lane owns these
         'tests/integration/**',
-        'services/platform/tests/integration/**',
+        'packages/platform/tests/integration/**',
         // live lane owns these (real Postgres + PLATFORM_IT)
-        'services/platform/src/cli/__tests__/seed-e2e.test.ts',
-        'services/platform/src/cli/__tests__/zero-cache-boot.test.ts',
+        'packages/platform/src/cli/__tests__/seed-e2e.test.ts',
+        'packages/platform/src/cli/__tests__/zero-cache-boot.test.ts',
         ...STANDARD_EXCLUDES,
       ],
     },
@@ -100,7 +100,7 @@ export const projects: TestProjectConfiguration[] = [
       testTimeout: 180_000,
       include: [
         'tests/integration/**/*.{test,spec}.{js,ts,tsx}',
-        'services/platform/tests/integration/**/*.{test,spec}.{js,ts,tsx}',
+        'packages/platform/tests/integration/**/*.{test,spec}.{js,ts,tsx}',
       ],
       exclude: [...BUN_TEST_FILES, ...STANDARD_EXCLUDES],
     },
@@ -119,8 +119,8 @@ export const projects: TestProjectConfiguration[] = [
     test: {
       name: 'live',
       include: [
-        'services/platform/src/cli/__tests__/seed-e2e.test.ts',
-        'services/platform/src/cli/__tests__/zero-cache-boot.test.ts',
+        'packages/platform/src/cli/__tests__/seed-e2e.test.ts',
+        'packages/platform/src/cli/__tests__/zero-cache-boot.test.ts',
       ],
       exclude: STANDARD_EXCLUDES,
     },

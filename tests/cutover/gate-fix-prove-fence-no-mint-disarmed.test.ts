@@ -42,7 +42,7 @@ function durableDisarmed(): boolean {
       'bun',
       [
         '-e',
-        `import { isMigrationReadOnly, readDurableMigrationReadOnly } from "./services/platform/src/cutover/soak-fence.ts";
+        `import { isMigrationReadOnly, readDurableMigrationReadOnly } from "./packages/platform/src/cutover/soak-fence.ts";
 console.log(JSON.stringify({ durable: readDurableMigrationReadOnly(), armed: isMigrationReadOnly() }));`,
       ],
       { cwd: REPO, encoding: 'utf8', timeout: 30_000 }
@@ -60,8 +60,8 @@ function ledgerCount(): number {
       'bun',
       [
         '-e',
-        `import { resolveDatabaseUrl } from "./services/platform/src/db/connection.ts";
-import { createSql } from "./services/platform/src/db/client.ts";
+        `import { resolveDatabaseUrl } from "./packages/platform/src/db/connection.ts";
+import { createSql } from "./packages/platform/src/db/client.ts";
 const u = resolveDatabaseUrl({ preferHolocron: true });
 const sql = createSql(u);
 try {

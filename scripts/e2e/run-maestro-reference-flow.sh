@@ -207,7 +207,7 @@ if [[ "$mode" == "--check" ]]; then
 fi
 
 # The reset is intentionally before boot/flow execution and fails closed.
-bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
+bun "$repo_root/packages/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
 
 # zero-cache denies every row when the upstream permissions document is absent.
 # Deploy the checked-in schema after reset so this cold-boot run proves the

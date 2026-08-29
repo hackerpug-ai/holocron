@@ -1,0 +1,2 @@
+7:COPY packages/platform/package.json packages/platform/bun.lock ./
+7:HOLO_TS="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"

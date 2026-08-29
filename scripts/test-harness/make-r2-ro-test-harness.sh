@@ -6,9 +6,9 @@ set -euo pipefail
 HARNESS="${1:?harness dir}"
 FIXTURE_CURL="${2:-}"
 ROOT_SRC="$(cd "$(dirname "$0")/../.." && pwd)"
-MOCK_PROVIDER="$ROOT_SRC/services/platform/tests/integration/fixtures/qa14-r2-s3-provider-mock.py"
+MOCK_PROVIDER="$ROOT_SRC/packages/platform/tests/integration/fixtures/qa14-r2-s3-provider-mock.py"
 rm -rf "$HARNESS"
-mkdir -p "$HARNESS/scripts/lib" "$HARNESS/services/platform/src/cli"
+mkdir -p "$HARNESS/scripts/lib" "$HARNESS/packages/platform/src/cli"
 cp "$ROOT_SRC/scripts/prove-r2-readonly.sh" "$HARNESS/scripts/"
 cp "$ROOT_SRC/scripts/provision-fresh-restore-target.sh" "$HARNESS/scripts/"
 cp "$ROOT_SRC/scripts/run-fire-drill-on-fresh-target.sh" "$HARNESS/scripts/"
@@ -104,8 +104,8 @@ t = re.sub(
     r'  echo "error: GATE-FIX-S28R3-QA17 fixed bun not found \(/opt/homebrew/bin/bun or /usr/local/bin/bun\)" >&2\n'
     r'  exit 2\n'
     r'fi\n'
-    r'HOLO_CLI="\$ROOT/services/platform/src/cli/holo\.ts"\n',
-    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n',
+    r'HOLO_CLI="\$ROOT/packages/platform/src/cli/holo\.ts"\n',
+    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"  # harness allows override\n',
     t,
     count=1,
 )
@@ -297,16 +297,16 @@ t = t.replace(restore_fire, restore_fire_new, 1)
 # Force ambient BUN for harness
 import re as _re
 t = _re.sub(
-    r"# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN.*?HOLO_CLI=\"\$ROOT/services/platform/src/cli/holo\.ts\"\n",
-    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n',
+    r"# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN.*?HOLO_CLI=\"\$ROOT/packages/platform/src/cli/holo\.ts\"\n",
+    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"  # harness allows override\n',
     t,
     count=1,
     flags=_re.S,
 )
 # also strip deferred comment block if candidates remain without refuse
 if 'BUN_BIN=""' in t and 'BUN_BIN="${BUN_BIN:-bun}"' not in t:
-    t = t.replace('BUN_BIN=""\nfor _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do\n  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi\ndone\n# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).\nHOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"\n',
-                  'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n')
+    t = t.replace('BUN_BIN=""\nfor _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do\n  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi\ndone\n# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).\nHOLO_CLI="$ROOT/packages/platform/src/cli/holo.ts"\n',
+                  'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"  # harness allows override\n')
 # Production's trusted provider receives only credential/config values. Reintroduce the
 # provider mode solely in this generated harness so data-plane tests stay deterministic.
 provider_env = '''if st:
@@ -723,8 +723,8 @@ p = Path(sys.argv[1])
 t = p.read_text()
 if 'HOLO_CLI="${HOLO_CLI:-' not in t and 'harness allows override' not in t:
     t = t.replace(
-        'HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"',
-        'HOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override',
+        'HOLO_CLI="$ROOT/packages/platform/src/cli/holo.ts"',
+        'HOLO_CLI="${HOLO_CLI:-$ROOT/packages/platform/src/cli/holo.ts}"  # harness allows override',
         1,
     )
 p.write_text(t)

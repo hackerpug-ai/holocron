@@ -1,18 +1,18 @@
-# Root-context policy for services/platform/Dockerfile. The release build uses
-# `docker build -f services/platform/Dockerfile .`, so this file—not the
+# Root-context policy for packages/platform/Dockerfile. The release build uses
+# `docker build -f packages/platform/Dockerfile .`, so this file—not the
 # service-local .dockerignore—is the effective context boundary.
 #
 # Deny by default. The Dockerfile only needs these whitelisted runtime inputs.
 **
-!services/
-!services/platform/
-!services/platform/fleet/
-!services/platform/fleet/manifest.json
-!services/platform/Dockerfile
-!services/platform/package.json
-!services/platform/bun.lock
-!services/platform/src/
-!services/platform/src/**
+!packages/
+!packages/platform/
+!packages/platform/fleet/
+!packages/platform/fleet/manifest.json
+!packages/platform/Dockerfile
+!packages/platform/package.json
+!packages/platform/bun.lock
+!packages/platform/src/
+!packages/platform/src/**
 !.spec/
 !.spec/prds/
 !.spec/prds/mk6-migration/
@@ -21,7 +21,7 @@
 
 # Explicit deny: never ship operator credentials even if a parent whitelist re-includes them.
 # Must appear AFTER all `!…` whitelist rules so these patterns win the last-match rule.
-services/platform/config/secrets.yaml
+packages/platform/config/secrets.yaml
 **/.env
 **/.env.*
 **/*.pem

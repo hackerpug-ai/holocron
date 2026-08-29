@@ -1,0 +1,6 @@
+=== TC-1 / AC-1 verify (expect FAIL) ===
+packages_platform_pkg_exit=1
+old_path_gone_exit=1
+combined_exit=1
+packages/platform/package.json exists? no
+services/platform/package.json exists? yes

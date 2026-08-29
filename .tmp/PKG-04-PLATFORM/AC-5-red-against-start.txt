@@ -1,0 +1,4 @@
+=== TC-2 Dockerfile+holo ===
+rg: packages/platform/Dockerfile: IO error for operation on packages/platform/Dockerfile: No such file or directory (os error 2)
+dockerfile_exit=2
+holo_exit=1

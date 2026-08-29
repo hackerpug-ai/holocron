@@ -1,0 +1,17 @@
+{
+  "fixture_id": "corrupt_content_matching_counts",
+  "task_id": "S31-CX-01",
+  "seed_method": "migration_fixture",
+  "export_fixture": "packages/platform/tests/fixtures/etl-valid-export",
+  "catalog": ".spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
+  "table": "documents",
+  "legacy_id": "doc_legacy_1",
+  "field": "title",
+  "archive_title": "Long ETL document",
+  "corrupted_title": "S31-CX-01-CORRUPTED-TITLE",
+  "notes": [
+    "Plant after a successful etl:run of the shared export fixture.",
+    "Row counts remain matched; only the Postgres field value diverges from the archive.",
+    "Desired reconcile contract (S31-CX-03): ok:false and fieldDigestMismatches >= 1."
+  ]
+}

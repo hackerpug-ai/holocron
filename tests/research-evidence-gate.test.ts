@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateEvidenceGate } from '../services/platform/src/research/evidence-gate';
+import { evaluateEvidenceGate } from '../packages/platform/src/research/evidence-gate';
 
 const base = {
   claims: [

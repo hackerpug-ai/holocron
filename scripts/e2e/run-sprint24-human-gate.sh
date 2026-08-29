@@ -44,7 +44,7 @@
 #   WRITE_GATE_RESULTS=1    write gate-results.json from this-cycle claims only
 #   HOLO_PRIMARY_ROOT       dep-bearing primary checkout for seed:e2e
 #                           (e.g. /Users/.../Projects/holocron). Preferred first
-#                           when it has services/platform/node_modules/drizzle-orm
+#                           when it has packages/platform/node_modules/drizzle-orm
 #                           or node_modules/drizzle-orm. Worktrees often lack deps.
 #   HOLO_ROOT               alternate dep-bearing checkout (same drizzle check)
 #
@@ -77,7 +77,7 @@ log() { echo "sprint24-human-gate: $*" >&2; }
 # True when checkout can resolve drizzle-orm (platform deps present).
 has_seed_deps() {
   local root="$1"
-  [[ -d "$root/services/platform/node_modules/drizzle-orm" ]] \
+  [[ -d "$root/packages/platform/node_modules/drizzle-orm" ]] \
     || [[ -d "$root/node_modules/drizzle-orm" ]]
 }
 
@@ -557,7 +557,7 @@ else
   # 1) bun holo.ts under each root that implements seed:e2e.
   #    Prefer dep-bearing roots (already ordered). Only break on rc==0.
   for root in "${seed_roots[@]}"; do
-    holo_ts="$root/services/platform/src/cli/holo.ts"
+    holo_ts="$root/packages/platform/src/cli/holo.ts"
     if [[ ! -f "$holo_ts" ]]; then
       echo "skip root (no holo.ts): $root" | tee -a "$step1_log"
       continue
@@ -620,7 +620,7 @@ else
     else
       {
         echo "PATH holo lacks seed:e2e (unknown command) — skipped"
-        echo "prefer: HOLO_PRIMARY_ROOT with drizzle-orm + bun services/platform/src/cli/holo.ts seed:e2e --reset"
+        echo "prefer: HOLO_PRIMARY_ROOT with drizzle-orm + bun packages/platform/src/cli/holo.ts seed:e2e --reset"
       } | tee -a "$step1_log"
     fi
   fi
@@ -630,7 +630,7 @@ else
       echo "holo seed:e2e not found or all roots failed"
       echo "tried roots: ${seed_roots[*]}"
       echo "hint: export HOLO_PRIMARY_ROOT=/Users/inference1/Projects/holocron"
-      echo "hint: cd \"\$HOLO_PRIMARY_ROOT\" && bun services/platform/src/cli/holo.ts seed:e2e --reset"
+      echo "hint: cd \"\$HOLO_PRIMARY_ROOT\" && bun packages/platform/src/cli/holo.ts seed:e2e --reset"
     } | tee -a "$step1_log"
     seed_rc=127
   fi
@@ -716,8 +716,8 @@ set +e
 if command -v holo >/dev/null 2>&1; then
   holo verify:no-convex-client --roots app,components,hooks,screens 2>&1 | tee "$step6_log"
   rc=${PIPESTATUS[0]}
-elif [[ -f "$repo_root/services/platform/src/cli/holo.ts" ]]; then
-  bun "$repo_root/services/platform/src/cli/holo.ts" verify:no-convex-client --roots app,components,hooks,screens 2>&1 | tee "$step6_log"
+elif [[ -f "$repo_root/packages/platform/src/cli/holo.ts" ]]; then
+  bun "$repo_root/packages/platform/src/cli/holo.ts" verify:no-convex-client --roots app,components,hooks,screens 2>&1 | tee "$step6_log"
   rc=${PIPESTATUS[0]}
 else
   # Fallback: rg-based check matching gate intent
