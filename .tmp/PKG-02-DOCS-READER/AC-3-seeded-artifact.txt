@@ -1,0 +1,12 @@
+=== AC-3 / TC-2 GREEN ===
+pnpm-workspace.yaml:
+# GATE-FIX-S28R3-QA13 — install services/platform deps via root frozen lock
+packages:
+  - "."
+  - "services/platform"
+  - "packages/*"
+---
+membership (pnpm list -r --depth -1 | rg holocron-docs-reader):
+holocron-docs-reader /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/packages/docs-reader (PRIVATE)
+rg_exit=0
+PASS: holocron-docs-reader linked under packages/docs-reader

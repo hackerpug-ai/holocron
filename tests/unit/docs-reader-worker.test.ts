@@ -3,7 +3,7 @@
  * Cloudflare edge. Live public curls remain the reachability proof.
  */
 import { describe, expect, it } from 'vitest';
-import worker from '../../services/worker-docs-reader/src/index';
+import worker from '../../packages/docs-reader/src/index';
 import {
   CACHE_MAX_AGE_SECONDS,
   type CacheLike,
@@ -11,7 +11,7 @@ import {
   isOriginShareToken,
   noLongerSharedHtml,
   type ReaderEnv,
-} from '../../services/worker-docs-reader/src/reader';
+} from '../../packages/docs-reader/src/reader';
 
 const TOKEN = 'mcp-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const APP_PUBLISH_TOKEN = 'share-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';

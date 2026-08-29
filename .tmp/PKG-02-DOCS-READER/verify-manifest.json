@@ -1,0 +1,32 @@
+{
+  "task_id": "PKG-02-DOCS-READER",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json"
+    },
+    {
+      "id": "AC-3",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json"
+    },
+    {
+      "id": "TC-2",
+      "verify": "pnpm install && pnpm list -r --depth -1 | rg 'holocron-docs-reader'"
+    }
+  ]
+}

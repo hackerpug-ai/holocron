@@ -1,0 +1,6 @@
+=== AC-1 / TC-1 RED against start ===
+expect FAIL: packages/docs-reader/package.json absent; services/worker-docs-reader/package.json still present
+verify: test -f packages/docs-reader/package.json && test ! -f services/worker-docs-reader/package.json
+packages/docs-reader/package.json exists? no
+services/worker-docs-reader/package.json exists? yes
+exit_code=1

@@ -1,0 +1,7 @@
+holocron@1.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER (PRIVATE)
+
+holocron-docs-reader /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/packages/docs-reader (PRIVATE)
+
+@holocron/web@0.0.0 /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/packages/web (PRIVATE)
+
+platform /Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-02-DOCS-READER/services/platform (PRIVATE)
