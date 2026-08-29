@@ -1,0 +1,26 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-01-WEB/ac-1-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-01-WEB/ac-3-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-01-WEB/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+    "exit_code": 0,
+    "output_file": ".tmp/PKG-01-WEB/tc-2-output.txt"
+  }
+]

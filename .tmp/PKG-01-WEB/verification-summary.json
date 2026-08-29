@@ -1,0 +1,87 @@
+{
+  "task_id": "PKG-01-WEB",
+  "timestamp": "2026-08-29T20:42:34Z",
+  "commit_sha": "9487930a28e0501fd7a8c4e4e76b1c0b11eda0fb",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 593
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/ac-1-output.txt",
+      "seeded_value": "packages/web/package.json name=@holocron/web private=true version=0.0.0 description='Placeholder for the future Holocron web client. No product app code yet.' (no app source beyond package.json+README)",
+      "red_against_start_file": ".tmp/PKG-01-WEB/AC-1-red-against-start.txt",
+      "green_file": ".tmp/PKG-01-WEB/AC-1-green.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/ac-3-output.txt",
+      "seeded_value": "pnpm-workspace.yaml contains packages/*; pnpm list -r --depth 0 reports @holocron/web@0.0.0 at packages/web (PRIVATE); existing members . and services/platform remain",
+      "red_against_start_file": ".tmp/PKG-01-WEB/AC-3-red-against-start.txt",
+      "green_file": ".tmp/PKG-01-WEB/AC-3-green.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "python3 -c \"import json,pathlib; p=json.loads(pathlib.Path('packages/web/package.json').read_text()); assert p['name']=='@holocron/web' and p.get('private') is True\"",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'packages/\\*' pnpm-workspace.yaml && pnpm install && pnpm list -r --depth 0 --parseable | rg '@holocron/web'",
+      "exit_code": 0,
+      "output_file": ".tmp/PKG-01-WEB/tc-2-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.2",
+    "generated_at": "2026-08-29T20:42:34Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "1bfba567e3487dd560d7ebf80ab3b37e4190ef7b472ea6618f68ae122c94d823"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "273e1d00d786bdf3483140c0bd72358a8cb2daad153b1f41938375424d50798d"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "67d0225d0f436932b29a3b8e7819664e23d3f3b6289b54ddd38182adbfb9c2f0"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "e5180d2d236e6536760a257dbf28acdd7c0e9283bd7be2702748ffb7d4f83764"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "7c670d59573aaf4babba71c2b1c1b3d51c3b930dbc811dc7c3c35ecaba55b151"
+      },
+      {
+        "path": "pre-existing-issues.md",
+        "sha256": "ec13ae722e01b077319b46f4f8a3bff0281ce2e967e26fbea518a5ed822bb85b"
+      }
+    ]
+  }
+}

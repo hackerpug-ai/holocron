@@ -1,0 +1,16 @@
+5:  - "packages/*"
+Scope: all 3 workspace projects
+(node:75966) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 0, reused 1, downloaded 0, added 0
+Packages: -174
+--------------------------------------------------------------------------------
+Progress: resolved 0, reused 174, downloaded 0, added 0
+Progress: resolved 0, reused 174, downloaded 0, added 0, done
+
+. prepare$ lefthook install
+. prepare: sync hooks: ✔️ (pre-commit)
+. prepare: Done
+Done in 2.8s
+/Users/justinrich/Projects/holocron/.claude/worktrees/imp-migrate-repo-monorepo-structure-1788024693-migrate-repo-monorepo-structure/.kb-run-sprint/worktrees/PKG-01-WEB/node_modules/@holocron/web-runtime
