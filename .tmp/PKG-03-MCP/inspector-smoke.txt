@@ -1,7 +1,20 @@
-MCP Inspector smoke (PKG-03-MCP relocate):
-- Package moved intact: packages/mcp/src/mastra/stdio.ts present
-- Real workspace membership: pnpm list shows @holocron/mcp-unified@1.0.0 under packages/mcp
-- Real type-check: pnpm --filter @holocron/mcp-unified run type-check (tsgo --noEmit) exit 0
-- Full interactive Inspector (npx @modelcontextprotocol/inspector) deferred: this task is a
-  package relocate with no tool surface changes; tools were not stubbed. Dual-lock + Mastra
-  ceiling documented. Runtime tool invoke still depends on platform Postgres + secrets.
+MCP Inspector / protocol smoke (PKG-03-MCP relocate)
+
+PASS (real):
+- packages/mcp/src/mastra/stdio.ts present after git mv
+- pnpm list -r --depth -1 includes @holocron/mcp-unified@1.0.0 under packages/mcp
+- pnpm --filter @holocron/mcp-unified run type-check (tsgo --noEmit) exit 0
+- pnpm --filter @holocron/mcp-unified run build (tsup) → dist/stdio.js success
+
+BLOCKED (operator credentials absent in this worktree — not stubbed):
+- Interactive Inspector / SDK listTools requires PLATFORM_URL + HOLO_KEY_MCP.
+- Worktree has no .env; services/platform/config/secrets.yaml absent here.
+- Primary secrets.yaml lacks HOLO_KEY_MCP / PLATFORM_URL (only DATABASE_URL,
+  HOLO_KEY_RN, ZERO_ADMIN_PASSWORD observed by key-name scan).
+- Attempted bun stdio smoke with PLATFORM_URL=http://127.0.0.1:4111 failed closed:
+  PLATFORM_UNREACHABLE: HOLO_KEY_MCP is not configured (mcp-client resolveApiKey).
+
+Path fix shipped in packages/mcp/src/config/env.ts:
+- Prefer monorepo root via pnpm-workspace.yaml after packages/mcp relocate
+- Honor HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH
+- Avoid coercing missing HOLO_KEY_MCP to "" (breaks Zod optional)
