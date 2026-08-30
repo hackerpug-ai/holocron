@@ -51,13 +51,70 @@ export function toSqlJsonValue(value: unknown, seen = new Set<object>()): SqlJso
   throw new TypeError(`Cannot serialize JSON value of type ${typeof value}`);
 }
 
+/**
+ * Bounded default pool size for per-handler connections.
+ *
+ * The 2026-08-28 production audit found 16 migrated job handlers each opening
+ * pools of max 10 against `max_connections=100`; bursts failed with
+ * "sorry, too many clients already" (queue_jobs last_error). 3 per handler
+ * keeps the worst-case scheduler fan-out well under the ceiling. Operators
+ * can raise it per process via HOLO_DB_POOL_MAX; explicit options.max wins.
+ */
+export const DEFAULT_POOL_MAX = 3;
+
+function defaultPoolMax(): number {
+  const parsed = Number(process.env.HOLO_DB_POOL_MAX ?? '');
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULT_POOL_MAX;
+}
+
 export function createSql(url?: string, options?: { max?: number }): Sql {
   const connectionString = url ?? resolveDatabaseUrl({ preferHolocron: true });
   return postgres(connectionString, {
-    max: options?.max ?? 10,
+    max: options?.max ?? defaultPoolMax(),
     prepare: false,
     onnotice: () => {},
   });
+}
+
+/** True for postgres pool-exhaustion failures ("too many clients", SQLSTATE 53300). */
+export function isPoolExhaustionError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === '53300') return true;
+  return err instanceof Error && /too many clients/i.test(err.message);
+}
+
+export interface DbRetryOptions {
+  /** Total attempts INCLUDING the first (default 5). */
+  attempts?: number;
+  /** Base backoff in ms; doubles per attempt (default 50, capped at 2s). */
+  baseDelayMs?: number;
+}
+
+/**
+ * Run `fn` with bounded exponential backoff on pool-exhaustion errors only.
+ * Non-retryable errors rethrow on first occurrence; exhausting attempts
+ * rethrows the last error — never silently swallowed.
+ */
+export async function withDbRetry<T>(
+  fn: () => Promise<T>,
+  options?: DbRetryOptions,
+): Promise<T> {
+  const attempts = Math.max(1, options?.attempts ?? 5);
+  const baseDelayMs = Math.max(1, options?.baseDelayMs ?? 50);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isPoolExhaustionError(err) || attempt === attempts) {
+        throw err;
+      }
+      lastError = err;
+      const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), 2_000);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 }
 
 export function createDb(sql?: Sql, url?: string) {

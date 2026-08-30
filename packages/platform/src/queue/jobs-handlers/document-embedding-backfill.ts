@@ -3,11 +3,11 @@
  * Documents store vectors on `passages` (chunk-backed). Delegates to embedRun()
  * which calls real fleet embed() per NULL passage — never ok:true with backlog.
  */
-import { createSql } from '../../db/client.ts';
+import { createSql, withDbRetry } from '../../db/client.ts';
 import { embedRun } from '../../inference/embed-run.ts';
 import type { JobHandler, JobHandlerResult } from './types.ts';
 
-export const documentEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHandlerResult> => {
+const rundocumentEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHandlerResult> => {
   const sql = createSql(ctx.databaseUrl);
 
   try {
@@ -97,3 +97,6 @@ export const documentEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHan
     await sql.end({ timeout: 5 });
   }
 };
+
+/** Pool-exhaustion retry wrapper — goal step 5: bursts must not fail on 53300. */
+export const documentEmbeddingBackfill: JobHandler = (ctx) => withDbRetry(() => rundocumentEmbeddingBackfill(ctx));

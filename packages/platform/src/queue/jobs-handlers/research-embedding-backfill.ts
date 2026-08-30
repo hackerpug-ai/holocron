@@ -3,7 +3,7 @@
  * Embeds research_findings / research_iterations with NULL embeddings via real fleet embed().
  * NEVER returns ok:true with embedded:0 while a non-empty backlog remains.
  */
-import { createSql } from '../../db/client.ts';
+import { createSql, withDbRetry } from '../../db/client.ts';
 import {
   BACKFILL_BATCH,
   embedDocumentText,
@@ -12,7 +12,7 @@ import {
 } from './embed-util.ts';
 import type { JobHandler, JobHandlerResult } from './types.ts';
 
-export const researchEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHandlerResult> => {
+const runresearchEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHandlerResult> => {
   const sql = createSql(ctx.databaseUrl);
 
   try {
@@ -120,3 +120,6 @@ export const researchEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHan
     await sql.end({ timeout: 5 });
   }
 };
+
+/** Pool-exhaustion retry wrapper — goal step 5: bursts must not fail on 53300. */
+export const researchEmbeddingBackfill: JobHandler = (ctx) => withDbRetry(() => runresearchEmbeddingBackfill(ctx));
