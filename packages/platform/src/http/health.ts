@@ -15,7 +15,11 @@ import { getFleetManifest } from '../fleet/manifest.ts';
 import {
   compareFleetRoles,
   extractFleetModelIds,
+  type FleetRoleName,
+  type FleetRoleProbeOutcome,
   type FleetRoleReadiness,
+  fleetReadinessFromProbes,
+  GATING_FLEET_ROLES,
   unavailableFleetRoles,
 } from '../inference/probe-fleet-roles.ts';
 import { DATABASE_URL } from '../mastra.ts';
@@ -219,8 +223,70 @@ export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeRes
 }
 
 /**
+ * One real, bounded inference probe for a gating fleet role (AC-3): a tiny
+ * chat completion — or embedding call for the embed role — against the
+ * role's declared model. Never follows redirects (FLEET_KEY exfil guard) and
+ * fails closed on any error, non-ok status, or malformed envelope. Throws
+ * nothing: the outcome carries the failure so one dead role cannot mask the
+ * probes of the others.
+ */
+const FLEET_ROLE_PROBE_TIMEOUT_MS = 3_000;
+
+async function probeFleetRole(
+  base: string,
+  role: FleetRoleName,
+  model: string
+): Promise<FleetRoleProbeOutcome> {
+  const isEmbed = role === 'embed';
+  const path = isEmbed ? '/v1/embeddings' : '/v1/chat/completions';
+  const payload = isEmbed
+    ? { model, input: 'holocron fleet health probe' }
+    : {
+        model,
+        messages: [{ role: 'user', content: 'Reply with the single word ok.' }],
+        max_tokens: 1,
+      };
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      redirect: 'manual', // never follow — a redirect must not receive FLEET_KEY
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        authorization: `Bearer ${process.env.FLEET_KEY ?? 'sk-none'}`,
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(FLEET_ROLE_PROBE_TIMEOUT_MS),
+    });
+    if (res.status >= 300 && res.status < 400) {
+      return {
+        ok: false,
+        error: `${role} probe rejected cross-host-unsafe redirect (HTTP ${res.status})`,
+      };
+    }
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const envelope = (await res.json().catch(() => null)) as {
+      choices?: unknown;
+      data?: unknown;
+    } | null;
+    if (!envelope) return { ok: false, error: `${role} probe returned malformed JSON` };
+    const valid = isEmbed ? Array.isArray(envelope.data) : Array.isArray(envelope.choices);
+    return valid
+      ? { ok: true }
+      : { ok: false, error: `${role} probe returned an unexpected response envelope` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message.includes('timeout') ? `${role} probe timed out` : message };
+  }
+}
+
+/**
  * Probe the live LiteLLM fleet. Reports endpoint as base host:port per AC-2.
- * Hits /v1/models (OpenAI-compatible) — real HTTP, not a static flag.
+ * Imp-prod-tool-audit AC-3: readiness is decided by a real bounded inference
+ * probe per GATING role (tiny chat/embed call — not /v1/models), so a dead
+ * upstream model that /v1/models still aliases fails closed instead of
+ * reporting a false green. Non-gating roles (rerank/synthesis) keep their
+ * historical alias-driven presence from the same single /v1/models read.
  */
 export async function probeFleet(
   endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT,
@@ -269,11 +335,25 @@ export async function probeFleet(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3000);
   try {
+    // Alias list: only drives NON-gating role presence (rerank/synthesis) and
+    // provides an extra liveness signal — it can no longer make gating roles green.
     const res = await fetch(`${base}/v1/models`, {
       method: 'GET',
+      redirect: 'manual', // never follow — a redirect must not receive credentials
       signal: controller.signal,
       headers: { accept: 'application/json' },
     });
+    if (res.status >= 300 && res.status < 400) {
+      const unavailable = compareFleetRoles(manifest, []);
+      return {
+        ready: false,
+        endpoint: base,
+        latency_ms: elapsedMs(start),
+        roles: unavailable.roles,
+        unavailable_roles: unavailable.unavailable_roles,
+        error: `fleet probe rejected redirect (HTTP ${res.status})`,
+      };
+    }
     if (!res.ok) {
       const unavailable = compareFleetRoles(manifest, []);
       return {
@@ -299,9 +379,19 @@ export async function probeFleet(
         error: 'fleet model list was not valid JSON',
       };
     }
-    const observed = compareFleetRoles(
-      manifest,
-      extractFleetModelIds(payload as { data?: unknown })
+    const aliasModelIds = extractFleetModelIds(payload as { data?: unknown });
+
+    // AC-3: one real bounded inference probe per gating role, in parallel so
+    // /health stays fast (each probe is capped at FLEET_ROLE_PROBE_TIMEOUT_MS).
+    const probeOutcomes: Partial<Record<FleetRoleName, FleetRoleProbeOutcome>> = {};
+    await Promise.all(
+      GATING_FLEET_ROLES.map(async (role) => {
+        probeOutcomes[role] = await probeFleetRole(base, role, manifest.roles[role].litellmModelId);
+      })
+    );
+    const observed = fleetReadinessFromProbes(manifest, probeOutcomes, aliasModelIds);
+    const failedProbes = GATING_FLEET_ROLES.filter((role) => !probeOutcomes[role]?.ok).map(
+      (role) => `${role}: ${probeOutcomes[role]?.error ?? 'probe failed'}`
     );
     return {
       ready: observed.ready,
@@ -309,7 +399,13 @@ export async function probeFleet(
       latency_ms: elapsedMs(start),
       roles: observed.roles,
       unavailable_roles: observed.unavailable_roles,
-      ...(observed.ready ? {} : { error: 'one or more gating fleet roles are unavailable' }),
+      ...(observed.ready
+        ? {}
+        : {
+            error: failedProbes.length
+              ? `gating fleet role probe failed — ${failedProbes.join('; ')}`
+              : 'one or more gating fleet roles are unavailable',
+          }),
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);

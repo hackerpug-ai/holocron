@@ -22,6 +22,12 @@ export type FleetRoleStatus = {
   degradationAction: DegradationAction | null;
 };
 
+/** Outcome of one real inference probe for a gating role (AC-3). */
+export type FleetRoleProbeOutcome = {
+  ok: boolean;
+  error?: string;
+};
+
 export type FleetRoleStatusMap = Record<FleetRoleName, FleetRoleStatus>;
 
 export type FleetRoleReadiness = {
@@ -81,6 +87,42 @@ export function compareFleetRoles(
     const declared = manifest.roles[role];
     roles[role] = {
       present: observed.has(declared.litellmModelId),
+      litellmModelId: declared.litellmModelId,
+      degradationAction: declared.degradationAction,
+    };
+  }
+
+  const unavailable_roles = FLEET_ROLE_NAMES.filter((role) => !roles[role].present);
+  const ready = GATING_FLEET_ROLES.every((role) => roles[role].present);
+  return { roles, unavailable_roles, ready };
+}
+
+/**
+ * Imp-prod-tool-audit AC-3: readiness from REAL inference probes.
+ *
+ * Gating roles (divergent/convergent/judge/embed) are `present` only when the
+ * probe-fleet executor reports a successful bounded chat/embed call for the
+ * role's model — a dead upstream that /v1/models still aliases can no longer
+ * pass. Non-gating roles (rerank/synthesis) stay alias-driven off the observed
+ * model-id list so their degraded-but-non-gating state keeps its historical
+ * semantics. Probe errors fail closed: a gating role without a successful
+ * outcome is absent, and readiness requires every gating role present.
+ */
+export function fleetReadinessFromProbes(
+  manifest: FleetRoleManifest,
+  probeOutcomes: Partial<Record<FleetRoleName, FleetRoleProbeOutcome>>,
+  aliasModelIds: readonly string[]
+): FleetRoleReadiness {
+  const observed = new Set(aliasModelIds);
+  const roles = emptyRoleStatusMap();
+  const gating = new Set<string>(GATING_FLEET_ROLES);
+
+  for (const role of FLEET_ROLE_NAMES) {
+    const declared = manifest.roles[role];
+    const probe = gating.has(role) ? probeOutcomes[role] : undefined;
+    const present = probe ? probe.ok === true : observed.has(declared.litellmModelId);
+    roles[role] = {
+      present,
       litellmModelId: declared.litellmModelId,
       degradationAction: declared.degradationAction,
     };
