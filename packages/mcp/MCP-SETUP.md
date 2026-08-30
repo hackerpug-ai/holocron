@@ -13,11 +13,15 @@ The Holocron MCP server is configured in `~/.claude/settings.json` under the `mc
       "type": "stdio",
       "command": "/Users/justinrich/.bun/bin/bun",
       "args": ["dist/stdio.js"],
-      "cwd": "/Users/justinrich/Projects/holocron/holocron-mcp",
+      "cwd": "/Users/justinrich/Projects/holocron/packages/mcp",
       "env": {
+        // local dev (laptop legacy stack) — production addresses below
         "PLATFORM_URL": "http://127.0.0.1:4111",
+        // Production MCP (no stdio env needed):
+        //   https://mcp.holocrnlib.com/mcp            (Cloudflare Access + HOLO_KEY_MCP)
+        //   https://holocron.tail011a51.ts.net:44111/mcp  (tailnet + HOLO_KEY_MCP)
         "HOLO_DEPLOY_KEY": "optional-local-dev-key",
-        "HOLOCRON_OPENAI_API_KEY": "sk-proj-..."
+        "HOLOCRON_OPENAI_API_KEY": "<set-from-environment—never-commit-a-key-shaped-value>"
       }
     }
   }
@@ -36,7 +40,7 @@ The Holocron MCP server is configured in `~/.claude/settings.json` under the `mc
 **Before (Broken):**
 ```json
 {
-  "command": "/Users/justinrich/Projects/holocron/holocron-mcp/start-mcp.sh",
+  "command": "/Users/justinrich/Projects/holocron/packages/mcp/start-mcp.sh",
   "args": []
 }
 ```
@@ -46,7 +50,7 @@ The Holocron MCP server is configured in `~/.claude/settings.json` under the `mc
 {
   "command": "/Users/justinrich/.bun/bin/bun",
   "args": ["dist/stdio.js"],
-  "cwd": "/Users/justinrich/Projects/holocron/holocron-mcp"
+  "cwd": "/Users/justinrich/Projects/holocron/packages/mcp"
 }
 ```
 
@@ -78,12 +82,14 @@ After updating the configuration:
 Test the server without Claude Code:
 
 ```bash
-cd /Users/justinrich/Projects/holocron/holocron-mcp
+cd /Users/justinrich/Projects/holocron/packages/mcp
 
 # Set environment variables (or copy services/platform/config/secrets.example.yaml → secrets.yaml)
+# local dev only — production MCP is https://mcp.holocrnlib.com/mcp (Access)
+# or https://holocron.tail011a51.ts.net:44111/mcp (tailnet), bearer HOLO_KEY_MCP
 export PLATFORM_URL="http://127.0.0.1:4111"
 export HOLO_DEPLOY_KEY="optional-local-dev-key"
-export HOLOCRON_OPENAI_API_KEY="sk-proj-..."
+export HOLOCRON_OPENAI_API_KEY="$(op read op://vault/holocron-openai/credential)"  # never commit a key-shaped value
 
 # Run server
 /Users/justinrich/.bun/bin/bun dist/stdio.js

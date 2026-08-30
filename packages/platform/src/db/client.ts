@@ -95,10 +95,7 @@ export interface DbRetryOptions {
  * Non-retryable errors rethrow on first occurrence; exhausting attempts
  * rethrows the last error — never silently swallowed.
  */
-export async function withDbRetry<T>(
-  fn: () => Promise<T>,
-  options?: DbRetryOptions,
-): Promise<T> {
+export async function withDbRetry<T>(fn: () => Promise<T>, options?: DbRetryOptions): Promise<T> {
   const attempts = Math.max(1, options?.attempts ?? 5);
   const baseDelayMs = Math.max(1, options?.baseDelayMs ?? 50);
   let lastError: unknown;

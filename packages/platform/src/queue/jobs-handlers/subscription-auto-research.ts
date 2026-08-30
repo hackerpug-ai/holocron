@@ -69,7 +69,7 @@ export const subscriptionAutoResearch: JobHandler = async (ctx): Promise<JobHand
         goal: `research ${pending.length} pending subscription content item(s)`,
         idempotencyKey: key,
       },
-      { databaseUrl: ctx.databaseUrl },
+      { databaseUrl: ctx.databaseUrl }
     );
     if (!admitted.ok || !admitted.runId) {
       // Honest failure: rows stay pending, the queue retries — never greenwash.

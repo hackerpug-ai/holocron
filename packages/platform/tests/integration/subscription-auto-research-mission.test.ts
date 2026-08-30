@@ -22,14 +22,18 @@ const NS = `step6-${randomUUID().slice(0, 8)}`;
 
 const itDb = (name: string, fn: (sql: Sql) => Promise<void>, timeout = 30_000): void => {
   const run = DATABASE_URL ? it : it.skip;
-  run(name, async () => {
-    const sql = createSql(DATABASE_URL);
-    try {
-      await fn(sql);
-    } finally {
-      await sql.end({ timeout: 5 });
-    }
-  }, timeout);
+  run(
+    name,
+    async () => {
+      const sql = createSql(DATABASE_URL);
+      try {
+        await fn(sql);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    },
+    timeout
+  );
 };
 
 let sharedSql: Sql | null = null;
@@ -59,7 +63,12 @@ async function insertSource(sql: Sql, marker: string): Promise<string> {
   return source[0]!.id;
 }
 
-async function insertContent(sql: Sql, sourceId: string, contentId: string, status: string): Promise<void> {
+async function insertContent(
+  sql: Sql,
+  sourceId: string,
+  contentId: string,
+  status: string
+): Promise<void> {
   await sql`
     INSERT INTO subscription_content (source_id, content_id, title, research_status, discovered_at)
     VALUES (${sourceId}::uuid, ${contentId}, ${'step6 item'}, ${status}, now())
@@ -116,7 +125,7 @@ describe('subscription-auto-research admits the standing subscriptions mission',
 
       await sql`DELETE FROM subscription_content WHERE source_id = ${sourceId}::uuid`;
       await sql`DELETE FROM subscription_sources WHERE id = ${sourceId}::uuid`;
-    },
+    }
   );
 
   itDb('dedupes while an active run for the same backlog exists', async (sql) => {

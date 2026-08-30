@@ -122,4 +122,5 @@ const runresearchEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHandler
 };
 
 /** Pool-exhaustion retry wrapper — goal step 5: bursts must not fail on 53300. */
-export const researchEmbeddingBackfill: JobHandler = (ctx) => withDbRetry(() => runresearchEmbeddingBackfill(ctx));
+export const researchEmbeddingBackfill: JobHandler = (ctx) =>
+  withDbRetry(() => runresearchEmbeddingBackfill(ctx));

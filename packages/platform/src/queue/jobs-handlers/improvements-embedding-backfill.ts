@@ -77,4 +77,5 @@ const runimprovementsEmbeddingBackfill: JobHandler = async (ctx): Promise<JobHan
 };
 
 /** Pool-exhaustion retry wrapper — goal step 5: bursts must not fail on 53300. */
-export const improvementsEmbeddingBackfill: JobHandler = (ctx) => withDbRetry(() => runimprovementsEmbeddingBackfill(ctx));
+export const improvementsEmbeddingBackfill: JobHandler = (ctx) =>
+  withDbRetry(() => runimprovementsEmbeddingBackfill(ctx));

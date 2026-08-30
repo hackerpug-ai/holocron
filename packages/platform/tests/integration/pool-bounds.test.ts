@@ -71,7 +71,7 @@ describe('withDbRetry — bounded backoff on pool exhaustion', () => {
         }
         return 'ok';
       },
-      { attempts: 5, baseDelayMs: 1 },
+      { attempts: 5, baseDelayMs: 1 }
     );
     expect(attempts).toBe(3);
     expect(result).toBe('ok');
@@ -87,8 +87,8 @@ describe('withDbRetry — bounded backoff on pool exhaustion', () => {
           err.code = '53300';
           throw err;
         },
-        { attempts: 3, baseDelayMs: 1 },
-      ),
+        { attempts: 3, baseDelayMs: 1 }
+      )
     ).rejects.toThrow('too many clients');
     expect(attempts).toBe(3);
   });
@@ -101,8 +101,8 @@ describe('withDbRetry — bounded backoff on pool exhaustion', () => {
           attempts += 1;
           throw new Error('relation "x" does not exist');
         },
-        { attempts: 5, baseDelayMs: 1 },
-      ),
+        { attempts: 5, baseDelayMs: 1 }
+      )
     ).rejects.toThrow('does not exist');
     expect(attempts).toBe(1);
   });
