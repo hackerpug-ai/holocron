@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { lookup as dnsLookup } from 'node:dns/promises';
 import { runAssimilateRepo } from '../assimilate/run.ts';
 import { getSecretValue } from '../config/secrets.ts';
 import { readDocumentFromObservedPlane } from '../cutover/data-plane-content.ts';
@@ -52,13 +53,191 @@ type JinaSearchItem = {
   content: string;
 };
 
-type FeedEntry = {
+export type FeedEntry = {
   contentId: string;
   title: string;
   url: string | null;
   publishedAt: string | null;
   summary: string | null;
 };
+
+/** Response-size bound for scheduled/interactive feed fetches (SSRF hardening). */
+export const FEED_MAX_BYTES_DEFAULT = 2_000_000;
+/** Per-request wall-clock bound for a feed fetch (all redirects included). */
+export const FEED_TIMEOUT_MS_DEFAULT = 10_000;
+const FEED_MAX_REDIRECTS = 3;
+
+export type FeedFetchOptions = {
+  /**
+   * Operator-controlled host allowlist (HOLO_FEED_ALLOWLIST). An allowlisted
+   * host bypasses ONLY the private-IP block; the https-only scheme gate, the
+   * no-cross-host-redirect policy, and the size bound always apply.
+   */
+  allowedHosts?: readonly string[];
+  maxBytes?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
+
+/** Parse the operator feed-host allowlist from the environment. */
+export function feedAllowlistFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+  return (env.HOLO_FEED_ALLOWLIST ?? '')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter((host) => host.length > 0);
+}
+
+function isPrivateIPv4(address: string): boolean {
+  const parts = address.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255))
+    return true;
+  const [a, b] = parts as [number, number, number, number];
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) || // CGNAT
+    (a === 169 && b === 254) || // link-local incl. 169.254.169.254 cloud metadata
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+function isPrivateIPv6(address: string): boolean {
+  const ip = address.toLowerCase().replace(/^\[/, '').replace(/\]$/, '').split('%')[0] ?? '';
+  if (ip === '::' || ip === '::1') return true;
+  const mapped = ip.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped?.[1]) return isPrivateIPv4(mapped[1]);
+  const firstHextet = ip.split(':')[0] ?? '';
+  return /^fe[89ab]/.test(firstHextet) || /^f[cd]/.test(firstHextet);
+}
+
+function isPrivateAddress(address: string): boolean {
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(address)) return isPrivateIPv4(address);
+  if (address.includes(':')) return isPrivateIPv6(address);
+  return true; // not a recognized literal IP — fail closed
+}
+
+/**
+ * Fail closed unless every address `hostname` resolves to is public. Explicitly
+ * allowlisted hosts skip the IP block (operator-controlled); everything else
+ * — including literal loopback/link-local/metadata IPs and DNS names that
+ * resolve to them — is rejected before any connection is attempted.
+ */
+async function assertPublicFeedHost(
+  hostname: string,
+  allowedHosts: readonly string[]
+): Promise<void> {
+  const host = hostname.toLowerCase();
+  if (allowedHosts.includes(host)) return;
+  const addresses =
+    /^[0-9.]+(:|$)/.test(host) || host.includes(':')
+      ? [host]
+      : await dnsLookup(host, { all: true, verbatim: true })
+          .then((entries) => entries.map((entry) => entry.address))
+          .catch(() => [] as string[]);
+  if (addresses.length === 0) {
+    throw new Error(`feed fetch rejected: unable to resolve feed host ${host}`);
+  }
+  for (const address of addresses) {
+    if (isPrivateAddress(address)) {
+      throw new Error(
+        `feed fetch rejected: ${host} resolves to a blocked private/loopback/link-local address (${address})`
+      );
+    }
+  }
+}
+
+async function readBoundedBody(response: Response, maxBytes: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('feed fetch failed: empty response body');
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error(`feed fetch rejected: body too large — exceeds the ${maxBytes} byte limit`);
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+/**
+ * SSRF-hardened feed fetch + parse, shared by the MCP `check_subscriptions`
+ * tool and the scheduled subscription-monitor job. Hardening (binding security
+ * amendment): https-only scheme, private/loopback/link-local/cloud-metadata IP
+ * block (operator allowlist can name exceptions), NO cross-host redirects,
+ * response-size bound, and a total wall-clock timeout.
+ */
+export async function fetchFeedEntries(
+  rawUrl: string,
+  options: FeedFetchOptions = {}
+): Promise<FeedEntry[]> {
+  const maxBytes = options.maxBytes ?? FEED_MAX_BYTES_DEFAULT;
+  const deadline = Date.now() + (options.timeoutMs ?? FEED_TIMEOUT_MS_DEFAULT);
+  let current = new URL(rawUrl);
+  if (current.protocol !== 'https:') {
+    throw new Error(
+      `feed fetch rejected: only https:// feed URLs are allowed (got ${current.protocol})`
+    );
+  }
+  if (current.username || current.password) {
+    throw new Error('feed fetch rejected: URL-embedded credentials are forbidden');
+  }
+  await assertPublicFeedHost(current.hostname, options.allowedHosts ?? feedAllowlistFromEnv());
+
+  for (let redirect = 0; redirect <= FEED_MAX_REDIRECTS; redirect++) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw new Error('feed fetch failed: timed out');
+    const timeoutSignal = AbortSignal.timeout(remainingMs);
+    const signal = options.signal
+      ? AbortSignal.any([timeoutSignal, options.signal])
+      : timeoutSignal;
+    const response = await fetch(current, {
+      redirect: 'manual', // never auto-follow: redirects are validated below
+      headers: {
+        Accept: 'application/atom+xml, application/rss+xml, application/xml, text/xml',
+        'User-Agent': 'Holocron/1.0 subscription-check',
+      },
+      signal,
+    });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get('location');
+      if (!location) throw new Error('feed fetch rejected: redirect without a Location header');
+      const next = new URL(location, current);
+      if (next.protocol !== 'https:') {
+        throw new Error(
+          `feed fetch rejected: redirect to ${next.protocol} is forbidden (https-only)`
+        );
+      }
+      if (next.host !== current.host) {
+        throw new Error(`feed fetch rejected: cross-host redirect to ${next.host} is forbidden`);
+      }
+      current = next;
+      continue;
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const declaredLength = Number(response.headers.get('content-length') ?? '0');
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      throw new Error(`feed fetch rejected: body too large — exceeds the ${maxBytes} byte limit`);
+    }
+    const body = await readBoundedBody(response, maxBytes);
+    const entries = parseFeedEntries(body);
+    if (entries.length === 0) throw new Error('feed contained no Atom/RSS entries');
+    return entries;
+  }
+  throw new Error(`feed fetch rejected: more than ${FEED_MAX_REDIRECTS} redirects`);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -1374,17 +1553,7 @@ export async function executePostgresMcpTool(
         for (const source of sources) {
           try {
             if (options?.signal?.aborted) throw new Error('MCP request cancelled');
-            const response = await fetch(source.feedUrl, {
-              headers: {
-                Accept: 'application/atom+xml, application/rss+xml, application/xml, text/xml',
-                'User-Agent': 'Holocron/1.0 subscription-check',
-              },
-              signal: options?.signal,
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const body = await response.text();
-            const entries = parseFeedEntries(body);
-            if (entries.length === 0) throw new Error('feed contained no Atom/RSS entries');
+            const entries = await fetchFeedEntries(source.feedUrl, { signal: options?.signal });
             totalFetched += entries.length;
             for (const entry of entries) {
               const inserted = await sql`
