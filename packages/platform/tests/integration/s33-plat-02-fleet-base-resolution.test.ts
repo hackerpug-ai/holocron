@@ -234,7 +234,7 @@ describe('S33-PLAT-02 resolveModel reaches the configured real router', () => {
 
   it('AC-3/TC-5 matches real route revisions and preserves fail-closed absence', async () => {
     const currentManifest = loadManifestFixture();
-    expect(currentManifest.roles.divergent.modelRevision).toBe('Qwen3.6-35B-A3B-MLX-8bit');
+    expect(currentManifest.roles.divergent.modelRevision).toBe('Qwen3.8-27B-8bit');
     expect(currentManifest.roles.convergent.modelRevision).toBe('Qwen3.8-27B-8bit');
     expect(currentManifest.roles.judge.modelRevision).toBe('Qwen3.8-27B-8bit');
     expect(currentManifest.roles.embed.modelRevision).toBe('Qwen3-Embedding-0.6B-4bit-DWQ');
